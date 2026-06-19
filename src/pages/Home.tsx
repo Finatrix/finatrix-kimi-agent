@@ -9,6 +9,7 @@ import Ticker from '../sections/Ticker';
 import About from '../sections/About';
 import Infrastructure from '../sections/Infrastructure';
 import Capabilities from '../sections/Capabilities';
+import Tools from '../sections/Tools';
 import Footer from '../sections/Footer';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -45,6 +46,7 @@ export default function Home() {
       <About />
       <Infrastructure />
       <Capabilities />
+      <Tools />
       <Footer />
     </div>
   );

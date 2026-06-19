@@ -52,6 +52,13 @@ export default function Navigation() {
               <span className="absolute left-0 bottom-[-2px] h-[1px] w-0 bg-[#D4AF37] transition-all duration-300 group-hover:w-full" style={{ transformOrigin: 'left' }} />
             </button>
           ))}
+          <a
+            href="/tools"
+            className="group relative font-mono text-[11px] uppercase tracking-[0.08em] text-[#D4AF37] hover:text-[#F5F5F0] transition-colors duration-300 cursor-pointer"
+          >
+            Tools
+            <span className="absolute left-0 bottom-[-2px] h-[1px] w-0 bg-[#D4AF37] transition-all duration-300 group-hover:w-full" style={{ transformOrigin: 'left' }} />
+          </a>
         </nav>
       </div>
     </header>
