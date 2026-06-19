@@ -1,5 +1,7 @@
 [build]
-  command = "npm run build:netlify"
+  # Upgrade npm first: Node 20's bundled npm 10.8.2 crashes on this dependency
+  # tree ("Exit handler never called!"), leaving bin symlinks unlinked.
+  command = "npm install -g npm@11 && npm install --no-audit --no-fund && npm run build:netlify"
   publish = "dist"
 
 [build.environment]
