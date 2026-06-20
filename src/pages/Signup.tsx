@@ -1,10 +1,16 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
-import AuthShell, { Field, PrimaryButton, Notice } from '../components/AuthShell';
+import AuthShell, {
+  Field,
+  PrimaryButton,
+  Notice,
+  OrDivider,
+  SocialButton,
+} from '../components/AuthShell';
 
 export default function Signup() {
-  const { signUp, configured } = useAuth();
+  const { signUp, signInWithProvider, configured } = useAuth();
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -31,6 +37,21 @@ export default function Signup() {
     } else {
       navigate('/tools');
     }
+  }
+
+  async function onProvider(provider: 'google' | 'apple') {
+    setError(null);
+    if (!agreed)
+      return setError(
+        'Please accept the Terms & Conditions and Privacy Policy to continue.'
+      );
+    setBusy(true);
+    const { error } = await signInWithProvider(provider);
+    if (error) {
+      setBusy(false);
+      setError(error);
+    }
+    // On success the browser redirects to the provider.
   }
 
   if (done) {
@@ -148,6 +169,23 @@ export default function Signup() {
           {busy ? 'Creating account…' : 'Create account'}
         </PrimaryButton>
       </form>
+
+      <OrDivider label="or sign up with" />
+
+      <SocialButton
+        provider="google"
+        disabled={busy || !configured}
+        onClick={() => onProvider('google')}
+      >
+        Continue with Google
+      </SocialButton>
+      <SocialButton
+        provider="apple"
+        disabled={busy || !configured}
+        onClick={() => onProvider('apple')}
+      >
+        Continue with Apple
+      </SocialButton>
     </AuthShell>
   );
 }

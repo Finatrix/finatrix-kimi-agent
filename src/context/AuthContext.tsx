@@ -19,6 +19,9 @@ interface AuthContextValue {
     name: string
   ) => Promise<{ error: string | null; needsConfirmation: boolean }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signInWithProvider: (
+    provider: 'google' | 'apple'
+  ) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   resendVerification: (email: string) => Promise<{ error: string | null }>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
@@ -82,6 +85,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error ? error.message : null };
   };
 
+  const signInWithProvider: AuthContextValue['signInWithProvider'] = async (
+    provider
+  ) => {
+    if (!isSupabaseConfigured) return { error: 'Backend not configured yet.' };
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/tools`,
+      },
+    });
+    return { error: error ? error.message : null };
+  };
+
   const signOut = async () => {
     if (isSupabaseConfigured) await supabase.auth.signOut();
     setUser(null);
@@ -111,6 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         configured: isSupabaseConfigured,
         signUp,
         signIn,
+        signInWithProvider,
         signOut,
         resendVerification,
         resetPassword,

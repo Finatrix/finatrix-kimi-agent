@@ -1,10 +1,17 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
-import AuthShell, { Field, PrimaryButton, Notice } from '../components/AuthShell';
+import AuthShell, {
+  Field,
+  PrimaryButton,
+  Notice,
+  OrDivider,
+  SocialButton,
+} from '../components/AuthShell';
 
 export default function Login() {
-  const { signIn, resendVerification, resetPassword, configured } = useAuth();
+  const { signIn, signInWithProvider, resendVerification, resetPassword, configured } =
+    useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,6 +31,18 @@ export default function Login() {
       return;
     }
     navigate('/tools');
+  }
+
+  async function onProvider(provider: 'google' | 'apple') {
+    setError(null);
+    setInfo(null);
+    setBusy(true);
+    const { error } = await signInWithProvider(provider);
+    if (error) {
+      setBusy(false);
+      setError(error);
+    }
+    // On success the browser redirects to the provider, so no further action here.
   }
 
   async function onResend() {
@@ -61,6 +80,23 @@ export default function Login() {
       )}
       {error && <Notice kind="error">{error}</Notice>}
       {info && <Notice kind="success">{info}</Notice>}
+
+      <SocialButton
+        provider="google"
+        disabled={busy || !configured}
+        onClick={() => onProvider('google')}
+      >
+        Continue with Google
+      </SocialButton>
+      <SocialButton
+        provider="apple"
+        disabled={busy || !configured}
+        onClick={() => onProvider('apple')}
+      >
+        Continue with Apple
+      </SocialButton>
+
+      <OrDivider label="or sign in with email" />
 
       <form onSubmit={onSubmit}>
         <Field
