@@ -1,3 +1,5 @@
+import { Link } from 'react-router';
+
 interface Tool {
   name: string;
   description: string;
@@ -63,17 +65,18 @@ export default function Tools() {
             Smart money tools,<br />built for India.
           </h2>
           <p className="mt-6 text-[15px] md:text-[16px] text-[#8A8A8A] leading-relaxed">
-            Seven free, privacy-first calculators — from budgeting and investing to a full
-            life-long wealth simulation. No sign-up, your data stays on your device.
+            Seven free tools — from budgeting and investing to a full life-long wealth
+            simulation. Use them instantly, or sign in to save your data and pick up where
+            you left off on any device.
           </p>
         </div>
 
         {/* Tool grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-[#1A1A1A] border border-[#1A1A1A]">
           {tools.map((tool) => (
-            <a
+            <Link
               key={tool.name}
-              href={tool.href}
+              to={tool.href}
               className="group relative bg-[#0A0A0A] hover:bg-[#111111] p-8 transition-colors duration-300 flex flex-col"
             >
               <span className="inline-block self-start font-mono text-[10px] uppercase tracking-[0.08em] text-[#D4AF37] mb-5 px-2 py-1 border border-[#D4AF37]/30 rounded">
@@ -88,12 +91,12 @@ export default function Tools() {
               <span className="mt-6 font-mono text-[11px] uppercase tracking-[0.08em] text-[#8A8A8A] group-hover:text-[#D4AF37] transition-colors duration-300">
                 Open →
               </span>
-            </a>
+            </Link>
           ))}
 
           {/* CTA card */}
-          <a
-            href="/tools"
+          <Link
+            to="/tools"
             className="group relative bg-[#D4AF37] hover:bg-[#e6c45a] p-8 transition-colors duration-300 flex flex-col justify-between"
           >
             <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-[#0A0A0A]/60">
@@ -107,7 +110,7 @@ export default function Tools() {
                 Launch tools →
               </span>
             </div>
-          </a>
+          </Link>
         </div>
 
         <p className="mt-8 font-mono text-[11px] text-[#5A5A5A]">

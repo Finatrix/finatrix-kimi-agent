@@ -1,0 +1,168 @@
+import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router';
+import { useAuth } from '../context/AuthContext';
+import {
+  SYNC_KEYS,
+  clearSyncedLocal,
+  getLastUid,
+  setLastUid,
+  loadCloudIntoLocal,
+  pushLocalToCloud,
+  type SyncStatus,
+} from '../tools/cloudSync';
+
+// The original tools app, served verbatim from /public.
+const TOOLS_URL = '/tools-app.html';
+
+export default function ToolsPage() {
+  const { user, loading, signOut, configured } = useAuth();
+  const [ready, setReady] = useState(false);
+  const [sync, setSync] = useState<SyncStatus>(configured ? 'idle' : 'offline');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Seed localStorage from the cloud (or clear it) before mounting the frame.
+  useEffect(() => {
+    if (loading) return;
+    let cancelled = false;
+    setReady(false);
+
+    (async () => {
+      const curUid = user?.id ?? null;
+      const lastUid = getLastUid();
+
+      if (configured && curUid) {
+        if (lastUid && lastUid !== curUid) clearSyncedLocal(); // account switch
+        const s = await loadCloudIntoLocal(curUid);
+        // First time on this browser for this account → migrate any local data up.
+        if (!lastUid || lastUid !== curUid) await pushLocalToCloud(curUid);
+        setLastUid(curUid);
+        if (!cancelled) setSync(s);
+      } else if (configured && !curUid && lastUid) {
+        // Signed out — don't leave the previous account's data on this device.
+        clearSyncedLocal();
+        setLastUid(null);
+        if (!cancelled) setSync('offline');
+      } else if (!cancelled) {
+        setSync(configured ? 'idle' : 'offline');
+      }
+
+      if (!cancelled) setReady(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, loading, configured]);
+
+  // When the frame writes localStorage, the parent receives a storage event.
+  useEffect(() => {
+    if (!configured || !user) return;
+    const onStorage = (e: StorageEvent) => {
+      if (!e.key || !SYNC_KEYS.includes(e.key)) return;
+      setSync('saving');
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(async () => {
+        const s = await pushLocalToCloud(user.id);
+        setSync(s);
+      }, 700);
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [user?.id, configured]);
+
+  const syncLabel: Record<SyncStatus, string> = {
+    idle: 'On this device',
+    saving: 'Saving…',
+    saved: 'Saved to your account',
+    offline: 'On this device',
+    error: 'Sync error',
+  };
+  const syncColor: Record<SyncStatus, string> = {
+    idle: 'text-[#8A8A8A]',
+    saving: 'text-[#D4AF37]',
+    saved: 'text-[#5fd394]',
+    offline: 'text-[#8A8A8A]',
+    error: 'text-[#E74C3C]',
+  };
+
+  return (
+    <div className="fixed inset-0 flex flex-col bg-[#0A0A0A]">
+      {/* Slim app bar (kept outside the frame so the tools are untouched) */}
+      <header className="flex items-center justify-between h-11 px-4 bg-[#0A0A0A] border-b border-[#1A1A1A] shrink-0">
+        <Link
+          to="/"
+          className="font-mono text-[11px] uppercase tracking-[0.08em] text-[#8A8A8A] hover:text-[#F5F5F0] transition-colors"
+        >
+          ← FinatriX Home
+        </Link>
+
+        <div className="relative flex items-center gap-4">
+          {user ? (
+            <>
+              <span className={`font-mono text-[10px] uppercase tracking-[0.06em] ${syncColor[sync]}`}>
+                {syncLabel[sync]}
+              </span>
+              <button
+                onClick={() => setMenuOpen((o) => !o)}
+                className="font-mono text-[11px] uppercase tracking-[0.08em] text-[#F5F5F0] hover:text-[#D4AF37] transition-colors"
+              >
+                {(user.user_metadata?.full_name as string)?.split(' ')[0] ||
+                  user.email?.split('@')[0] ||
+                  'Account'}{' '}
+                ▾
+              </button>
+              {menuOpen && (
+                <div
+                  className="absolute right-0 top-[calc(100%+8px)] min-w-[170px] bg-[#111111] border border-[#1A1A1A] py-1 flex flex-col z-10"
+                  onMouseLeave={() => setMenuOpen(false)}
+                >
+                  <Link
+                    to="/profile"
+                    onClick={() => setMenuOpen(false)}
+                    className="px-4 py-2.5 text-[13px] text-[#F5F5F0] hover:bg-[#1A1A1A]"
+                  >
+                    Profile &amp; settings
+                  </Link>
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      void signOut();
+                    }}
+                    className="px-4 py-2.5 text-[13px] text-left text-[#F5F5F0] hover:bg-[#1A1A1A]"
+                  >
+                    Sign out
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-[#8A8A8A]">
+                {configured ? 'Not signed in' : 'Local only'}
+              </span>
+              <Link
+                to="/login"
+                className="font-mono text-[11px] uppercase tracking-[0.08em] text-[#0A0A0A] bg-[#D4AF37] hover:bg-[#F1C40F] px-3 py-1.5 transition-colors"
+              >
+                Sign in to save
+              </Link>
+            </>
+          )}
+        </div>
+      </header>
+
+      {/* The tools, served verbatim and run unchanged */}
+      <div className="flex-1 min-h-0 bg-white">
+        {ready && (
+          <iframe
+            key={user?.id || 'guest'}
+            src={TOOLS_URL}
+            title="FinatriX Tools"
+            className="w-full h-full border-0 block"
+          />
+        )}
+      </div>
+    </div>
+  );
+}
