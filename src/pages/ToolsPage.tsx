@@ -90,12 +90,9 @@ export default function ToolsPage() {
     <div className="fixed inset-0 flex flex-col bg-[#0A0A0A]">
       {/* Slim app bar (kept outside the frame so the tools are untouched) */}
       <header className="flex items-center justify-between h-11 px-4 bg-[#0A0A0A] border-b border-[#1A1A1A] shrink-0">
-        <Link
-          to="/"
-          className="font-mono text-[11px] uppercase tracking-[0.08em] text-[#8A8A8A] hover:text-[#F5F5F0] transition-colors"
-        >
-          ← FinatriX Home
-        </Link>
+        <span className="font-mono text-[12px] uppercase tracking-[0.18em] text-[#F5F5F0] select-none">
+          FinatriX
+        </span>
 
         <div className="relative flex items-center gap-4">
           {user ? (
