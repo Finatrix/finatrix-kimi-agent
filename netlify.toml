@@ -5,6 +5,19 @@
 [build.environment]
   NODE_VERSION = "20"
 
+# Force the /tools route to the React app (overrides any stale static file)
+[[redirects]]
+  from = "/tools"
+  to = "/index.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/tools/*"
+  to = "/index.html"
+  status = 200
+  force = true
+
 # SPA fallback so client-side routes (react-router) resolve to index.html
 [[redirects]]
   from = "/*"
