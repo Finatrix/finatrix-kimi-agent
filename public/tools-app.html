@@ -695,7 +695,7 @@
 
   <div class="card">
     <div class="fg" style="margin-bottom:0">
-      <label class="fl" for="bb-income">Monthly take-home income (₹)</label>
+      <label class="fl" for="bb-income">Monthly take-home income (<span class="fx-sym">₹</span>)</label>
       <input class="fi" type="number" id="bb-income" value="50000" min="0" inputmode="numeric">
     </div>
   </div>
@@ -784,7 +784,7 @@
     <div style="font-size:14px;font-weight:700;margin-bottom:14px">Add an expense</div>
     <div class="grid2">
       <div class="fg">
-        <label class="fl" for="et-amount">Amount (₹)</label>
+        <label class="fl" for="et-amount">Amount (<span class="fx-sym">₹</span>)</label>
         <input class="fi" type="number" id="et-amount" placeholder="0" min="0" inputmode="numeric">
       </div>
       <div class="fg">
@@ -991,11 +991,11 @@
           <input class="fi" type="number" id="lm-age" value="22" min="16" max="45" inputmode="numeric">
         </div>
         <div class="fg">
-          <label class="fl" for="lm-income">Monthly income (₹)</label>
+          <label class="fl" for="lm-income">Monthly income (<span class="fx-sym">₹</span>)</label>
           <input class="fi" type="number" id="lm-income" value="35000" min="0" inputmode="numeric">
         </div>
         <div class="fg">
-          <label class="fl" for="lm-expenses">Monthly expenses (₹)</label>
+          <label class="fl" for="lm-expenses">Monthly expenses (<span class="fx-sym">₹</span>)</label>
           <input class="fi" type="number" id="lm-expenses" value="22000" min="0" inputmode="numeric">
         </div>
       </div>
@@ -1006,15 +1006,15 @@
 
       <div class="grid2">
         <div class="fg">
-          <label class="fl" for="lm-savings">Total savings — bank + FD + cash (₹)</label>
+          <label class="fl" for="lm-savings">Total savings — bank + FD + cash (<span class="fx-sym">₹</span>)</label>
           <input class="fi" type="number" id="lm-savings" value="150000" min="0" inputmode="numeric">
         </div>
         <div class="fg">
-          <label class="fl" for="lm-emergency">Of which, emergency fund (₹)</label>
+          <label class="fl" for="lm-emergency">Of which, emergency fund (<span class="fx-sym">₹</span>)</label>
           <input class="fi" type="number" id="lm-emergency" value="60000" min="0" inputmode="numeric">
         </div>
         <div class="fg">
-          <label class="fl" for="lm-invest">Total investments so far (₹)</label>
+          <label class="fl" for="lm-invest">Total investments so far (<span class="fx-sym">₹</span>)</label>
           <input class="fi" type="number" id="lm-invest" value="50000" min="0" inputmode="numeric">
         </div>
         <div class="fg">
@@ -1025,7 +1025,7 @@
           </select>
         </div>
         <div class="fg hidden" id="lm-sip-wrap">
-          <label class="fl" for="lm-sip">Monthly SIP / investment (₹)</label>
+          <label class="fl" for="lm-sip">Monthly SIP / investment (<span class="fx-sym">₹</span>)</label>
           <input class="fi" type="number" id="lm-sip" value="3000" min="0" inputmode="numeric">
         </div>
         <div class="fg">
@@ -1036,11 +1036,11 @@
           </select>
         </div>
         <div class="fg hidden" id="lm-debt-total-wrap">
-          <label class="fl" for="lm-debt-total">Total debt outstanding (₹)</label>
+          <label class="fl" for="lm-debt-total">Total debt outstanding (<span class="fx-sym">₹</span>)</label>
           <input class="fi" type="number" id="lm-debt-total" value="0" min="0" inputmode="numeric">
         </div>
         <div class="fg hidden" id="lm-debt-emi-wrap">
-          <label class="fl" for="lm-debt-emi">Monthly EMI / repayment (₹)</label>
+          <label class="fl" for="lm-debt-emi">Monthly EMI / repayment (<span class="fx-sym">₹</span>)</label>
           <input class="fi" type="number" id="lm-debt-emi" value="0" min="0" inputmode="numeric">
         </div>
         <div class="fg">
@@ -1351,6 +1351,7 @@ function fxSetCurrency(code){
   if(!CURRENCIES[code]) return;
   FXC = code;
   try { store.set("fx_currency", code); } catch(e){}
+  fxApplyLabels();
   try { bbUpdate(); } catch(e){}
   try { etRenderCats(); etRender(); } catch(e){}
   try {
@@ -1365,6 +1366,10 @@ function fxSetCurrency(code){
     }
   } catch(e){}
   var sel = document.getElementById("fx-cur-sel"); if(sel) sel.value = code;
+}
+function fxApplyLabels(){
+  var sym=(CURRENCIES[FXC]||{sym:"₹"}).sym;
+  document.querySelectorAll(".fx-sym").forEach(function(e){ e.textContent=sym; });
 }
 function fxInitCurrencySelector(){
   var sel = document.getElementById("fx-cur-sel");
@@ -2247,6 +2252,7 @@ function gpReset(){
 /* ═══════════ INIT ═══════════ */
 document.addEventListener("DOMContentLoaded", function(){
   fxInitCurrencySelector();
+  fxApplyLabels();
 
   // Scroll reveal
   const revealObserver = new IntersectionObserver((entries) => {
