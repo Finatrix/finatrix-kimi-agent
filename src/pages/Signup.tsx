@@ -39,7 +39,7 @@ export default function Signup() {
     }
   }
 
-  async function onProvider(provider: 'google' | 'apple') {
+  async function onProvider(provider: 'google') {
     setError(null);
     if (!agreed)
       return setError(
@@ -173,18 +173,10 @@ export default function Signup() {
       <OrDivider label="or sign up with" />
 
       <SocialButton
-        provider="google"
         disabled={busy || !configured}
         onClick={() => onProvider('google')}
       >
         Continue with Google
-      </SocialButton>
-      <SocialButton
-        provider="apple"
-        disabled={busy || !configured}
-        onClick={() => onProvider('apple')}
-      >
-        Continue with Apple
       </SocialButton>
     </AuthShell>
   );

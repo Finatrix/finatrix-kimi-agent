@@ -33,7 +33,7 @@ export default function Login() {
     navigate('/tools');
   }
 
-  async function onProvider(provider: 'google' | 'apple') {
+  async function onProvider(provider: 'google') {
     setError(null);
     setInfo(null);
     setBusy(true);
@@ -82,18 +82,10 @@ export default function Login() {
       {info && <Notice kind="success">{info}</Notice>}
 
       <SocialButton
-        provider="google"
         disabled={busy || !configured}
         onClick={() => onProvider('google')}
       >
         Continue with Google
-      </SocialButton>
-      <SocialButton
-        provider="apple"
-        disabled={busy || !configured}
-        onClick={() => onProvider('apple')}
-      >
-        Continue with Apple
       </SocialButton>
 
       <OrDivider label="or sign in with email" />

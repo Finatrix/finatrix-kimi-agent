@@ -20,7 +20,7 @@ interface AuthContextValue {
   ) => Promise<{ error: string | null; needsConfirmation: boolean }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signInWithProvider: (
-    provider: 'google' | 'apple'
+    provider: 'google'
   ) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   resendVerification: (email: string) => Promise<{ error: string | null }>;
@@ -73,7 +73,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         emailRedirectTo: `${window.location.origin}/login`,
       },
     });
-    if (error) return { error: error.message, needsConfirmation: false };
+    if (error)
+      return {
+        error: error.message || 'Could not create your account. Please try again.',
+        needsConfirmation: false,
+      };
     // If email confirmation is on, there is no active session yet.
     const needsConfirmation = !data.session;
     return { error: null, needsConfirmation };
@@ -82,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn: AuthContextValue['signIn'] = async (email, password) => {
     if (!isSupabaseConfigured) return { error: 'Backend not configured yet.' };
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error ? error.message : null };
+    return { error: error ? error.message || 'Could not sign in. Please try again.' : null };
   };
 
   const signInWithProvider: AuthContextValue['signInWithProvider'] = async (
@@ -95,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         redirectTo: `${window.location.origin}/tools`,
       },
     });
-    return { error: error ? error.message : null };
+    return { error: error ? error.message || 'Could not sign in. Please try again.' : null };
   };
 
   const signOut = async () => {
