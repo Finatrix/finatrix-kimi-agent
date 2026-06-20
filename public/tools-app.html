@@ -1254,6 +1254,64 @@ function fmt(n){
   if (n >= 1000) return neg + "₹" + n.toLocaleString("en-IN");
   return neg + "₹" + n;
 }
+const ROUTES = ["home","budget","expenses","investmatch","parksmart","peercompare","goals","lifemap"];
+let _routeActive = false;
+function route(){
+  let r = (location.hash || "#/").replace("#/","").split("?")[0];
+  if (!ROUTES.includes(r)) r = "home";
+  if(_routeActive) return;
+
+  // Find currently visible page
+  const current = document.querySelector(".page.show");
+  const next = document.getElementById("page-" + r);
+  if(!next || next === current){
+    // Same page — just ensure visible
+    if(next) next.classList.add("show");
+    document.querySelectorAll("#mainNav a").forEach(a => a.classList.toggle("on", a.dataset.route === r));
+    window.scrollTo({top:0});
+    return;
+  }
+
+  _routeActive = true;
+  // Update nav immediately
+  document.querySelectorAll("#mainNav a").forEach(a => a.classList.toggle("on", a.dataset.route === r));
+
+  // Scroll nav tab into view
+  const activeNav = document.querySelector("#mainNav a.on");
+  if(activeNav) activeNav.scrollIntoView({inline:"nearest", behavior:"smooth"});
+
+  // Phase 1: slide out current
+  if(current){
+    current.classList.add("leaving");
+    setTimeout(() => {
+      current.classList.remove("show","leaving");
+    }, 200);
+  }
+
+  // Phase 2: show next after brief pause
+  setTimeout(() => {
+    next.classList.add("show");
+    window.scrollTo({top:0, behavior:"instant"});
+    // Re-observe any reveal elements on this page
+    next.querySelectorAll(".reveal:not(.visible)").forEach(el => {
+      if(typeof revealObserver !== "undefined") revealObserver.observe(el);
+    });
+    setTimeout(() => { _routeActive = false; }, 50);
+  }, current ? 160 : 0);
+}
+window.addEventListener("hashchange", route);
+
+/* Safe storage (works hosted; degrades to memory if blocked) */
+const store = (function(){
+  let mem = {};
+  let ok = false;
+  try { localStorage.setItem("__fx_t","1"); localStorage.removeItem("__fx_t"); ok = true; } catch(e){ ok = false; }
+  return {
+    get(k, d){ try { if (ok) { const v = localStorage.getItem(k); return v === null ? d : v; } } catch(e){} return (k in mem) ? mem[k] : d; },
+    set(k, v){ try { if (ok) { localStorage.setItem(k, v); return; } } catch(e){} mem[k] = v; },
+    persistent: ok
+  };
+})();
 
 /* ═══════════ CURRENCY (Budget / Expense / LifeMap only) ═══════════ */
 const CURRENCIES = {
@@ -1314,64 +1372,7 @@ function fxInitCurrencySelector(){
   sel.innerHTML = Object.keys(CURRENCIES).map(function(k){ return '<option value="'+k+'">'+CURRENCIES[k].sym+" "+k+'</option>'; }).join("");
   sel.value = FXC;
 }
-const ROUTES = ["home","budget","expenses","investmatch","parksmart","peercompare","goals","lifemap"];
-let _routeActive = false;
-function route(){
-  let r = (location.hash || "#/").replace("#/","").split("?")[0];
-  if (!ROUTES.includes(r)) r = "home";
-  if(_routeActive) return;
 
-  // Find currently visible page
-  const current = document.querySelector(".page.show");
-  const next = document.getElementById("page-" + r);
-  if(!next || next === current){
-    // Same page — just ensure visible
-    if(next) next.classList.add("show");
-    document.querySelectorAll("#mainNav a").forEach(a => a.classList.toggle("on", a.dataset.route === r));
-    window.scrollTo({top:0});
-    return;
-  }
-
-  _routeActive = true;
-  // Update nav immediately
-  document.querySelectorAll("#mainNav a").forEach(a => a.classList.toggle("on", a.dataset.route === r));
-
-  // Scroll nav tab into view
-  const activeNav = document.querySelector("#mainNav a.on");
-  if(activeNav) activeNav.scrollIntoView({inline:"nearest", behavior:"smooth"});
-
-  // Phase 1: slide out current
-  if(current){
-    current.classList.add("leaving");
-    setTimeout(() => {
-      current.classList.remove("show","leaving");
-    }, 200);
-  }
-
-  // Phase 2: show next after brief pause
-  setTimeout(() => {
-    next.classList.add("show");
-    window.scrollTo({top:0, behavior:"instant"});
-    // Re-observe any reveal elements on this page
-    next.querySelectorAll(".reveal:not(.visible)").forEach(el => {
-      if(typeof revealObserver !== "undefined") revealObserver.observe(el);
-    });
-    setTimeout(() => { _routeActive = false; }, 50);
-  }, current ? 160 : 0);
-}
-window.addEventListener("hashchange", route);
-
-/* Safe storage (works hosted; degrades to memory if blocked) */
-const store = (function(){
-  let mem = {};
-  let ok = false;
-  try { localStorage.setItem("__fx_t","1"); localStorage.removeItem("__fx_t"); ok = true; } catch(e){ ok = false; }
-  return {
-    get(k, d){ try { if (ok) { const v = localStorage.getItem(k); return v === null ? d : v; } } catch(e){} return (k in mem) ? mem[k] : d; },
-    set(k, v){ try { if (ok) { localStorage.setItem(k, v); return; } } catch(e){} mem[k] = v; },
-    persistent: ok
-  };
-})();
 
 /* ═══════════ BUDGET BUILDER ═══════════ */
 const BB_NEEDS = [
