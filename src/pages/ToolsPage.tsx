@@ -87,17 +87,20 @@ export default function ToolsPage() {
   };
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-[#0A0A0A]">
+    <div
+      className="fixed top-0 left-0 right-0 flex flex-col bg-[#0A0A0A]"
+      style={{ height: '100dvh' }}
+    >
       {/* Slim app bar (kept outside the frame so the tools are untouched) */}
-      <header className="flex items-center justify-between h-11 px-4 bg-[#0A0A0A] border-b border-[#1A1A1A] shrink-0">
-        <span className="font-mono text-[12px] uppercase tracking-[0.18em] text-[#F5F5F0] select-none">
+      <header className="flex items-center justify-between h-11 px-3 sm:px-4 bg-[#0A0A0A] border-b border-[#1A1A1A] shrink-0">
+        <span className="font-mono text-[12px] uppercase tracking-[0.12em] sm:tracking-[0.18em] text-[#F5F5F0] select-none">
           FinatriX
         </span>
 
-        <div className="relative flex items-center gap-4">
+        <div className="relative flex items-center gap-2.5 sm:gap-4">
           {user ? (
             <>
-              <span className={`font-mono text-[10px] uppercase tracking-[0.06em] ${syncColor[sync]}`}>
+              <span className={`hidden sm:inline font-mono text-[10px] uppercase tracking-[0.06em] ${syncColor[sync]}`}>
                 {syncLabel[sync]}
               </span>
               <button
@@ -135,14 +138,14 @@ export default function ToolsPage() {
             </>
           ) : (
             <>
-              <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-[#8A8A8A]">
+              <span className="hidden sm:inline font-mono text-[10px] uppercase tracking-[0.06em] text-[#8A8A8A]">
                 {configured ? 'Not signed in' : 'Local only'}
               </span>
               <Link
                 to="/login"
-                className="font-mono text-[11px] uppercase tracking-[0.08em] text-[#0A0A0A] bg-[#D4AF37] hover:bg-[#F1C40F] px-3 py-1.5 transition-colors"
+                className="font-mono text-[10px] sm:text-[11px] uppercase tracking-[0.08em] text-[#0A0A0A] bg-[#D4AF37] hover:bg-[#F1C40F] px-2.5 sm:px-3 py-1.5 transition-colors whitespace-nowrap"
               >
-                Sign in to save
+                Sign in
               </Link>
             </>
           )}

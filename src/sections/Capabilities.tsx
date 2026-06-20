@@ -9,28 +9,28 @@ interface Capability {
 
 const capabilities: Capability[] = [
   {
-    title: 'PREDICTIVE MODELING',
-    description: 'Machine learning algorithms analyze market patterns and predict price movements with statistical precision. Our models process millions of data points in real-time to identify alpha-generating opportunities.',
+    title: 'LEARN QUANT BASICS',
+    description: 'Plain-English explainers on how data and statistics are used to study market patterns. Educational only — FinatriX does not provide trading signals or predict prices.',
     image: '/images/capability-1.jpg',
-    tag: 'QUANT_RESEARCH',
+    tag: 'EDUCATION',
   },
   {
-    title: 'HFT INFRASTRUCTURE',
-    description: 'Ultra-low latency execution systems co-located at major exchanges. Sub-microsecond order routing with redundant fail-safes ensures your strategies execute exactly as designed.',
+    title: 'UNDERSTAND MARKETS',
+    description: 'See how exchanges, order types and market structure work, explained simply. We help you understand markets — we are not a broker and do not execute trades.',
     image: '/images/capability-2.jpg',
-    tag: 'EXECUTION',
+    tag: 'EXPLAINERS',
   },
   {
-    title: 'GLOBAL MARKET ACCESS',
-    description: 'Unified API connectivity to equity, derivative, forex, and commodity markets across 40+ exchanges worldwide. Trade Indian equities, US futures, and European bonds from a single interface.',
+    title: 'GLOBAL CONTEXT',
+    description: 'Understand how equity, forex and commodity markets across the world connect, so the numbers in the news make sense. For learning, not for placing trades.',
     image: '/images/capability-3.jpg',
-    tag: 'CONNECTIVITY',
+    tag: 'CONTEXT',
   },
   {
-    title: 'RISK ANALYTICS',
-    description: 'Real-time portfolio risk monitoring with VaR, CVaR, and stress testing. Our proprietary risk engine evaluates exposure across asset classes to protect capital in volatile conditions.',
+    title: 'RISK AWARENESS',
+    description: 'Learn the ideas behind portfolio risk — diversification, volatility and stress-testing — so you can ask better questions. Educational, not personalised advice.',
     image: '/images/capability-4.jpg',
-    tag: 'RISK_MGMT',
+    tag: 'RISK_BASICS',
   },
 ];
 

@@ -13,12 +13,15 @@ export default function Signup() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  const [agreed, setAgreed] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     if (password.length < 8) return setError('Password must be at least 8 characters.');
     if (password !== confirm) return setError('Passwords do not match.');
+    if (!agreed)
+      return setError('Please accept the Terms & Conditions and Privacy Policy to continue.');
     setBusy(true);
     const { error, needsConfirmation } = await signUp(email.trim(), password, name.trim());
     setBusy(false);
@@ -110,6 +113,37 @@ export default function Signup() {
           onChange={(e) => setConfirm(e.target.value)}
           placeholder="Re-enter password"
         />
+
+        <label className="flex items-start gap-3 mb-6 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={agreed}
+            onChange={(e) => setAgreed(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 accent-[#D4AF37] cursor-pointer"
+          />
+          <span className="text-[13px] text-[#8A8A8A] leading-relaxed">
+            I agree to the{' '}
+            <Link
+              to="/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#D4AF37] hover:underline"
+            >
+              Terms &amp; Conditions
+            </Link>{' '}
+            and{' '}
+            <Link
+              to="/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#D4AF37] hover:underline"
+            >
+              Privacy Policy
+            </Link>
+            , and understand FinatriX is for education only and not financial advice.
+          </span>
+        </label>
+
         <PrimaryButton type="submit" disabled={busy}>
           {busy ? 'Creating account…' : 'Create account'}
         </PrimaryButton>

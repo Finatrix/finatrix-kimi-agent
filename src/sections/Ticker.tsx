@@ -1,4 +1,5 @@
 const metrics = [
+  { label: 'ILLUSTRATIVE — NOT LIVE MARKET DATA', value: '', change: null, positive: null },
   { label: 'BTC/USD', value: '$94,230.45', change: '+1.2%', positive: true },
   { label: 'VOLATILITY INDEX', value: '14.02', change: null, positive: null },
   { label: 'S&P FUTURES', value: '5,984.25', change: '+0.4%', positive: true },

@@ -1,10 +1,21 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router';
 
-const footerLinks = {
-  Platform: ['Markets', 'Infrastructure', 'Analytics', 'API Docs', 'Status'],
-  Company: ['About', 'Careers', 'Blog', 'Press Kit'],
-  Legal: ['Privacy Policy', 'Terms of Service', 'Disclosures', 'Cookie Policy'],
-  Social: ['Twitter / X', 'LinkedIn', 'GitHub', 'Discord'],
+type FLink = { label: string; to: string };
+const footerLinks: Record<string, FLink[]> = {
+  Tools: [
+    { label: 'Budget Builder', to: '/tools#/budget' },
+    { label: 'Expense Tracker', to: '/tools#/expenses' },
+    { label: 'LifeMap', to: '/tools#/lifemap' },
+    { label: 'All tools', to: '/tools' },
+  ],
+  Company: [{ label: 'About', to: '/home#about' }],
+  Legal: [
+    { label: 'Privacy Policy', to: '/privacy' },
+    { label: 'Terms & Conditions', to: '/terms' },
+    { label: 'Disclaimer', to: '/terms#disclaimer' },
+  ],
+  Contact: [{ label: 'finatrix.hub@gmail.com', to: 'mailto:finatrix.hub@gmail.com' }],
 };
 
 export default function Footer() {
@@ -52,20 +63,27 @@ export default function Footer() {
                   {category}
                 </h4>
                 <ul className="space-y-2">
-                  {links.map((link) => (
-                    <li key={link}>
-                      <a
-                        href="#"
-                        className="group relative inline-block text-[13px] text-[#8A8A8A] hover:text-[#F5F5F0] transition-colors duration-300"
-                      >
-                        {link}
-                        <span
-                          className="absolute left-0 bottom-[-1px] h-[1px] w-0 bg-[#D4AF37] transition-all duration-300 group-hover:w-full"
-                          style={{ transformOrigin: 'left' }}
-                        />
-                      </a>
-                    </li>
-                  ))}
+                  {links.map((link) =>
+                    link.to.startsWith('mailto:') ? (
+                      <li key={link.label}>
+                        <a
+                          href={link.to}
+                          className="inline-block text-[13px] text-[#8A8A8A] hover:text-[#F5F5F0] transition-colors duration-300"
+                        >
+                          {link.label}
+                        </a>
+                      </li>
+                    ) : (
+                      <li key={link.label}>
+                        <Link
+                          to={link.to}
+                          className="inline-block text-[13px] text-[#8A8A8A] hover:text-[#F5F5F0] transition-colors duration-300"
+                        >
+                          {link.label}
+                        </Link>
+                      </li>
+                    )
+                  )}
                 </ul>
               </div>
             ))}
@@ -80,10 +98,10 @@ export default function Footer() {
                 Email
               </h4>
               <a
-                href="mailto:hello@finatrix.in"
+                href="mailto:finatrix.hub@gmail.com"
                 className="text-[14px] text-[#F5F5F0] hover:text-[#D4AF37] transition-colors duration-300"
               >
-                hello@finatrix.in
+                finatrix.hub@gmail.com
               </a>
             </div>
             <div>

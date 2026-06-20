@@ -18,7 +18,7 @@ export default function Hero() {
       />
       <div className="relative z-10 flex items-center justify-center h-full">
         <div
-          className="px-12 py-10"
+          className="mx-4 px-6 sm:px-12 py-8 sm:py-10"
           style={{
             background: 'rgba(10, 10, 10, 0.4)',
             backdropFilter: 'blur(12px)',
@@ -27,7 +27,7 @@ export default function Hero() {
           }}
         >
           <h1
-            className="text-[80px] md:text-[120px] font-medium text-[#FFFFFF] text-center leading-none tracking-[-0.03em]"
+            className="text-[44px] sm:text-[72px] md:text-[120px] font-medium text-[#FFFFFF] text-center leading-none tracking-[-0.03em]"
             style={{ fontFamily: 'Geist, system-ui, sans-serif' }}
           >
             QUANTIFY THE
@@ -36,7 +36,7 @@ export default function Hero() {
           </h1>
           <div className="mt-6 flex justify-center">
             <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-[#8A8A8A]">
-              [SYSTEM STATUS: ONLINE — EXECUTING STRATEGIES]
+              [FINANCIAL EDUCATION & FREE TOOLS — NOT FINANCIAL ADVICE]
             </p>
           </div>
         </div>
