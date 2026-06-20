@@ -626,7 +626,7 @@
 
   <div class="stat-strip">
     <div class="stat-cell reveal reveal-delay-1"><div class="v">7</div><div class="l">Free tools</div></div>
-    <div class="stat-cell reveal reveal-delay-2"><div class="v">₹0</div><div class="l">Cost, forever</div></div>
+    <div class="stat-cell reveal reveal-delay-2"><div class="v"><span class="fx-sym">₹</span>0</div><div class="l">Cost, forever</div></div>
     <div class="stat-cell reveal reveal-delay-3"><div class="v">100%</div><div class="l">Private, on-device</div></div>
     <div class="stat-cell reveal reveal-delay-4"><div class="v">India</div><div class="l">First by design</div></div>
   </div>
@@ -2375,6 +2375,8 @@ function lmStart(){
 
   document.getElementById("lm-setup").classList.add("hidden");
   document.getElementById("lm-app").classList.remove("hidden");
+  window.scrollTo(0,0); document.documentElement.scrollTop=0; document.body.scrollTop=0;
+  setTimeout(function(){ window.scrollTo(0,0); document.documentElement.scrollTop=0; document.body.scrollTop=0; }, 60);
 
   document.getElementById("lm-greeting").textContent = "Welcome, " + name.split(" ")[0];
   document.getElementById("lm-subheading").textContent = "Your financial simulation — age " + age + " to 60";
