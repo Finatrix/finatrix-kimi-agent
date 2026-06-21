@@ -29,6 +29,25 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+// Turn any Supabase auth error into a clean, human-readable string.
+// Guards against blank / "{}" / "[object Object]" messages ever reaching the UI,
+// and maps GoTrue email-delivery failures (HTTP 500 / unexpected_failure) to
+// actionable guidance instead of a cryptic blob.
+function authErrorMessage(error: unknown, fallback: string): string {
+  if (!error) return fallback;
+  const e = error as { message?: string; status?: number; code?: string };
+  const msg = (typeof error === 'string' ? error : e.message ?? '').trim();
+  const garbled = !msg || msg === '{}' || msg === '[object Object]';
+  if (
+    /sending.*(email|confirmation)|smtp/i.test(msg) ||
+    e.status === 500 ||
+    e.code === 'unexpected_failure'
+  ) {
+    return 'We couldn’t send your confirmation email right now. Please try again in a few minutes — if it keeps happening, contact support.';
+  }
+  return garbled ? fallback : msg;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -75,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (error)
       return {
-        error: error.message || 'Could not create your account. Please try again.',
+        error: authErrorMessage(error, 'Could not create your account. Please try again.'),
         needsConfirmation: false,
       };
     // If email confirmation is on, there is no active session yet.
@@ -86,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn: AuthContextValue['signIn'] = async (email, password) => {
     if (!isSupabaseConfigured) return { error: 'Backend not configured yet.' };
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error ? error.message || 'Could not sign in. Please try again.' : null };
+    return { error: error ? authErrorMessage(error, 'Could not sign in. Please try again.') : null };
   };
 
   const signInWithProvider: AuthContextValue['signInWithProvider'] = async (
@@ -99,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         redirectTo: `${window.location.origin}/tools`,
       },
     });
-    return { error: error ? error.message || 'Could not sign in. Please try again.' : null };
+    return { error: error ? authErrorMessage(error, 'Could not sign in. Please try again.') : null };
   };
 
   const signOut = async () => {
@@ -111,7 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const resendVerification: AuthContextValue['resendVerification'] = async (email) => {
     if (!isSupabaseConfigured) return { error: 'Backend not configured yet.' };
     const { error } = await supabase.auth.resend({ type: 'signup', email });
-    return { error: error ? error.message : null };
+    return { error: error ? authErrorMessage(error, 'Could not resend the email. Please try again.') : null };
   };
 
   const resetPassword: AuthContextValue['resetPassword'] = async (email) => {
@@ -119,7 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/login`,
     });
-    return { error: error ? error.message : null };
+    return { error: error ? authErrorMessage(error, 'Could not send the reset link. Please try again.') : null };
   };
 
   return (
