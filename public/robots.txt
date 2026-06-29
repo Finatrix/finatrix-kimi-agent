@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /profile
 
-Sitemap: https://finatrix-kimi-agent.netlify.app/sitemap.xml
+Sitemap: https://fiantrix.online/sitemap.xml
