@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useLocation } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import {
   SYNC_KEYS,
@@ -16,18 +16,25 @@ const TOOLS_URL = '/tools-app.html';
 
 export default function ToolsPage() {
   const { user, loading, signOut, configured } = useAuth();
+  const { hash } = useLocation();
   const [ready, setReady] = useState(false);
   const [sync, setSync] = useState<SyncStatus>(configured ? 'idle' : 'offline');
   const [menuOpen, setMenuOpen] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Deep-link support: a parent route like "/tools#/budget" forwards "#/budget"
+  // into the tools iframe, which hash-routes to that tool. Guard against any
+  // value that isn't an in-app tool route.
+  const toolHash = /^#\/[a-z]+$/i.test(hash) ? hash : '';
+  const frameSrc = `${TOOLS_URL}${toolHash}`;
+
   // Seed localStorage from the cloud (or clear it) before mounting the frame.
   useEffect(() => {
     if (loading) return;
     let cancelled = false;
-    setReady(false);
 
     (async () => {
+      setReady(false);
       const curUid = user?.id ?? null;
       const lastUid = getLastUid();
 
@@ -56,20 +63,21 @@ export default function ToolsPage() {
   }, [user?.id, loading, configured]);
 
   // When the frame writes localStorage, the parent receives a storage event.
+  const uid = user?.id;
   useEffect(() => {
-    if (!configured || !user) return;
+    if (!configured || !uid) return;
     const onStorage = (e: StorageEvent) => {
       if (!e.key || !SYNC_KEYS.includes(e.key)) return;
       setSync('saving');
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(async () => {
-        const s = await pushLocalToCloud(user.id);
+        const s = await pushLocalToCloud(uid);
         setSync(s);
       }, 700);
     };
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
-  }, [user?.id, configured]);
+  }, [uid, configured]);
 
   const syncLabel: Record<SyncStatus, string> = {
     idle: 'On this device',
@@ -157,8 +165,10 @@ export default function ToolsPage() {
         {ready && (
           <iframe
             key={user?.id || 'guest'}
-            src={TOOLS_URL}
+            src={frameSrc}
             title="FinatriX Tools"
+            sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+            referrerPolicy="no-referrer"
             className="w-full h-full border-0 block"
           />
         )}

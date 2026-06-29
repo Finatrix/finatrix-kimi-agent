@@ -7,6 +7,7 @@ export default function Hero() {
     <section className="relative w-full h-screen overflow-hidden">
       <canvas
         ref={canvasRef}
+        aria-hidden="true"
         style={{
           position: 'absolute',
           top: 0,

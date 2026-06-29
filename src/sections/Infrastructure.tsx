@@ -254,6 +254,7 @@ export default function Infrastructure() {
       <div className="sticky top-0 w-full h-screen">
         <canvas
           ref={canvasRef}
+          aria-hidden="true"
           className="w-full h-full"
           style={{ display: 'block' }}
         />

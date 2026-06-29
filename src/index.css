@@ -80,3 +80,43 @@
     pointer-events: none;
   }
 }
+
+/* ─────────────── Landing page animations ─────────────── */
+@keyframes fxBreathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.035); }
+}
+@keyframes fxHubPulse {
+  0% { transform: scale(0.9); opacity: 0.55; }
+  70% { transform: scale(1.9); opacity: 0; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+@keyframes fxAurora {
+  0% { transform: translate3d(-6%, -3%, 0) scale(1); }
+  50% { transform: translate3d(6%, 4%, 0) scale(1.15); }
+  100% { transform: translate3d(-6%, -3%, 0) scale(1); }
+}
+@keyframes fxDashFlow {
+  to { stroke-dashoffset: -24; }
+}
+@keyframes fxFloatY {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.fx-tile { will-change: transform; }
+.fx-tile-breathe { animation: fxBreathe 6s ease-in-out infinite; }
+.fx-aurora { animation: fxAurora 18s ease-in-out infinite; }
+.fx-hub-ring { animation: fxHubPulse 3.4s ease-out infinite; }
+.fx-connector-flow { stroke-dasharray: 4 8; animation: fxDashFlow 1.4s linear infinite; }
+.fx-scroll-cue { animation: fxFloatY 2.2s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-tile-breathe,
+  .fx-aurora,
+  .fx-hub-ring,
+  .fx-connector-flow,
+  .fx-scroll-cue {
+    animation: none !important;
+  }
+}

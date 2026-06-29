@@ -116,21 +116,28 @@ export function useComputationalLattice() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let time = 0;
     let running = true;
+    let paused = false;
+    const prefersReduced =
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
     let nodeSets: OrbitNode[] = [];
     let connectionSets: Connection[][] = [];
     let constellationNodes: ConstellationNode[] = [];
     let hoverNode: ConstellationNode | null = null;
     const mouse: Mouse = { x: 0, y: 0, active: false };
     let gravityWells: GravityWell[] = [];
-    let frame = 0;
     let animFrameId: number;
 
     const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
 
     function getDrawCoords(x: number, y: number) {
-      return { x: canvas!.width / 2 + x, y: canvas!.height / 2 - y };
+      // The 2D context is scaled by `dpr` (setTransform), so all drawing happens
+      // in CSS pixels. Center using CSS-pixel dimensions, otherwise the orbit
+      // system is pushed off-centre on HiDPI / retina displays (dpr > 1).
+      const w = canvas!.width / dpr;
+      const h = canvas!.height / dpr;
+      return { x: w / 2 + x, y: h / 2 - y };
     }
 
     function drawGrid() {
@@ -373,10 +380,8 @@ export function useComputationalLattice() {
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
 
-    function animate() {
-      if (!running || !ctx) return;
-      time += 0.004 * ORBIT_CONFIG.ORBIT_SPEED;
-
+    function renderFrame() {
+      if (!ctx) return;
       ctx.fillStyle = 'rgba(10, 10, 10, 1)';
       ctx.fillRect(0, 0, canvas!.width / dpr, canvas!.height / dpr);
 
@@ -384,11 +389,24 @@ export function useComputationalLattice() {
       drawConstellationNodes();
       drawOrbits();
       drawAxesAndLabels();
-
-      animFrameId = requestAnimationFrame(animate);
-      frame += 1;
     }
 
+    function animate() {
+      if (!running || paused || !ctx) return;
+      renderFrame();
+      animFrameId = requestAnimationFrame(animate);
+    }
+
+    function startLoop() {
+      if (prefersReduced || !running || paused) return;
+      cancelAnimationFrame(animFrameId);
+      animFrameId = requestAnimationFrame(animate);
+    }
+    function stopLoop() {
+      cancelAnimationFrame(animFrameId);
+    }
+
+    let resizeTimer: ReturnType<typeof setTimeout> | undefined;
     function handleResize() {
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
@@ -396,6 +414,12 @@ export function useComputationalLattice() {
       canvas.height = rect.height * dpr;
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
       initScene();
+      // Repaint once so a paused / reduced-motion canvas is never left blank.
+      renderFrame();
+    }
+    function handleResizeDebounced() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(handleResize, 150);
     }
 
     function handleMouseMove(e: MouseEvent) {
@@ -409,18 +433,42 @@ export function useComputationalLattice() {
       mouse.active = false;
     }
 
+    // Build the scene once (handleResize already calls initScene and paints).
     handleResize();
-    initScene();
-    animate();
+    if (!prefersReduced) startLoop();
 
-    window.addEventListener('resize', handleResize);
+    // Pause the rAF loop when the hero scrolls out of view or the tab is hidden
+    // — avoids constant CPU/GPU/battery cost across the rest of the page.
+    const io =
+      typeof IntersectionObserver !== 'undefined'
+        ? new IntersectionObserver(
+            (entries) => {
+              paused = !entries.some((e) => e.isIntersecting);
+              if (paused) stopLoop();
+              else startLoop();
+            },
+            { threshold: 0 }
+          )
+        : null;
+    io?.observe(canvas);
+
+    const onVisibility = () => {
+      if (document.hidden) stopLoop();
+      else if (!paused) startLoop();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    window.addEventListener('resize', handleResizeDebounced);
     canvas.addEventListener('mousemove', handleMouseMove);
     canvas.addEventListener('mouseleave', handleMouseLeave);
 
     return () => {
       running = false;
-      cancelAnimationFrame(animFrameId);
-      window.removeEventListener('resize', handleResize);
+      stopLoop();
+      clearTimeout(resizeTimer);
+      io?.disconnect();
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('resize', handleResizeDebounced);
       canvas.removeEventListener('mousemove', handleMouseMove);
       canvas.removeEventListener('mouseleave', handleMouseLeave);
     };

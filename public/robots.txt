@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /profile
+
+Sitemap: https://finatrix-kimi-agent.netlify.app/sitemap.xml

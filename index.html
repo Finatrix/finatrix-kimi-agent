@@ -3,10 +3,96 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FinatriX</title>
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0A0A0A" />
+
+    <!-- Primary meta -->
+    <title>FinatriX — Smart Money Tools for India</title>
+    <meta
+      name="description"
+      content="FinatriX is a free, education-first toolkit for India: Budget Builder, Expense Tracker, InvestMatch, ParkSmart, PeerCompare, Reverse Goal Planner and LifeMap. Educational tools, not financial advice."
+    />
+    <meta name="author" content="FinatriX" />
+    <meta name="robots" content="index, follow" />
+
+    <!--
+      NOTE: update the canonical / Open Graph URLs below to your live custom
+      domain once confirmed (the Netlify URL is used here as a safe default).
+    -->
+    <link rel="canonical" href="https://finatrix-kimi-agent.netlify.app/" />
+
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" href="/images/finatrix-logo.png" />
+    <link rel="apple-touch-icon" href="/images/finatrix-logo.png" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="FinatriX" />
+    <meta property="og:title" content="FinatriX — Smart Money Tools for India" />
+    <meta
+      property="og:description"
+      content="Seven free, education-first money tools for India — budgeting, investing, benchmarking and a full life-long wealth simulation."
+    />
+    <meta property="og:url" content="https://finatrix-kimi-agent.netlify.app/" />
+    <meta
+      property="og:image"
+      content="https://finatrix-kimi-agent.netlify.app/images/finatrix-wordmark.jpg"
+    />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@finatrix_" />
+    <meta name="twitter:title" content="FinatriX — Smart Money Tools for India" />
+    <meta
+      name="twitter:description"
+      content="Seven free, education-first money tools for India. Educational tools, not financial advice."
+    />
+    <meta
+      name="twitter:image"
+      content="https://finatrix-kimi-agent.netlify.app/images/finatrix-wordmark.jpg"
+    />
+
+    <!-- Structured data: Organization (brand signal) + WebApplication -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://finatrix-kimi-agent.netlify.app/#org",
+            "name": "FinatriX",
+            "url": "https://finatrix-kimi-agent.netlify.app/",
+            "logo": "https://finatrix-kimi-agent.netlify.app/images/finatrix-logo.png",
+            "email": "finatrix.hub@gmail.com",
+            "description": "Free, education-first personal-finance tools for India.",
+            "sameAs": ["https://twitter.com/finatrix_"]
+          },
+          {
+            "@type": "WebApplication",
+            "name": "FinatriX",
+            "applicationCategory": "FinanceApplication",
+            "operatingSystem": "Web",
+            "url": "https://finatrix-kimi-agent.netlify.app/",
+            "description": "Free, education-first personal-finance tools for India. Educational tools, not financial advice.",
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "INR" },
+            "publisher": { "@id": "https://finatrix-kimi-agent.netlify.app/#org" }
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <div style="max-width:640px;margin:12vh auto;padding:0 24px;font-family:system-ui,sans-serif;color:#F5F5F0;background:#0A0A0A;text-align:center">
+        <h1 style="font-weight:600">FinatriX</h1>
+        <p style="color:#8A8A8A;line-height:1.6">
+          FinatriX needs JavaScript to run its interactive money tools. Please
+          enable JavaScript in your browser, then reload this page.
+        </p>
+      </div>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

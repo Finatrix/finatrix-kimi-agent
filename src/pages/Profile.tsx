@@ -7,18 +7,25 @@ import AuthShell, { Field, PrimaryButton, Notice } from '../components/AuthShell
 export default function Profile() {
   const { user, loading, signOut, configured } = useAuth();
   const navigate = useNavigate();
-  const [name, setName] = useState('');
+  const [name, setName] = useState(
+    (user?.user_metadata?.full_name as string) || ''
+  );
+  const [syncedUid, setSyncedUid] = useState(user?.id);
   const [info, setInfo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // Keep the editable name field in sync when the signed-in user changes.
+  // Done during render (React's recommended "adjust state on prop change"
+  // pattern) instead of in an effect — avoids a cascading re-render.
+  if (user && user.id !== syncedUid) {
+    setSyncedUid(user.id);
+    setName((user.user_metadata?.full_name as string) || '');
+  }
+
   useEffect(() => {
     if (!loading && !user && configured) navigate('/login');
   }, [loading, user, configured, navigate]);
-
-  useEffect(() => {
-    if (user) setName((user.user_metadata?.full_name as string) || '');
-  }, [user]);
 
   if (loading) {
     return (
@@ -53,7 +60,7 @@ export default function Profile() {
     setError(null);
     const { error } = await supabase.auth.updateUser({ data: { full_name: name.trim() } });
     setBusy(false);
-    if (error) setError(error.message);
+    if (error) setError(error.message || 'Could not save your changes. Please try again.');
     else setInfo('Profile updated.');
   }
 

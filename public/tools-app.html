@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FinatriX Tools — Smart Money Tools for India</title>
-<meta name="description" content="Six free financial tools by FinatriX: Budget Builder, Expense Tracker, InvestMatch, ParkSmart, PeerCompare and Reverse Goal Planner.">
+<meta name="description" content="Seven free financial tools by FinatriX: Budget Builder, Expense Tracker, InvestMatch, ParkSmart, PeerCompare, Reverse Goal Planner and LifeMap.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
 <style>
@@ -432,7 +432,7 @@
 
 </style>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="/vendor/chart.umd.js" integrity="sha384-FcQlsUOd0TJjROrBxhJdUhXTUgNJQxTMcxZe6nHbaEfFL1zjQ+bq/uRoBQxb0KMo" crossorigin="anonymous"></script>
 </head>
 <body>
 
@@ -693,6 +693,9 @@
     <p>Enter your take-home income, then fill in what you actually spend. We'll show you exactly where you stand against the classic Needs / Wants / Savings split.</p>
   </div>
 
+  <!-- Month navigator -->
+  <div id="bb-month-nav" style="margin-bottom:14px"></div>
+
   <div class="card">
     <div class="fg" style="margin-bottom:0">
       <label class="fl" for="bb-income">Monthly take-home income (<span class="fx-sym">₹</span>)</label>
@@ -769,6 +772,9 @@
     <h2>Track every rupee. Privately.</h2>
     <p>Log an expense in three taps and watch your patterns emerge. Your data is private — kept on your device as a guest, or saved securely to your account when you sign in.</p>
   </div>
+
+  <!-- Month navigator -->
+  <div id="et-month-nav" style="margin-bottom:14px"></div>
 
   <div class="grid3" id="et-stats" style="margin-bottom:16px"></div>
 
@@ -1400,6 +1406,92 @@ const BB_SAVE = [
 const bbVals = {};
 [...BB_NEEDS, ...BB_WANTS, ...BB_SAVE].forEach(c => bbVals[c.k] = 0);
 
+/* ── Budget Builder Month Management ── */
+let bbActiveMonth = (function(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'); })();
+
+function bbMonthLabel(ym){
+  const parts = ym.split('-');
+  const y = parseInt(parts[0],10), m = parseInt(parts[1],10);
+  return new Date(y, m-1, 1).toLocaleString('default',{month:'long',year:'numeric'});
+}
+function bbCurrentMonth(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+}
+function bbGetAllData(){
+  try { return JSON.parse(store.get('fx_bb_data','{}')) || {}; } catch(e){ return {}; }
+}
+function bbSave(){
+  const all = bbGetAllData();
+  all[bbActiveMonth] = {
+    vals: Object.assign({}, bbVals),
+    income: (document.getElementById('bb-income')||{}).value || '',
+    n: (document.getElementById('bb-pct-needs')||{}).value || '',
+    w: (document.getElementById('bb-pct-wants')||{}).value || '',
+    s: (document.getElementById('bb-pct-save')||{}).value || ''
+  };
+  store.set('fx_bb_data', JSON.stringify(all));
+}
+function bbLoadMonth(month){
+  const all = bbGetAllData();
+  const d = all[month];
+  Object.keys(bbVals).forEach(function(k){ bbVals[k] = 0; });
+  if(d && d.vals) Object.keys(d.vals).forEach(function(k){ if(k in bbVals) bbVals[k] = Number(d.vals[k])||0; });
+  var set = function(id,v){ var el=document.getElementById(id); if(el && v!==undefined && v!=='') el.value=v; };
+  if(d){ set('bb-income',d.income); set('bb-pct-needs',d.n); set('bb-pct-wants',d.w); set('bb-pct-save',d.s); }
+  else { set('bb-income','50000'); set('bb-pct-needs','50'); set('bb-pct-wants','30'); set('bb-pct-save','20'); }
+}
+function bbSwitchMonth(month){
+  bbSave();
+  bbActiveMonth = month;
+  bbLoadMonth(month);
+  bbRenderItems('bb-needs-items',BB_NEEDS);
+  bbRenderItems('bb-wants-items',BB_WANTS);
+  bbRenderItems('bb-save-items',BB_SAVE);
+  bbUpdate();
+  bbRenderMonthNav();
+}
+function bbPrevMonth(){
+  var parts = bbActiveMonth.split('-');
+  var y = parseInt(parts[0],10), m = parseInt(parts[1],10);
+  var d = new Date(y, m-2, 1);
+  bbSwitchMonth(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'));
+}
+function bbNextMonth(){
+  var parts = bbActiveMonth.split('-');
+  var y = parseInt(parts[0],10), m = parseInt(parts[1],10);
+  var d = new Date(y, m, 1);
+  var next = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+  if(next > bbCurrentMonth()) return;
+  bbSwitchMonth(next);
+}
+function bbRenderMonthNav(){
+  var el = document.getElementById('bb-month-nav');
+  if(!el) return;
+  var cur = bbCurrentMonth();
+  var isNow = bbActiveMonth === cur;
+  var all = bbGetAllData();
+  var months = Object.keys(all).sort();
+  // Ensure current month shows if no data yet
+  if(months.indexOf(cur) === -1) months.push(cur);
+  months.sort();
+  var chips = months.length > 1 ? months.map(function(m){
+    var active = m === bbActiveMonth;
+    return '<button onclick="bbSwitchMonth(\''+m+'\')" style="font-size:11px;padding:3px 10px;border-radius:980px;border:1px solid '+(active?'var(--blue)':'var(--hair2)')+';background:'+(active?'var(--blue)':'#fff')+';color:'+(active?'#fff':'var(--ink2)')+';cursor:pointer;font-weight:600;transition:all .15s">'+bbMonthLabel(m)+'</button>';
+  }).join('') : '';
+  el.innerHTML = '<div style="background:#fff;border-radius:14px;box-shadow:var(--shadow);padding:14px 18px;margin-bottom:0">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:'+(chips?'10px':'0px')+'">'
+    +'<button onclick="bbPrevMonth()" style="width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:var(--bg);border:1px solid var(--hair2);border-radius:8px;cursor:pointer;font-size:16px;color:var(--ink2);transition:all .15s" title="Previous month">‹</button>'
+    +'<div style="text-align:center">'
+    +'<div style="font-size:15px;font-weight:700;color:var(--ink)">'+bbMonthLabel(bbActiveMonth)+'</div>'
+    +(!isNow ? '<div style="font-size:11px;color:var(--gold);font-weight:600;margin-top:2px">Viewing past month — read only view</div>' : '<div style="font-size:11px;color:var(--ink3);margin-top:2px">Current month</div>')
+    +'</div>'
+    +'<button onclick="bbNextMonth()" '+(isNow?'disabled ':'')+'style="width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:var(--bg);border:1px solid var(--hair2);border-radius:8px;'+(isNow?'opacity:.3;cursor:default;':'cursor:pointer;')+'font-size:16px;color:var(--ink2);transition:all .15s" title="Next month">›</button>'
+    +'</div>'
+    +(chips ? '<div style="display:flex;gap:6px;flex-wrap:wrap">'+chips+'</div>' : '')
+    +'</div>';
+}
+
 function bbRenderItems(elId, cfg){
   document.getElementById(elId).innerHTML = cfg.map(c => `
     <div class="row-line">
@@ -1481,6 +1573,8 @@ function bbUpdate(){
       <div style="font-size:14px;font-weight:700;margin-bottom:12px">Insights</div>
       ${tips.map(t => `<div class="tip tip-${t[0]}"><b>${t[1]}</b>${t[2]}</div>`).join("")}
     </div>` : "";
+  // Auto-persist after every recalculation
+  try { bbSave(); } catch(e){}
 }
 
 /* ═══════════ EXPENSE TRACKER ═══════════ */
@@ -1507,11 +1601,90 @@ const ET_CATS = {
 let etSel = "food";
 let etItems = [];
 try { etItems = JSON.parse(store.get("fx_expenses","[]")) || []; if(!Array.isArray(etItems)) etItems = []; } catch(e){ etItems = []; }
-let etBudget = Math.max(0, Number(store.get("fx_budget","0")) || 0);
 
-function etSave(){ store.set("fx_expenses", JSON.stringify(etItems)); store.set("fx_budget", String(etBudget)); }
+/* ── Expense Tracker Month Management ── */
+let etSelMonth = (function(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'); })();
+
+function etCurrentMonth(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'); }
+function etMonthLabel(ym){
+  var parts = ym.split('-');
+  var y = parseInt(parts[0],10), m = parseInt(parts[1],10);
+  return new Date(y, m-1, 1).toLocaleString('default',{month:'long',year:'numeric'});
+}
+function etGetBudgets(){
+  try { return JSON.parse(store.get('fx_budgets','{}')) || {}; } catch(e){ return {}; }
+}
+function etGetBudgetForMonth(month){
+  var budgets = etGetBudgets();
+  if(month in budgets) return Math.max(0, Number(budgets[month])||0);
+  // Migrate legacy fx_budget to current month on first use
+  if(month === etCurrentMonth()){
+    var legacy = Math.max(0, Number(store.get('fx_budget','0'))||0);
+    if(legacy > 0){ var b = etGetBudgets(); b[month] = legacy; store.set('fx_budgets', JSON.stringify(b)); store.set('fx_budget','0'); return legacy; }
+  }
+  return 0;
+}
+function etSetBudgetForMonth(month, amount){
+  var budgets = etGetBudgets();
+  if(amount > 0) budgets[month] = amount;
+  else delete budgets[month];
+  store.set('fx_budgets', JSON.stringify(budgets));
+}
+let etBudget = etGetBudgetForMonth(etSelMonth);
+
+function etSave(){ store.set("fx_expenses", JSON.stringify(etItems)); }
 function etToday(){ return new Date().toISOString().slice(0,10); }
-function etMonth(){ return new Date().toISOString().slice(0,7); }
+function etMonth(){ return etSelMonth; }
+
+function etGetMonthsWithData(){
+  var months = {};
+  etItems.forEach(function(e){ if(e.date) months[e.date.slice(0,7)] = true; });
+  var cur = etCurrentMonth();
+  months[cur] = true;
+  return Object.keys(months).sort();
+}
+function etSwitchMonth(month){
+  etSelMonth = month;
+  etBudget = etGetBudgetForMonth(month);
+  etRenderMonthNav();
+  etRender();
+}
+function etPrevMonth(){
+  var parts = etSelMonth.split('-');
+  var y = parseInt(parts[0],10), m = parseInt(parts[1],10);
+  var d = new Date(y, m-2, 1);
+  etSwitchMonth(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'));
+}
+function etNextMonth(){
+  var parts = etSelMonth.split('-');
+  var y = parseInt(parts[0],10), m = parseInt(parts[1],10);
+  var d = new Date(y, m, 1);
+  var next = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+  if(next > etCurrentMonth()) return;
+  etSwitchMonth(next);
+}
+function etRenderMonthNav(){
+  var el = document.getElementById('et-month-nav');
+  if(!el) return;
+  var cur = etCurrentMonth();
+  var isNow = etSelMonth === cur;
+  var months = etGetMonthsWithData();
+  var chips = months.length > 1 ? months.map(function(m){
+    var active = m === etSelMonth;
+    return '<button onclick="etSwitchMonth(\''+m+'\')" style="font-size:11px;padding:3px 10px;border-radius:980px;border:1px solid '+(active?'var(--orange)':'var(--hair2)')+';background:'+(active?'var(--orange)':'#fff')+';color:'+(active?'#fff':'var(--ink2)')+';cursor:pointer;font-weight:600;transition:all .15s">'+etMonthLabel(m)+'</button>';
+  }).join('') : '';
+  el.innerHTML = '<div style="background:#fff;border-radius:14px;box-shadow:var(--shadow);padding:14px 18px;margin-bottom:0">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:'+(chips?'10px':'0px')+'">'
+    +'<button onclick="etPrevMonth()" style="width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:var(--bg);border:1px solid var(--hair2);border-radius:8px;cursor:pointer;font-size:16px;color:var(--ink2);transition:all .15s" title="Previous month">‹</button>'
+    +'<div style="text-align:center">'
+    +'<div style="font-size:15px;font-weight:700;color:var(--ink)">'+etMonthLabel(etSelMonth)+'</div>'
+    +(!isNow ? '<div style="font-size:11px;color:var(--orange);font-weight:600;margin-top:2px">Viewing past month</div>' : '<div style="font-size:11px;color:var(--ink3);margin-top:2px">Current month</div>')
+    +'</div>'
+    +'<button onclick="etNextMonth()" '+(isNow?'disabled ':'')+'style="width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:var(--bg);border:1px solid var(--hair2);border-radius:8px;'+(isNow?'opacity:.3;cursor:default;':'cursor:pointer;')+'font-size:16px;color:var(--ink2);transition:all .15s" title="Next month">›</button>'
+    +'</div>'
+    +(chips ? '<div style="display:flex;gap:6px;flex-wrap:wrap">'+chips+'</div>' : '')
+    +'</div>';
+}
 
 function etRenderCats(){
   document.getElementById("et-cats").innerHTML = Object.entries(ET_CATS).map(([k,v]) => `
@@ -1531,6 +1704,9 @@ function etAdd(){
   etSave();
   document.getElementById("et-amount").value = "";
   document.getElementById("et-note").value = "";
+  // If the expense's month differs from the selected month, switch to it so it's visible
+  const expenseMonth = date.slice(0,7);
+  if(expenseMonth !== etSelMonth){ etSelMonth = expenseMonth; etBudget = etGetBudgetForMonth(etSelMonth); }
   // Flash feedback on add button
   const addBtn = document.querySelector('#page-expenses .btn');
   if(addBtn){
@@ -1538,9 +1714,10 @@ function etAdd(){
     addBtn.style.background = "var(--green)";
     setTimeout(() => { addBtn.textContent = "Add expense"; addBtn.style.background = ""; }, 1200);
   }
+  etRenderMonthNav();
   etRender();
 }
-function etDel(id){ etItems = etItems.filter(e => e.id !== id); etSave(); etRender(); }
+function etDel(id){ etItems = etItems.filter(e => e.id !== id); etSave(); etRenderMonthNav(); etRender(); }
 
 function etTab(t){
   document.getElementById("et-breakdown").classList.toggle("hidden", t !== "bd");
@@ -1552,22 +1729,37 @@ function etTab(t){
 }
 
 function etSetBudget(){
-  const v = prompt("Set your monthly spending budget (₹). Enter 0 to remove.", etBudget || "");
+  const v = prompt("Set budget for " + etMonthLabel(etSelMonth) + " (₹). Enter 0 to remove.", etBudget || "");
   if (v === null) return;
   etBudget = Math.max(0, Number(v) || 0);
-  etSave(); etRender();
+  etSetBudgetForMonth(etSelMonth, etBudget);
+  etRender();
 }
 
 function etRender(){
-  const tToday = etItems.filter(e => e.date === etToday()).reduce((s,e) => s+e.amount, 0);
-  const tMonth = etItems.filter(e => (e.date||"").slice(0,7) === etMonth()).reduce((s,e) => s+e.amount, 0);
-  const days = new Date().getDate();
-  const avgDay = days > 0 ? tMonth/days : 0;
+  const curM = etCurrentMonth();
+  const isCurrentMonth = etSelMonth === curM;
+  const tToday = isCurrentMonth ? etItems.filter(e => e.date === etToday()).reduce((s,e) => s+e.amount, 0) : 0;
+  const monthItems = etItems.filter(e => (e.date||"").slice(0,7) === etSelMonth);
+  const tMonth = monthItems.reduce((s,e) => s+e.amount, 0);
+  // Days in the selected month
+  const [sy, sm] = etSelMonth.split('-').map(Number);
+  const daysInMonth = new Date(sy, sm, 0).getDate();
+  const daysElapsed = isCurrentMonth ? new Date().getDate() : daysInMonth;
+  const avgDay = daysElapsed > 0 ? tMonth/daysElapsed : 0;
 
-  document.getElementById("et-stats").innerHTML = `
-    <div class="stat-cell"><div class="v" style="color:var(--orange)">${cfmt(tToday)}</div><div class="l">Today</div></div>
-    <div class="stat-cell"><div class="v">${cfmt(tMonth)}</div><div class="l">This month</div></div>
-    <div class="stat-cell"><div class="v" style="color:var(--ink2)">${cfmt(avgDay)}</div><div class="l">Daily average</div></div>`;
+  if(isCurrentMonth){
+    document.getElementById("et-stats").innerHTML = `
+      <div class="stat-cell"><div class="v" style="color:var(--orange)">${cfmt(tToday)}</div><div class="l">Today</div></div>
+      <div class="stat-cell"><div class="v">${cfmt(tMonth)}</div><div class="l">This month</div></div>
+      <div class="stat-cell"><div class="v" style="color:var(--ink2)">${cfmt(avgDay)}</div><div class="l">Daily avg</div></div>`;
+  } else {
+    const txCount = monthItems.length;
+    document.getElementById("et-stats").innerHTML = `
+      <div class="stat-cell"><div class="v">${cfmt(tMonth)}</div><div class="l">Total spent</div></div>
+      <div class="stat-cell"><div class="v" style="color:var(--ink2)">${cfmt(avgDay)}</div><div class="l">Daily avg</div></div>
+      <div class="stat-cell"><div class="v" style="color:var(--blue)">${txCount}</div><div class="l">Transactions</div></div>`;
+  }
 
   const be = document.getElementById("et-budget-edit");
   const bc = document.getElementById("et-budget-content");
@@ -1575,7 +1767,7 @@ function etRender(){
   if (etBudget > 0){
     const used = Math.min(tMonth/etBudget*100, 100);
     const over = tMonth > etBudget;
-    const daysLeft = new Date(new Date().getFullYear(), new Date().getMonth()+1, 0).getDate() - days;
+    const daysLeft = isCurrentMonth ? (daysInMonth - new Date().getDate()) : 0;
     const left = etBudget - tMonth;
     bc.innerHTML = `
       <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--ink2);margin-bottom:5px">
@@ -1583,12 +1775,13 @@ function etRender(){
       <div class="bar"><div class="bar-fill" style="width:${used}%;background:${over?"var(--red)":used>80?"var(--gold)":"var(--green)"}"></div></div>
       <div class="note" style="margin-top:7px">${over
         ? "Over budget by <b style='color:var(--red)'>" + cfmt(tMonth-etBudget) + "</b>"
-        : cfmt(left) + " left · " + (daysLeft>0 ? "that's <b>" + cfmt(left/Math.max(daysLeft,1)) + "/day</b> for " + daysLeft + " more days" : "last day of the month")}</div>`;
+        : isCurrentMonth
+          ? (cfmt(left) + " left" + (daysLeft>0 ? " · that's <b>" + cfmt(left/Math.max(daysLeft,1)) + "/day</b> for " + daysLeft + " more days" : " · last day of the month"))
+          : (cfmt(left) + " unspent this month")}</div>`;
   } else {
-    bc.innerHTML = `<div class="note">No budget set. Set one to get a live daily allowance.</div>`;
+    bc.innerHTML = `<div class="note">No budget set for ${etMonthLabel(etSelMonth)}. Tap "Set budget" to add one.</div>`;
   }
 
-  const monthItems = etItems.filter(e => (e.date||"").slice(0,7) === etMonth());
   const byCat = {};
   monthItems.forEach(e => byCat[e.category] = (byCat[e.category]||0) + e.amount);
   const sorted = Object.entries(byCat).sort((a,b) => b[1]-a[1]);
@@ -1596,8 +1789,8 @@ function etRender(){
 
   document.getElementById("et-breakdown").innerHTML = sorted.length ? `
     <div class="card">
-      <div style="font-size:14px;font-weight:700;margin-bottom:10px">This month by category</div>
-      ${sorted.map(([k,v]) => { const c = ET_CATS[k] || ET_CATS.other; const cic = c.ic || 'other'; return `
+      <div style="font-size:14px;font-weight:700;margin-bottom:10px">${etMonthLabel(etSelMonth)} by category</div>
+      ${sorted.map(([k,v]) => { const c = ET_CATS[k] || ET_CATS.other; return `
         <div style="display:flex;align-items:center;gap:12px;padding:9px 0">
           <div style="width:34px;height:34px;border-radius:9px;background:${c.c}18;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="17" height="17" style="color:${c.c}"><use href="#ic-${c.ic}"/></svg></div>
           <div style="flex:1">
@@ -1607,15 +1800,18 @@ function etRender(){
           </div>
           <div style="font-size:13px;font-weight:700;min-width:70px;text-align:right">${cfmt(v)}</div>
         </div>`; }).join("")}
-    </div>` : `<div class="card" style="text-align:center;color:var(--ink3);font-size:14px;padding:40px 20px">No expenses logged this month yet.<br>Add your first one above.</div>`;
+    </div>` : `<div class="card" style="text-align:center;color:var(--ink3);font-size:14px;padding:40px 20px">No expenses logged for ${etMonthLabel(etSelMonth)}.<br>${isCurrentMonth ? 'Add your first one above.' : ''}</div>`;
 
-  document.getElementById("et-history").innerHTML = etItems.length ? `
+  // History tab: show all expenses for selected month, all tab shows everything
+  const histItems = monthItems;
+  const allCount = etItems.length;
+  document.getElementById("et-history").innerHTML = histItems.length ? `
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div style="font-size:14px;font-weight:700">All expenses (${etItems.length})</div>
-        <button class="btn btn-ghost btn-sm" onclick="etExport()">Export CSV</button>
+        <div style="font-size:14px;font-weight:700">${etMonthLabel(etSelMonth)} (${histItems.length}${allCount > histItems.length ? ' · <span style="color:var(--ink3)">'+allCount+' total</span>' : ''})</div>
+        <button class="btn btn-ghost btn-sm" onclick="etExport()">Export all</button>
       </div>
-      ${etItems.slice(0,200).map(e => { const c = ET_CATS[e.category] || ET_CATS.other; return `
+      ${histItems.slice(0,200).map(e => { const c = ET_CATS[e.category] || ET_CATS.other; return `
         <div class="row-line">
           <div style="width:40px;height:40px;border-radius:11px;background:${c.c}18;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" style="color:${c.c}"><use href="#ic-${c.ic}"/></svg></div>
           <div style="flex:1;min-width:0">
@@ -1623,9 +1819,9 @@ function etRender(){
             <div style="font-size:11px;color:var(--ink3)">${esc(e.date)} · ${c.l}</div>
           </div>
           <div style="font-size:15px;font-weight:700">${cfmt(e.amount)}</div>
-          <button onclick="etDel(${e.id})" aria-label="Delete" style="background:none;border:none;color:var(--ink3);cursor:pointer;font-size:17px;padding:4px 7px;border-radius:8px">✕</button>
+          ${isCurrentMonth ? `<button onclick="etDel(${e.id})" aria-label="Delete" style="background:none;border:none;color:var(--ink3);cursor:pointer;font-size:17px;padding:4px 7px;border-radius:8px">✕</button>` : ''}
         </div>`; }).join("")}
-    </div>` : `<div class="card" style="text-align:center;color:var(--ink3);font-size:14px;padding:40px 20px">Nothing here yet.</div>`;
+    </div>` : `<div class="card" style="text-align:center;color:var(--ink3);font-size:14px;padding:40px 20px">No expenses for ${etMonthLabel(etSelMonth)}.</div>`;
 }
 
 function etExport(){
@@ -1722,10 +1918,13 @@ function imSaveNum(){
     if (q.min != null) v = Math.max(q.min, v);
     if (q.max != null) v = Math.min(q.max, v);
     imAns[q.k] = v;
+    try { store.set("fx_investmatch", JSON.stringify({ a: imAns })); } catch(e){}
   }
 }
 function imPick(k, v){
-  imAns[k] = v; imRender();
+  imAns[k] = v;
+  try { store.set("fx_investmatch", JSON.stringify({ a: imAns })); } catch(e){}
+  imRender();
   setTimeout(() => { if (imStep < IM_Q.length-1) imNext(); }, 250);
 }
 function imNext(){ imSaveNum(); if (imStep < IM_Q.length-1){ imStep++; imSteps(); imRender(); window.scrollTo({top:0}); } }
@@ -2272,13 +2471,20 @@ document.addEventListener("DOMContentLoaded", function(){
     requestAnimationFrame(update);
   }
   route();
+  // Budget Builder: load saved data for current month, render month nav
+  bbRenderMonthNav();
+  bbLoadMonth(bbActiveMonth);
   bbRenderItems("bb-needs-items", BB_NEEDS);
   bbRenderItems("bb-wants-items", BB_WANTS);
   bbRenderItems("bb-save-items", BB_SAVE);
   document.getElementById("bb-income").addEventListener("input", bbUpdate);
   bbUpdate();
+  // Expense Tracker: render month nav then data
   document.getElementById("et-date").value = etToday();
+  etRenderMonthNav();
   etRenderCats(); etRender();
+  // Restore previously saved InvestMatch answers (if any) before first render.
+  try { var _imSaved = JSON.parse(store.get("fx_investmatch", "") || "null"); if (_imSaved && _imSaved.a) Object.assign(imAns, _imSaved.a); } catch(e){}
   imSteps(); imRender();
   psQuick();
   pcInitCities();
@@ -3001,6 +3207,60 @@ function lmSubmitAnim(){
   setTimeout(() => { btnDone(btn); lmStart(); }, 700);
 }
 
+</script>
+
+<!-- FinatriX: defensive per-tool input persistence (added).
+     Saves each tool's inputs to localStorage so signed-in users' data syncs to
+     their account and guests keep it on-device. Fully wrapped in try/catch so it
+     can never break the tools. Keys here are mirrored in src/tools/cloudSync.ts. -->
+<script>
+(function () {
+  // Run AFTER the tools' own DOMContentLoaded init (which seeds default values),
+  // so restored values win. Our listener is registered last, so it fires last.
+  function init() {
+    try {
+      var store = {
+        get: function (k, d) { try { var v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } },
+        set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+      };
+      var MAP = {
+        'page-parksmart': 'fx_parksmart',
+        'page-peercompare': 'fx_peercompare',
+        'page-goals': 'fx_goals',
+        'page-lifemap': 'fx_lifemap'
+      };
+      function fields(page) { return page.querySelectorAll('input[id], select[id], textarea[id]'); }
+      function snapshot(page) {
+        var o = {};
+        fields(page).forEach(function (el) {
+          o[el.id] = (el.type === 'checkbox' || el.type === 'radio') ? el.checked : el.value;
+        });
+        return o;
+      }
+      function restore(page, data) {
+        fields(page).forEach(function (el) {
+          if (!(el.id in data)) return;
+          var v = data[el.id];
+          if (el.type === 'checkbox' || el.type === 'radio') el.checked = !!v;
+          else el.value = v;
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+      }
+      Object.keys(MAP).forEach(function (pid) {
+        var page = document.getElementById(pid);
+        if (!page) return;
+        var key = MAP[pid];
+        try { var saved = JSON.parse(store.get(key, '') || 'null'); if (saved) restore(page, saved); } catch (e) {}
+        var save = function () { try { store.set(key, JSON.stringify(snapshot(page))); } catch (e) {} };
+        page.addEventListener('input', save);
+        page.addEventListener('change', save);
+      });
+    } catch (e) { /* never break the tools */ }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
 </script>
 
 </body>

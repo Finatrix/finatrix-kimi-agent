@@ -9,7 +9,7 @@ const footerLinks: Record<string, FLink[]> = {
     { label: 'LifeMap', to: '/tools#/lifemap' },
     { label: 'All tools', to: '/tools' },
   ],
-  Company: [{ label: 'About', to: '/home#about' }],
+  Company: [{ label: 'About', to: '/#about' }],
   Legal: [
     { label: 'Privacy Policy', to: '/privacy' },
     { label: 'Terms & Conditions', to: '/terms' },
@@ -24,9 +24,9 @@ export default function Footer() {
   useEffect(() => {
     const tick = () => {
       const now = new Date();
-      const h = String(now.getHours()).padStart(2, '0');
-      const m = String(now.getMinutes()).padStart(2, '0');
-      const s = String(now.getSeconds()).padStart(2, '0');
+      const h = String(now.getUTCHours()).padStart(2, '0');
+      const m = String(now.getUTCMinutes()).padStart(2, '0');
+      const s = String(now.getUTCSeconds()).padStart(2, '0');
       setTime(`${h}:${m}:${s}`);
     };
     tick();

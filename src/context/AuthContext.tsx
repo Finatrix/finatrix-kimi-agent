@@ -122,7 +122,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    if (isSupabaseConfigured) await supabase.auth.signOut();
+    try {
+      if (isSupabaseConfigured) await supabase.auth.signOut();
+    } catch {
+      /* Clear local state regardless of network/server outcome. */
+    }
     setUser(null);
     setSession(null);
   };

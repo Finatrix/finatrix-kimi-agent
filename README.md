@@ -1,73 +1,71 @@
-# React + TypeScript + Vite
+# FinatriX
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Education-first personal-finance tools for India — Budget Builder, Expense Tracker,
+InvestMatch, ParkSmart, PeerCompare, Reverse Goal Planner and LifeMap. Free, no ads,
+no trackers. **Educational tools, not financial advice.**
 
-Currently, two official plugins are available:
+A React + TypeScript + Vite single-page app with a marketing landing page and an
+authenticated tools workspace. Accounts, email verification and cross-device sync are
+powered by Supabase; hosting is on Netlify.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Tech stack
 
-## React Compiler
+- **Frontend:** React 19, TypeScript, Vite 7, Tailwind CSS 3, React Router 7
+- **Animation:** GSAP + Lenis (landing page), Canvas/WebGL backgrounds
+- **Backend:** Supabase (auth + a single per-user `tool_data` row, protected by RLS)
+- **Charts:** Chart.js (self-hosted in `public/vendor/`)
+- **Hosting:** Netlify (SPA redirects + security headers in `netlify.toml`)
+- **Tests:** Vitest + Testing Library
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Getting started
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+cp .env.example .env   # then fill in your Supabase URL + anon key
+npm run dev            # http://localhost:3000
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+See **SETUP.md** for the full backend (Supabase) and hosting (Netlify) walkthrough, and
+`supabase/schema.sql` for the database table + row-level-security policies.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Scripts
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+| Script | What it does |
+| --- | --- |
+| `npm run dev` | Start the Vite dev server |
+| `npm run build` | Type-check (`tsc -b`) **and** build for production |
+| `npm run lint` | Run ESLint |
+| `npm test` | Run the Vitest suite once |
+| `npm run preview` | Preview the production build locally |
+
+## Routes
+
+| Path | Page |
+| --- | --- |
+| `/` | Marketing landing page |
+| `/tools` | The tools workspace (supports deep-links, e.g. `/tools#/budget`) |
+| `/login`, `/signup`, `/profile` | Authentication & account |
+| `/privacy`, `/terms` | Legal |
+| `*` | 404 |
+
+## Project structure
+
 ```
+src/
+  pages/        Route components (lazy-loaded)
+  sections/     Landing-page sections (Hero, Tools, Footer, …)
+  components/   Shared UI (AuthShell, LegalPage, ErrorBoundary)
+  context/      AuthContext (Supabase auth)
+  hooks/        useComputationalLattice (Hero canvas)
+  tools/        cloudSync — mirrors tool localStorage keys to Supabase
+  test/         Vitest setup + tests
+public/
+  tools-app.html  The self-contained tools app (rendered in a same-origin iframe)
+  vendor/         Self-hosted Chart.js
+```
+
+## Deployment
+
+Pushing to `main` triggers a Netlify build (`npm run build:netlify`, which **does**
+type-check). `netlify.toml` defines SPA redirects, a Content-Security-Policy, other
+security headers, and long-lived caching for fingerprinted assets.

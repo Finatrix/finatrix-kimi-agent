@@ -9,7 +9,18 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
  * them to the signed-in user's row in Supabase — without changing the tools.
  */
 
-export const SYNC_KEYS = ['fx_expenses', 'fx_budget', 'fx_currency'];
+export const SYNC_KEYS = [
+  'fx_expenses',
+  'fx_budget',
+  'fx_currency',
+  'fx_budgets',
+  'fx_bb_data',
+  'fx_lifemap',
+  'fx_investmatch',
+  'fx_parksmart',
+  'fx_peercompare',
+  'fx_goals',
+];
 const LAST_UID_KEY = 'fx_last_uid';
 
 export type SyncStatus = 'idle' | 'saving' | 'saved' | 'offline' | 'error';

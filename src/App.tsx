@@ -1,23 +1,39 @@
-import { Routes, Route } from 'react-router'
-import Home from './pages/Home'
-import ToolsPage from './pages/ToolsPage'
-import Login from './pages/Login'
-import Signup from './pages/Signup'
-import Profile from './pages/Profile'
-import Privacy from './pages/Privacy'
-import Terms from './pages/Terms'
+import { lazy, Suspense } from 'react'
+import { Routes, Route, Navigate } from 'react-router'
+import ErrorBoundary from './components/ErrorBoundary'
+
+// Route-level code-splitting: each page (and its heavy deps like GSAP/Lenis or
+// the Supabase-backed tools) loads only when its route is visited.
+const Home = lazy(() => import('./pages/Home'))
+const ToolsPage = lazy(() => import('./pages/ToolsPage'))
+const Login = lazy(() => import('./pages/Login'))
+const Signup = lazy(() => import('./pages/Signup'))
+const Profile = lazy(() => import('./pages/Profile'))
+const Privacy = lazy(() => import('./pages/Privacy'))
+const Terms = lazy(() => import('./pages/Terms'))
+const NotFound = lazy(() => import('./pages/NotFound'))
+
+function RouteFallback() {
+  return <div className="min-h-screen bg-[#0A0A0A]" aria-hidden="true" />
+}
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<ToolsPage />} />
-      <Route path="/home" element={<Home />} />
-      <Route path="/tools" element={<ToolsPage />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/signup" element={<Signup />} />
-      <Route path="/profile" element={<Profile />} />
-      <Route path="/privacy" element={<Privacy />} />
-      <Route path="/terms" element={<Terms />} />
-    </Routes>
+    <ErrorBoundary>
+      <Suspense fallback={<RouteFallback />}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          {/* Legacy route — the landing page now lives at "/". */}
+          <Route path="/home" element={<Navigate to="/" replace />} />
+          <Route path="/tools" element={<ToolsPage />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </Suspense>
+    </ErrorBoundary>
   )
 }

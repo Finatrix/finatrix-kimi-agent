@@ -34,10 +34,10 @@ export default function Privacy() {
           plus an optional display name you choose.
         </li>
         <li>
-          <strong>Tool data you enter</strong> — figures you type into Budget Builder,
-          Expense Tracker and LifeMap (for example income, expenses, savings, debt and
-          your currency preference). The other calculators run in your browser and their
-          inputs are not stored on our servers.
+          <strong>Tool data you enter</strong> — figures you type into the tools (for
+          example income, expenses, savings, debt, goals and your currency preference)
+          across Budget Builder, Expense Tracker, InvestMatch, ParkSmart, PeerCompare,
+          Reverse Goal Planner and LifeMap.
         </li>
         <li>
           <strong>Technical data</strong> — standard server logs kept by our hosting and
@@ -57,7 +57,7 @@ export default function Privacy() {
           browser&rsquo;s local storage on that device and is never sent to us.
         </li>
         <li>
-          <strong>When signed in:</strong> your Budget, Expense and LifeMap data and
+          <strong>When signed in:</strong> the data you enter into the tools and your
           currency preference are saved to your account in our cloud database so they sync
           across the devices where you sign in.
         </li>
