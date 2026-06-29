@@ -1,0 +1,4 @@
+# Cloudflare Pages / Netlify SPA fallback.
+# Static files (assets, /vendor, /tools-app.html, favicon, etc.) are served
+# directly; everything else falls through to the React app.
+/*    /index.html   200
