@@ -11,19 +11,22 @@ export default function LegalPage({
   children: ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-[#E8E8E3]">
-      <header className="sticky top-0 z-50 flex items-center justify-between h-12 px-4 sm:px-6 bg-[#0A0A0A] border-b border-[#1A1A1A]">
-        <Link
-          to="/"
-          className="font-mono text-[11px] uppercase tracking-[0.12em] text-[#8A8A8A] hover:text-[#F5F5F0] transition-colors"
-        >
-          ← FinatriX
+    <div className="min-h-screen bg-[#060607] text-[#E8E8E3]">
+      <header className="sticky top-0 z-50 flex items-center justify-between h-14 px-4 sm:px-6 bg-[#060607]/80 backdrop-blur-[14px] border-b border-white/[0.06]">
+        <Link to="/" aria-label="FinatriX home" className="flex items-center gap-2 group">
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="7" y="7" width="10" height="10" rx="2.5" fill="#D4AF37" />
+            <circle cx="12" cy="12" r="2.1" fill="#060607" />
+          </svg>
+          <span className="font-semibold text-[14px] tracking-[-0.01em] text-[#F5F5F0] group-hover:text-[#D4AF37] transition-colors">
+            Finatri<span className="fx-gold-text">X</span>
+          </span>
         </Link>
-        <div className="flex gap-4 font-mono text-[11px] uppercase tracking-[0.08em]">
-          <Link to="/privacy" className="text-[#8A8A8A] hover:text-[#D4AF37]">
+        <div className="flex gap-5 font-mono text-[11px] uppercase tracking-[0.08em]">
+          <Link to="/privacy" className="text-[#8A8A8A] hover:text-[#D4AF37] transition-colors">
             Privacy
           </Link>
-          <Link to="/terms" className="text-[#8A8A8A] hover:text-[#D4AF37]">
+          <Link to="/terms" className="text-[#8A8A8A] hover:text-[#D4AF37] transition-colors">
             Terms
           </Link>
         </div>

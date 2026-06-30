@@ -102,7 +102,7 @@ export default function Profile() {
         onClick={() => {
           void signOut().then(() => navigate('/'));
         }}
-        className="mt-4 w-full border border-[#1A1A1A] text-[#8A8A8A] hover:text-white hover:border-[#8A8A8A] font-mono text-[12px] uppercase tracking-[0.08em] py-3.5 transition-colors"
+        className="mt-4 w-full rounded-full border border-white/[0.12] text-[#8A8A8A] hover:text-white hover:border-white/[0.3] font-mono text-[12px] uppercase tracking-[0.08em] py-3.5 transition-colors"
       >
         Sign out
       </button>

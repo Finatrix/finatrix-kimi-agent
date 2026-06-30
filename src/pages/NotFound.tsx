@@ -2,8 +2,9 @@ import { Link } from 'react-router';
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-[#F5F5F0] flex flex-col items-center justify-center px-6 text-center">
-      <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#D4AF37] mb-4">
+    <div className="relative min-h-[100dvh] overflow-hidden bg-[#060607] text-[#F5F5F0] flex flex-col items-center justify-center px-6 text-center">
+      <div className="pointer-events-none absolute left-1/2 top-1/2 h-[55vh] w-[55vh] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[120px] opacity-[0.16]" style={{ background: 'radial-gradient(circle, #E6C766 0%, #9c7a26 40%, transparent 70%)' }} />
+      <span className="relative font-mono text-[11px] uppercase tracking-[0.18em] text-[#D4AF37] mb-4">
         Error 404
       </span>
       <h1 className="text-[52px] sm:text-[84px] font-medium tracking-[-0.03em] leading-none">
