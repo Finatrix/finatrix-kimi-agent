@@ -41,7 +41,7 @@ export default function LegalPage({
           {children}
         </div>
 
-        <div className="mt-14 pt-8 border-t border-[#1A1A1A] text-[13px] text-[#8A8A8A]">
+        <div className="mt-14 pt-8 border-t border-white/[0.08] text-[13px] text-[#8A8A8A]">
           Questions about this policy? Email{' '}
           <a
             href="mailto:finatrix.hub@gmail.com"

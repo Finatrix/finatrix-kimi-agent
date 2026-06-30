@@ -22,7 +22,7 @@ export default function NotFound() {
         </Link>
         <Link
           to="/tools"
-          className="font-mono text-[12px] uppercase tracking-[0.08em] text-[#8A8A8A] border border-[#1A1A1A] hover:border-[#D4AF37] hover:text-[#F5F5F0] px-5 py-3 transition-colors"
+          className="font-mono text-[12px] uppercase tracking-[0.08em] text-[#8A8A8A] rounded-full border border-white/[0.12] hover:border-[#D4AF37] hover:text-[#F5F5F0] px-5 py-3 transition-colors"
         >
           Open the tools
         </Link>
