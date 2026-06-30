@@ -21,7 +21,7 @@ export default function LandingNav() {
   const { user } = useAuth();
 
   return (
-    <header className="fixed top-0 left-0 w-full z-50 bg-[#0A0A0A]/70 backdrop-blur-[14px] border-b border-white/[0.06]">
+    <header className="fixed top-0 left-0 w-full z-50 bg-[#060607]/70 backdrop-blur-[16px] border-b border-white/[0.06]">
       <div className="mx-auto max-w-[1280px] px-4 sm:px-6">
         {/* Top row */}
         <div className="flex items-center justify-between h-14">
@@ -62,7 +62,7 @@ export default function LandingNav() {
             )}
             <Link
               to="/tools"
-              className="font-mono text-[11px] uppercase tracking-[0.08em] text-[#0A0A0A] bg-[#D4AF37] hover:bg-[#F1C40F] px-3.5 py-1.5 rounded-full transition-colors whitespace-nowrap"
+              className="fx-btn-gold font-mono text-[11px] uppercase tracking-[0.08em] px-4 py-2 rounded-full whitespace-nowrap"
             >
               Open tools
             </Link>

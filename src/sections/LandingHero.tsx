@@ -5,8 +5,6 @@ import { ToolIcon } from '../components/ToolIcon';
 
 const byId = (id: string) => TOOLS.find((t) => t.id === id)!;
 
-// 3×3 layout mirroring the FinatriX logo: 8 tiles around a central hub.
-// Order is row-major; index 4 is the hub (rendered separately).
 const OUTER: Array<{ tool: Tool; cell: number }> = [
   { tool: byId('budget'), cell: 0 },
   { tool: byId('expenses'), cell: 1 },
@@ -17,7 +15,6 @@ const OUTER: Array<{ tool: Tool; cell: number }> = [
   { tool: byId('lifemap'), cell: 7 },
 ];
 
-// SVG connector endpoints (viewBox 0 0 300 300), hub at 150,150.
 const CELL_XY: Record<number, [number, number]> = {
   0: [50, 50], 1: [150, 50], 2: [250, 50],
   3: [50, 150], 5: [250, 150],
@@ -26,77 +23,99 @@ const CELL_XY: Record<number, [number, number]> = {
 
 const ALL_TOOL: Tool = {
   id: 'all', name: 'All tools', short: 'All', blurb: 'Open the full suite.',
-  href: '/tools', color: '#8A8A8A', icon: 'grid',
+  href: '/tools', color: '#9AA0A6', icon: 'grid',
 };
+
+const TRUST = [
+  ['7', 'Free tools'],
+  ['₹0', 'Forever'],
+  ['100%', 'Private'],
+  ['14', 'Indian cities'],
+];
 
 export default function LandingHero() {
   const [active, setActive] = useState<Tool | null>(null);
 
   return (
-    <section className="relative min-h-[100dvh] w-full overflow-hidden bg-[#070707] flex flex-col items-center justify-center px-5 pt-28 pb-16">
-      {/* Ambient background */}
+    <section className="relative min-h-[100dvh] w-full overflow-hidden bg-[#060607] flex flex-col items-center justify-center px-5 pt-28 pb-20">
+      {/* ── Layered ambient lighting ── */}
       <div className="pointer-events-none absolute inset-0 z-0">
         <div
-          className="fx-aurora absolute left-1/2 top-1/2 h-[80vh] w-[80vh] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[100px] opacity-[0.22]"
-          style={{ background: 'radial-gradient(circle at 50% 50%, #D4AF37 0%, #b08a36 35%, transparent 70%)' }}
+          className="fx-aurora absolute left-1/2 top-[34%] h-[78vh] w-[78vh] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[120px] opacity-[0.20]"
+          style={{ background: 'radial-gradient(circle at 50% 50%, #E6C766 0%, #9c7a26 38%, transparent 70%)' }}
         />
         <div
-          className="absolute inset-0 opacity-[0.5]"
+          className="absolute inset-0"
           style={{
             background:
-              'radial-gradient(1200px 600px at 50% 38%, rgba(212,175,55,0.06), transparent 70%), radial-gradient(800px 800px at 50% 120%, rgba(10,132,255,0.05), transparent 60%)',
+              'radial-gradient(1100px 560px at 50% 30%, rgba(212,175,55,0.07), transparent 70%), radial-gradient(900px 700px at 50% 118%, rgba(80,120,255,0.05), transparent 62%)',
           }}
         />
         <div
-          className="absolute inset-0 opacity-[0.04]"
+          className="absolute inset-0 opacity-[0.05]"
           style={{
             backgroundImage:
-              'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)',
-            backgroundSize: '48px 48px',
-            maskImage: 'radial-gradient(circle at 50% 45%, black 0%, transparent 75%)',
-            WebkitMaskImage: 'radial-gradient(circle at 50% 45%, black 0%, transparent 75%)',
+              'linear-gradient(rgba(255,255,255,.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.6) 1px, transparent 1px)',
+            backgroundSize: '52px 52px',
+            maskImage: 'radial-gradient(circle at 50% 42%, black 0%, transparent 72%)',
+            WebkitMaskImage: 'radial-gradient(circle at 50% 42%, black 0%, transparent 72%)',
           }}
         />
+        {/* vignette */}
+        <div className="absolute inset-0" style={{ background: 'radial-gradient(120% 90% at 50% 30%, transparent 55%, rgba(0,0,0,0.55) 100%)' }} />
       </div>
 
-      {/* Constellation */}
-      <div className="relative z-10 w-[clamp(280px,66vh,520px)] aspect-square">
-        {/* connectors */}
+      {/* ── Eyebrow ── */}
+      <div className="fx-in relative z-10 mb-9 inline-flex items-center gap-2 rounded-full border border-white/[0.09] bg-white/[0.03] px-3.5 py-1.5 backdrop-blur-sm" style={{ animationDelay: '0s' }}>
+        <span className="relative flex h-1.5 w-1.5">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#D4AF37] opacity-60" />
+          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#D4AF37]" />
+        </span>
+        <span className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-[#C9C9C2]">
+          Money, quantified · built for India
+        </span>
+      </div>
+
+      {/* ── Constellation ── */}
+      <div className="relative z-10 w-[clamp(280px,62vh,500px)] aspect-square">
         <svg viewBox="0 0 300 300" className="absolute inset-0 h-full w-full" aria-hidden="true">
+          <defs>
+            <linearGradient id="fxConnGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#D4AF37" stopOpacity="0.55" />
+              <stop offset="100%" stopColor="#D4AF37" stopOpacity="0.12" />
+            </linearGradient>
+          </defs>
           {[...OUTER.map((o) => o.cell), 8].map((cell, i) => {
             const [x, y] = CELL_XY[cell];
             return (
               <line
                 key={cell}
-                className="fx-line-in"
+                className="fx-line-in fx-conn"
                 style={{ animationDelay: `${0.2 + i * 0.03}s` }}
                 x1="150" y1="150" x2={x} y2={y}
-                stroke="#D4AF37" strokeOpacity="0.32" strokeWidth="1.4"
+                stroke="url(#fxConnGrad)" strokeWidth="1.4"
               />
             );
           })}
         </svg>
 
-        {/* tiles + hub on a 3×3 grid */}
         <div className="absolute inset-0 grid grid-cols-3 grid-rows-3">
           {Array.from({ length: 9 }).map((_, cell) => {
             if (cell === 4) {
               return (
                 <div key="hub" className="flex items-center justify-center">
                   <div className="relative">
-                    <span className="fx-hub-ring absolute inset-0 rounded-[22%] bg-[#D4AF37]/30" aria-hidden="true" />
+                    <span className="fx-hub-ring absolute inset-0 rounded-[26%] bg-[#D4AF37]/30" aria-hidden="true" />
                     <Link
                       to="/tools"
                       aria-label="Open all tools"
                       onMouseEnter={() => setActive(null)}
                       style={{ animationDelay: '0.05s' }}
-                      className="fx-in relative grid place-items-center w-[clamp(58px,19vmin,96px)] aspect-square rounded-[22%] shadow-[0_10px_40px_-8px_rgba(212,175,55,0.55)] transition-transform duration-300 hover:scale-[1.06]"
+                      className="fx-in fx-card-hover relative grid place-items-center w-[clamp(60px,19vmin,98px)] aspect-square rounded-[26%]"
                     >
-                      <span
-                        className="absolute inset-0 rounded-[22%]"
-                        style={{ background: 'linear-gradient(145deg, #E9C75A, #B0852E)' }}
-                      />
-                      <span className="relative h-[26%] w-[26%] rounded-full bg-[#0A0A0A]" />
+                      <span className="absolute inset-0 rounded-[26%]" style={{ background: 'linear-gradient(150deg, #F0D779, #C49B2E)', boxShadow: '0 14px 44px -10px rgba(212,175,55,0.65), inset 0 1px 0 rgba(255,255,255,0.55)' }} />
+                      <span className="absolute inset-x-0 top-0 h-1/2 rounded-t-[26%] bg-gradient-to-b from-white/35 to-transparent" />
+                      <span className="relative h-[24%] w-[24%] rounded-full bg-[#0A0A0A] ring-2 ring-black/20" />
                     </Link>
                   </div>
                 </div>
@@ -114,13 +133,15 @@ export default function LandingHero() {
                     onFocus={() => setActive(tool.id === 'all' ? null : tool)}
                     onMouseLeave={() => setActive(null)}
                     style={{
-                      background: `linear-gradient(150deg, ${tool.color}, ${tool.color}cc)`,
-                      boxShadow: `0 8px 30px -10px ${tool.color}99`,
+                      background: `linear-gradient(155deg, ${tool.color}, ${tool.color}aa 55%, ${tool.color}66)`,
+                      border: `1px solid ${tool.color}55`,
+                      boxShadow: `0 12px 34px -12px ${tool.color}88, inset 0 1px 0 rgba(255,255,255,0.22)`,
                       animationDelay: `${0.28 + cell * 0.05}s`,
                     }}
-                    className="fx-in group relative grid place-items-center w-[clamp(54px,17vmin,88px)] aspect-square rounded-[22%] text-white transition-transform duration-300 hover:scale-[1.1] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                    className="fx-in fx-card-hover group relative grid place-items-center w-[clamp(56px,17vmin,92px)] aspect-square rounded-[24%] text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                   >
-                    <ToolIcon name={tool.icon} className="w-[42%] h-[42%]" />
+                    <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-[24%] bg-gradient-to-b from-white/25 to-transparent" />
+                    <ToolIcon name={tool.icon} className="relative w-[40%] h-[40%] drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]" />
                   </Link>
                 </div>
               </div>
@@ -129,46 +150,55 @@ export default function LandingHero() {
         </div>
       </div>
 
-      {/* Wordmark + dynamic label */}
-      <div className="relative z-10 mt-9 sm:mt-11 text-center">
+      {/* ── Wordmark + label + CTAs ── */}
+      <div className="relative z-10 mt-9 sm:mt-11 text-center max-w-[680px]">
         <h1
-          className="fx-in font-extrabold italic tracking-[-0.03em] leading-none text-white"
-          style={{ fontSize: 'clamp(44px,9vw,104px)', animationDelay: '0.78s' }}
+          className="fx-in font-extrabold italic tracking-[-0.035em] leading-[0.92] text-white"
+          style={{ fontSize: 'clamp(46px,9.5vw,108px)', animationDelay: '0.78s' }}
         >
-          Finatri<span className="text-[#D4AF37]">X</span>
+          Finatri<span className="fx-gold-text">X</span>
         </h1>
 
-        <div className="fx-in mt-4 h-[22px] flex items-center justify-center" style={{ animationDelay: '0.88s' }}>
-          <p className="text-[13px] sm:text-[15px] text-[#9a9a94]">
+        <div className="fx-in mt-4 h-[24px] flex items-center justify-center" style={{ animationDelay: '0.86s' }}>
+          <p className="text-[13.5px] sm:text-[15px] text-[#9c9c96]">
             {active ? (
               <span>
-                <span className="text-[#F5F5F0] font-medium">{active.name}</span>
+                <span className="text-[#F4F4EF] font-medium">{active.name}</span>
                 <span className="mx-2 text-[#3a3a3a]">·</span>
                 {active.blurb}
               </span>
             ) : (
-              'Blending Finance, Innovation & Insights'
+              'A complete money toolkit — refined into one premium experience.'
             )}
           </p>
         </div>
 
-        <div className="fx-in mt-7 flex items-center justify-center gap-3" style={{ animationDelay: '0.96s' }}>
-          <Link
-            to="/tools"
-            className="group inline-flex items-center gap-2 bg-[#D4AF37] hover:bg-[#F1C40F] text-[#0A0A0A] font-mono text-[12px] uppercase tracking-[0.1em] px-6 py-3 rounded-full transition-colors"
-          >
+        <div className="fx-in mt-8 flex flex-wrap items-center justify-center gap-3" style={{ animationDelay: '0.94s' }}>
+          <Link to="/tools" className="fx-btn-gold group inline-flex items-center gap-2 font-mono text-[12px] uppercase tracking-[0.1em] px-7 py-3.5 rounded-full">
             Launch the tools
             <span className="transition-transform group-hover:translate-x-0.5">→</span>
           </Link>
+          <a href="#showcase" className="fx-btn-ghost inline-flex items-center gap-2 font-mono text-[12px] uppercase tracking-[0.1em] px-6 py-3.5 rounded-full">
+            Explore
+          </a>
         </div>
 
-        <p
-          className="fx-in mt-6 font-mono text-[10px] uppercase tracking-[0.14em] text-[#5A5A5A]"
-          style={{ animationDelay: '1.04s' }}
-        >
-          Free · Educational tools, not financial advice
-        </p>
+        {/* trust strip */}
+        <div className="fx-in mt-12 flex items-center justify-center gap-6 sm:gap-9" style={{ animationDelay: '1.04s' }}>
+          {TRUST.map(([n, l], i) => (
+            <div key={i} className="flex flex-col items-center">
+              <span className="text-[19px] sm:text-[22px] font-semibold tracking-[-0.02em] text-[#F4F4EF]">{n}</span>
+              <span className="mt-0.5 font-mono text-[9px] sm:text-[10px] uppercase tracking-[0.12em] text-[#6b6b70]">{l}</span>
+            </div>
+          ))}
+        </div>
       </div>
+
+      {/* scroll cue */}
+      <a href="#showcase" aria-label="Scroll to features" className="fx-scroll-cue absolute bottom-7 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2 text-[#6b6b70] hover:text-[#D4AF37] transition-colors">
+        <span className="font-mono text-[9px] uppercase tracking-[0.14em]">Scroll</span>
+        <span className="h-7 w-[1px] bg-gradient-to-b from-[#D4AF37] to-transparent" />
+      </a>
     </section>
   );
 }

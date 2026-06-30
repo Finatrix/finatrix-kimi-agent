@@ -142,3 +142,76 @@
     animation: none !important;
   }
 }
+
+/* ═══════════════ V3 — premium design language ═══════════════ */
+:root {
+  --fx-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* Gradient gold text (headlines, the X) */
+.fx-gold-text {
+  background: linear-gradient(180deg, #F8ECC0 0%, #E6C766 38%, #C9A23C 72%, #9C7A26 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+/* Premium glass surface */
+.fx-glass {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 24px 60px -30px rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.fx-card-hover {
+  transition: transform 0.45s var(--fx-ease), border-color 0.45s var(--fx-ease),
+    box-shadow 0.45s var(--fx-ease), background 0.45s var(--fx-ease);
+}
+.fx-card-hover:hover {
+  transform: translateY(-5px);
+  border-color: rgba(212, 175, 55, 0.35);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 30px 70px -28px rgba(0, 0, 0, 0.95),
+    0 0 50px -20px rgba(212, 175, 55, 0.3);
+}
+/* Gold gradient button with inner sheen */
+.fx-btn-gold {
+  background: linear-gradient(180deg, #EAD27E 0%, #D4AF37 100%);
+  color: #0A0A0A;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.45) inset,
+    0 12px 30px -12px rgba(212, 175, 55, 0.55);
+  transition: transform 0.25s var(--fx-ease), box-shadow 0.25s var(--fx-ease), filter 0.25s var(--fx-ease);
+}
+.fx-btn-gold:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6) inset,
+    0 16px 40px -12px rgba(212, 175, 55, 0.7);
+}
+.fx-btn-ghost {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #E8E8E3;
+  transition: border-color 0.3s var(--fx-ease), background 0.3s var(--fx-ease), color 0.3s var(--fx-ease);
+}
+.fx-btn-ghost:hover {
+  border-color: rgba(212, 175, 55, 0.5);
+  background: rgba(212, 175, 55, 0.06);
+  color: #fff;
+}
+/* Connector pulse + slow float */
+@keyframes fxConnPulse { 0%, 100% { opacity: 0.22; } 50% { opacity: 0.5; } }
+.fx-conn { animation: fxConnPulse 4.5s ease-in-out infinite; }
+@keyframes fxSheen { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+/* Section reveal on scroll-in (used with IntersectionObserver toggling .is-in) */
+.fx-reveal { opacity: 0; transform: translateY(26px); transition: opacity 0.7s var(--fx-ease), transform 0.7s var(--fx-ease); }
+.fx-reveal.is-in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .fx-conn { animation: none !important; }
+  .fx-reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
+}

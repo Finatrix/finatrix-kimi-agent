@@ -13,32 +13,33 @@ export default function AuthShell({
   footer?: ReactNode;
 }) {
   return (
-    <div className="min-h-screen w-full bg-[#0A0A0A] text-[#F5F5F0] flex flex-col items-center justify-center px-6 py-16">
-      <Link
-        to="/"
-        className="flex items-center gap-3 mb-10 group"
-        aria-label="FinatriX home"
-      >
-        <span className="font-mono text-[12px] uppercase tracking-[0.18em] text-[#F5F5F0] group-hover:text-[#D4AF37] transition-colors">
-          FinatriX
-        </span>
-        <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D4AF37] opacity-75" />
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-[#D4AF37]" />
+    <div className="relative min-h-[100dvh] w-full overflow-hidden bg-[#060607] text-[#F5F5F0] flex flex-col items-center justify-center px-6 py-16">
+      {/* Ambient backdrop (cohesive with the landing) */}
+      <div className="pointer-events-none absolute inset-0 z-0">
+        <div className="absolute left-1/2 top-[-10%] h-[60vh] w-[60vh] -translate-x-1/2 rounded-full blur-[120px] opacity-[0.18]" style={{ background: 'radial-gradient(circle, #E6C766 0%, #9c7a26 40%, transparent 70%)' }} />
+        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.6) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.6) 1px,transparent 1px)', backgroundSize: '52px 52px', maskImage: 'radial-gradient(circle at 50% 30%, black 0%, transparent 70%)', WebkitMaskImage: 'radial-gradient(circle at 50% 30%, black 0%, transparent 70%)' }} />
+      </div>
+
+      <Link to="/" className="relative z-10 flex items-center gap-2.5 mb-9 group" aria-label="FinatriX home">
+        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="7" y="7" width="10" height="10" rx="2.5" fill="#D4AF37" />
+          <circle cx="12" cy="12" r="2.1" fill="#060607" />
+          <path d="M12 7V2M12 22v-5M7 12H2M22 12h-5" stroke="#D4AF37" strokeWidth="1.6" strokeLinecap="round" />
+        </svg>
+        <span className="font-semibold text-[15px] tracking-[-0.01em] text-[#F5F5F0]">
+          Finatri<span className="fx-gold-text">X</span>
         </span>
       </Link>
 
-      <div className="w-full max-w-[420px] bg-[#111111] border border-[#1A1A1A] p-8 md:p-10">
-        <h1 className="text-[26px] font-medium tracking-[-0.02em] text-white">
-          {title}
-        </h1>
+      <div className="fx-glass relative z-10 w-full max-w-[430px] rounded-[22px] p-8 md:p-10">
+        <h1 className="text-[27px] font-semibold tracking-[-0.025em] text-white">{title}</h1>
         {subtitle && (
-          <p className="mt-2 text-[14px] text-[#8A8A8A] leading-relaxed">{subtitle}</p>
+          <p className="mt-2.5 text-[14px] text-[#9c9c96] leading-relaxed">{subtitle}</p>
         )}
         <div className="mt-8">{children}</div>
       </div>
 
-      {footer && <div className="mt-6 text-[13px] text-[#8A8A8A]">{footer}</div>}
+      {footer && <div className="relative z-10 mt-6 text-[13px] text-[#8A8A8A]">{footer}</div>}
     </div>
   );
 }
@@ -90,7 +91,7 @@ export function PrimaryButton({
   return (
     <button
       {...props}
-      className="w-full bg-[#D4AF37] text-[#0A0A0A] font-mono text-[12px] uppercase tracking-[0.08em] py-3.5 hover:bg-[#F1C40F] active:scale-[0.99] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+      className="fx-btn-gold w-full font-mono text-[12px] uppercase tracking-[0.1em] py-3.5 rounded-full active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
     >
       {children}
     </button>
@@ -100,11 +101,11 @@ export function PrimaryButton({
 export function OrDivider({ label = 'or' }: { label?: string }) {
   return (
     <div className="my-6 flex items-center gap-4">
-      <span className="h-px flex-1 bg-[#1A1A1A]" />
+      <span className="h-px flex-1 bg-white/[0.08]" />
       <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#5A5A5A]">
         {label}
       </span>
-      <span className="h-px flex-1 bg-[#1A1A1A]" />
+      <span className="h-px flex-1 bg-white/[0.08]" />
     </div>
   );
 }
@@ -117,7 +118,7 @@ export function SocialButton({
     <button
       type="button"
       {...props}
-      className="w-full flex items-center justify-center gap-3 bg-[#0A0A0A] border border-[#1A1A1A] hover:border-[#D4AF37] text-[#F5F5F0] text-[14px] py-3 mb-3 transition-colors active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+      className="w-full flex items-center justify-center gap-3 bg-white/[0.03] border border-white/[0.12] hover:border-[#D4AF37]/50 hover:bg-white/[0.05] text-[#F5F5F0] text-[14px] py-3 mb-3 rounded-xl transition-colors active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
     >
       <GoogleIcon />
       <span>{children}</span>
@@ -162,7 +163,7 @@ export function Notice({
         ? 'border-[#1d7d46]/50 text-[#5fd394]'
         : 'border-[#D4AF37]/40 text-[#D4AF37]';
   return (
-    <div className={`mb-5 border ${color} bg-black/30 px-4 py-3 text-[13px] leading-relaxed`}>
+    <div className={`mb-5 border ${color} bg-black/30 rounded-xl px-4 py-3 text-[13px] leading-relaxed`}>
       {children}
     </div>
   );
