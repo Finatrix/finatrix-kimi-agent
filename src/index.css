@@ -111,7 +111,23 @@
 .fx-connector-flow { stroke-dasharray: 4 8; animation: fxDashFlow 1.4s linear infinite; }
 .fx-scroll-cue { animation: fxFloatY 2.2s ease-in-out infinite; }
 
+/* Entrance reveal (CSS, not JS — cannot freeze and leave content hidden).
+   fill-mode "backwards" hides the element only during its stagger delay, then
+   reverts to the natural (visible) state so :hover transforms keep working. */
+@keyframes fxIn {
+  from { opacity: 0; transform: translateY(14px) scale(0.92); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes fxLineGrow {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.fx-in { animation: fxIn 0.62s cubic-bezier(0.34, 1.56, 0.64, 1) backwards; }
+.fx-line-in { animation: fxLineGrow 0.8s ease backwards; }
+
 @media (prefers-reduced-motion: reduce) {
+  .fx-in,
+  .fx-line-in,
   .fx-tile-breathe,
   .fx-aurora,
   .fx-hub-ring,

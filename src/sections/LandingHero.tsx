@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router';
-import gsap from 'gsap';
 import { TOOLS, type Tool } from '../lib/tools';
 import { ToolIcon } from '../components/ToolIcon';
 
@@ -25,37 +24,16 @@ const CELL_XY: Record<number, [number, number]> = {
   6: [50, 250], 7: [150, 250], 8: [250, 250],
 };
 
+const ALL_TOOL: Tool = {
+  id: 'all', name: 'All tools', short: 'All', blurb: 'Open the full suite.',
+  href: '/tools', color: '#8A8A8A', icon: 'grid',
+};
+
 export default function LandingHero() {
-  const rootRef = useRef<HTMLElement>(null);
   const [active, setActive] = useState<Tool | null>(null);
 
-  useEffect(() => {
-    const prefersReduced = window.matchMedia?.(
-      '(prefers-reduced-motion: reduce)'
-    ).matches;
-    if (prefersReduced) return;
-
-    const ctx = gsap.context(() => {
-      const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
-      tl.from('.fx-hub', { scale: 0.3, opacity: 0, duration: 0.6, ease: 'back.out(1.7)' })
-        .from('.fx-line', { strokeDashoffset: 170, opacity: 0, duration: 0.7, stagger: 0.05 }, '-=0.3')
-        .from(
-          '.fx-tile',
-          { scale: 0.45, opacity: 0, y: 16, duration: 0.5, stagger: 0.06, ease: 'back.out(1.6)', clearProps: 'transform,opacity' },
-          '-=0.5'
-        )
-        .from('.fx-word', { y: 22, opacity: 0, duration: 0.7 }, '-=0.2')
-        .from('.fx-sub', { y: 14, opacity: 0, duration: 0.6 }, '-=0.45');
-    }, rootRef);
-
-    return () => ctx.revert();
-  }, []);
-
   return (
-    <section
-      ref={rootRef}
-      className="relative min-h-[100dvh] w-full overflow-hidden bg-[#070707] flex flex-col items-center justify-center px-5 pt-28 pb-16"
-    >
+    <section className="relative min-h-[100dvh] w-full overflow-hidden bg-[#070707] flex flex-col items-center justify-center px-5 pt-28 pb-16">
       {/* Ambient background */}
       <div className="pointer-events-none absolute inset-0 z-0">
         <div
@@ -85,23 +63,18 @@ export default function LandingHero() {
       <div className="relative z-10 w-[clamp(280px,66vh,520px)] aspect-square">
         {/* connectors */}
         <svg viewBox="0 0 300 300" className="absolute inset-0 h-full w-full" aria-hidden="true">
-          {OUTER.map(({ cell }) => {
+          {[...OUTER.map((o) => o.cell), 8].map((cell, i) => {
             const [x, y] = CELL_XY[cell];
             return (
               <line
                 key={cell}
-                className="fx-line"
+                className="fx-line-in"
+                style={{ animationDelay: `${0.2 + i * 0.03}s` }}
                 x1="150" y1="150" x2={x} y2={y}
                 stroke="#D4AF37" strokeOpacity="0.32" strokeWidth="1.4"
-                strokeDasharray="170"
               />
             );
           })}
-          <line
-            className="fx-line"
-            x1="150" y1="150" x2="250" y2="250"
-            stroke="#D4AF37" strokeOpacity="0.32" strokeWidth="1.4" strokeDasharray="170"
-          />
         </svg>
 
         {/* tiles + hub on a 3×3 grid */}
@@ -116,19 +89,21 @@ export default function LandingHero() {
                       to="/tools"
                       aria-label="Open all tools"
                       onMouseEnter={() => setActive(null)}
-                      className="fx-hub fx-tile relative grid place-items-center w-[clamp(58px,19vmin,96px)] aspect-square rounded-[22%] shadow-[0_10px_40px_-8px_rgba(212,175,55,0.55)] transition-transform duration-300 hover:scale-[1.06]"
-                      style={{ background: 'linear-gradient(145deg, #E9C75A, #B0852E)' }}
+                      style={{ animationDelay: '0.05s' }}
+                      className="fx-in relative grid place-items-center w-[clamp(58px,19vmin,96px)] aspect-square rounded-[22%] shadow-[0_10px_40px_-8px_rgba(212,175,55,0.55)] transition-transform duration-300 hover:scale-[1.06]"
                     >
-                      <span className="h-[26%] w-[26%] rounded-full bg-[#0A0A0A]" />
+                      <span
+                        className="absolute inset-0 rounded-[22%]"
+                        style={{ background: 'linear-gradient(145deg, #E9C75A, #B0852E)' }}
+                      />
+                      <span className="relative h-[26%] w-[26%] rounded-full bg-[#0A0A0A]" />
                     </Link>
                   </div>
                 </div>
               );
             }
             const entry = OUTER.find((o) => o.cell === cell);
-            const tool =
-              entry?.tool ??
-              ({ id: 'all', name: 'All tools', short: 'All', blurb: 'Open the full suite.', href: '/tools', color: '#8A8A8A', icon: 'grid' } as Tool);
+            const tool = entry?.tool ?? ALL_TOOL;
             return (
               <div key={cell} className="flex items-center justify-center">
                 <div className="fx-tile-breathe" style={{ animationDelay: `${cell * 0.4}s` }}>
@@ -138,11 +113,12 @@ export default function LandingHero() {
                     onMouseEnter={() => setActive(tool.id === 'all' ? null : tool)}
                     onFocus={() => setActive(tool.id === 'all' ? null : tool)}
                     onMouseLeave={() => setActive(null)}
-                    className="fx-tile group relative grid place-items-center w-[clamp(54px,17vmin,88px)] aspect-square rounded-[22%] text-white transition-[transform,box-shadow] duration-300 hover:scale-[1.1] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                     style={{
                       background: `linear-gradient(150deg, ${tool.color}, ${tool.color}cc)`,
                       boxShadow: `0 8px 30px -10px ${tool.color}99`,
+                      animationDelay: `${0.28 + cell * 0.05}s`,
                     }}
+                    className="fx-in group relative grid place-items-center w-[clamp(54px,17vmin,88px)] aspect-square rounded-[22%] text-white transition-transform duration-300 hover:scale-[1.1] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                   >
                     <ToolIcon name={tool.icon} className="w-[42%] h-[42%]" />
                   </Link>
@@ -156,14 +132,14 @@ export default function LandingHero() {
       {/* Wordmark + dynamic label */}
       <div className="relative z-10 mt-9 sm:mt-11 text-center">
         <h1
-          className="fx-word font-extrabold italic tracking-[-0.03em] leading-none text-white"
-          style={{ fontSize: 'clamp(44px,9vw,104px)' }}
+          className="fx-in font-extrabold italic tracking-[-0.03em] leading-none text-white"
+          style={{ fontSize: 'clamp(44px,9vw,104px)', animationDelay: '0.78s' }}
         >
           Finatri<span className="text-[#D4AF37]">X</span>
         </h1>
 
-        <div className="fx-sub mt-4 h-[22px] flex items-center justify-center">
-          <p key={active?.id ?? 'tagline'} className="text-[13px] sm:text-[15px] text-[#9a9a94] transition-opacity">
+        <div className="fx-in mt-4 h-[22px] flex items-center justify-center" style={{ animationDelay: '0.88s' }}>
+          <p className="text-[13px] sm:text-[15px] text-[#9a9a94]">
             {active ? (
               <span>
                 <span className="text-[#F5F5F0] font-medium">{active.name}</span>
@@ -176,7 +152,7 @@ export default function LandingHero() {
           </p>
         </div>
 
-        <div className="fx-sub mt-7 flex items-center justify-center gap-3">
+        <div className="fx-in mt-7 flex items-center justify-center gap-3" style={{ animationDelay: '0.96s' }}>
           <Link
             to="/tools"
             className="group inline-flex items-center gap-2 bg-[#D4AF37] hover:bg-[#F1C40F] text-[#0A0A0A] font-mono text-[12px] uppercase tracking-[0.1em] px-6 py-3 rounded-full transition-colors"
@@ -186,7 +162,10 @@ export default function LandingHero() {
           </Link>
         </div>
 
-        <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.14em] text-[#5A5A5A]">
+        <p
+          className="fx-in mt-6 font-mono text-[10px] uppercase tracking-[0.14em] text-[#5A5A5A]"
+          style={{ animationDelay: '1.04s' }}
+        >
           Free · Educational tools, not financial advice
         </p>
       </div>
