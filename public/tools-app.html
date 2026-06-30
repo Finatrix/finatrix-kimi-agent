@@ -54,11 +54,12 @@
   @media(max-width:560px){.grid3{grid-template-columns:1fr 1fr}}
   .fg{margin-bottom:16px}
   .fl{display:block;font-size:12px;color:var(--ink2);margin-bottom:7px;font-weight:600}
-  .fi,.fs{width:100%;padding:13px 15px;background:var(--bg);border:1px solid var(--hair2);border-radius:12px;color:var(--ink);font-size:16px;font-family:inherit;outline:none;transition:all .2s;-webkit-appearance:none}
-  .fi:focus,.fs:focus{border-color:var(--ink);background:var(--card);box-shadow:0 0 0 3px rgba(29,29,31,.06)}
+  .fi,.fs{width:100%;padding:13px 15px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.13);border-radius:12px;color:var(--ink);font-size:16px;font-family:inherit;outline:none;transition:all .2s;-webkit-appearance:none}
+  .fi::placeholder,.fs::placeholder{color:var(--ink3)}
+  .fi:focus,.fs:focus{border-color:var(--gold);background:rgba(255,255,255,.06);box-shadow:0 0 0 3px rgba(212,175,55,.14)}
   .fs{cursor:pointer;background-image:url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239A9A94' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 15px center;padding-right:38px}
-  .fi-sm{width:110px;padding:9px 12px;background:var(--bg);border:1px solid var(--hair2);border-radius:10px;color:var(--ink);font-size:14px;font-family:inherit;outline:none;text-align:right;transition:border .2s}
-  .fi-sm:focus{border-color:var(--ink);background:var(--card)}
+  .fi-sm{width:110px;padding:9px 12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.13);border-radius:10px;color:var(--ink);font-size:14px;font-family:inherit;outline:none;text-align:right;transition:border .2s}
+  .fi-sm:focus{border-color:var(--gold);background:rgba(255,255,255,.06)}
 
   .btn{display:inline-block;width:100%;padding:15px;border:none;border-radius:980px;font-size:16px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s;text-align:center;background:var(--gold);color:#0A0A0A}
   .btn:hover{background:#F1C40F;transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,0,0,.15)}
