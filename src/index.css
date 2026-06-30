@@ -57,13 +57,13 @@
   }
 
   body {
-    @apply bg-[#0A0A0A] text-[#F5F5F0];
+    @apply bg-[#060607] text-[#F5F5F0];
     font-family: 'Geist', system-ui, -apple-system, sans-serif;
     overflow-x: hidden;
   }
 
   * {
-    @apply border-[#1A1A1A];
+    @apply border-white/[0.08];
   }
 
   html.lenis, html.lenis body {

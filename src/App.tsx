@@ -14,7 +14,7 @@ const Terms = lazy(() => import('./pages/Terms'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 
 function RouteFallback() {
-  return <div className="min-h-screen bg-[#0A0A0A]" aria-hidden="true" />
+  return <div className="min-h-screen bg-[#060607]" aria-hidden="true" />
 }
 
 export default function App() {
