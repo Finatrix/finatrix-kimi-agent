@@ -740,7 +740,7 @@
     <button class="btn" onclick="etAdd()">Add expense</button>
   </div>
 
-  <div style="display:flex;gap:6px;margin-bottom:14px;background:#e8e8ed;border-radius:980px;padding:4px">
+  <div style="display:flex;gap:6px;margin-bottom:14px;background:var(--hair2);border-radius:980px;padding:4px">
     <div id="et-tab-bd" onclick="etTab('bd')" style="flex:1;padding:9px;text-align:center;border-radius:980px;font-size:13px;font-weight:600;cursor:pointer;background:var(--card);box-shadow:0 1px 4px rgba(0,0,0,.08)">Breakdown</div>
     <div id="et-tab-hi" onclick="etTab('hi')" style="flex:1;padding:9px;text-align:center;border-radius:980px;font-size:13px;font-weight:600;cursor:pointer;color:var(--ink2)">History</div>
   </div>
@@ -1416,7 +1416,7 @@ function bbRenderMonthNav(){
   months.sort();
   var chips = months.length > 1 ? months.map(function(m){
     var active = m === bbActiveMonth;
-    return '<button onclick="bbSwitchMonth(\''+m+'\')" style="font-size:11px;padding:3px 10px;border-radius:980px;border:1px solid '+(active?'var(--blue)':'var(--hair2)')+';background:'+(active?'var(--blue)':'var(--card)')+';color:'+(active?'var(--card)':'var(--ink2)')+';cursor:pointer;font-weight:600;transition:all .15s">'+bbMonthLabel(m)+'</button>';
+    return '<button onclick="bbSwitchMonth(\''+m+'\')" style="font-size:11px;padding:3px 10px;border-radius:980px;border:1px solid '+(active?'var(--gold)':'var(--hair2)')+';background:'+(active?'var(--gold)':'var(--card)')+';color:'+(active?'var(--card)':'var(--ink2)')+';cursor:pointer;font-weight:600;transition:all .15s">'+bbMonthLabel(m)+'</button>';
   }).join('') : '';
   el.innerHTML = '<div style="background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:14px 18px;margin-bottom:0">'
     +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:'+(chips?'10px':'0px')+'">'
@@ -1521,7 +1521,7 @@ const ET_CATS = {
   food:      {ic:"food",      l:"Dining",         c:"#c2410c"},
   grocery:   {ic:"grocery",   l:"Groceries",      c:"#1d7d46"},
   transport: {ic:"transport", l:"Transport",      c:"#0071e3"},
-  rent:      {ic:"rent",      l:"Rent",           c:"#d70015"},
+  rent:      {ic:"rent",      l:"Rent",           c:"#FF5A52"},
   bills:     {ic:"bills",     l:"Bills",          c:"#b08a36"},
   health:    {ic:"health",    l:"Health",         c:"#0c8079"},
   education: {ic:"education", l:"Education",      c:"#3a5fc8"},
@@ -1610,7 +1610,7 @@ function etRenderMonthNav(){
   var months = etGetMonthsWithData();
   var chips = months.length > 1 ? months.map(function(m){
     var active = m === etSelMonth;
-    return '<button onclick="etSwitchMonth(\''+m+'\')" style="font-size:11px;padding:3px 10px;border-radius:980px;border:1px solid '+(active?'var(--orange)':'var(--hair2)')+';background:'+(active?'var(--orange)':'var(--card)')+';color:'+(active?'var(--card)':'var(--ink2)')+';cursor:pointer;font-weight:600;transition:all .15s">'+etMonthLabel(m)+'</button>';
+    return '<button onclick="etSwitchMonth(\''+m+'\')" style="font-size:11px;padding:3px 10px;border-radius:980px;border:1px solid '+(active?'var(--gold)':'var(--hair2)')+';background:'+(active?'var(--gold)':'var(--card)')+';color:'+(active?'var(--card)':'var(--ink2)')+';cursor:pointer;font-weight:600;transition:all .15s">'+etMonthLabel(m)+'</button>';
   }).join('') : '';
   el.innerHTML = '<div style="background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:14px 18px;margin-bottom:0">'
     +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:'+(chips?'10px':'0px')+'">'
@@ -2157,7 +2157,7 @@ function pcCompare(){
 
   const score = Math.round(metrics.reduce((s,m) => s+m.pct, 0)/metrics.length);
   const sc = score >= 65 ? "var(--green)" : score >= 40 ? "var(--gold)" : "var(--red)";
-  const scHex = score >= 65 ? "#1d7d46" : score >= 40 ? "#b08a36" : "#d70015";
+  const scHex = score >= 65 ? "#1d7d46" : score >= 40 ? "#b08a36" : "#FF5A52";
   const msg = score >= 75 ? "Outstanding — you're way ahead" : score >= 60 ? "Great job — ahead of most peers"
     : score >= 45 ? "Doing okay, with room to grow" : score >= 30 ? "Time to level up" : "Let's build the plan from here";
 
@@ -2200,7 +2200,7 @@ function pcCompare(){
 
     <div style="font-size:15px;font-weight:700;margin:20px 4px 12px">Metric by metric</div>
     ${metrics.map(m => {
-      const bc = m.status === "ahead" ? "#1d7d46" : m.status === "ontrack" ? "#b08a36" : "#d70015";
+      const bc = m.status === "ahead" ? "#1d7d46" : m.status === "ontrack" ? "#b08a36" : "#FF5A52";
       const dy = m.money ? fmt(m.yours) : m.yours + (m.suf||"");
       const da = m.money ? fmt(m.avg) : m.avg + (m.suf||"");
       return `
@@ -2484,7 +2484,7 @@ function lmToggleDebt(){
 function lmInitGoals(){
   document.getElementById("lm-goals").innerHTML = LM_GOALS.map(g => `
     <div onclick="lmToggleGoal('${g.k}')" id="lmg-${g.k}"
-      style="padding:11px 6px;border-radius:13px;border:1.5px solid ${lmSelectedGoals.has(g.k)?'var(--ink)':'var(--hair2)'};background:${lmSelectedGoals.has(g.k)?'var(--hair)':'var(--card)'};text-align:center;cursor:pointer;transition:all .15s">
+      style="padding:11px 6px;border-radius:13px;border:1.5px solid ${lmSelectedGoals.has(g.k)?'var(--gold)':'var(--hair2)'};background:${lmSelectedGoals.has(g.k)?'var(--gold-bg)':'var(--card)'};text-align:center;cursor:pointer;transition:all .15s">
       <span style="display:flex;justify-content:center;height:24px;align-items:center;color:var(--ink2)"><svg width="19" height="19"><use href="#ic-${g.ic||'other'}"/></svg></span>
       <span style="font-size:10px;color:var(--ink2);font-weight:600;display:block;margin-top:3px">${g.l}</span>
     </div>`).join("");
@@ -2737,7 +2737,7 @@ function lmBuildCatTabs(){
     const cnt = lmDec.filter(d => d.cat === c.id).length;
     if(!cnt) return "";
     const on = lmCat === c.id;
-    return `<div onclick="lmSelCat('${c.id}')" style="display:flex;align-items:center;gap:5px;padding:7px 13px;border-radius:980px;border:1px solid ${on?'var(--ink)':'var(--hair2)'};background:${on?'var(--ink)':'var(--card)'};color:${on?'var(--card)':'var(--ink2)'};font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .2s">${c.i ? c.i : (c.ic ? '<svg width="13" height="13" style="vertical-align:-1px"><use href="#ic-'+c.ic+'"/></svg>' : '')} ${c.n} <span style="opacity:.7;font-size:10px">${cnt}</span></div>`;
+    return `<div onclick="lmSelCat('${c.id}')" style="display:flex;align-items:center;gap:5px;padding:7px 13px;border-radius:980px;border:1px solid ${on?'var(--gold)':'var(--hair2)'};background:${on?'var(--gold)':'var(--card)'};color:${on?'var(--card)':'var(--ink2)'};font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .2s">${c.i ? c.i : (c.ic ? '<svg width="13" height="13" style="vertical-align:-1px"><use href="#ic-'+c.ic+'"/></svg>' : '')} ${c.n} <span style="opacity:.7;font-size:10px">${cnt}</span></div>`;
   }).join("");
 }
 function lmSelCat(id){ lmCat = id; lmBuildCatTabs(); lmRenderDecisions(); }
