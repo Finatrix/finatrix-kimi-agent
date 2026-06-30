@@ -18,6 +18,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Accessibility: always show a clear keyboard-focus ring across the app. */
+*:focus-visible {
+  outline: 2px solid #d4af37;
+  outline-offset: 2px;
+}
+
 @layer base {
   :root {
     --background: 0 0% 4%;
