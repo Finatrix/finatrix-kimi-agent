@@ -1,0 +1,16 @@
+{
+  "name": "FinatriX — Smart Money Tools for India",
+  "short_name": "FinatriX",
+  "description": "Free, education-first money tools for India: budgeting, expenses, investing, benchmarking and a full life-long wealth simulation.",
+  "start_url": "/tools",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0A0A0A",
+  "theme_color": "#0A0A0A",
+  "categories": ["finance", "productivity", "education"],
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/images/finatrix-logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
