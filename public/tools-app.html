@@ -286,6 +286,16 @@
   @keyframes shimmer{100%{background-position:-200% 0}}
   .shimmer{background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(255,255,255,.09) 37%,rgba(255,255,255,.04) 63%);background-size:200% 100%;animation:shimmer 1.3s linear infinite;border-radius:10px}
 
+  /* On-brand toast (replaces native alert) */
+  .fx-toast-wrap{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:1000;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+  .fx-toast{display:flex;align-items:center;gap:10px;max-width:min(92vw,420px);background:rgba(20,20,23,.92);border:1px solid var(--hair);border-radius:14px;padding:12px 16px;color:var(--ink);font-size:13.5px;line-height:1.45;box-shadow:0 18px 50px -12px rgba(0,0,0,.7);backdrop-filter:blur(16px) saturate(160%);-webkit-backdrop-filter:blur(16px) saturate(160%);transform:translateY(12px);opacity:0;transition:opacity .28s var(--ease-out),transform .28s var(--ease-out)}
+  .fx-toast.show{transform:none;opacity:1}
+  .fx-toast .ti{flex:0 0 auto;width:22px;height:22px;border-radius:7px;display:flex;align-items:center;justify-content:center;background:rgba(212,175,55,.18);color:var(--gold);font-weight:700;font-size:13px;font-style:normal}
+  .fx-toast.err .ti{background:rgba(255,90,82,.16);color:var(--red)}
+  .fx-toast.ok .ti{background:rgba(52,210,122,.16);color:var(--green)}
+  /* Inline budget editor */
+  .et-budget-form{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+
   /* ══════════════════════════════════════════
      FINATRIX MOTION SYSTEM — Apple-grade
   ══════════════════════════════════════════ */
@@ -1192,6 +1202,21 @@
 <script>
 "use strict";
 
+/* ── On-brand toast (premium replacement for native alert in sandboxed iframe) ── */
+function fxNotify(msg, kind){
+  let wrap = document.getElementById('fx-toast-wrap');
+  if(!wrap){ wrap = document.createElement('div'); wrap.id='fx-toast-wrap'; wrap.className='fx-toast-wrap'; document.body.appendChild(wrap); }
+  const t = document.createElement('div');
+  t.className = 'fx-toast' + (kind==='error'?' err':kind==='ok'?' ok':'');
+  t.setAttribute('role','status');
+  const ic = document.createElement('span'); ic.className='ti'; ic.setAttribute('aria-hidden','true');
+  ic.textContent = kind==='error' ? '!' : kind==='ok' ? '✓' : 'i';
+  const tx = document.createElement('span'); tx.textContent = msg;
+  t.appendChild(ic); t.appendChild(tx); wrap.appendChild(t);
+  requestAnimationFrame(()=>{ t.classList.add('show'); });
+  setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>t.remove(), 320); }, 3200);
+}
+
 /* ── Button loading state ── */
 function btnLoading(el, text) {
   if (typeof el === 'string') el = document.querySelector(el);
@@ -1741,11 +1766,25 @@ function etTab(t){
 }
 
 function etSetBudget(){
-  const v = prompt("Set budget for " + etMonthLabel(etSelMonth) + " (₹). Enter 0 to remove.", etBudget || "");
-  if (v === null) return;
+  const be = document.getElementById("et-budget-edit");
+  if(!be) return;
+  be.innerHTML = `
+    <div class="et-budget-form">
+      <input id="et-budget-input" class="fi-sm" type="number" min="0" inputmode="numeric" value="${etBudget>0?etBudget:''}" placeholder="0" aria-label="Monthly budget" style="width:130px"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();etBudgetSave();}else if(event.key==='Escape'){etRender();}">
+      <button class="btn btn-sm" style="width:auto" onclick="etBudgetSave()">Save</button>
+      <button class="btn btn-ghost btn-sm" style="width:auto" onclick="etRender()">Cancel</button>
+    </div>`;
+  const inp = document.getElementById("et-budget-input");
+  if(inp){ inp.focus(); inp.select(); }
+}
+function etBudgetSave(){
+  const inp = document.getElementById("et-budget-input");
+  const v = inp ? inp.value : "";
   etBudget = Math.max(0, Number(v) || 0);
   etSetBudgetForMonth(etSelMonth, etBudget);
   etRender();
+  fxNotify(etBudget>0 ? "Budget set to "+cfmt(etBudget)+" for "+etMonthLabel(etSelMonth) : "Budget removed for "+etMonthLabel(etSelMonth), "ok");
 }
 
 function etRender(){
@@ -1944,7 +1983,7 @@ function imPrev(){ imSaveNum(); if (imStep > 0){ imStep--; imSteps(); imRender()
 
 function imBuild(){
   imSaveNum();
-  if (imAns.monthly < 100){ alert("Please enter a monthly investment of at least ₹100."); return; }
+  if (imAns.monthly < 100){ fxNotify("Please enter a monthly investment of at least ₹100.", "error"); return; }
 
   // Horizon-aware risk control: short horizons cap equity exposure.
   let effRisk = imAns.risk;
@@ -2073,7 +2112,7 @@ function psTax(opt, gross, months, slabPct, amt){
 
 function psCalc(){
   const amt = num("ps-amount");
-  if (amt < 1000){ alert("Please enter at least ₹1,000."); return; }
+  if (amt < 1000){ fxNotify("Please enter at least ₹1,000.", "error"); return; }
   const dur = document.getElementById("ps-duration").value;
   const slab = Number(document.getElementById("ps-slab").value)/100;
   const months = PS_M[dur];
@@ -2373,7 +2412,7 @@ function gpCalc(){
   const years = Math.min(40, Math.max(1, num("gp-years")));
   const existing = num("gp-existing");
   const inflate = document.getElementById("gp-inflate").checked;
-  if (targetToday < 1000){ alert("Please enter a target of at least ₹1,000."); return; }
+  if (targetToday < 1000){ fxNotify("Please enter a target of at least ₹1,000.", "error"); return; }
 
   const target = inflate ? targetToday * Math.pow(1.06, years) : targetToday;
 

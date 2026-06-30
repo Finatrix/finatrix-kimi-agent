@@ -196,7 +196,7 @@ export default function ToolsPage() {
             key={user?.id || 'guest'}
             src={frameSrc}
             title="FinatriX Tools"
-            sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+            sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-modals allow-forms"
             referrerPolicy="no-referrer"
             className="w-full h-full border-0 block"
           />
