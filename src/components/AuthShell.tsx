@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 
 export default function AuthShell({
@@ -45,17 +45,40 @@ export default function AuthShell({
 
 export function Field({
   label,
+  type,
   ...props
 }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+  const isPassword = type === 'password';
+  const [show, setShow] = useState(false);
   return (
     <label className="block mb-5">
       <span className="block font-mono text-[10px] uppercase tracking-[0.08em] text-[#8A8A8A] mb-2">
         {label}
       </span>
-      <input
-        {...props}
-        className="w-full bg-[#0A0A0A] border border-[#1A1A1A] focus:border-[#D4AF37] outline-none text-[15px] text-[#F5F5F0] px-4 py-3 transition-colors placeholder:text-[#5A5A5A]"
-      />
+      <div className="relative">
+        <input
+          {...props}
+          type={isPassword ? (show ? 'text' : 'password') : type}
+          className={`w-full bg-white/[0.03] border border-white/[0.12] focus:border-[#D4AF37] focus:bg-white/[0.05] focus:ring-2 focus:ring-[#D4AF37]/20 rounded-xl outline-none text-[15px] text-[#F5F5F0] px-4 py-3 transition-all placeholder:text-[#5A5A5A] ${
+            isPassword ? 'pr-11' : ''
+          }`}
+        />
+        {isPassword && (
+          <button
+            type="button"
+            tabIndex={-1}
+            onClick={() => setShow((s) => !s)}
+            aria-label={show ? 'Hide password' : 'Show password'}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8A8A8A] hover:text-[#D4AF37] transition-colors"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z" />
+              <circle cx="12" cy="12" r="3" />
+              {show && <path d="M3 3l18 18" />}
+            </svg>
+          </button>
+        )}
+      </div>
     </label>
   );
 }

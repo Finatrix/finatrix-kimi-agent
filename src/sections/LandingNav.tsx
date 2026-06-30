@@ -68,23 +68,6 @@ export default function LandingNav() {
             </Link>
           </div>
         </div>
-
-        {/* Tool tabs — scrollable strip on small screens */}
-        <nav
-          className="lg:hidden flex items-center gap-1 overflow-x-auto pb-2.5 -mt-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          aria-label="Tools"
-        >
-          {TOOLS.map((t) => (
-            <Link
-              key={t.id}
-              to={t.href}
-              className="flex items-center gap-1.5 shrink-0 px-3 py-1.5 rounded-full text-[13px] text-[#B8B8B2] bg-white/[0.04] hover:text-white active:scale-[0.97] transition"
-            >
-              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: t.color }} />
-              {t.short}
-            </Link>
-          ))}
-        </nav>
       </div>
     </header>
   );

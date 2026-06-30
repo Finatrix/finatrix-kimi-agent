@@ -32,6 +32,13 @@
   .nav a{flex-shrink:0;font-size:13px;font-weight:500;color:var(--ink2);text-decoration:none;padding:7px 16px;border-radius:980px;transition:all .2s var(--ease-out);white-space:nowrap;letter-spacing:-.01em}
   .nav a:hover{color:var(--ink);background:rgba(255,255,255,.06);transform:translateY(-1px)}
   .nav a.on{background:var(--gold);color:#0A0A0A;font-weight:600;box-shadow:0 4px 14px rgba(212,175,55,.3)}
+  /* On phones the React shell provides a slide-out nav drawer, so hide the
+     horizontal tool tabs (no clipped/overflowing nav) and keep the currency
+     selector right-aligned in the slim bar. */
+  @media(max-width:767px){
+    #mainNav{display:none}
+    .nav-wrap > div{justify-content:flex-end}
+  }
 
   .wrap{max-width:1024px;margin:0 auto;padding:0 16px 64px}
   .page{display:none;animation:fade .45s ease;scroll-margin-top:60px}
@@ -52,6 +59,7 @@
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
   @media(max-width:560px){.grid3{grid-template-columns:1fr 1fr}}
+  @media(max-width:520px){.grid2{grid-template-columns:1fr}.grid3{grid-template-columns:1fr}}
   .fg{margin-bottom:16px}
   .fl{display:block;font-size:12px;color:var(--ink2);margin-bottom:7px;font-weight:600}
   .fi,.fs{width:100%;padding:13px 15px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.13);border-radius:12px;color:var(--ink);font-size:16px;font-family:inherit;outline:none;transition:all .2s;-webkit-appearance:none}
