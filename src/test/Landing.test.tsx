@@ -1,13 +1,10 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { AuthProvider } from '../context/AuthContext';
 import { TOOLS } from '../lib/tools';
 import LandingNav from '../sections/LandingNav';
 import LandingHero from '../sections/LandingHero';
-
-// Animations aren't under test — stub GSAP so the hero renders statically.
-vi.mock('gsap', () => ({ default: { context: () => ({ revert: () => {} }) } }));
 
 function wrap(ui: React.ReactNode) {
   return (

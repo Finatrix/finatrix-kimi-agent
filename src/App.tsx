@@ -2,8 +2,8 @@ import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router'
 import ErrorBoundary from './components/ErrorBoundary'
 
-// Route-level code-splitting: each page (and its heavy deps like GSAP/Lenis or
-// the Supabase-backed tools) loads only when its route is visited.
+// Route-level code-splitting: each page (and its heavy deps like the
+// Supabase-backed tools) loads only when its route is visited.
 const Home = lazy(() => import('./pages/Home'))
 const ToolsPage = lazy(() => import('./pages/ToolsPage'))
 const Login = lazy(() => import('./pages/Login'))
