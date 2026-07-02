@@ -3,10 +3,13 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 /**
  * Cloud sync bridge for the tools.
  *
- * The tools run untouched inside a same-origin <iframe>, so the data they write
- * to localStorage (keys below) lives in the SAME localStorage as this app. We
- * therefore sync purely by reading/writing those localStorage keys and pushing
- * them to the signed-in user's row in Supabase — without changing the tools.
+ * The tools are native React pages that persist to localStorage under the keys
+ * below (unchanged from the original app, so existing users' cloud data keeps
+ * working). ToolsLayout watches for writes — via the same-document `fx:write`
+ * event dispatched by the storage wrapper, plus cross-tab `storage` events — and
+ * debounces a push of these keys to the signed-in user's Supabase row. The keys,
+ * the RLS-protected `tool_data` JSONB row, and the pull/push logic are preserved
+ * exactly.
  */
 
 export const SYNC_KEYS = [

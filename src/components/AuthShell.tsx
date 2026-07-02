@@ -20,6 +20,12 @@ export default function AuthShell({
         <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.6) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.6) 1px,transparent 1px)', backgroundSize: '52px 52px', maskImage: 'radial-gradient(circle at 50% 30%, black 0%, transparent 70%)', WebkitMaskImage: 'radial-gradient(circle at 50% 30%, black 0%, transparent 70%)' }} />
       </div>
 
+      {/* Persistent unified nav */}
+      <nav className="absolute top-4 right-4 z-20 flex items-center gap-4" aria-label="Primary">
+        <Link to="/" className="font-mono text-[11px] uppercase tracking-[0.08em] text-[#8A8A8A] hover:text-[#F5F5F0] transition-colors">Home</Link>
+        <Link to="/tools" className="font-mono text-[11px] uppercase tracking-[0.08em] text-[#8A8A8A] hover:text-[#F5F5F0] transition-colors">Tools</Link>
+      </nav>
+
       <Link to="/" className="relative z-10 flex items-center gap-2.5 mb-9 group" aria-label="FinatriX home">
         <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
           <rect x="7" y="7" width="10" height="10" rx="2.5" fill="#D4AF37" />

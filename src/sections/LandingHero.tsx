@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 import { TOOLS, type Tool } from '../lib/tools';
 import { ToolIcon } from '../components/ToolIcon';
+import { CURRENCY_COUNT } from '../tools/lib/format';
 
 const byId = (id: string) => TOOLS.find((t) => t.id === id)!;
 
@@ -26,11 +27,15 @@ const ALL_TOOL: Tool = {
   href: '/tools', color: '#9AA0A6', icon: 'grid',
 };
 
-const TRUST = [
-  ['7', 'Free tools'],
-  ['₹0', 'Forever'],
-  ['100%', 'Private'],
-  ['14', 'Indian cities'],
+// Meaningful trust indicators. The supported-currency count is read from the
+// currency configuration (never hardcoded).
+const TRUST: string[] = [
+  `${CURRENCY_COUNT} currencies`,
+  'Made in India 🇮🇳',
+  'Privacy first',
+  'Education first',
+  'Free forever',
+  'Real-time calculations',
 ];
 
 export default function LandingHero() {
@@ -183,13 +188,16 @@ export default function LandingHero() {
           </a>
         </div>
 
-        {/* trust strip */}
-        <div className="fx-in mt-12 flex items-center justify-center gap-6 sm:gap-9" style={{ animationDelay: '1.04s' }}>
-          {TRUST.map(([n, l], i) => (
-            <div key={i} className="flex flex-col items-center">
-              <span className="text-[19px] sm:text-[22px] font-semibold tracking-[-0.02em] text-[#F4F4EF]">{n}</span>
-              <span className="mt-0.5 font-mono text-[9px] sm:text-[10px] uppercase tracking-[0.12em] text-[#6b6b70]">{l}</span>
-            </div>
+        {/* trust strip — premium feature chips */}
+        <div className="fx-in mt-11 flex flex-wrap items-center justify-center gap-2 sm:gap-2.5" style={{ animationDelay: '1.04s' }}>
+          {TRUST.map((label, i) => (
+            <span
+              key={i}
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.09] bg-white/[0.03] px-3 py-1.5 backdrop-blur-sm"
+            >
+              <span className="h-1 w-1 rounded-full bg-[#D4AF37]" aria-hidden="true" />
+              <span className="font-mono text-[10px] sm:text-[10.5px] uppercase tracking-[0.1em] text-[#C9C9C2]">{label}</span>
+            </span>
           ))}
         </div>
       </div>

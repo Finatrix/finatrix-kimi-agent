@@ -1,11 +1,14 @@
 import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router'
 import ErrorBoundary from './components/ErrorBoundary'
+import LoginReminderModal from './components/LoginReminderModal'
 
 // Route-level code-splitting: each page (and its heavy deps like the
 // Supabase-backed tools) loads only when its route is visited.
 const Home = lazy(() => import('./pages/Home'))
-const ToolsPage = lazy(() => import('./pages/ToolsPage'))
+const ToolsLayout = lazy(() => import('./tools/ToolsLayout'))
+const ToolsIndex = lazy(() => import('./tools/ToolsIndex'))
+const ToolRoute = lazy(() => import('./tools/ToolRoute'))
 const Login = lazy(() => import('./pages/Login'))
 const Signup = lazy(() => import('./pages/Signup'))
 const Profile = lazy(() => import('./pages/Profile'))
@@ -25,7 +28,10 @@ export default function App() {
           <Route path="/" element={<Home />} />
           {/* Legacy route — the landing page now lives at "/". */}
           <Route path="/home" element={<Navigate to="/" replace />} />
-          <Route path="/tools" element={<ToolsPage />} />
+          <Route path="/tools" element={<ToolsLayout />}>
+            <Route index element={<ToolsIndex />} />
+            <Route path=":toolId" element={<ToolRoute />} />
+          </Route>
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/profile" element={<Profile />} />
@@ -34,6 +40,7 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
+      <LoginReminderModal />
     </ErrorBoundary>
   )
 }

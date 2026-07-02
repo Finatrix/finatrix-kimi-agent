@@ -1,8 +1,8 @@
 # Cloudflare Pages / Netlify headers.
 # NOTE: Content-Security-Policy is set per-document via <meta http-equiv> in
-# index.html and tools-app.html (the tools need 'unsafe-inline' scripts, the app
-# does not). Setting CSP here as well would apply BOTH policies and break the
-# tools' inline scripts, so CSP is intentionally NOT a header here.
+# index.html. The tools are now first-class React routes (no iframe, no inline
+# scripts), so the single strict app CSP covers them. CSP is intentionally NOT
+# duplicated as a header here to avoid applying two conflicting policies.
 
 /*
   X-Content-Type-Options: nosniff
@@ -12,9 +12,6 @@
   Permissions-Policy: camera=(), microphone=(), geolocation=(), browsing-topics=()
 
 /assets/*
-  Cache-Control: public, max-age=31536000, immutable
-
-/vendor/*
   Cache-Control: public, max-age=31536000, immutable
 
 /fonts/*

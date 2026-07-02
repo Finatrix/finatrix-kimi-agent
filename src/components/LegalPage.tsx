@@ -23,10 +23,16 @@ export default function LegalPage({
           </span>
         </Link>
         <div className="flex gap-5 font-mono text-[11px] uppercase tracking-[0.08em]">
-          <Link to="/privacy" className="text-[#8A8A8A] hover:text-[#D4AF37] transition-colors">
+          <Link to="/" className="text-[#8A8A8A] hover:text-[#D4AF37] transition-colors">
+            Home
+          </Link>
+          <Link to="/tools" className="text-[#8A8A8A] hover:text-[#D4AF37] transition-colors">
+            Tools
+          </Link>
+          <Link to="/privacy" className="hidden sm:inline text-[#8A8A8A] hover:text-[#D4AF37] transition-colors">
             Privacy
           </Link>
-          <Link to="/terms" className="text-[#8A8A8A] hover:text-[#D4AF37] transition-colors">
+          <Link to="/terms" className="hidden sm:inline text-[#8A8A8A] hover:text-[#D4AF37] transition-colors">
             Terms
           </Link>
         </div>
