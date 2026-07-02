@@ -30,16 +30,15 @@ describe('Landing nav', () => {
 });
 
 describe('Landing hero', () => {
-  it('shows the wordmark, every tool tile, and the hub', () => {
+  it('shows the wordmark, every tool card, the Coming Soon card, and the logo hub', () => {
     render(wrap(<LandingHero />));
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('FinatriX');
-    // Each tool appears as an interactive tile (aria-label = full name).
+    // Every tool has a card linking to its route (label is "Name — subtitle").
+    const hrefs = screen.getAllByRole('link').map((a) => a.getAttribute('href'));
     for (const t of TOOLS) {
-      expect(screen.getByRole('link', { name: t.name })).toHaveAttribute('href', t.href);
+      expect(hrefs).toContain(t.href);
     }
-    expect(screen.getByRole('link', { name: /open all tools/i })).toHaveAttribute(
-      'href',
-      '/tools'
-    );
+    expect(screen.getByText('Coming Soon')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /open all tools/i })).toHaveAttribute('href', '/tools');
   });
 });

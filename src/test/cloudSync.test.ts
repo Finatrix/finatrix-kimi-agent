@@ -8,6 +8,7 @@ describe('cloudSync SYNC_KEYS', () => {
       'fx_budget',
       'fx_budgets',
       'fx_bb_data',
+      'fx_bb_cats',
       'fx_currency',
       'fx_lifemap',
       'fx_investmatch',

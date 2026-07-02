@@ -1,19 +1,21 @@
 import { Link } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { TOOLS } from '../lib/tools';
+import { HomeButton } from '../components/HomeButton';
+import { BrandLogo } from '../components/BrandLogo';
 
-function BrandMark() {
+// [ Home ] [ FinatriX Logo ] [ FinatriX Wordmark ]
+function BrandCluster() {
   return (
-    <Link to="/" className="flex items-center gap-2.5 shrink-0 group" aria-label="FinatriX home">
-      <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">
-        <rect x="7" y="7" width="10" height="10" rx="2.5" fill="#D4AF37" />
-        <circle cx="12" cy="12" r="2.1" fill="#0A0A0A" />
-        <path d="M12 7V2M12 22v-5M7 12H2M22 12h-5" stroke="#D4AF37" strokeWidth="1.6" strokeLinecap="round" />
-      </svg>
-      <span className="font-semibold tracking-[-0.01em] text-[15px] text-[#F5F5F0]">
-        Finatri<span className="text-[#D4AF37]">X</span>
-      </span>
-    </Link>
+    <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+      <HomeButton />
+      <Link to="/" className="flex items-center gap-2 group" aria-label="FinatriX home">
+        <BrandLogo size={26} className="shrink-0" />
+        <span className="font-semibold tracking-[-0.01em] text-[15px] text-[#F5F5F0]">
+          Finatri<span className="text-[#D4AF37]">X</span>
+        </span>
+      </Link>
+    </div>
   );
 }
 
@@ -25,7 +27,7 @@ export default function LandingNav() {
       <div className="mx-auto max-w-[1280px] px-4 sm:px-6">
         {/* Top row */}
         <div className="flex items-center justify-between h-14">
-          <BrandMark />
+          <BrandCluster />
 
           {/* Tool tabs — inline on desktop */}
           <nav className="hidden lg:flex items-center gap-1" aria-label="Tools">

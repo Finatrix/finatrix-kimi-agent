@@ -17,6 +17,9 @@ import { IconSprite } from './ui/Icon';
 import { CURRENCY_CODES, currencySym } from './lib/format';
 import { onLocalWrite } from './lib/storage';
 import { LocalClock } from './ui/LocalClock';
+import { HomeButton } from '../components/HomeButton';
+import { BrandLogo } from '../components/BrandLogo';
+import { Breadcrumb } from '../components/Breadcrumb';
 import './tools.css';
 
 const syncLabel: Record<SyncStatus, string> = {
@@ -201,7 +204,7 @@ export default function ToolsLayout() {
             className="flex items-center justify-between h-12 px-3 sm:px-4 border-b border-white/[0.06]"
             style={{ position: 'sticky', top: 0, zIndex: 51, background: 'rgba(6,6,7,0.72)', backdropFilter: 'saturate(180%) blur(20px)', WebkitBackdropFilter: 'saturate(180%) blur(20px)' }}
           >
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 sm:gap-2.5">
               <button
                 onClick={() => setDrawerOpen(true)}
                 aria-label="Open menu"
@@ -211,11 +214,9 @@ export default function ToolsLayout() {
                   <path d="M3 6h18M3 12h18M3 18h18" />
                 </svg>
               </button>
+              <HomeButton compact className="hidden sm:inline-flex" />
               <Link to="/" aria-label="FinatriX home" className="flex items-center gap-2 group">
-                <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">
-                  <rect x="7" y="7" width="10" height="10" rx="2.5" fill="#D4AF37" />
-                  <circle cx="12" cy="12" r="2.1" fill="#0A0A0A" />
-                </svg>
+                <BrandLogo size={22} className="shrink-0" />
                 <span className="font-mono text-[12px] uppercase tracking-[0.12em] sm:tracking-[0.16em] text-[#F5F5F0] group-hover:text-[#D4AF37] transition-colors select-none">
                   FinatriX
                 </span>
@@ -274,6 +275,9 @@ export default function ToolsLayout() {
 
           {/* Tool content */}
           <div className="wrap">
+            <div style={{ paddingTop: 14 }}>
+              <Breadcrumb current={TOOLS.find((t) => t.id === activeTool)?.name ?? 'Tools'} />
+            </div>
             {ready ? <Outlet /> : <div style={{ minHeight: '50vh' }} aria-hidden="true" />}
             {ready && (
               <div style={{ borderTop: '1px solid var(--hair2)', marginTop: 8 }}>

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
+import { Breadcrumb } from './Breadcrumb';
 
 export default function LegalPage({
   title,
@@ -39,6 +40,7 @@ export default function LegalPage({
       </header>
 
       <main className="mx-auto w-full max-w-[760px] px-5 sm:px-8 py-10 sm:py-16">
+        <Breadcrumb current={title} className="mb-6" />
         <h1 className="text-[28px] sm:text-[36px] font-medium tracking-[-0.02em] text-white">
           {title}
         </h1>

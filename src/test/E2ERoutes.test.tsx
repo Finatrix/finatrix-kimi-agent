@@ -42,7 +42,9 @@ describe('E2E — every route renders', () => {
   for (const [path, expected] of CASES) {
     it(`renders ${path}`, async () => {
       renderAt(path);
-      expect(await screen.findByText(expected)).toBeInTheDocument();
+      // Some titles also appear in the breadcrumb (Home › FinatriX › Title),
+      // so accept one or more matches — the page rendered without crashing.
+      expect((await screen.findAllByText(expected)).length).toBeGreaterThan(0);
     });
   }
 });

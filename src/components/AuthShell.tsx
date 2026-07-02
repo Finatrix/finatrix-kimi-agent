@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
+import { Breadcrumb } from './Breadcrumb';
 
 export default function AuthShell({
   title,
@@ -36,6 +37,8 @@ export default function AuthShell({
           Finatri<span className="fx-gold-text">X</span>
         </span>
       </Link>
+
+      <Breadcrumb current={title} className="relative z-10 mb-5 justify-center" />
 
       <div className="fx-glass relative z-10 w-full max-w-[430px] rounded-[22px] p-8 md:p-10">
         <h1 className="text-[27px] font-semibold tracking-[-0.025em] text-white">{title}</h1>

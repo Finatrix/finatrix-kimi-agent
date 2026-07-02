@@ -18,6 +18,7 @@ export const SYNC_KEYS = [
   'fx_currency',
   'fx_budgets',
   'fx_bb_data',
+  'fx_bb_cats',
   'fx_lifemap',
   'fx_investmatch',
   'fx_parksmart',

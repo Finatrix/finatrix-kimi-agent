@@ -8,8 +8,8 @@ import { Icon } from '../ui/Icon';
 import { ExportMenu } from '../ui/ExportMenu';
 import { exportBudgetCsv, exportBudgetXlsx, exportBudgetPdf, type BudgetExport } from '../lib/exporters';
 import {
-  BB_NEEDS, BB_WANTS, BB_SAVE, BB_ALL,
-  computeBudget, type BudgetVals, type BudgetStore, type BudgetCat, type CatResult, type CatKey,
+  computeBudget, mergedCats, loadCustomCats, saveCustomCats, newCustomCatKey,
+  type BudgetVals, type BudgetStore, type BudgetCat, type CatResult, type CatKey, type CustomCats,
 } from '../lib/budget';
 
 const CAT_COLOR: Record<CatKey, string> = { needs: 'var(--blue)', wants: 'var(--gold)', save: 'var(--green)' };
@@ -23,14 +23,17 @@ export default function BudgetPage() {
   const [wantsPct, setWantsPct] = useState('30');
   const [savePct, setSavePct] = useState('20');
   const [vals, setVals] = useState<BudgetVals>({});
+  const [custom, setCustom] = useState<CustomCats>(loadCustomCats);
   const [, forceMonths] = useState(0);
   const loaded = useRef(false);
 
+  const cats = mergedCats(custom);
+
   const loadMonth = useCallback((m: string) => {
     const d = allRef.current[m];
+    // Load every saved amount (built-in + custom category keys) verbatim.
     const next: BudgetVals = {};
-    BB_ALL.forEach((c) => { next[c.k] = 0; });
-    if (d?.vals) Object.keys(d.vals).forEach((k) => { if (k in next) next[k] = Number(d.vals[k]) || 0; });
+    if (d?.vals) Object.keys(d.vals).forEach((k) => { next[k] = Number(d.vals[k]) || 0; });
     setVals(next);
     setIncome(d && d.income !== '' && d.income != null ? d.income : '50000');
     setNeedsPct(d && d.n !== '' && d.n != null ? d.n : '50');
@@ -60,7 +63,18 @@ export default function BudgetPage() {
     forceMonths((n) => n + 1);
   };
 
-  const r = computeBudget({ incomeRaw: income, needsRaw: needsPct, wantsRaw: wantsPct, saveRaw: savePct, vals });
+  const r = computeBudget({ incomeRaw: income, needsRaw: needsPct, wantsRaw: wantsPct, saveRaw: savePct, vals }, cats);
+
+  // ── Custom categories (persisted + cloud-synced via fx_bb_cats) ──
+  const updateCustom = (next: CustomCats) => { setCustom(next); saveCustomCats(next); };
+  const addCat = (section: CatKey) =>
+    updateCustom({ ...custom, [section]: [...custom[section], { k: newCustomCatKey(), ic: 'other', l: 'New category', custom: true }] });
+  const renameCat = (section: CatKey, k: string, l: string) =>
+    updateCustom({ ...custom, [section]: custom[section].map((c) => (c.k === k ? { ...c, l } : c)) });
+  const removeCat = (section: CatKey, k: string) => {
+    updateCustom({ ...custom, [section]: custom[section].filter((c) => c.k !== k) });
+    setVals((v) => { const n = { ...v }; delete n[k]; return n; });
+  };
 
   // Month chips: every month with data + the current month.
   const cur = currentMonth();
@@ -79,9 +93,9 @@ export default function BudgetPage() {
     wants: { pct: r.wPct, limit: r.wL, actual: r.wT },
     save: { pct: r.sPct, limit: r.sL, actual: r.sT },
     rows: [
-      ...BB_NEEDS.map((c) => ({ group: 'Needs', label: c.l, amount: vals[c.k] || 0 })),
-      ...BB_WANTS.map((c) => ({ group: 'Wants', label: c.l, amount: vals[c.k] || 0 })),
-      ...BB_SAVE.map((c) => ({ group: 'Savings', label: c.l, amount: vals[c.k] || 0 })),
+      ...cats.needs.map((c) => ({ group: 'Needs', label: c.l, amount: vals[c.k] || 0 })),
+      ...cats.wants.map((c) => ({ group: 'Wants', label: c.l, amount: vals[c.k] || 0 })),
+      ...cats.save.map((c) => ({ group: 'Savings', label: c.l, amount: vals[c.k] || 0 })),
     ],
     spent: r.spent, free: r.free, pos: r.pos, savePct: r.savePct, allocatedPct: r.allocatedPct,
     tips: r.tips.map((t) => `${t[1]}: ${t[2]}`),
@@ -163,9 +177,9 @@ export default function BudgetPage() {
         </div>
       </div>
 
-      <CategoryCard catKey="needs" label={`Needs · ${r.nPct}%`} color={CAT_COLOR.needs} items={BB_NEEDS} res={r.cats.needs} vals={vals} setVal={setVal} cfmt={cfmt} />
-      <CategoryCard catKey="wants" label={`Wants · ${r.wPct}%`} color={CAT_COLOR.wants} items={BB_WANTS} res={r.cats.wants} vals={vals} setVal={setVal} cfmt={cfmt} />
-      <CategoryCard catKey="save" label={`Savings & investments · ${r.sPct}%`} color={CAT_COLOR.save} items={BB_SAVE} res={r.cats.save} vals={vals} setVal={setVal} cfmt={cfmt} />
+      <CategoryCard catKey="needs" label={`Needs · ${r.nPct}%`} color={CAT_COLOR.needs} items={cats.needs} res={r.cats.needs} vals={vals} setVal={setVal} cfmt={cfmt} onAdd={() => addCat('needs')} onRename={renameCat} onRemove={removeCat} />
+      <CategoryCard catKey="wants" label={`Wants · ${r.wPct}%`} color={CAT_COLOR.wants} items={cats.wants} res={r.cats.wants} vals={vals} setVal={setVal} cfmt={cfmt} onAdd={() => addCat('wants')} onRename={renameCat} onRemove={removeCat} />
+      <CategoryCard catKey="save" label={`Savings & investments · ${r.sPct}%`} color={CAT_COLOR.save} items={cats.save} res={r.cats.save} vals={vals} setVal={setVal} cfmt={cfmt} onAdd={() => addCat('save')} onRename={renameCat} onRemove={removeCat} />
 
       <div
         className="card result-hero-anim"
@@ -223,9 +237,10 @@ function PctInput({ label, color, value, onChange, id }: {
   );
 }
 
-function CategoryCard({ catKey, label, color, items, res, vals, setVal, cfmt }: {
+function CategoryCard({ catKey, label, color, items, res, vals, setVal, cfmt, onAdd, onRename, onRemove }: {
   catKey: CatKey; label: string; color: string; items: BudgetCat[]; res: CatResult;
   vals: BudgetVals; setVal: (k: string, v: string) => void; cfmt: (n: number) => string;
+  onAdd: () => void; onRename: (section: CatKey, k: string, l: string) => void; onRemove: (section: CatKey, k: string) => void;
 }) {
   const pill =
     res.state === 'empty'
@@ -254,7 +269,18 @@ function CategoryCard({ catKey, label, color, items, res, vals, setVal, cfmt }: 
             <div style={{ fontSize: 18, width: 28, textAlign: 'center' }}>
               <Icon name={c.ic} size={18} />
             </div>
-            <div style={{ flex: 1, fontSize: 14 }}>{c.l}</div>
+            {c.custom ? (
+              <input
+                className="fi-sm"
+                type="text"
+                aria-label="Category name"
+                value={c.l}
+                onChange={(e) => onRename(catKey, c.k, e.target.value)}
+                style={{ flex: 1, width: 'auto', textAlign: 'left', minWidth: 0 }}
+              />
+            ) : (
+              <div style={{ flex: 1, fontSize: 14 }}>{c.l}</div>
+            )}
             <input
               className="fi-sm"
               type="number" step="any"
@@ -264,9 +290,26 @@ function CategoryCard({ catKey, label, color, items, res, vals, setVal, cfmt }: 
               value={vals[c.k] ? String(vals[c.k]) : ''}
               onChange={(e) => setVal(c.k, e.target.value)}
             />
+            {c.custom && (
+              <button
+                type="button"
+                aria-label={`Remove ${c.l}`}
+                onClick={() => onRemove(catKey, c.k)}
+                style={{ background: 'none', border: 'none', color: 'var(--ink3)', cursor: 'pointer', fontSize: 15, padding: '4px 6px', borderRadius: 8, flexShrink: 0 }}
+              >
+                ✕
+              </button>
+            )}
           </div>
         ))}
       </div>
+      <button
+        type="button"
+        onClick={onAdd}
+        style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: 'transparent', border: '1px dashed var(--hair)', borderRadius: 980, padding: '7px 14px', color: 'var(--ink2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+      >
+        + Add Category
+      </button>
     </div>
   );
 }

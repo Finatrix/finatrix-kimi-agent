@@ -10,13 +10,13 @@ import { fmt } from '../../tools/lib/format';
 describe('budget — V4 category set', () => {
   it('matches the exact V4 categories', () => {
     expect(BB_NEEDS.map((c) => c.l)).toEqual([
-      'Rent', 'Groceries', 'Utilities / Bills', 'Transport', 'Insurance', 'Medical', 'Phone', 'Internet', 'Other Needs',
+      'Rent', 'Groceries', 'Utilities / Bills', 'Transport', 'Insurance', 'Medical', 'Phone', 'Internet',
     ]);
     expect(BB_WANTS.map((c) => c.l)).toEqual([
-      'Eating Out', 'Going Out', 'Shopping', 'Subscriptions', 'Entertainment', 'Personal Care', 'Travel / Holidays', 'Gifts', 'Other Wants',
+      'Eating Out', 'Going Out', 'Shopping', 'Subscriptions', 'Entertainment', 'Personal Care', 'Travel / Holidays', 'Gifts',
     ]);
     expect(BB_SAVE.map((c) => c.l)).toEqual([
-      'Emergency Fund', 'Investment for Loan', 'Stocks / Equity', 'Gold / SGBs', 'Self Investment', 'Transfers', 'Home Deposit', 'Other Savings',
+      'Emergency Fund', 'Investment for Loan', 'Stocks / Equity', 'Gold / SGBs', 'Self Investment', 'Transfers', 'Home Deposit',
     ]);
   });
 });

@@ -38,6 +38,18 @@ describe('BudgetPage (React) — wiring', () => {
     expect(screen.getByText('Needs · 60%')).toBeInTheDocument();
   });
 
+  it('adds a custom category that persists', () => {
+    renderPage();
+    const addButtons = screen.getAllByText('+ Add Category');
+    expect(addButtons.length).toBe(3); // one per section (Needs/Wants/Savings)
+    fireEvent.click(addButtons[0]); // Needs
+    const nameInput = screen.getByDisplayValue('New category');
+    fireEvent.change(nameInput, { target: { value: 'Gym' } });
+    expect(screen.getByDisplayValue('Gym')).toBeInTheDocument();
+    // Persisted + cloud-synced under fx_bb_cats.
+    expect(JSON.parse(localStorage.getItem('fx_bb_cats') || '{}').needs?.[0]?.l).toBe('Gym');
+  });
+
   it('flags a category as over-limit from a spend entry', () => {
     renderPage();
     // Needs limit at 50% of 50,000 = 25,000. Enter 30,000 of rent → over by 5,000.
