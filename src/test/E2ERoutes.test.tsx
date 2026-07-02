@@ -24,7 +24,7 @@ const CASES: [string, string | RegExp][] = [
   ['/privacy', 'Privacy Policy'],
   ['/terms', 'Terms & Conditions'],
   ['/tools/budget', 'The 50/30/20 rule, made effortless.'],
-  ['/tools/expenses', 'Track every rupee. Privately.'],
+  ['/tools/expenses', 'Your budget, tracked live.'],
   ['/tools/investmatch', 'A portfolio shaped to you.'],
   ['/tools/parksmart', "Idle money shouldn't idle."],
   ['/tools/peercompare', 'How do you really stack up?'],

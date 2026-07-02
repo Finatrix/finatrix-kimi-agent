@@ -1,46 +1,53 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
 import { CurrencyProvider } from '../tools/CurrencyContext';
-import { ToastProvider } from '../tools/ui/Toast';
 import ExpensePage from '../tools/pages/ExpensePage';
 
 function renderPage() {
   return render(
     <CurrencyProvider>
-      <ToastProvider>
-        <ExpensePage />
-      </ToastProvider>
+      <ExpensePage />
     </CurrencyProvider>
   );
 }
 
-describe('ExpensePage (React) — wiring', () => {
+describe('ExpensePage (React) — dashboard wiring', () => {
   beforeEach(() => {
     localStorage.clear();
     cleanup();
   });
 
-  it('renders empty state, an export control, and logs an expense into the breakdown', () => {
+  it('renders the dashboard header, KPIs and an export control', () => {
     renderPage();
-    expect(screen.getByText('Track every rupee. Privately.')).toBeInTheDocument();
+    expect(screen.getByText('Your budget, tracked live.')).toBeInTheDocument();
     expect(screen.getByText(/Export ▾/)).toBeInTheDocument();
+    expect(screen.getByText('Monthly budget')).toBeInTheDocument();
+    expect(screen.getByText('Monthly spent')).toBeInTheDocument();
+    expect(screen.getByText('Remaining')).toBeInTheDocument();
+    // Needs / Wants / Savings summary block from Budget Builder sections.
+    expect(screen.getByText('Needs · Wants · Savings')).toBeInTheDocument();
+  });
 
+  it('logs an expense that flows into Monthly spent and Top categories', () => {
+    renderPage();
     fireEvent.change(screen.getByLabelText(/^Amount/), { target: { value: '500' } });
     fireEvent.click(screen.getByText('Add expense'));
 
-    // Default category is Dining; the breakdown card shows it with the amount.
-    const breakdown = screen.getByText(/by category/).closest('.card') as HTMLElement;
-    expect(within(breakdown).getByText('Dining')).toBeInTheDocument();
-    expect(within(breakdown).getByText('₹500')).toBeInTheDocument();
-    expect(within(breakdown).getByText('100%')).toBeInTheDocument();
+    // Default category is the first budget category (Rent). Spent rolls up.
+    const top = screen.getByText('Top categories').closest('.card') as HTMLElement;
+    expect(within(top).getByText('Rent')).toBeInTheDocument();
+    // Recent expenses lists it too.
+    const recent = screen.getByText('Recent expenses').closest('.card') as HTMLElement;
+    expect(within(recent).getAllByText('₹500').length).toBeGreaterThan(0);
   });
 
-  it('sets a monthly budget via the inline editor', () => {
+  it("reflects a Budget Builder allocation as this category's budget", () => {
+    const now = new Date();
+    const m = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    localStorage.setItem('fx_bb_data', JSON.stringify({ [m]: { vals: { rent: 20000 } } }));
     renderPage();
-    fireEvent.click(screen.getByText('Set budget'));
-    const input = screen.getByLabelText('Monthly budget');
-    fireEvent.change(input, { target: { value: '10000' } });
-    fireEvent.click(screen.getByText('Save'));
-    expect(screen.getByText(/of ₹10,000/)).toBeInTheDocument();
+    const cat = screen.getByText('Category budgets').closest('.card') as HTMLElement;
+    expect(within(cat).getByText('Rent')).toBeInTheDocument();
+    expect(within(cat).getByText(/budget ₹20,000/)).toBeInTheDocument();
   });
 });
