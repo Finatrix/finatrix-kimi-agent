@@ -44,6 +44,16 @@ export default function LandingNav() {
                 {t.short}
               </Link>
             ))}
+            <Link
+              to="/careers"
+              className="group flex items-center gap-2 px-3 py-1.5 rounded-full text-[13px] text-[#B8B8B2] hover:text-white hover:bg-white/[0.06] transition-colors"
+            >
+              <span
+                className="h-1.5 w-1.5 rounded-full opacity-80 group-hover:opacity-100 transition-opacity"
+                style={{ backgroundColor: '#D4AF37' }}
+              />
+              Careers
+            </Link>
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">

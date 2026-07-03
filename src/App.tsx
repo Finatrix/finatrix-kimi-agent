@@ -9,6 +9,12 @@ const Home = lazy(() => import('./pages/Home'))
 const ToolsLayout = lazy(() => import('./tools/ToolsLayout'))
 const ToolsIndex = lazy(() => import('./tools/ToolsIndex'))
 const ToolRoute = lazy(() => import('./tools/ToolRoute'))
+const CareersLayout = lazy(() => import('./careers/CareersLayout'))
+const CareersDashboard = lazy(() => import('./careers/pages/CareersDashboard'))
+const CareersUpload = lazy(() => import('./careers/pages/CareersUpload'))
+const ResumeLibrary = lazy(() => import('./careers/pages/ResumeLibrary'))
+const CareerProfilePage = lazy(() => import('./careers/pages/CareerProfilePage'))
+const CareersSettings = lazy(() => import('./careers/pages/CareersSettings'))
 const Login = lazy(() => import('./pages/Login'))
 const Signup = lazy(() => import('./pages/Signup'))
 const Profile = lazy(() => import('./pages/Profile'))
@@ -31,6 +37,14 @@ export default function App() {
           <Route path="/tools" element={<ToolsLayout />}>
             <Route index element={<ToolsIndex />} />
             <Route path=":toolId" element={<ToolRoute />} />
+          </Route>
+          <Route path="/careers" element={<CareersLayout />}>
+            <Route index element={<CareersDashboard />} />
+            <Route path="dashboard" element={<CareersDashboard />} />
+            <Route path="upload" element={<CareersUpload />} />
+            <Route path="resumes" element={<ResumeLibrary />} />
+            <Route path="profile" element={<CareerProfilePage />} />
+            <Route path="settings" element={<CareersSettings />} />
           </Route>
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />

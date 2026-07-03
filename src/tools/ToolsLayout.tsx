@@ -103,6 +103,9 @@ function ToolTabs({ activeTool }: { activeTool: string }) {
             {t.name}
           </Link>
         ))}
+        <Link to="/careers" data-route="careers">
+          Careers
+        </Link>
       </nav>
       <CurrencySelect />
     </div>
@@ -328,6 +331,15 @@ export default function ToolsLayout() {
                     {t.name}
                   </Link>
                 ))}
+                <div className="mt-2 mb-1 px-5 text-[10px] uppercase tracking-[0.12em] text-[#5A5A5A] font-mono">Careers</div>
+                <Link
+                  to="/careers"
+                  onClick={() => setDrawerOpen(false)}
+                  className="flex items-center gap-3 px-5 py-2.5 text-[15px] text-[#E8E8E3] hover:bg-white/[0.04]"
+                >
+                  <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: '#D4AF37' }} />
+                  FinatriX Careers
+                </Link>
                 <div className="my-2 mx-5 border-t border-white/[0.06]" />
                 <Link to="/profile" onClick={() => setDrawerOpen(false)} className="block px-5 py-2.5 text-[15px] text-[#E8E8E3] hover:bg-white/[0.04]">Profile</Link>
                 <Link to="/privacy" onClick={() => setDrawerOpen(false)} className="block px-5 py-2.5 text-[14px] text-[#8A8A8A] hover:bg-white/[0.04]">Privacy</Link>

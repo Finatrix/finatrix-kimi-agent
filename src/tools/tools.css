@@ -44,6 +44,7 @@
 .fx-tools .nav a[data-route="peercompare"]::before { background: #7C5CFF; opacity: .85; }
 .fx-tools .nav a[data-route="goals"]::before { background: #14B8A6; opacity: .85; }
 .fx-tools .nav a[data-route="lifemap"]::before { background: #D4AF37; opacity: .85; }
+.fx-tools .nav a[data-route="careers"]::before { background: #D4AF37; opacity: .85; }
 .fx-tools .nav a:hover { color: var(--ink); background: rgba(255,255,255,.06); }
 .fx-tools .nav a:hover::before { transform: scale(1.25); }
 .fx-tools .nav a.on { background: linear-gradient(180deg,var(--gold-2),var(--gold)); color: #1a1400; font-weight: 600; box-shadow: 0 6px 18px -4px rgba(212,175,55,.45); position: relative; }

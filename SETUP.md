@@ -67,6 +67,38 @@ Any static host that supports SPA fallback (Vercel, Cloudflare Pages, etc.) work
 too — just set the same two environment variables and add an SPA redirect to
 `index.html`.
 
+## 5. FinatriX Careers (resume intelligence)
+
+The Careers module (`/careers`) needs two extra one-time setup steps in the same
+Supabase project:
+
+1. **Database + storage** — open **SQL Editor → New query**, paste the contents
+   of [`supabase/careers_schema.sql`](./supabase/careers_schema.sql), and Run.
+   This creates the careers tables (with Row Level Security) and the private
+   `resumes` storage bucket.
+2. **AI proxy** — the AI analysis runs through a Supabase Edge Function so the
+   OpenRouter key never reaches the browser. With the
+   [Supabase CLI](https://supabase.com/docs/guides/cli) linked to your project:
+
+   ```
+   supabase functions deploy careers-ai
+   supabase secrets set OPENROUTER_API_KEY=sk-or-...
+   ```
+
+   Get a key at https://openrouter.ai/keys. Optional tuning (both have sane
+   defaults):
+
+   ```
+   supabase secrets set CAREERS_AI_MODELS="google/gemini-2.5-flash,deepseek/deepseek-chat-v3.1,qwen/qwen3-235b-a22b-instruct-2507"
+   supabase secrets set CAREERS_AI_DAILY_LIMIT="60"
+   ```
+
+   The first model is the default; the rest are automatic fallbacks. Changing
+   providers/models is just changing this one secret — no code changes.
+
+Until these steps are done the Careers pages load fine and explain exactly
+which step is missing; uploads and AI analysis activate once configured.
+
 ---
 
 ## How it fits together

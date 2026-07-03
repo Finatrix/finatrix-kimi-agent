@@ -22,3 +22,20 @@ if (!('IntersectionObserver' in globalThis)) {
 if (typeof window !== 'undefined' && typeof window.scrollTo !== 'function') {
   window.scrollTo = () => {};
 }
+
+// jsdom ships neither WebCrypto's subtle API nor Blob.arrayBuffer, both used
+// by the Careers hashing/validation layer. Bridge to Node's implementations.
+import { webcrypto } from 'node:crypto';
+if (!globalThis.crypto?.subtle) {
+  Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true });
+}
+if (typeof Blob !== 'undefined' && typeof Blob.prototype.arrayBuffer !== 'function') {
+  Blob.prototype.arrayBuffer = function arrayBuffer(this: Blob) {
+    return new Promise<ArrayBuffer>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as ArrayBuffer);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsArrayBuffer(this);
+    });
+  };
+}
