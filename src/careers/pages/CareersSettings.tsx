@@ -12,6 +12,8 @@ import { ConfirmDialog, ErrorCard } from '../components/states';
 import { AI_MODEL_OPTIONS } from '../constants';
 import { useCareers } from '../context/CareersContext';
 import { getAggregates, getAiUsageToday, type CareersAggregates } from '../services/analytics';
+import { ALERT_KINDS, alertEnabled, listAlerts, setAlert } from '../services/notifications';
+import type { AlertRow } from '../types/jobs';
 import { updateProfileMeta } from '../services/careerProfile';
 import { deleteResume } from '../services/resumes';
 import { toCareersError } from '../utils/errors';
@@ -44,6 +46,7 @@ export default function CareersSettings() {
 
   const [usageToday, setUsageToday] = useState<number | null>(null);
   const [aggregates, setAggregates] = useState<CareersAggregates | null>(null);
+  const [alerts, setAlerts] = useState<AlertRow[]>([]);
   const [confirmWipe, setConfirmWipe] = useState(false);
   const [wiping, setWiping] = useState(false);
 
@@ -51,7 +54,19 @@ export default function CareersSettings() {
     if (!user) return;
     void getAiUsageToday(user.id).then(setUsageToday, () => setUsageToday(null));
     void getAggregates().then(setAggregates, () => setAggregates(null));
+    void listAlerts(user.id).then(setAlerts, () => setAlerts([]));
   }, [user]);
+
+  const toggleAlert = async (kind: string, enabled: boolean) => {
+    if (!user) return;
+    try {
+      await setAlert(user.id, kind, enabled);
+      setAlerts(await listAlerts(user.id));
+      notify('Alert preference saved.', 'ok');
+    } catch (e) {
+      notify(toCareersError(e).message, 'error');
+    }
+  };
 
   const setSetting = async (patch: Parameters<typeof updateSettings>[0]) => {
     try {
@@ -157,6 +172,24 @@ export default function CareersSettings() {
               </div>
               <Toggle checked={settings.analyticsEnabled} onChange={(v) => void setSetting({ analyticsEnabled: v })} label="Anonymous analytics" />
             </div>
+          </div>
+
+          <div className="card">
+            <div className="panel-eyebrow">Smart alerts</div>
+            <p className="note" style={{ margin: '8px 0 4px' }}>
+              Delivered in-app (bell icon). Email and push channels are prepared in the
+              architecture and will light up in a future phase.
+            </p>
+            {ALERT_KINDS.map(({ kind, label }) => (
+              <div className="row-line" key={kind}>
+                <span style={{ flex: 1, fontSize: 14 }}>{label}</span>
+                <Toggle
+                  checked={alertEnabled(alerts, kind)}
+                  onChange={(v) => void toggleAlert(kind, v)}
+                  label={label}
+                />
+              </div>
+            ))}
           </div>
 
           {aggregates && (

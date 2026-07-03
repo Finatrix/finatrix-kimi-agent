@@ -94,3 +94,49 @@
   .fx-tools .lib-grid { grid-template-columns: 1fr; }
   .fx-tools .fx-modal { padding: 18px; }
 }
+
+/* ============ PHASE 2: MATCH & TRAFFIC LIGHTS ============ */
+.fx-tools .tl-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
+.fx-tools .tl-green { background: var(--green); }
+.fx-tools .tl-yellow { background: var(--gold); }
+.fx-tools .tl-red { background: var(--red); }
+.fx-tools .match-pct { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.fx-tools .cat-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 13px; }
+.fx-tools .cat-row .cat-label { flex: 0 0 148px; color: var(--ink2); }
+.fx-tools .cat-row .bar { flex: 1; }
+.fx-tools .cat-row .cat-val { flex: 0 0 34px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+/* ============ PHASE 2: JOB CARDS ============ */
+.fx-tools .job-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--ink2); margin-top: 5px; }
+.fx-tools .kw { display: inline-block; font-size: 11.5px; padding: 3px 9px; border-radius: 980px; margin: 0 5px 5px 0; background: rgba(255,255,255,.05); border: 1px solid var(--hair2); color: var(--ink2); }
+.fx-tools .kw.hit { background: rgba(52,210,122,.1); border-color: rgba(52,210,122,.25); color: var(--green); }
+.fx-tools .kw.miss { background: rgba(255,90,82,.08); border-color: rgba(255,90,82,.22); color: var(--red); }
+
+/* ============ PHASE 2: PIPELINE / CALENDAR ============ */
+.fx-tools .stage-select { font-size: 12px; padding: 6px 28px 6px 10px; border-radius: 8px; }
+.fx-tools .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.fx-tools .cal-head { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink3); text-align: center; padding: 6px 0; }
+.fx-tools .cal-cell { min-height: 74px; border: 1px solid var(--hair2); border-radius: 10px; padding: 5px 6px; font-size: 11px; background: rgba(255,255,255,.02); }
+.fx-tools .cal-cell.other { opacity: .35; }
+.fx-tools .cal-cell.today { border-color: rgba(212,175,55,.55); background: var(--gold-bg); }
+.fx-tools .cal-num { font-size: 11px; font-weight: 600; color: var(--ink2); }
+.fx-tools .cal-ev { display: block; margin-top: 3px; padding: 2px 6px; border-radius: 6px; font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: rgba(77,155,255,.14); color: var(--blue); }
+.fx-tools .cal-ev.deadline { background: rgba(255,90,82,.13); color: var(--red); }
+.fx-tools .cal-ev.offer { background: rgba(52,210,122,.13); color: var(--green); }
+.fx-tools .cal-ev.interview { background: rgba(212,175,55,.15); color: var(--gold); }
+@media (max-width: 640px) { .fx-tools .cal-cell { min-height: 52px; } }
+
+/* ============ PHASE 2: CHAT / ASSISTANT ============ */
+.fx-tools .chat-log { display: flex; flex-direction: column; gap: 10px; max-height: 420px; overflow-y: auto; padding: 4px 2px; }
+.fx-tools .chat-msg { max-width: 88%; padding: 10px 14px; border-radius: 14px; font-size: 13.5px; line-height: 1.55; white-space: pre-wrap; }
+.fx-tools .chat-msg.user { align-self: flex-end; background: var(--gold-bg); border: 1px solid rgba(212,175,55,.25); color: var(--ink); }
+.fx-tools .chat-msg.ai { align-self: flex-start; background: rgba(255,255,255,.04); border: 1px solid var(--hair2); color: var(--ink2); }
+.fx-tools .chat-refs { font-size: 11px; color: var(--ink3); margin-top: 6px; }
+
+/* ============ PHASE 2: NOTIFICATIONS BELL ============ */
+.fx-tools .bell-wrap { position: relative; }
+.fx-tools .bell-dot { position: absolute; top: -2px; right: -2px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 980px; background: var(--red); color: #fff; font-size: 9.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.fx-tools .bell-panel { position: absolute; right: 0; top: calc(100% + 10px); width: min(92vw, 360px); max-height: 420px; overflow-y: auto; background: #121214; border: 1px solid var(--hair); border-radius: 14px; box-shadow: 0 24px 60px -18px rgba(0,0,0,.75); z-index: 60; }
+.fx-tools .bell-item { padding: 12px 14px; border-bottom: 1px solid var(--hair2); font-size: 13px; }
+.fx-tools .bell-item:last-child { border-bottom: none; }
+.fx-tools .bell-item.unread { background: rgba(212,175,55,.05); }

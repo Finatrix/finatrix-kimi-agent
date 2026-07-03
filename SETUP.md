@@ -99,6 +99,39 @@ Supabase project:
 Until these steps are done the Careers pages load fine and explain exactly
 which step is missing; uploads and AI analysis activate once configured.
 
+## 6. Careers Phase 2 (job intelligence platform)
+
+Phase 2 (job search, matching, applications CRM, interview prep, career
+coach) adds two more one-time steps:
+
+1. **Database** — SQL Editor → New query → paste
+   [`supabase/careers_phase2_schema.sql`](./supabase/careers_phase2_schema.sql)
+   → Run (after the Phase 1 schema).
+2. **Job search function** — deploy the provider registry:
+
+   ```
+   supabase functions deploy careers-jobs
+   ```
+
+   Job providers activate per secret; all are optional:
+
+   ```
+   # Remotive works with no key at all (remote jobs).
+   supabase secrets set ADZUNA_APP_ID=... ADZUNA_APP_KEY=...   # adzuna.com/api — free tier, covers India
+   supabase secrets set RAPIDAPI_KEY=...                       # rapidapi.com → JSearch (Google-for-Jobs:
+                                                               # LinkedIn/Indeed/Naukri/Glassdoor listings)
+   supabase secrets set JOOBLE_KEY=...                         # jooble.org/api/about — free key
+   ```
+
+   Providers without a key simply show as “needs key” in the Jobs page — the
+   search still runs with whatever is configured. Adding a future provider is
+   one object implementing the provider interface in
+   `supabase/functions/careers-jobs/index.ts`.
+
+The AI features of Phase 2 (job analysis, matching, tailoring, cover letters,
+interview prep, coach) reuse the Phase 1 `careers-ai` function and key — no
+extra AI setup.
+
 ---
 
 ## How it fits together

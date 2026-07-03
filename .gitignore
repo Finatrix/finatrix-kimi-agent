@@ -29,3 +29,6 @@ dist-verify
 
 # stray duplicate created during setup (safe to delete)
 /finatrix-kimi-agent
+
+# Supabase CLI local state
+supabase/.temp/

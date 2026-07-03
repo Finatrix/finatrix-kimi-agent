@@ -13,7 +13,8 @@ import { Breadcrumb } from '../components/Breadcrumb';
 import { TOOLS } from '../lib/tools';
 import { ToastProvider } from '../tools/ui/Toast';
 import { IconSprite } from '../tools/ui/Icon';
-import { CAREERS_NAV } from './constants';
+import { CAREERS_HIDDEN_SECTIONS, CAREERS_NAV } from './constants';
+import { NotificationsBell } from './components/NotificationsBell';
 import { CareersProvider } from './context/CareersContext';
 import { CareersGate } from './components/states';
 import '../tools/tools.css';
@@ -23,7 +24,17 @@ function useActiveCareersTab(): string {
   const { pathname } = useLocation();
   const m = /^\/careers\/?([a-z]*)/i.exec(pathname);
   const seg = m?.[1]?.toLowerCase() || 'dashboard';
-  return CAREERS_NAV.some((n) => n.id === seg) ? seg : 'dashboard';
+  if (CAREERS_NAV.some((n) => n.id === seg)) return seg;
+  if (CAREERS_HIDDEN_SECTIONS.some((n) => n.id === seg)) return seg;
+  return 'dashboard';
+}
+
+function sectionName(id: string): string {
+  return (
+    CAREERS_NAV.find((n) => n.id === id)?.name ??
+    CAREERS_HIDDEN_SECTIONS.find((n) => n.id === id)?.name ??
+    'Careers'
+  );
 }
 
 export default function CareersLayout() {
@@ -82,6 +93,7 @@ export default function CareersLayout() {
           </div>
 
           <div className="relative flex items-center gap-2.5 sm:gap-4">
+            {user && <NotificationsBell />}
             {user ? (
               <>
                 <button
@@ -142,7 +154,7 @@ export default function CareersLayout() {
         {/* Page content */}
         <div className="wrap">
           <div style={{ paddingTop: 14 }}>
-            <Breadcrumb current={CAREERS_NAV.find((n) => n.id === active)?.name ?? 'Careers'} />
+            <Breadcrumb current={sectionName(active)} />
           </div>
           <CareersGate>
             <CareersProvider>

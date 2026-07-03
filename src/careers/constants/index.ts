@@ -8,16 +8,31 @@ export const CAREERS_ROUTES = {
   dashboard: '/careers/dashboard',
   upload: '/careers/upload',
   resumes: '/careers/resumes',
+  jobs: '/careers/jobs',
+  applications: '/careers/applications',
+  companies: '/careers/companies',
+  interviews: '/careers/interviews',
+  coach: '/careers/coach',
   profile: '/careers/profile',
   settings: '/careers/settings',
 } as const;
 
+/** Primary tab bar (Phase 2 layout). Upload/Profile stay routable below. */
 export const CAREERS_NAV = [
   { id: 'dashboard', name: 'Dashboard', href: CAREERS_ROUTES.dashboard },
-  { id: 'upload', name: 'Upload', href: CAREERS_ROUTES.upload },
   { id: 'resumes', name: 'Resume Library', href: CAREERS_ROUTES.resumes },
-  { id: 'profile', name: 'Career Profile', href: CAREERS_ROUTES.profile },
+  { id: 'jobs', name: 'Jobs', href: CAREERS_ROUTES.jobs },
+  { id: 'applications', name: 'Applications', href: CAREERS_ROUTES.applications },
+  { id: 'companies', name: 'Companies', href: CAREERS_ROUTES.companies },
+  { id: 'interviews', name: 'Interview Prep', href: CAREERS_ROUTES.interviews },
+  { id: 'coach', name: 'Career Coach', href: CAREERS_ROUTES.coach },
   { id: 'settings', name: 'Settings', href: CAREERS_ROUTES.settings },
+] as const;
+
+/** Routable sections not shown in the tab bar (breadcrumb/back-link names). */
+export const CAREERS_HIDDEN_SECTIONS = [
+  { id: 'upload', name: 'Upload', href: CAREERS_ROUTES.upload },
+  { id: 'profile', name: 'Career Profile', href: CAREERS_ROUTES.profile },
 ] as const;
 
 // ─────────────────────────── uploads ───────────────────────────

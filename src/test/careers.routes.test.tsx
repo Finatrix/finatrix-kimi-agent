@@ -20,8 +20,8 @@ function renderAt(path: string) {
 const CASES: [string, string | RegExp][] = [
   ['/careers', 'Resume Library'],
   ['/careers/dashboard', 'Resume Library'],
-  ['/careers/upload', 'Career Profile'],
-  ['/careers/resumes', 'Career Profile'],
+  ['/careers/upload', 'Career Coach'],
+  ['/careers/resumes', 'Career Coach'],
   ['/careers/profile', 'Dashboard'],
   ['/careers/settings', 'Dashboard'],
 ];

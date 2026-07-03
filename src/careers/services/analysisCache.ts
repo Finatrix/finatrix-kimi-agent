@@ -7,7 +7,12 @@
 import { supabase } from '../../lib/supabase';
 import { mapSupabaseError } from '../utils/errors';
 
-export type AnalysisKind = 'parse' | 'dna' | 'score' | 'ats';
+export type AnalysisKind =
+  // Phase 1 — resume intelligence
+  | 'parse' | 'dna' | 'score' | 'ats'
+  // Phase 2 — job intelligence
+  | 'job-analysis' | 'job-match' | 'tailor' | 'cover-letter'
+  | 'interview-questions' | 'company-insights' | 'coach';
 
 export async function getCachedAnalysis<T>(
   userId: string,
