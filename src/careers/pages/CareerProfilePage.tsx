@@ -27,7 +27,7 @@ interface FieldDef {
 }
 
 const FIELDS: FieldDef[] = [
-  { key: 'current_role', label: 'Current role', kind: 'text', placeholder: 'e.g. Senior Risk Analyst' },
+  { key: 'job_title', label: 'Current role', kind: 'text', placeholder: 'e.g. Senior Risk Analyst' },
   { key: 'preferred_role', label: 'Preferred role', kind: 'text', placeholder: 'e.g. Risk Manager' },
   { key: 'preferred_industry', label: 'Preferred industry', kind: 'select', options: INDUSTRY_OPTIONS },
   { key: 'years_experience', label: 'Years of experience', kind: 'number', placeholder: 'e.g. 6' },

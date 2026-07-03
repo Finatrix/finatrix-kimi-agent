@@ -162,7 +162,8 @@ export interface CareersSettings {
 
 export interface CareerProfileRow {
   user_id: string;
-  current_role: string;
+  /** The user's current role ("current_role" is a reserved word in SQL). */
+  job_title: string;
   preferred_role: string;
   preferred_industry: string;
   years_experience: number | null;

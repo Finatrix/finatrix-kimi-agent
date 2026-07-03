@@ -8,6 +8,10 @@
 -- AI usage metering) plus the private "resumes" Storage bucket. Every
 -- user-owned table is protected by Row Level Security keyed to auth.uid(),
 -- reusing the same auth model as tool_data in schema.sql.
+--
+-- Note: column names deliberately avoid PostgreSQL reserved words
+-- (e.g. the user's current role is stored as "job_title", because
+-- CURRENT_ROLE is a reserved SQL keyword).
 -- ============================================================================
 
 -- ───────────────────────── career_profiles ─────────────────────────
@@ -16,7 +20,7 @@
 -- a suggestion into a real column only when the user accepts it.
 create table if not exists public.career_profiles (
   user_id             uuid primary key references auth.users (id) on delete cascade,
-  current_role        text not null default '',
+  job_title           text not null default '',
   preferred_role      text not null default '',
   preferred_industry  text not null default '',
   years_experience    numeric,

@@ -4,7 +4,7 @@ import type { CareerProfileRow, ParsedResume } from '../careers/types';
 
 function profile(over: Partial<CareerProfileRow> = {}): CareerProfileRow {
   return {
-    user_id: 'u', current_role: '', preferred_role: '', preferred_industry: '',
+    user_id: 'u', job_title: '', preferred_role: '', preferred_industry: '',
     years_experience: null, highest_qualification: '', primary_skills: [], secondary_skills: [],
     location_preference: '', employment_type: '', salary_expectation: '', notice_period: '',
     visa_status: '', work_rights: '', languages: [], career_dna: null, suggestions: {},
@@ -32,7 +32,7 @@ function parsed(): ParsedResume {
 describe('buildProfileSuggestions', () => {
   it('suggests values for empty fields', () => {
     const s = buildProfileSuggestions(profile(), parsed());
-    expect(s.current_role).toBe('Senior Analyst');
+    expect(s.job_title).toBe('Senior Analyst');
     expect(s.preferred_industry).toBe('Finance');
     expect(s.years_experience).toBe('6');
     expect(s.highest_qualification).toBe('MBA — Finance');
@@ -42,13 +42,13 @@ describe('buildProfileSuggestions', () => {
 
   it('never suggests over a matching manual value', () => {
     const s = buildProfileSuggestions(
-      profile({ current_role: 'Senior Analyst', languages: ['English', 'Hindi'] }),
+      profile({ job_title: 'Senior Analyst', languages: ['English', 'Hindi'] }),
       parsed()
     );
-    expect(s.current_role).toBeUndefined();
+    expect(s.job_title).toBeUndefined();
     expect(s.languages).toBeUndefined();
     // Differing manual values still yield a *suggestion*, never an overwrite.
-    const s2 = buildProfileSuggestions(profile({ current_role: 'VP Risk' }), parsed());
-    expect(s2.current_role).toBe('Senior Analyst');
+    const s2 = buildProfileSuggestions(profile({ job_title: 'VP Risk' }), parsed());
+    expect(s2.job_title).toBe('Senior Analyst');
   });
 });

@@ -93,7 +93,7 @@ export function buildProfileSuggestions(
     if (next && next !== currentStr) suggestions[key] = next;
   };
 
-  offer('current_role', profile.current_role, parsed.currentDesignation);
+  offer('job_title', profile.job_title, parsed.currentDesignation);
   offer('preferred_industry', profile.preferred_industry, parsed.currentIndustry);
   if (parsed.yearsOfExperience != null) {
     offer('years_experience', profile.years_experience, String(parsed.yearsOfExperience));
