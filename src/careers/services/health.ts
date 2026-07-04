@@ -60,5 +60,10 @@ export function computeCareerHealth(ctx: CoachContext): CareerHealth {
   if (!ctx.interviewScores.length) suggestions.push('Run one mock interview to establish your interview readiness baseline.');
   if (learning < 30) suggestions.push('Start one item from your learning plan to close your top skill gap.');
 
-  return { overall, categories, offerProbability, suggestions };
+  // Module 18 — deterministic fallback readiness scores; the AI coach may
+  // override both with a data-grounded read once its narrative report lands.
+  const promotionReadiness = clamp(overall * 0.5 + interview * 0.3 + learning * 0.2);
+  const roleReadiness = clamp(resume * 0.4 + ats * 0.3 + market * 0.3);
+
+  return { overall, categories, offerProbability, suggestions, promotionReadiness, roleReadiness };
 }

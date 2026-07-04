@@ -5,7 +5,7 @@
  * pipeline against the selected resume version.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
@@ -26,9 +26,14 @@ import {
   listSavedJobs,
   saveJob,
   saveJobDescription,
-  searchJobs,
+  searchProviders,
 } from '../services/jobsService';
 import { matchResumeToJob } from '../services/matchService';
+import { saveTailoredVersion, setSectionAccepted } from '../services/resumeTailoring';
+import type { ResumeTailoredVersionRow } from '../types/phase3';
+import { runSearchPipeline, type ScoredJob, type SearchReport } from '../search/pipeline';
+import { categoryLabel } from '../search/taxonomy';
+import type { QuickMatchInput } from '../search/quickMatch';
 import type { ResumeVersionRow, ResumeWithVersions } from '../types';
 import {
   DEFAULT_MATCH_THRESHOLD,
@@ -87,6 +92,7 @@ function JobWorkbench({
   const [intel, setIntel] = useState<JobIntelResult | null>(initialIntel);
   const [match, setMatch] = useState<MatchReport | null>(initialMatch);
   const [tailor, setTailor] = useState<TailoringReport | null>(null);
+  const [tailorRow, setTailorRow] = useState<ResumeTailoredVersionRow | null>(null);
   const [busy, setBusy] = useState<'' | 'intel' | 'match' | 'tailor' | 'track'>('');
   const [letterOpen, setLetterOpen] = useState(false);
 
@@ -150,7 +156,7 @@ function JobWorkbench({
   };
 
   const runTailor = async () => {
-    if (!version?.parsed) {
+    if (!user || !version?.parsed) {
       notify('Pick an analysed resume version first (top of the page).', 'error');
       return;
     }
@@ -162,10 +168,25 @@ function JobWorkbench({
       );
       setTailor(result);
       setTab('tailor');
+      // Module 3 — persist the proposal; the stored resume version is never touched.
+      const saved = await saveTailoredVersion(user.id, version.id, target.jobText, result, {
+        jobId: target.jobRow?.id,
+      });
+      setTailorRow(saved);
     } catch (e) {
       notify(toCareersError(e).message, 'error');
     } finally {
       setBusy('');
+    }
+  };
+
+  const toggleAccepted = async (section: string, accepted: boolean) => {
+    if (!user || !tailorRow) return;
+    try {
+      const updated = await setSectionAccepted(user.id, tailorRow.id, section, accepted, tailorRow.accepted_sections);
+      setTailorRow(updated);
+    } catch (e) {
+      notify(toCareersError(e).message, 'error');
     }
   };
 
@@ -268,23 +289,36 @@ function JobWorkbench({
                 <b>Suggestions only — your stored resume is never modified.</b>
                 Tailored summary: {tailor.summary}
               </div>
-              {tailor.sections.map((s, i) => (
-                <div className="card" key={i} style={{ padding: 16, marginBottom: 10 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span className="badge badge-gold">{s.section}</span>
-                    {s.addedKeywords.length > 0 && (
-                      <span className="note">+ {s.addedKeywords.join(', ')}</span>
+              {tailor.sections.map((s, i) => {
+                const accepted = tailorRow?.accepted_sections.includes(s.section) ?? false;
+                return (
+                  <div className="card" key={i} style={{ padding: 16, marginBottom: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <span className="badge badge-gold">{s.section}</span>
+                      {s.addedKeywords.length > 0 && (
+                        <span className="note">+ {s.addedKeywords.join(', ')}</span>
+                      )}
+                    </div>
+                    <div className="grid2" style={{ gap: 12 }}>
+                      <div>
+                        <div className="note" style={{ marginBottom: 4 }}>Original</div>
+                        <p style={{ fontSize: 12.5, color: 'var(--ink3)', lineHeight: 1.6 }}>{s.original || '(new)'}</p>
+                      </div>
+                      <div>
+                        <div className="note" style={{ marginBottom: 4 }}>Tailored</div>
+                        <p style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.6 }}>{s.improved}</p>
+                      </div>
+                    </div>
+                    {s.reason && <p className="note" style={{ marginTop: 6 }}>Why: {s.reason}</p>}
+                    {tailorRow && (
+                      <label className="note" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, cursor: 'pointer' }}>
+                        <input type="checkbox" checked={accepted} onChange={(e) => void toggleAccepted(s.section, e.target.checked)} />
+                        Accept this change
+                      </label>
                     )}
                   </div>
-                  {s.original && (
-                    <p style={{ fontSize: 12.5, color: 'var(--ink3)', textDecoration: 'line-through', marginBottom: 6 }}>
-                      {s.original}
-                    </p>
-                  )}
-                  <p style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.6 }}>{s.improved}</p>
-                  {s.reason && <p className="note" style={{ marginTop: 6 }}>Why: {s.reason}</p>}
-                </div>
-              ))}
+                );
+              })}
               {tailor.formattingSuggestions.length > 0 && (
                 <div className="tip tip-warn">
                   <b>Formatting</b>
@@ -329,7 +363,7 @@ type View = 'search' | 'saved' | 'analyzer';
 
 export default function JobsPage() {
   const { user } = useAuth();
-  const { loading, error, resumes, refresh } = useCareers();
+  const { loading, error, profile, resumes, refresh } = useCareers();
   const { notify } = useToast();
 
   const versions = useMemo(() => completeVersions(resumes), [resumes]);
@@ -339,15 +373,27 @@ export default function JobsPage() {
   const [view, setView] = useState<View>('search');
   const [params, setParams] = useState<JobSearchParams>({ ...DEFAULT_SEARCH_PARAMS });
   const [searching, setSearching] = useState(false);
-  const [results, setResults] = useState<NormalizedJob[]>([]);
-  const [providerStatus, setProviderStatus] = useState<Record<string, string>>({});
+  const [report, setReport] = useState<SearchReport | null>(null);
   const [sources, setSources] = useState<JobSourceRow[]>([]);
   const [searchError, setSearchError] = useState<CareersError | null>(null);
   const [threshold, setThreshold] = useState(DEFAULT_MATCH_THRESHOLD);
   const [saved, setSaved] = useState<JobRow[]>([]);
   const [matches, setMatches] = useState<Map<string, { report: MatchReport; intel: JobIntelResult }>>(new Map());
-  const [resultKeys, setResultKeys] = useState<Map<number, string>>(new Map());
+  const [resultKeys, setResultKeys] = useState<Map<ScoredJob, string>>(new Map());
   const [workbench, setWorkbench] = useState<WorkbenchTarget | null>(null);
+  // Monotonic search sequence — stale responses never clobber newer ones.
+  const searchSeq = useRef(0);
+
+  /** Deterministic quick-match input for the selected resume version. */
+  const resumeInput = useMemo<QuickMatchInput | null>(() => {
+    if (!version?.parsed || !version.raw_text) return null;
+    return {
+      parsed: version.parsed,
+      rawText: version.raw_text,
+      careerDna: version.career_dna,
+      profile,
+    };
+  }, [version, profile]);
 
   // Analyzer state
   const [pasteText, setPasteText] = useState('');
@@ -371,23 +417,29 @@ export default function JobsPage() {
       notify('Enter a job title or keyword.', 'error');
       return;
     }
+    const seq = ++searchSeq.current;
     setSearching(true);
     setSearchError(null);
     try {
-      const out = await searchJobs({ ...params, page });
-      setResults(out.jobs);
-      setProviderStatus(out.status);
+      const out = await runSearchPipeline(
+        { ...params, page },
+        resumeInput,
+        (p, terms) => searchProviders(p, terms),
+        { resumeKey: version?.id ?? 'none' }
+      );
+      if (seq !== searchSeq.current) return; // a newer search superseded this one
+      setReport(out);
       setParams((p) => ({ ...p, page }));
-      const keys = new Map<number, string>();
-      await Promise.all(out.jobs.map(async (j, i) => {
-        keys.set(i, await jobContentSha(j));
+      const keys = new Map<ScoredJob, string>();
+      await Promise.all(out.jobs.map(async (s) => {
+        keys.set(s, await jobContentSha(s.job));
       }));
       setResultKeys(keys);
-      if (!out.jobs.length) notify('No jobs found — try broader keywords or another location.', 'info');
+      if (!out.jobs.length) notify('No relevant jobs found — try broader keywords or another location.', 'info');
     } catch (e) {
-      setSearchError(toCareersError(e));
+      if (seq === searchSeq.current) setSearchError(toCareersError(e));
     } finally {
-      setSearching(false);
+      if (seq === searchSeq.current) setSearching(false);
     }
   };
 
@@ -456,10 +508,20 @@ export default function JobsPage() {
     void refresh();
   };
 
-  const visibleResults = results.filter((_, i) => {
-    const key = resultKeys.get(i);
-    const m = key ? matches.get(key) : undefined;
-    return !m || m.report.overall >= threshold;
+  const results = report?.jobs ?? [];
+
+  /** Best available Resume Match: full AI match when run, else quick match. */
+  const effectiveMatch = (s: ScoredJob): number | null => {
+    const key = resultKeys.get(s);
+    const ai = key ? matches.get(key) : undefined;
+    if (ai) return ai.report.overall;
+    return s.match ? s.match.overall : null;
+  };
+
+  // Hard threshold — jobs scoring below it are never shown, no exceptions.
+  const visibleResults = results.filter((s) => {
+    const m = effectiveMatch(s);
+    return m == null || m >= threshold;
   });
 
   if (loading) return <div style={{ minHeight: '50vh' }} aria-busy="true" />;
@@ -553,11 +615,11 @@ export default function JobsPage() {
             <div className="note">
               Sources:{' '}
               {sources.filter((s) => s.kind !== 'manual').map((s) => {
-                const st = providerStatus[s.id];
+                const st = report?.quality.providerCoverage[s.id];
                 return (
                   <span key={s.id} title={s.description} style={{ marginRight: 12 }}>
                     <span className={`tl-dot ${st === 'ok' ? 'tl-green' : st === 'error' ? 'tl-red' : 'tl-yellow'}`} />
-                    {s.name}{st === 'not-configured' ? ' (needs key — see SETUP.md §6)' : ''}
+                    {s.name}{st === 'not-configured' ? ' (needs key — see SETUP.md §6)' : st === 'skipped' ? ' (skipped for this search)' : ''}
                   </span>
                 );
               })}
@@ -567,8 +629,8 @@ export default function JobsPage() {
 
           {searchError && <ErrorCard error={searchError} onRetry={() => void runSearch(params.page)} />}
 
-          {results.length > 0 && (
-            <div className="lib-toolbar">
+          {report && (
+            <div className="lib-toolbar" style={{ flexWrap: 'wrap' }}>
               <label className="fl" style={{ marginBottom: 0 }} htmlFor="jobs-threshold">
                 Match threshold: <b style={{ color: 'var(--gold)' }}>{threshold}%</b>
               </label>
@@ -577,14 +639,38 @@ export default function JobsPage() {
                 onChange={(e) => setThreshold(Number(e.target.value))}
                 style={{ flex: '0 1 200px', accentColor: '#D4AF37' }}
               />
-              <span className="note">Matched jobs below the threshold are hidden; unmatched jobs stay visible.</span>
+              <span className="note">
+                {resumeInput
+                  ? `Jobs below ${threshold}% Resume Match are never shown.`
+                  : 'Upload a resume to enable Resume Match filtering.'}
+              </span>
             </div>
           )}
 
-          {visibleResults.map((job) => {
-            const i = results.indexOf(job);
-            const key = resultKeys.get(i);
-            const m = key ? matches.get(key) : undefined;
+          {report && (
+            <div className="card" style={{ padding: '12px 18px', marginBottom: 10 }}>
+              <div className="job-meta" style={{ gap: 16 }}>
+                <span><b style={{ color: 'var(--ink)' }}>{visibleResults.length}</b> relevant jobs shown</span>
+                <span>{report.quality.rejected} filtered out
+                  {report.quality.rejected > 0 && (
+                    <span className="note">
+                      {' '}({Object.entries(report.quality.rejectedByReason).map(([r, n]) => `${n} ${r.replace('-', ' ')}`).join(', ')})
+                    </span>
+                  )}
+                </span>
+                {report.quality.averageMatch != null && (
+                  <span>Avg match <b style={{ color: scoreColor(report.quality.averageMatch) }}>{report.quality.averageMatch}%</b></span>
+                )}
+                <span>Search confidence {report.quality.searchConfidence}%</span>
+              </div>
+            </div>
+          )}
+
+          {visibleResults.map((s, i) => {
+            const job = s.job;
+            const key = resultKeys.get(s);
+            const ai = key ? matches.get(key) : undefined;
+            const pct = effectiveMatch(s);
             return (
               <div className="card" key={`${job.source}-${job.external_id}-${i}`} style={{ padding: 18, marginBottom: 10 }}>
                 <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
@@ -593,29 +679,49 @@ export default function JobsPage() {
                     <div className="job-meta">
                       <span><b style={{ color: 'var(--ink)' }}>{job.company || 'Unknown company'}</b></span>
                       {job.location && <span>{job.location}</span>}
-                      {job.work_mode && <span className="badge badge-blue">{job.work_mode}</span>}
-                      {job.employment_type && <span>{job.employment_type}</span>}
+                      {job.classification.category !== 'other' && (
+                        <span className="badge badge-gold">{categoryLabel(job.classification.category)}</span>
+                      )}
+                      {(job.workMode || job.work_mode) && <span className="badge badge-blue">{job.workMode || job.work_mode}</span>}
+                      {job.employment && <span>{job.employment}</span>}
                       {(job.salary_min || job.salary_max) && (
                         <span>{[job.salary_min, job.salary_max].filter(Boolean).map((n) => n!.toLocaleString()).join(' – ')} {job.currency}</span>
                       )}
                       {job.posted_at && <span>Posted {formatDate(job.posted_at)}</span>}
                       <span className="badge badge-mute">via {job.via}</span>
                     </div>
+                    {s.why.length > 0 && (
+                      <div className="note" style={{ marginTop: 6 }}>
+                        Why this job: {s.why.slice(0, 2).join(' · ')}
+                      </div>
+                    )}
+                    {s.match && s.match.missingTerms.length > 0 && (
+                      <div className="note" style={{ marginTop: 2 }}>
+                        Missing from your resume: {s.match.missingTerms.slice(0, 4).join(', ')}
+                      </div>
+                    )}
                   </div>
                   <div style={{ textAlign: 'center', flexShrink: 0 }}>
-                    {m ? (
+                    {pct != null ? (
                       <>
-                        <div className="match-pct" style={{ color: scoreColor(m.report.overall) }}>{m.report.overall}%</div>
-                        <span className={`tl-dot tl-${matchBand(m.report.overall)}`} />
+                        <div className="match-pct" style={{ color: scoreColor(pct) }}>{pct}%</div>
+                        <span className={`tl-dot tl-${matchBand(pct)}`} />
+                        <div className="note">{ai ? 'AI match' : 'resume match'}</div>
                       </>
                     ) : (
-                      <span className="note">not matched</span>
+                      <span className="note">no resume</span>
                     )}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
                   <button className="btn btn-sm" onClick={() => void openNormalized(job)}>
                     Analyse &amp; match
+                  </button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => {
+                    if (user) void saveJob(user.id, job).then(() => { notify('Job saved.', 'ok'); void loadSaved(); })
+                      .catch((e) => notify(toCareersError(e).message, 'error'));
+                  }}>
+                    Save
                   </button>
                   <a className="btn btn-ghost btn-sm" style={{ width: 'auto', textDecoration: 'none' }} href={job.apply_url} target="_blank" rel="noopener noreferrer">
                     Apply ↗

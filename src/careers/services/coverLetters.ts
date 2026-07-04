@@ -18,6 +18,7 @@ export async function generateCoverLetter(
     company: string;
     jobTitle: string;
     tone: CoverLetterTone;
+    length?: string;
     extraInstructions?: string;
     applicationId?: string;
     jobId?: string;
@@ -28,7 +29,8 @@ export async function generateCoverLetter(
   if (!version.parsed) {
     throw new CareersError('validation', 'Pick a fully analysed resume version first.');
   }
-  const cacheBasis = `${version.raw_text}\n::CL::${input.tone}::${input.company}::${input.jobTitle}::${input.extraInstructions ?? ''}\n${input.jobText}`;
+  const length = input.length ?? 'standard';
+  const cacheBasis = `${version.raw_text}\n::CL::${input.tone}::${length}::${input.company}::${input.jobTitle}::${input.extraInstructions ?? ''}\n${input.jobText}`;
   const sha = await sha256OfText(cacheBasis);
   let sections = await getCachedAnalysis<CoverLetterSections>(userId, sha, 'cover-letter').catch(() => null);
   if (!sections) {
@@ -36,7 +38,7 @@ export async function generateCoverLetter(
       () =>
         generateCoverLetterWithAI(
           version.parsed!, version.career_dna, input.jobText,
-          input.company, input.jobTitle, input.tone, input.extraInstructions ?? '', model
+          input.company, input.jobTitle, input.tone, input.extraInstructions ?? '', model, length
         ),
       { attempts: 2 }
     );

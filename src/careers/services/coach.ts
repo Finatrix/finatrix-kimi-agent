@@ -104,12 +104,17 @@ export async function getCoachReport(
     await saveAnalysis(userId, null, sha, 'coach', usedModel, result, ms).catch(() => undefined);
   }
   health.suggestions = [...new Set([...health.suggestions, ...ai.healthSuggestions])].slice(0, 8);
+  // AI readiness reads override the deterministic fallback once available.
+  if (ai.promotionReadiness > 0) health.promotionReadiness = ai.promotionReadiness;
+  if (ai.roleReadiness > 0) health.roleReadiness = ai.roleReadiness;
   return {
     health,
     insights: ai.insights,
     roadmap: ai.roadmap,
     learning: ai.learning,
     certifications: ai.certifications,
+    marketTrends: ai.marketTrends,
+    salaryForecast: ai.salaryForecast,
   };
 }
 

@@ -14,8 +14,11 @@ import type { ResumeVersionRow } from '../types';
 import type {
   InterviewAnswer,
   InterviewFeedback,
+  Interviewer,
+  InterviewOutcome,
   InterviewQuestion,
   InterviewSessionRow,
+  InterviewType,
   StarAnswer,
 } from '../types/jobs';
 import { CareersError, mapSupabaseError, withRetry } from '../utils/errors';
@@ -40,7 +43,7 @@ export async function createSession(
     kind: 'prep' | 'mock';
     roleTitle: string;
     jobText: string;
-    difficulty: 'easy' | 'medium' | 'hard';
+    difficulty: 'easy' | 'medium' | 'hard' | 'expert';
     count: number;
     applicationId?: string;
     jobId?: string;
@@ -147,6 +150,34 @@ export async function completeMock(
     .select()
     .single();
   if (error) throw mapSupabaseError(error, 'Saving your feedback');
+  return data as InterviewSessionRow;
+}
+
+/** Module 8 — schedule / workspace metadata for one interview. */
+export interface WorkspacePatch {
+  round?: string;
+  interview_type?: InterviewType;
+  scheduled_at?: string | null;
+  location?: string;
+  meeting_link?: string;
+  interviewers?: Interviewer[];
+  recording_links?: string[];
+  outcome?: InterviewOutcome | '';
+}
+
+export async function updateWorkspace(
+  userId: string,
+  sessionId: string,
+  patch: WorkspacePatch
+): Promise<InterviewSessionRow> {
+  const { data, error } = await supabase
+    .from('interview_sessions')
+    .update(patch)
+    .eq('user_id', userId)
+    .eq('id', sessionId)
+    .select()
+    .single();
+  if (error) throw mapSupabaseError(error, 'Saving the interview workspace');
   return data as InterviewSessionRow;
 }
 

@@ -137,7 +137,10 @@ describe('interview validators', () => {
 
   it('derives overall feedback score from categories when missing', () => {
     const fb = validateInterviewFeedback({
-      scores: { confidence: 60, communication: 60, technical: 60, leadership: 60, star: 60, behavioural: 60 },
+      scores: {
+        confidence: 60, communication: 60, technical: 60, leadership: 60, star: 60, behavioural: 60,
+        structure: 60, problemSolving: 60, grammar: 60, fluency: 60,
+      },
       strongAreas: ['clarity'],
     });
     expect(fb.overall).toBe(60);

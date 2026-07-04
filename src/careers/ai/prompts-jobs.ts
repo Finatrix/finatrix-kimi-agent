@@ -128,13 +128,20 @@ export function buildTailorPrompt(digest: string, jobText: string): { system: st
 
 // ─────────────────────────── cover letter ───────────────────────────
 
+const LENGTH_BRIEF: Record<string, string> = {
+  short: 'Each section 1 sentence max (relevantExperience up to 2). Keep the whole letter under 120 words.',
+  standard: 'Each section 1–3 sentences (relevantExperience up to 4).',
+  detailed: 'Each section 2–4 sentences (relevantExperience up to 6), with specific, quantified examples.',
+};
+
 export function buildCoverLetterPrompt(
   digest: string,
   jobText: string,
   company: string,
   jobTitle: string,
   tone: CoverLetterTone,
-  extraInstructions: string
+  extraInstructions: string,
+  length: string = 'standard'
 ): { system: string; user: string } {
   return {
     system:
@@ -143,9 +150,9 @@ export function buildCoverLetterPrompt(
       'claim in the candidate data. Match the requested tone. ' + GUARD +
       '\nReturn JSON exactly: {"opening":"","introduction":"","whyCompany":"","whyRole":"",' +
       '"relevantExperience":"","achievements":"","closing":"","callToAction":"","signature":""}' +
-      '\nEach section 1–3 sentences (relevantExperience up to 4). Signature is just the name line.',
+      `\n${LENGTH_BRIEF[length] ?? LENGTH_BRIEF.standard} Signature is just the name line.`,
     user:
-      `TONE: ${String(tone).slice(0, 40)}\nCOMPANY: ${company.slice(0, 120)}\nROLE: ${jobTitle.slice(0, 120)}\n` +
+      `TONE: ${String(tone).slice(0, 40)}\nLENGTH: ${length}\nCOMPANY: ${company.slice(0, 120)}\nROLE: ${jobTitle.slice(0, 120)}\n` +
       (extraInstructions ? `EXTRA INSTRUCTIONS: ${extraInstructions.slice(0, 400)}\n` : '') +
       `CANDIDATE:\n${fence(digest, 10_000)}\nJOB:\n${fence(jobText, 8_000)}`,
   };
@@ -163,10 +170,13 @@ export function buildInterviewQuestionsPrompt(
   return {
     system:
       'You are an interview coach generating realistic questions personalised to this candidate ' +
-      'and role. Mix categories; make company/role questions specific to the provided job. ' + GUARD +
+      'and role. Mix categories; make company/role questions specific to the provided job. When the ' +
+      'role touches finance, risk, AML/financial-crime or compliance, include questions from those ' +
+      'categories and case studies. ' + GUARD +
       '\nReturn JSON exactly: {"questions":[{"category":"behavioural|technical|role|company|industry|' +
-      'situational|leadership|case|star|followup","question":"","guidance":"what a strong answer covers",' +
-      '"difficulty":"easy|medium|hard"}]}' +
+      'situational|leadership|case|star|followup|finance|risk|aml|compliance","question":"",' +
+      '"guidance":"what a strong answer covers","modelAnswer":"a concise model answer, STAR-shaped ' +
+      'for behavioural/situational questions","difficulty":"easy|medium|hard|expert"}]}' +
       `\nGenerate exactly ${Math.min(Math.max(count, 5), 25)} questions at overall difficulty "${difficulty}".`,
     user: `ROLE: ${roleTitle.slice(0, 120)}\nCANDIDATE:\n${fence(digest, 8_000)}\nJOB:\n${fence(jobText || '(no specific job — generic for the role)', 8_000)}`,
   };
@@ -197,7 +207,8 @@ export function buildInterviewFeedbackPrompt(
       'You are an interview assessor scoring a completed mock interview. Be honest and specific: ' +
       'quote or reference the candidate\'s actual answers in your feedback. ' + GUARD +
       '\nReturn JSON exactly: {"overall":0,' +
-      '"scores":{"confidence":0,"communication":0,"technical":0,"leadership":0,"star":0,"behavioural":0},' +
+      '"scores":{"confidence":0,"communication":0,"technical":0,"leadership":0,"star":0,"behavioural":0,' +
+      '"structure":0,"problemSolving":0,"grammar":0,"fluency":0},' +
       '"strongAreas":[],"weakAreas":[],"suggestions":[],"practicePlan":[]}' +
       '\nAll scores 0–100. practicePlan is 3–6 concrete exercises.',
     user: fence(
@@ -230,10 +241,14 @@ export function buildCoachPrompt(context: CoachContext, focus: string): { system
       '"learning":[{"name":"","kind":"course|certification|book|video|docs|practice","provider":"",' +
       '"difficulty":"beginner|intermediate|advanced","hours":0,"priority":"","impact":""}],' +
       '"certifications":[{"name":"","difficulty":"","cost":"","duration":"","recognition":"",' +
-      '"salaryImpact":"","demand":"","priority":"","reason":""}]}' +
+      '"salaryImpact":"","demand":"","priority":"","reason":""}],' +
+      '"promotionReadiness":0,"roleReadiness":0,"marketTrends":"","salaryForecast":""}' +
       '\nInsights: 4–8, each citing a concrete figure from the data (e.g. "3 of your 5 target jobs ' +
       'require SQL, which is missing from your resume"). Roadmap: 3–5 steps toward the target role. ' +
-      'Learning: ≤ 8 items. Certifications: ≤ 6, relevant to the Indian market where applicable.',
+      'Learning: ≤ 8 items. Certifications: ≤ 6, relevant to the Indian market where applicable. ' +
+      'promotionReadiness/roleReadiness (0-100) must be grounded in the data — not generous by ' +
+      'default. marketTrends: 2–3 sentences on demand for this role/industry. salaryForecast: 1–2 ' +
+      'sentences on likely near-term salary trajectory given experience and market.',
     user: `FOCUS: ${focus.slice(0, 200)}\nUSER DATA:\n${fence(JSON.stringify(context), 20_000)}`,
   };
 }

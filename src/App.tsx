@@ -20,6 +20,12 @@ const InterviewPrepPage = lazy(() => import('./careers/pages/InterviewPrepPage')
 const CareerCoachPage = lazy(() => import('./careers/pages/CareerCoachPage'))
 const CareerProfilePage = lazy(() => import('./careers/pages/CareerProfilePage'))
 const CareersSettings = lazy(() => import('./careers/pages/CareersSettings'))
+const TasksPage = lazy(() => import('./careers/pages/TasksPage'))
+const RecruitersPage = lazy(() => import('./careers/pages/RecruitersPage'))
+const NetworkPage = lazy(() => import('./careers/pages/NetworkPage'))
+const AssessmentsPage = lazy(() => import('./careers/pages/AssessmentsPage'))
+const OffersPage = lazy(() => import('./careers/pages/OffersPage'))
+const KnowledgeBasePage = lazy(() => import('./careers/pages/KnowledgeBasePage'))
 const Login = lazy(() => import('./pages/Login'))
 const Signup = lazy(() => import('./pages/Signup'))
 const Profile = lazy(() => import('./pages/Profile'))
@@ -50,8 +56,14 @@ export default function App() {
             <Route path="resumes" element={<ResumeLibrary />} />
             <Route path="jobs" element={<JobsPage />} />
             <Route path="applications" element={<ApplicationsPage />} />
+            <Route path="tasks" element={<TasksPage />} />
             <Route path="companies" element={<CompaniesPage />} />
+            <Route path="recruiters" element={<RecruitersPage />} />
+            <Route path="network" element={<NetworkPage />} />
             <Route path="interviews" element={<InterviewPrepPage />} />
+            <Route path="assessments" element={<AssessmentsPage />} />
+            <Route path="offers" element={<OffersPage />} />
+            <Route path="knowledge" element={<KnowledgeBasePage />} />
             <Route path="coach" element={<CareerCoachPage />} />
             <Route path="profile" element={<CareerProfilePage />} />
             <Route path="settings" element={<CareersSettings />} />

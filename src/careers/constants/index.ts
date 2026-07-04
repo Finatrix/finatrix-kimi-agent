@@ -15,6 +15,13 @@ export const CAREERS_ROUTES = {
   coach: '/careers/coach',
   profile: '/careers/profile',
   settings: '/careers/settings',
+  // Phase 3 — Application Intelligence Engine.
+  tasks: '/careers/tasks',
+  recruiters: '/careers/recruiters',
+  network: '/careers/network',
+  assessments: '/careers/assessments',
+  offers: '/careers/offers',
+  knowledge: '/careers/knowledge',
 } as const;
 
 /** Primary tab bar (Phase 2 layout). Upload/Profile stay routable below. */
@@ -23,8 +30,14 @@ export const CAREERS_NAV = [
   { id: 'resumes', name: 'Resume Library', href: CAREERS_ROUTES.resumes },
   { id: 'jobs', name: 'Jobs', href: CAREERS_ROUTES.jobs },
   { id: 'applications', name: 'Applications', href: CAREERS_ROUTES.applications },
+  { id: 'tasks', name: 'Tasks', href: CAREERS_ROUTES.tasks },
   { id: 'companies', name: 'Companies', href: CAREERS_ROUTES.companies },
+  { id: 'recruiters', name: 'Recruiters', href: CAREERS_ROUTES.recruiters },
+  { id: 'network', name: 'Network', href: CAREERS_ROUTES.network },
   { id: 'interviews', name: 'Interview Prep', href: CAREERS_ROUTES.interviews },
+  { id: 'assessments', name: 'Assessments', href: CAREERS_ROUTES.assessments },
+  { id: 'offers', name: 'Offers', href: CAREERS_ROUTES.offers },
+  { id: 'knowledge', name: 'Knowledge Base', href: CAREERS_ROUTES.knowledge },
   { id: 'coach', name: 'Career Coach', href: CAREERS_ROUTES.coach },
   { id: 'settings', name: 'Settings', href: CAREERS_ROUTES.settings },
 ] as const;

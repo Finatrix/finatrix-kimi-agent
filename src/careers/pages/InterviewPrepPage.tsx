@@ -19,13 +19,16 @@ import {
   deleteSession,
   listSessions,
   saveAnswers,
+  updateWorkspace,
 } from '../services/interviews';
 import type { ResumeVersionRow, ResumeWithVersions } from '../types';
-import type {
-  ApplicationRow,
-  InterviewAnswer,
-  InterviewSessionRow,
-  StarAnswer,
+import {
+  INTERVIEW_OUTCOMES,
+  INTERVIEW_TYPES,
+  type ApplicationRow,
+  type InterviewAnswer,
+  type InterviewSessionRow,
+  type StarAnswer,
 } from '../types/jobs';
 import { toCareersError, type CareersError } from '../utils/errors';
 import { formatDate, scoreColor } from '../utils/format';
@@ -57,7 +60,7 @@ export default function InterviewPrepPage() {
   const [kind, setKind] = useState<'prep' | 'mock'>('prep');
   const [applicationId, setApplicationId] = useState('');
   const [roleTitle, setRoleTitle] = useState('');
-  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
+  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard' | 'expert'>('medium');
   const [count, setCount] = useState(10);
   const [timed, setTimed] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -245,6 +248,7 @@ export default function InterviewPrepPage() {
                   <option value="easy">Easy</option>
                   <option value="medium">Medium</option>
                   <option value="hard">Hard</option>
+                  <option value="expert">Expert</option>
                 </select>
               </div>
               <div className="fg" style={{ marginBottom: 0 }}>
@@ -297,6 +301,65 @@ export default function InterviewPrepPage() {
             <span className="note">Question {current + 1} / {active.questions.length}</span>
           </div>
 
+          {active.kind === 'mock' && (
+            <details className="card" style={{ marginBottom: 10 }}>
+              <summary className="panel-eyebrow" style={{ cursor: 'pointer' }}>Interview workspace — schedule &amp; outcome</summary>
+              <div className="grid3" style={{ marginTop: 12 }}>
+                <div className="fg" style={{ marginBottom: 0 }}>
+                  <label className="fl" htmlFor="ws-round">Round</label>
+                  <input id="ws-round" className="fi" value={active.round} placeholder="e.g. Round 2 — Panel"
+                    onChange={(e) => setActive({ ...active, round: e.target.value })}
+                    onBlur={() => { if (user) void updateWorkspace(user.id, active.id, { round: active.round }); }} />
+                </div>
+                <div className="fg" style={{ marginBottom: 0 }}>
+                  <label className="fl" htmlFor="ws-type">Type</label>
+                  <select id="ws-type" className="fs" value={active.interview_type}
+                    onChange={(e) => {
+                      const interview_type = e.target.value as typeof active.interview_type;
+                      setActive({ ...active, interview_type });
+                      if (user) void updateWorkspace(user.id, active.id, { interview_type });
+                    }}>
+                    <option value="">Not set</option>
+                    {INTERVIEW_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div className="fg" style={{ marginBottom: 0 }}>
+                  <label className="fl" htmlFor="ws-when">Scheduled</label>
+                  <input id="ws-when" className="fi" type="datetime-local" value={active.scheduled_at?.slice(0, 16) ?? ''}
+                    onChange={(e) => {
+                      const scheduled_at = e.target.value ? new Date(e.target.value).toISOString() : null;
+                      setActive({ ...active, scheduled_at });
+                      if (user) void updateWorkspace(user.id, active.id, { scheduled_at });
+                    }} />
+                </div>
+                <div className="fg" style={{ marginBottom: 0 }}>
+                  <label className="fl" htmlFor="ws-loc">Location</label>
+                  <input id="ws-loc" className="fi" value={active.location}
+                    onChange={(e) => setActive({ ...active, location: e.target.value })}
+                    onBlur={() => { if (user) void updateWorkspace(user.id, active.id, { location: active.location }); }} />
+                </div>
+                <div className="fg" style={{ marginBottom: 0 }}>
+                  <label className="fl" htmlFor="ws-link">Meeting link</label>
+                  <input id="ws-link" className="fi" value={active.meeting_link}
+                    onChange={(e) => setActive({ ...active, meeting_link: e.target.value })}
+                    onBlur={() => { if (user) void updateWorkspace(user.id, active.id, { meeting_link: active.meeting_link }); }} />
+                </div>
+                <div className="fg" style={{ marginBottom: 0 }}>
+                  <label className="fl" htmlFor="ws-outcome">Outcome</label>
+                  <select id="ws-outcome" className="fs" value={active.outcome}
+                    onChange={(e) => {
+                      const outcome = e.target.value as typeof active.outcome;
+                      setActive({ ...active, outcome });
+                      if (user) void updateWorkspace(user.id, active.id, { outcome });
+                    }}>
+                    <option value="">Not set</option>
+                    {INTERVIEW_OUTCOMES.map((o) => <option key={o} value={o}>{o.replace('_', ' ')}</option>)}
+                  </select>
+                </div>
+              </div>
+            </details>
+          )}
+
           {feedback ? (
             <div className="card result-hero-anim">
               <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
@@ -338,6 +401,12 @@ export default function InterviewPrepPage() {
 
               {active.kind === 'prep' && q.guidance && (
                 <div className="tip tip-info"><b>What a strong answer covers</b>{q.guidance}</div>
+              )}
+              {active.kind === 'prep' && q.modelAnswer && (
+                <details style={{ marginTop: 8 }}>
+                  <summary className="note" style={{ cursor: 'pointer' }}>Show a model answer</summary>
+                  <p style={{ fontSize: 13, color: 'var(--ink2)', lineHeight: 1.6, marginTop: 6 }}>{q.modelAnswer}</p>
+                </details>
               )}
 
               <textarea

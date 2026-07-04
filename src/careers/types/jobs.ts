@@ -389,8 +389,9 @@ export interface ApplicationHistoryRow {
 /** A derived reminder (not stored — computed from application dates). */
 export interface Reminder {
   id: string;
+  /** Empty string for reminders not tied to one application (e.g. resume_outdated). */
   applicationId: string;
-  kind: 'deadline' | 'interview' | 'offer_expiry' | 'follow_up' | 'inactive';
+  kind: 'deadline' | 'interview' | 'offer_expiry' | 'follow_up' | 'inactive' | 'assessment_due' | 'resume_outdated';
   title: string;
   dueAt: string;
   overdue: boolean;
@@ -455,10 +456,14 @@ export interface CompanyContactRow {
 // ─────────────────────────── cover letters ───────────────────────────
 
 export const COVER_LETTER_TONES = [
-  'graduate', 'professional', 'executive', 'formal', 'friendly',
-  'big4', 'banking', 'technology', 'finance', 'risk', 'compliance', 'government',
+  'graduate', 'experienced', 'professional', 'executive', 'formal', 'friendly',
+  'big4', 'banking', 'technology', 'finance', 'risk', 'compliance', 'consulting',
+  'government', 'academic', 'healthcare',
 ] as const;
 export type CoverLetterTone = (typeof COVER_LETTER_TONES)[number] | string;
+
+export const COVER_LETTER_LENGTHS = ['short', 'standard', 'detailed'] as const;
+export type CoverLetterLength = (typeof COVER_LETTER_LENGTHS)[number];
 
 export interface CoverLetterSections {
   opening: string;
@@ -495,15 +500,21 @@ export interface CoverLetterRow {
 export const QUESTION_CATEGORIES = [
   'behavioural', 'technical', 'role', 'company', 'industry',
   'situational', 'leadership', 'case', 'star', 'followup',
+  'finance', 'risk', 'aml', 'compliance',
 ] as const;
 export type QuestionCategory = (typeof QUESTION_CATEGORIES)[number];
+
+export const QUESTION_DIFFICULTIES = ['easy', 'medium', 'hard', 'expert'] as const;
+export type QuestionDifficulty = (typeof QUESTION_DIFFICULTIES)[number];
 
 export interface InterviewQuestion {
   id: string;
   category: QuestionCategory;
   question: string;
   guidance: string;
-  difficulty: 'easy' | 'medium' | 'hard';
+  /** A model answer sketch, STAR-shaped where the category calls for it. */
+  modelAnswer: string;
+  difficulty: QuestionDifficulty;
 }
 
 export interface StarAnswer {
@@ -531,11 +542,26 @@ export interface InterviewFeedback {
     leadership: number;
     star: number;
     behavioural: number;
+    structure: number;
+    problemSolving: number;
+    grammar: number;
+    fluency: number;
   };
   strongAreas: string[];
   weakAreas: string[];
   suggestions: string[];
   practicePlan: string[];
+}
+
+export const INTERVIEW_TYPES = ['phone', 'video', 'onsite', 'technical', 'panel', 'final'] as const;
+export type InterviewType = (typeof INTERVIEW_TYPES)[number] | '';
+
+export const INTERVIEW_OUTCOMES = ['pending', 'passed', 'failed', 'no_show', 'cancelled'] as const;
+export type InterviewOutcome = (typeof INTERVIEW_OUTCOMES)[number];
+
+export interface Interviewer {
+  name: string;
+  role: string;
 }
 
 export interface InterviewSessionRow {
@@ -554,6 +580,15 @@ export interface InterviewSessionRow {
   completed_at: string | null;
   created_at: string;
   updated_at: string;
+  // Module 8 — Interview Workspace.
+  round: string;
+  interview_type: InterviewType;
+  scheduled_at: string | null;
+  location: string;
+  meeting_link: string;
+  interviewers: Interviewer[];
+  recording_links: string[];
+  outcome: InterviewOutcome | '';
 }
 
 // ─────────────────────────── career coach ───────────────────────────
@@ -573,6 +608,10 @@ export interface CareerHealth {
   categories: { id: HealthCategoryId; label: string; score: number }[];
   offerProbability: number;
   suggestions: string[];
+  /** 0-100: how ready the candidate looks for a promotion / the next role up. */
+  promotionReadiness: number;
+  /** 0-100: how ready they look for their stated target role. */
+  roleReadiness: number;
 }
 
 export interface RoadmapStep {
@@ -627,6 +666,9 @@ export interface CoachReport {
   roadmap: CareerRoadmap | null;
   learning: LearningItem[];
   certifications: CertificationRec[];
+  /** Market trends and a directional salary forecast, grounded in the user's data. */
+  marketTrends: string;
+  salaryForecast: string;
 }
 
 /** Compact, data-only snapshot of the user handed to coach/assistant prompts. */

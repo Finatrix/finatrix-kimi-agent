@@ -27,7 +27,7 @@ import type {
   TailoringReport,
   WeightedKeyword,
 } from '../types/jobs';
-import { KEYWORD_TIERS, QUESTION_CATEGORIES } from '../types/jobs';
+import { KEYWORD_TIERS, QUESTION_CATEGORIES, QUESTION_DIFFICULTIES } from '../types/jobs';
 import {
   clampScore,
   sanitizeField,
@@ -265,7 +265,8 @@ export function validateQuestions(raw: Dict): InterviewQuestion[] {
         ? (category as InterviewQuestion['category']) : 'behavioural',
       question: sanitizeProse(d.question, 500),
       guidance: sanitizeProse(d.guidance, 600),
-      difficulty: (['easy', 'medium', 'hard'] as const).includes(difficulty as 'easy')
+      modelAnswer: sanitizeProse(d.modelAnswer, 1_200),
+      difficulty: (QUESTION_DIFFICULTIES as readonly string[]).includes(difficulty)
         ? (difficulty as InterviewQuestion['difficulty']) : 'medium',
     };
   }).filter((q) => q.question);
@@ -302,6 +303,10 @@ export function validateInterviewFeedback(raw: Dict): InterviewFeedback {
       leadership: clampScore(s.leadership),
       star: clampScore(s.star),
       behavioural: clampScore(s.behavioural),
+      structure: clampScore(s.structure),
+      problemSolving: clampScore(s.problemSolving),
+      grammar: clampScore(s.grammar),
+      fluency: clampScore(s.fluency),
     },
     strongAreas: sanitizeStringArray(raw.strongAreas, 8, 300),
     weakAreas: sanitizeStringArray(raw.weakAreas, 8, 300),
@@ -326,6 +331,10 @@ export interface CoachAiPart {
   roadmap: CareerRoadmap | null;
   learning: LearningItem[];
   certifications: CertificationRec[];
+  promotionReadiness: number;
+  roleReadiness: number;
+  marketTrends: string;
+  salaryForecast: string;
 }
 
 const LEARNING_KINDS = ['course', 'certification', 'book', 'video', 'docs', 'practice'] as const;
@@ -402,6 +411,10 @@ export function validateCoach(raw: Dict): CoachAiPart {
     roadmap,
     learning,
     certifications,
+    promotionReadiness: clampScore(raw.promotionReadiness),
+    roleReadiness: clampScore(raw.roleReadiness),
+    marketTrends: sanitizeProse(raw.marketTrends, 800),
+    salaryForecast: sanitizeProse(raw.salaryForecast, 500),
   };
 }
 

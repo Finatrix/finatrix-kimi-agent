@@ -4,14 +4,16 @@
  * recent activity, with a strong upload path when the library is empty.
  */
 
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
+import { useAuth } from '../../context/AuthContext';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
 import { Icon } from '../../tools/ui/Icon';
 import { ScoreRing } from '../components/ScoreRing';
 import { EmptyState, ErrorCard } from '../components/states';
 import { CAREERS_ROUTES } from '../constants';
 import { useCareers } from '../context/CareersContext';
+import { computeApplicationStats, listApplications } from '../services/applications';
 import type { ResumeVersionRow, ResumeWithVersions } from '../types';
 import { formatDate, timeAgo } from '../utils/format';
 
@@ -35,7 +37,21 @@ function latestCompleteVersion(resumes: ResumeWithVersions[]): { resume: ResumeW
 }
 
 export default function CareersDashboard() {
+  const { user } = useAuth();
   const { loading, error, resumes, profile, refresh } = useCareers();
+
+  // Module 17 — Analytics: application funnel, rates and trend, computed
+  // from the same data the Applications page already tracks.
+  const [stats, setStats] = useState<ReturnType<typeof computeApplicationStats> | null>(null);
+  const loadStats = useCallback(async () => {
+    if (!user) return;
+    const apps = await listApplications(user.id).catch(() => []);
+    setStats(computeApplicationStats(apps));
+  }, [user]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- standard load-on-mount pattern used across every Careers page
+    void loadStats();
+  }, [loadStats]);
 
   const latest = useMemo(() => latestCompleteVersion(resumes), [resumes]);
   const dna = latest?.version.career_dna ?? profile?.career_dna ?? null;
@@ -219,6 +235,54 @@ export default function CareersDashboard() {
               </div>
             </div>
           </div>
+
+          {stats && stats.total > 0 && (
+            <div className="card" style={{ marginBottom: 16 }}>
+              <div className="panel-eyebrow" style={{ marginBottom: 10 }}>Application funnel &amp; trends</div>
+              <div className="dash-grid" style={{ marginBottom: 16 }}>
+                <div className="metric">
+                  <div className="ml">Response rate</div>
+                  <div className="mv">{stats.applied ? Math.round(((stats.interviews + stats.offers) / stats.applied) * 100) : 0}%</div>
+                  <div className="md">of applications get a reply</div>
+                </div>
+                <div className="metric" style={{ ['--metric-accent' as string]: 'var(--blue)' }}>
+                  <div className="ml">Interview rate</div>
+                  <div className="mv">{stats.interviewRate}%</div>
+                  <div className="md">of applications reach interview</div>
+                </div>
+                <div className="metric" style={{ ['--metric-accent' as string]: 'var(--green)' }}>
+                  <div className="ml">Offer rate</div>
+                  <div className="mv">{stats.offerRate}%</div>
+                  <div className="md">of interviews convert to offers</div>
+                </div>
+                <div className="metric" style={{ ['--metric-accent' as string]: 'var(--purple)' }}>
+                  <div className="ml">Acceptance rate</div>
+                  <div className="mv">{stats.offers ? Math.round((stats.accepted / stats.offers) * 100) : 0}%</div>
+                  <div className="md">of offers accepted</div>
+                </div>
+              </div>
+              <div style={{ marginBottom: 4 }}>
+                {([
+                  ['Saved', stats.saved], ['Applied', stats.applied], ['Interviews', stats.interviews],
+                  ['Offers', stats.offers], ['Accepted', stats.accepted],
+                ] as const).map(([label, n]) => (
+                  <div className="cat-row" key={label}>
+                    <span className="cat-label">{label}</span>
+                    <div className="bar"><div className="bar-fill" style={{ width: `${stats.total ? Math.round((n / stats.total) * 100) : 0}%`, background: 'var(--gold)' }} /></div>
+                    <span className="cat-val">{n}</span>
+                  </div>
+                ))}
+              </div>
+              {stats.monthlyTrend.length > 1 && (
+                <div className="note" style={{ marginTop: 10 }}>
+                  Trend: {stats.monthlyTrend.map((m) => `${m.month} (${m.count})`).join(' · ')}
+                </div>
+              )}
+              <Link to={CAREERS_ROUTES.applications} className="btn btn-ghost btn-sm" style={{ textDecoration: 'none', display: 'block', textAlign: 'center', marginTop: 14 }}>
+                Open Applications
+              </Link>
+            </div>
+          )}
 
           <Link to={CAREERS_ROUTES.upload} className="btn" style={{ textDecoration: 'none', display: 'block', textAlign: 'center' }}>
             Upload a new resume

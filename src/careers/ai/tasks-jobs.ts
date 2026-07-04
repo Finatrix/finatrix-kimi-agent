@@ -102,11 +102,12 @@ export function generateCoverLetterWithAI(
   jobTitle: string,
   tone: CoverLetterTone,
   extraInstructions = '',
-  model = ''
+  model = '',
+  length = 'standard'
 ): Promise<AiTaskResult<CoverLetterSections>> {
   return run(
     'cover-letter',
-    buildCoverLetterPrompt(resumeDigest(parsed, dna), jobText, company, jobTitle, tone, extraInstructions),
+    buildCoverLetterPrompt(resumeDigest(parsed, dna), jobText, company, jobTitle, tone, extraInstructions, length),
     validateCoverLetter,
     model,
     3_000

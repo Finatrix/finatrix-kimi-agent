@@ -25,15 +25,25 @@ export interface SearchOutcome {
   page: number;
 }
 
-export async function searchJobs(params: JobSearchParams): Promise<SearchOutcome> {
+/**
+ * Phase 2.1 provider fan-out. Raw, unfiltered provider results — all
+ * filtering, matching and ranking happen in the deterministic search
+ * pipeline (src/careers/search/pipeline.ts). `terms` are the intent
+ * engine's expanded query terms; the edge function's provider adapters
+ * translate them into each provider's native query syntax.
+ */
+export async function searchProviders(params: JobSearchParams, terms: string[] = []): Promise<SearchOutcome> {
   const { data, error } = await supabase.functions.invoke('careers-jobs', {
     body: {
       query: params.query,
+      terms: terms.slice(0, 18),
       location: params.location,
       country: params.country,
       remoteOnly: params.remoteOnly || params.workMode === 'remote',
+      workMode: params.workMode,
       employmentType: params.employmentType,
       salaryMin: params.salaryMin,
+      salaryMax: params.salaryMax,
       providers: params.providers.length ? params.providers : undefined,
       page: params.page,
     },
@@ -55,11 +65,7 @@ export async function searchJobs(params: JobSearchParams): Promise<SearchOutcome
   if (!Array.isArray(out?.jobs)) {
     throw new CareersError('unknown', 'The job search returned an unexpected response.');
   }
-  // Client-side filters the providers cannot apply uniformly.
-  let jobs = out.jobs;
-  if (params.workMode === 'hybrid') jobs = jobs.filter((j) => j.work_mode !== 'remote');
-  if (params.salaryMax) jobs = jobs.filter((j) => !j.salary_min || j.salary_min <= params.salaryMax!);
-  return { ...out, jobs };
+  return out;
 }
 
 export async function listJobSources(): Promise<JobSourceRow[]> {

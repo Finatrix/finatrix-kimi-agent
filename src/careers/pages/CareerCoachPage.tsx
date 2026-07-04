@@ -14,7 +14,8 @@ import { ScoreRing } from '../components/ScoreRing';
 import { EmptyState, ErrorCard } from '../components/states';
 import { CAREERS_ROUTES } from '../constants';
 import { useCareers } from '../context/CareersContext';
-import { listApplications } from '../services/applications';
+import { computeApplicationStats, listApplications } from '../services/applications';
+import { buildPeriodicReview } from '../services/automation';
 import {
   askAssistant,
   buildCoachContext,
@@ -80,6 +81,12 @@ export default function CareerCoachPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const [reviewPeriod, setReviewPeriod] = useState<'weekly' | 'monthly'>('weekly');
+  const review = useMemo(
+    () => buildPeriodicReview(computeApplicationStats(applications), reviewPeriod),
+    [applications, reviewPeriod]
+  );
 
   const context = useMemo(
     () =>
@@ -187,6 +194,12 @@ export default function CareerCoachPage() {
                 <div className="note" style={{ marginTop: 8 }}>
                   Offer probability: <b style={{ color: scoreColor(health.offerProbability) }}>{health.offerProbability}%</b>
                 </div>
+                <div className="note">
+                  Promotion readiness: <b style={{ color: scoreColor(health.promotionReadiness) }}>{health.promotionReadiness}%</b>
+                </div>
+                <div className="note">
+                  Role readiness: <b style={{ color: scoreColor(health.roleReadiness) }}>{health.roleReadiness}%</b>
+                </div>
               </div>
               <div style={{ flex: 1, minWidth: 240 }}>
                 {health.categories.map((c) => (
@@ -204,6 +217,18 @@ export default function CareerCoachPage() {
                 {health.suggestions.map((s, i) => <div key={i}>· {s}</div>)}
               </div>
             )}
+          </div>
+
+          {/* Automation Engine — weekly/monthly progress digest, no AI cost */}
+          <div className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <div className="panel-eyebrow" style={{ marginBottom: 0 }}>{review.headline}</div>
+              <div className="nav" style={{ padding: 0 }}>
+                <a className={reviewPeriod === 'weekly' ? 'on' : ''} style={{ cursor: 'pointer' }} onClick={() => setReviewPeriod('weekly')}>Weekly</a>
+                <a className={reviewPeriod === 'monthly' ? 'on' : ''} style={{ cursor: 'pointer' }} onClick={() => setReviewPeriod('monthly')}>Monthly</a>
+              </div>
+            </div>
+            {review.bullets.map((b, i) => <div key={i} className="note">· {b}</div>)}
           </div>
 
           {/* AI narrative */}
@@ -229,6 +254,14 @@ export default function CareerCoachPage() {
             </div>
           ) : (
             <>
+              {(report.marketTrends || report.salaryForecast) && (
+                <div className="card">
+                  <div className="panel-eyebrow" style={{ marginBottom: 8 }}>Market trends &amp; salary forecast</div>
+                  {report.marketTrends && <p style={{ marginBottom: report.salaryForecast ? 10 : 0 }}>{report.marketTrends}</p>}
+                  {report.salaryForecast && <p className="note">{report.salaryForecast}</p>}
+                </div>
+              )}
+
               {report.insights.length > 0 && (
                 <div className="card">
                   <div className="panel-eyebrow" style={{ marginBottom: 8 }}>Insights from your data</div>

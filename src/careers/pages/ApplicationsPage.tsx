@@ -21,6 +21,12 @@ import {
   moveStage,
   updateApplication,
 } from '../services/applications';
+import { computeAutomationReminders } from '../services/automation';
+import { listAssessments } from '../services/assessments';
+import { downloadIcs } from '../services/calendar';
+import { generateEmail, listGeneratedEmails } from '../services/emails';
+import { completeTask, createTask, listTasks } from '../services/tasks';
+import { EMAIL_KIND_LABELS, EMAIL_KINDS, type AssessmentRow, type CalendarEvent, type EmailKind, type GeneratedEmailRow, type TaskRow } from '../types/phase3';
 import {
   analyticsTable,
   applicationsTable,
@@ -41,8 +47,13 @@ import {
   type ApplicationStage,
   type Reminder,
 } from '../types/jobs';
+import type { ResumeVersionRow, ResumeWithVersions } from '../types';
 import { toCareersError, type CareersError } from '../utils/errors';
 import { formatDate, formatDateTime, timeAgo } from '../utils/format';
+
+function completeVersions(resumes: ResumeWithVersions[]): { label: string; version: ResumeVersionRow }[] {
+  return resumes.flatMap((r) => r.versions.filter((v) => v.status === 'complete' && v.parsed).map((v) => ({ label: `${r.name} · v${v.version_number}`, version: v })));
+}
 
 // ─────────────────────────── calendar ───────────────────────────
 
@@ -65,6 +76,23 @@ function eventsOf(apps: ApplicationRow[], reminders: Reminder[]): CalEvent[] {
     if (r.kind === 'follow_up') events.push({ date: r.dueAt.slice(0, 10), kind: 'followup', label: r.title });
   }
   return events;
+}
+
+const CAL_EVENT_KIND: Record<CalEvent['kind'], CalendarEvent['kind']> = {
+  interview: 'interview', deadline: 'deadline', offer: 'deadline', followup: 'follow_up',
+};
+
+/** Module 15 — .ics needs a real timestamp; a bare calendar date defaults to 9am local. */
+function toCalendarEvents(events: CalEvent[]): CalendarEvent[] {
+  return events.map((e, i) => ({
+    id: `${e.kind}-${e.date}-${i}`,
+    kind: CAL_EVENT_KIND[e.kind],
+    title: e.label,
+    description: '',
+    at: new Date(`${e.date}T09:00:00`).toISOString(),
+    location: '',
+    url: '',
+  }));
 }
 
 function CalendarView({ events }: { events: CalEvent[] }) {
@@ -144,10 +172,12 @@ function CalendarView({ events }: { events: CalEvent[] }) {
 
 function ApplicationDetail({
   app,
+  version,
   onClose,
   onChanged,
 }: {
   app: ApplicationRow;
+  version: ResumeVersionRow | null;
   onClose: () => void;
   onChanged: () => void;
 }) {
@@ -158,9 +188,45 @@ function ApplicationDetail({
   const [form, setForm] = useState({ ...app });
   const [saving, setSaving] = useState(false);
 
+  // Module 1 — Application Workspace: tasks + emails scoped to this application.
+  const [tasks, setTasks] = useState<TaskRow[]>([]);
+  const [taskTitle, setTaskTitle] = useState('');
+  const [emails, setEmails] = useState<GeneratedEmailRow[]>([]);
+  const [emailKind, setEmailKind] = useState<EmailKind>('application');
+  const [emailBusy, setEmailBusy] = useState(false);
+
+  const loadWorkspace = useCallback(() => {
+    if (!user) return;
+    void listTasks(user.id).then((all) => setTasks(all.filter((t) => t.application_id === app.id)));
+    void listGeneratedEmails(user.id).then((all) => setEmails(all.filter((e) => e.application_id === app.id)));
+  }, [user, app.id]);
+
   useEffect(() => {
     if (user) void getHistory(user.id, app.id).then(setHistory, () => setHistory([]));
-  }, [user, app.id]);
+    loadWorkspace();
+  }, [user, app.id, loadWorkspace]);
+
+  const addTask = async () => {
+    if (!user || !taskTitle.trim()) return;
+    try {
+      await createTask(user.id, { title: taskTitle, applicationId: app.id });
+      setTaskTitle('');
+      loadWorkspace();
+    } catch (e) { notify(toCareersError(e).message, 'error'); }
+  };
+
+  const generateWorkspaceEmail = async () => {
+    if (!user || !version) { notify('Pick an analysed resume version (top of the page) first.', 'error'); return; }
+    setEmailBusy(true);
+    try {
+      await generateEmail(user.id, version, emailKind, {
+        company: app.company_name, jobTitle: app.job_title, recipientName: '', extra: app.notes,
+        applicationId: app.id,
+      });
+      loadWorkspace();
+      notify('Email drafted.', 'ok');
+    } catch (e) { notify(toCareersError(e).message, 'error'); } finally { setEmailBusy(false); }
+  };
 
   const save = async () => {
     if (!user) return;
@@ -297,6 +363,43 @@ function ApplicationDetail({
             </button>
           </div>
         </div>
+
+        <div className="grid2" style={{ marginTop: 20 }}>
+          <div>
+            <div className="panel-eyebrow" style={{ marginBottom: 10 }}>Tasks</div>
+            {tasks.map((t) => (
+              <label className="act-row" key={t.id} style={{ cursor: 'pointer' }}>
+                <input type="checkbox" checked={t.status === 'done'} onChange={() => { if (user) void completeTask(user.id, t.id).then(loadWorkspace); }} />
+                <span style={{ flex: 1, textDecoration: t.status === 'done' ? 'line-through' : 'none' }}>{t.title}</span>
+              </label>
+            ))}
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <input className="fi" style={{ padding: '10px 13px' }} placeholder="Add a task…" value={taskTitle}
+                onChange={(e) => setTaskTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void addTask()} />
+              <button className="btn btn-ghost btn-sm" style={{ flexShrink: 0 }} onClick={() => void addTask()}>Add</button>
+            </div>
+          </div>
+
+          <div>
+            <div className="panel-eyebrow" style={{ marginBottom: 10 }}>Emails</div>
+            {emails.map((e) => (
+              <div className="act-row" key={e.id}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <b>{EMAIL_KIND_LABELS[e.kind]}</b>{e.sent && <span className="badge badge-green" style={{ marginLeft: 8 }}>sent</span>}
+                  <div className="note" style={{ whiteSpace: 'pre-wrap' }}>{e.subject}</div>
+                </div>
+              </div>
+            ))}
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <select className="fs" value={emailKind} onChange={(ev) => setEmailKind(ev.target.value as EmailKind)}>
+                {EMAIL_KINDS.map((k) => <option key={k} value={k}>{EMAIL_KIND_LABELS[k]}</option>)}
+              </select>
+              <button className={`btn btn-ghost btn-sm ${emailBusy ? 'btn-loading' : ''}`} disabled={emailBusy} style={{ flexShrink: 0 }} onClick={() => void generateWorkspaceEmail()}>
+                Generate
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -314,8 +417,9 @@ const STAGE_FILTERS = [
 
 export default function ApplicationsPage() {
   const { user } = useAuth();
-  const { loading, error: ctxError, refresh } = useCareers();
+  const { loading, error: ctxError, refresh, resumes } = useCareers();
   const { notify } = useToast();
+  const workspaceVersion = useMemo(() => completeVersions(resumes)[0]?.version ?? null, [resumes]);
 
   const [apps, setApps] = useState<ApplicationRow[]>([]);
   const [loadError, setLoadError] = useState<CareersError | null>(null);
@@ -326,20 +430,25 @@ export default function ApplicationsPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [addForm, setAddForm] = useState({ company: '', title: '', url: '', location: '' });
   const [deleteTarget, setDeleteTarget] = useState<ApplicationRow | null>(null);
+  const [assessments, setAssessments] = useState<AssessmentRow[]>([]);
 
   const load = useCallback(async () => {
     if (!user) return;
     try {
-      const rows = await listApplications(user.id);
+      const [rows, assessmentRows] = await Promise.all([
+        listApplications(user.id),
+        listAssessments(user.id).catch(() => []),
+      ]);
       setApps(rows);
+      setAssessments(assessmentRows);
       setLoadError(null);
       // Materialize smart reminders as (deduped) notifications.
-      const reminders = computeReminders(rows);
+      const reminders = [...computeReminders(rows), ...computeAutomationReminders(assessmentRows, resumes)];
       void syncReminderNotifications(user.id, reminders);
     } catch (e) {
       setLoadError(toCareersError(e));
     }
-  }, [user]);
+  }, [user, resumes]);
 
   useEffect(() => {
     // Deferred a tick so state lands from a promise callback, never the
@@ -348,7 +457,10 @@ export default function ApplicationsPage() {
   }, [load]);
 
   const stats = useMemo(() => computeApplicationStats(apps), [apps]);
-  const reminders = useMemo(() => computeReminders(apps), [apps]);
+  const reminders = useMemo(
+    () => [...computeReminders(apps), ...computeAutomationReminders(assessments, resumes)],
+    [apps, assessments, resumes]
+  );
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -483,6 +595,11 @@ export default function ApplicationsPage() {
         <button className="btn btn-ghost btn-sm" onClick={() => doExport('xlsx')}>Excel</button>
         <button className="btn btn-ghost btn-sm" onClick={() => doExport('json')}>JSON</button>
         <button className="btn btn-ghost btn-sm" onClick={() => doExport('pdf')}>PDF</button>
+        {view === 'calendar' && (
+          <button className="btn btn-ghost btn-sm" onClick={() => downloadIcs(toCalendarEvents(eventsOf(apps, reminders)), 'careers-calendar.ics')}>
+            Export .ics
+          </button>
+        )}
       </div>
 
       {view === 'calendar' ? (
@@ -558,6 +675,7 @@ export default function ApplicationsPage() {
       {detail && (
         <ApplicationDetail
           app={detail}
+          version={workspaceVersion}
           onClose={() => setDetail(null)}
           onChanged={() => void load()}
         />

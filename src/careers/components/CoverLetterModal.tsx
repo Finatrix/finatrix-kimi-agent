@@ -17,7 +17,7 @@ import {
   letterMailto,
 } from '../services/exports';
 import type { ResumeVersionRow } from '../types';
-import { COVER_LETTER_TONES, type CoverLetterRow } from '../types/jobs';
+import { COVER_LETTER_LENGTHS, COVER_LETTER_TONES, type CoverLetterLength, type CoverLetterRow } from '../types/jobs';
 import { toCareersError } from '../utils/errors';
 
 export function CoverLetterModal({
@@ -45,6 +45,7 @@ export function CoverLetterModal({
   const { settings } = useCareers();
   const { notify } = useToast();
   const [tone, setTone] = useState<string>('professional');
+  const [length, setLength] = useState<CoverLetterLength>('standard');
   const [extra, setExtra] = useState('');
   const [busy, setBusy] = useState(false);
   const [letter, setLetter] = useState<CoverLetterRow | null>(null);
@@ -57,7 +58,7 @@ export function CoverLetterModal({
     try {
       const created = await generateCoverLetter(
         user.id, version,
-        { jobText, company, jobTitle, tone, extraInstructions: extra, applicationId, jobId, matchScore },
+        { jobText, company, jobTitle, tone, length, extraInstructions: extra, applicationId, jobId, matchScore },
         settings.model
       );
       setLetter(created);
@@ -117,6 +118,12 @@ export function CoverLetterModal({
                   {COVER_LETTER_TONES.map((t) => (
                     <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
                   ))}
+                </select>
+              </div>
+              <div className="fg">
+                <label className="fl" htmlFor="cl-length">Length</label>
+                <select id="cl-length" className="fs" value={length} onChange={(e) => setLength(e.target.value as CoverLetterLength)}>
+                  {COVER_LETTER_LENGTHS.map((l) => <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>)}
                 </select>
               </div>
               <div className="fg">

@@ -1,4 +1,4 @@
-// FinatriX Careers — job search edge function.
+// FinatriX Careers — job search edge function (Phase 2.1 provider adapters).
 //
 // A pluggable provider registry: each provider implements one interface
 // (search → normalized jobs) and is enabled purely by the presence of its
@@ -7,6 +7,13 @@
 // listings that originate from LinkedIn, Indeed, Naukri, Glassdoor, Foundit,
 // company career pages and government portals — each normalized job keeps
 // its original source attribution in `via`.
+//
+// Phase 2.1: the client's Intent Engine sends `terms` (expanded synonyms for
+// the user's query — "Risk" ⇒ risk analyst, operational risk, AML, …). Each
+// adapter translates those terms into its provider's native query syntax
+// (Adzuna what_or, JSearch/Jooble OR-syntax) so recall improves while the
+// client's deterministic filter guarantees precision. Country strictly
+// routes provider endpoints: an India search never calls a UK endpoint.
 //
 // Deploy:   supabase functions deploy careers-jobs
 // Secrets (each one optional — providers without their secret simply stay off):
@@ -24,7 +31,7 @@ const CORS = {
 };
 
 const PROVIDER_TIMEOUT_MS = 12_000;
-const MAX_RESULTS_PER_PROVIDER = 25;
+const MAX_RESULTS_PER_PROVIDER = 40;
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -37,11 +44,15 @@ function json(status: number, body: unknown): Response {
 
 interface SearchParams {
   query: string;
+  /** Intent-expanded synonyms, most specific first (includes the raw query). */
+  terms: string[];
   location: string;
   country: string;        // ISO-ish, default 'in'
   remoteOnly: boolean;
-  employmentType: string; // fulltime | parttime | contract | internship | ''
+  workMode: string;       // '' | remote | hybrid | onsite
+  employmentType: string; // fulltime | parttime | contract | intern | ''
   salaryMin: number | null;
+  salaryMax: number | null;
   page: number;
 }
 
@@ -69,6 +80,8 @@ interface Provider {
   id: string;
   /** Secrets that must all be present for the provider to be active. */
   secrets: string[];
+  /** Skip the provider entirely when it cannot serve this search. */
+  supports?(params: SearchParams): boolean;
   search(params: SearchParams, env: Record<string, string>): Promise<NormalizedJob[]>;
 }
 
@@ -101,11 +114,24 @@ function iso(v: unknown): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
+const COUNTRY_LABELS: Record<string, string> = {
+  in: 'India', gb: 'United Kingdom', us: 'United States', au: 'Australia',
+  sg: 'Singapore', ae: 'United Arab Emirates', ca: 'Canada', de: 'Germany',
+};
+
+/** Top expansion terms for OR-style provider queries. */
+function orTerms(p: SearchParams, max: number): string[] {
+  const terms = p.terms.length ? p.terms : [p.query];
+  return terms.slice(0, max);
+}
+
 // ─────────────────────────── providers ───────────────────────────
 
 const remotive: Provider = {
   id: 'remotive',
   secrets: [],
+  // Remote-only board: pointless when the user wants on-site work.
+  supports: (p) => p.workMode !== 'onsite',
   async search(p) {
     const url = `https://remotive.com/api/remote-jobs?limit=${MAX_RESULTS_PER_PROVIDER}&search=${encodeURIComponent(p.query)}`;
     const data = (await fetchJson(url)) as { jobs?: Record<string, unknown>[] };
@@ -135,16 +161,19 @@ const adzuna: Provider = {
   id: 'adzuna',
   secrets: ['ADZUNA_APP_ID', 'ADZUNA_APP_KEY'],
   async search(p, env) {
+    // Country routes the endpoint itself: /jobs/{country}/search.
     const country = (p.country || 'in').toLowerCase();
     const q = new URLSearchParams({
       app_id: env.ADZUNA_APP_ID,
       app_key: env.ADZUNA_APP_KEY,
       results_per_page: String(MAX_RESULTS_PER_PROVIDER),
-      what: p.query,
+      // what_or: any expanded term may match — recall; precision is client-side.
+      what_or: orTerms(p, 10).join(' '),
       'content-type': 'application/json',
     });
     if (p.location) q.set('where', p.location);
     if (p.salaryMin) q.set('salary_min', String(p.salaryMin));
+    if (p.salaryMax) q.set('salary_max', String(p.salaryMax));
     if (p.employmentType === 'fulltime') q.set('full_time', '1');
     if (p.employmentType === 'parttime') q.set('part_time', '1');
     if (p.employmentType === 'contract') q.set('contract', '1');
@@ -182,14 +211,21 @@ const jsearch: Provider = {
   id: 'jsearch',
   secrets: ['RAPIDAPI_KEY'],
   async search(p, env) {
+    // JSearch understands OR in the free-text query.
+    const what = orTerms(p, 6).map((t) => (t.includes(' ') ? `"${t}"` : t)).join(' OR ');
+    const where = p.location || COUNTRY_LABELS[(p.country || 'in').toLowerCase()] || '';
     const q = new URLSearchParams({
-      query: [p.query, p.location].filter(Boolean).join(' in '),
+      query: where ? `${what} in ${where}` : what,
       page: String(p.page + 1),
       num_pages: '1',
       country: (p.country || 'in').toLowerCase(),
     });
     if (p.remoteOnly) q.set('work_from_home', 'true');
-    if (p.employmentType) q.set('employment_types', p.employmentType.toUpperCase());
+    if (p.employmentType) {
+      const map: Record<string, string> = { fulltime: 'FULLTIME', parttime: 'PARTTIME', contract: 'CONTRACTOR', intern: 'INTERN' };
+      const mapped = map[p.employmentType];
+      if (mapped) q.set('employment_types', mapped);
+    }
     const data = (await fetchJson(`https://jsearch.p.rapidapi.com/search?${q}`, {
       headers: {
         'X-RapidAPI-Key': env.RAPIDAPI_KEY,
@@ -222,12 +258,15 @@ const jooble: Provider = {
   id: 'jooble',
   secrets: ['JOOBLE_KEY'],
   async search(p, env) {
+    // Jooble keyword syntax supports OR via "|"; location falls back to the
+    // country label so an India search never leaks into other regions.
     const data = (await fetchJson(`https://jooble.org/api/${env.JOOBLE_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        keywords: p.query,
-        location: p.location || (p.country === 'in' ? 'India' : ''),
+        keywords: orTerms(p, 6).join(' | '),
+        location: p.location || COUNTRY_LABELS[(p.country || 'in').toLowerCase()] || '',
+        ...(p.salaryMin ? { salary: p.salaryMin } : {}),
         page: String(p.page + 1),
       }),
     })) as { jobs?: Record<string, unknown>[] };
@@ -285,11 +324,16 @@ Deno.serve(async (req) => {
   }
   const params: SearchParams = {
     query: String(body.query ?? '').slice(0, 200).trim(),
+    terms: Array.isArray(body.terms)
+      ? body.terms.filter((t): t is string => typeof t === 'string').map((t) => t.slice(0, 80).trim()).filter(Boolean).slice(0, 18)
+      : [],
     location: String(body.location ?? '').slice(0, 120).trim(),
     country: String(body.country ?? 'in').slice(0, 8).trim() || 'in',
     remoteOnly: body.remoteOnly === true,
+    workMode: String(body.workMode ?? '').slice(0, 20),
     employmentType: String(body.employmentType ?? '').slice(0, 30),
     salaryMin: Number(body.salaryMin) > 0 ? Number(body.salaryMin) : null,
+    salaryMax: Number(body.salaryMax) > 0 ? Number(body.salaryMax) : null,
     page: Math.max(0, Math.min(9, Number(body.page) || 0)),
   };
   if (!params.query) return json(400, { error: 'Enter a job title or keyword to search.' });
@@ -303,8 +347,11 @@ Deno.serve(async (req) => {
   const requested = Array.isArray(body.providers) && body.providers.length
     ? PROVIDERS.filter((p) => body.providers!.includes(p.id))
     : PROVIDERS;
-  const active = requested.filter((p) => p.secrets.every((s) => s in env));
-  const inactive = requested.filter((p) => !p.secrets.every((s) => s in env)).map((p) => p.id);
+  const active = requested.filter((p) => p.secrets.every((s) => s in env) && (p.supports?.(params) ?? true));
+  const skipped = requested.filter((p) => (p.supports?.(params) ?? true) === false).map((p) => p.id);
+  const inactive = requested
+    .filter((p) => !p.secrets.every((s) => s in env) && !skipped.includes(p.id))
+    .map((p) => p.id);
 
   const settled = await Promise.allSettled(active.map((p) => p.search(params, env)));
   const status: Record<string, string> = {};
@@ -327,6 +374,7 @@ Deno.serve(async (req) => {
     }
   });
   for (const id of inactive) status[id] = 'not-configured';
+  for (const id of skipped) status[id] = 'skipped';
 
   return json(200, { jobs, status, page: params.page });
 });
