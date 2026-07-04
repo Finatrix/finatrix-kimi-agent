@@ -13,6 +13,7 @@ import { AI_MODEL_OPTIONS } from '../constants';
 import { useCareers } from '../context/CareersContext';
 import { getAggregates, getAiUsageToday, type CareersAggregates } from '../services/analytics';
 import { ALERT_KINDS, alertEnabled, listAlerts, setAlert } from '../services/notifications';
+import { getPushPermission, requestPushPermission, type PushPermission } from '../services/push';
 import type { AlertRow } from '../types/jobs';
 import { updateProfileMeta } from '../services/careerProfile';
 import { deleteResume } from '../services/resumes';
@@ -49,6 +50,14 @@ export default function CareersSettings() {
   const [alerts, setAlerts] = useState<AlertRow[]>([]);
   const [confirmWipe, setConfirmWipe] = useState(false);
   const [wiping, setWiping] = useState(false);
+  const [pushPermission, setPushPermission] = useState<PushPermission>(() => getPushPermission());
+
+  const enablePush = async () => {
+    const result = await requestPushPermission();
+    setPushPermission(result);
+    if (result === 'granted') notify('Browser push enabled.', 'ok');
+    else if (result === 'denied') notify('Push was blocked — enable it in your browser site settings.', 'error');
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -177,8 +186,8 @@ export default function CareersSettings() {
           <div className="card">
             <div className="panel-eyebrow">Smart alerts</div>
             <p className="note" style={{ margin: '8px 0 4px' }}>
-              Delivered in-app (bell icon). Email and push channels are prepared in the
-              architecture and will light up in a future phase.
+              Delivered in-app (bell icon). Browser push is available below; transactional
+              email sends once an administrator configures the email provider.
             </p>
             {ALERT_KINDS.map(({ kind, label }) => (
               <div className="row-line" key={kind}>
@@ -190,6 +199,18 @@ export default function CareersSettings() {
                 />
               </div>
             ))}
+            <div className="row-line">
+              <span style={{ flex: 1, fontSize: 14 }}>Browser push notifications</span>
+              {pushPermission === 'granted' ? (
+                <span className="badge badge-green">enabled</span>
+              ) : pushPermission === 'unsupported' ? (
+                <span className="badge badge-mute">unsupported</span>
+              ) : (
+                <button className="btn btn-ghost btn-sm" style={{ width: 'auto' }} onClick={() => void enablePush()}>
+                  {pushPermission === 'denied' ? 'Blocked — check browser settings' : 'Enable'}
+                </button>
+              )}
+            </div>
           </div>
 
           {aggregates && (

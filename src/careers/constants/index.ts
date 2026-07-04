@@ -22,6 +22,9 @@ export const CAREERS_ROUTES = {
   assessments: '/careers/assessments',
   offers: '/careers/offers',
   knowledge: '/careers/knowledge',
+  // Phase 4 — Enterprise Platform.
+  billing: '/careers/billing',
+  admin: '/careers/admin',
 } as const;
 
 /** Primary tab bar (Phase 2 layout). Upload/Profile stay routable below. */
@@ -39,6 +42,7 @@ export const CAREERS_NAV = [
   { id: 'offers', name: 'Offers', href: CAREERS_ROUTES.offers },
   { id: 'knowledge', name: 'Knowledge Base', href: CAREERS_ROUTES.knowledge },
   { id: 'coach', name: 'Career Coach', href: CAREERS_ROUTES.coach },
+  { id: 'billing', name: 'Billing', href: CAREERS_ROUTES.billing },
   { id: 'settings', name: 'Settings', href: CAREERS_ROUTES.settings },
 ] as const;
 
@@ -46,6 +50,8 @@ export const CAREERS_NAV = [
 export const CAREERS_HIDDEN_SECTIONS = [
   { id: 'upload', name: 'Upload', href: CAREERS_ROUTES.upload },
   { id: 'profile', name: 'Career Profile', href: CAREERS_ROUTES.profile },
+  // Admin is RBAC-gated and shown conditionally, not in the static tab bar.
+  { id: 'admin', name: 'Admin Dashboard', href: CAREERS_ROUTES.admin },
 ] as const;
 
 // ─────────────────────────── uploads ───────────────────────────

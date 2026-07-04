@@ -22,6 +22,7 @@ import {
   updateApplication,
 } from '../services/applications';
 import { computeAutomationReminders } from '../services/automation';
+import { allowAction } from '../utils/rateLimit';
 import { listAssessments } from '../services/assessments';
 import { downloadIcs } from '../services/calendar';
 import { generateEmail, listGeneratedEmails } from '../services/emails';
@@ -217,6 +218,10 @@ function ApplicationDetail({
 
   const generateWorkspaceEmail = async () => {
     if (!user || !version) { notify('Pick an analysed resume version (top of the page) first.', 'error'); return; }
+    if (!allowAction(`generate-email:${user.id}`, 10, 60_000)) {
+      notify('Too many emails generated in a short time — wait a moment and try again.', 'error');
+      return;
+    }
     setEmailBusy(true);
     try {
       await generateEmail(user.id, version, emailKind, {

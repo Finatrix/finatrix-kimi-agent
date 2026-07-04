@@ -13,10 +13,11 @@ import { Breadcrumb } from '../components/Breadcrumb';
 import { TOOLS } from '../lib/tools';
 import { ToastProvider } from '../tools/ui/Toast';
 import { IconSprite } from '../tools/ui/Icon';
-import { CAREERS_HIDDEN_SECTIONS, CAREERS_NAV } from './constants';
+import { CAREERS_HIDDEN_SECTIONS, CAREERS_NAV, CAREERS_ROUTES } from './constants';
 import { NotificationsBell } from './components/NotificationsBell';
 import { CareersProvider } from './context/CareersContext';
 import { CareersGate } from './components/states';
+import { useRole } from './hooks/useRole';
 import '../tools/tools.css';
 import './careers.css';
 
@@ -39,6 +40,7 @@ function sectionName(id: string): string {
 
 export default function CareersLayout() {
   const { user, signOut, configured } = useAuth();
+  const { isAdmin } = useRole();
   const [menuOpen, setMenuOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const active = useActiveCareersTab();
@@ -148,6 +150,11 @@ export default function CareersLayout() {
                 {item.name}
               </Link>
             ))}
+            {isAdmin && (
+              <Link to={CAREERS_ROUTES.admin} data-route="careers" className={active === 'admin' ? 'on' : undefined}>
+                Admin
+              </Link>
+            )}
           </nav>
         </div>
 
@@ -205,6 +212,16 @@ export default function CareersLayout() {
                   {item.name}
                 </Link>
               ))}
+              {isAdmin && (
+                <Link
+                  to={CAREERS_ROUTES.admin}
+                  onClick={() => setDrawerOpen(false)}
+                  className={`flex items-center gap-3 px-5 py-2.5 text-[15px] hover:bg-white/[0.04] ${active === 'admin' ? 'text-[#D4AF37]' : 'text-[#E8E8E3]'}`}
+                >
+                  <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: '#D4AF37' }} />
+                  Admin
+                </Link>
+              )}
               <div className="mt-1 mb-1 px-5 text-[10px] uppercase tracking-[0.12em] text-[#5A5A5A] font-mono">Tools</div>
               {TOOLS.map((t) => (
                 <Link

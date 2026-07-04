@@ -69,6 +69,10 @@ export const ALERT_KINDS = [
   { kind: 'interview', label: 'Interview reminders' },
   { kind: 'offer_expiry', label: 'Offer expiry' },
   { kind: 'coach', label: 'Career coach suggestions' },
+  // Phase 4, Module 8 — digest delivery preferences (email/push channels are
+  // scaffolded in services/email.ts + services/push.ts; only in-app is live).
+  { kind: 'daily_digest', label: 'Daily digest' },
+  { kind: 'weekly_digest', label: 'Weekly digest' },
 ] as const;
 
 export async function listAlerts(userId: string): Promise<AlertRow[]> {

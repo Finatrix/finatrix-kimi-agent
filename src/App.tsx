@@ -26,6 +26,8 @@ const NetworkPage = lazy(() => import('./careers/pages/NetworkPage'))
 const AssessmentsPage = lazy(() => import('./careers/pages/AssessmentsPage'))
 const OffersPage = lazy(() => import('./careers/pages/OffersPage'))
 const KnowledgeBasePage = lazy(() => import('./careers/pages/KnowledgeBasePage'))
+const BillingPage = lazy(() => import('./careers/pages/BillingPage'))
+const AdminDashboard = lazy(() => import('./careers/pages/AdminDashboard'))
 const Login = lazy(() => import('./pages/Login'))
 const Signup = lazy(() => import('./pages/Signup'))
 const Profile = lazy(() => import('./pages/Profile'))
@@ -65,6 +67,8 @@ export default function App() {
             <Route path="offers" element={<OffersPage />} />
             <Route path="knowledge" element={<KnowledgeBasePage />} />
             <Route path="coach" element={<CareerCoachPage />} />
+            <Route path="billing" element={<BillingPage />} />
+            <Route path="admin" element={<AdminDashboard />} />
             <Route path="profile" element={<CareerProfilePage />} />
             <Route path="settings" element={<CareersSettings />} />
           </Route>

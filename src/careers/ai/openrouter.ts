@@ -6,6 +6,7 @@
  */
 
 import { supabase } from '../../lib/supabase';
+import { logAiUsage } from '../services/aiUsage';
 import { CareersError } from '../utils/errors';
 import type { AiCompletion, AiProvider, AiRequest } from './provider';
 
@@ -37,9 +38,16 @@ async function errorFromFunction(error: unknown): Promise<CareersError> {
   return new CareersError('ai', 'AI analysis failed. Please try again.');
 }
 
+/** Best-effort current user id for usage telemetry — never blocks the AI call. */
+async function currentUserId(): Promise<string | null> {
+  const { data } = await supabase.auth.getUser();
+  return data.user?.id ?? null;
+}
+
 export const openRouterProvider: AiProvider = {
   id: 'openrouter',
   async complete(req: AiRequest): Promise<AiCompletion> {
+    const started = Date.now();
     const { data, error } = await supabase.functions.invoke('careers-ai', {
       body: {
         task: req.task,
@@ -49,15 +57,27 @@ export const openRouterProvider: AiProvider = {
         maxTokens: req.maxTokens,
       },
     });
-    if (error) throw await errorFromFunction(error);
+    if (error) {
+      const mapped = await errorFromFunction(error);
+      void currentUserId().then((uid) => {
+        if (uid) logAiUsage(uid, { task: req.task, model: req.model ?? '', latencyMs: Date.now() - started, success: false, error: mapped.message });
+      });
+      throw mapped;
+    }
     const content = (data as { content?: string })?.content;
+    const model = String((data as { model?: string }).model ?? '');
+    const ms = Number((data as { ms?: number }).ms ?? 0);
+    const promptTokens = Number((data as { promptTokens?: number }).promptTokens ?? 0);
+    const completionTokens = Number((data as { completionTokens?: number }).completionTokens ?? 0);
     if (typeof content !== 'string' || !content.trim()) {
+      void currentUserId().then((uid) => {
+        if (uid) logAiUsage(uid, { task: req.task, model, latencyMs: ms, success: false, error: 'empty response' });
+      });
       throw new CareersError('ai-response', 'The AI returned an empty answer. Please retry the analysis.');
     }
-    return {
-      content,
-      model: String((data as { model?: string }).model ?? ''),
-      ms: Number((data as { ms?: number }).ms ?? 0),
-    };
+    void currentUserId().then((uid) => {
+      if (uid) logAiUsage(uid, { task: req.task, model, promptTokens, completionTokens, latencyMs: ms, success: true });
+    });
+    return { content, model, ms, promptTokens, completionTokens };
   },
 };

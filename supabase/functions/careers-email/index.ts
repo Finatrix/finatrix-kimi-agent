@@ -1,0 +1,64 @@
+// FinatriX Careers — transactional email edge function (Phase 4, Module 9).
+//
+// Resend-ready: if RESEND_API_KEY is not set, the function responds
+// 200 { sent: false, reason: 'not-configured' } instead of erroring, so the
+// client always gets a graceful result and callers never need to special-
+// case "email isn't set up yet". Once the secret is set, it sends for real.
+//
+// Deploy:  supabase functions deploy careers-email
+// Secret:  supabase secrets set RESEND_API_KEY=re_...
+// Optional: EMAIL_FROM="FinatriX Careers <careers@finatrix.app>"
+
+import { createClient } from 'jsr:@supabase/supabase-js@2';
+
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
+function json(status: number, body: unknown): Response {
+  return new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+  if (req.method !== 'POST') return json(405, { error: 'Method not allowed' });
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const anonClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+    global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },
+  });
+  const { data: userData, error: userErr } = await anonClient.auth.getUser();
+  if (userErr || !userData?.user) return json(401, { error: 'Sign in to send email.' });
+
+  let body: { to?: string; subject?: string; html?: string; text?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return json(400, { error: 'Invalid JSON body.' });
+  }
+  const to = String(body.to ?? '').trim();
+  const subject = String(body.subject ?? '').slice(0, 200);
+  const html = String(body.html ?? '');
+  const text = String(body.text ?? '');
+  if (!to || !subject || (!html && !text)) return json(400, { error: 'Missing to/subject/content.' });
+
+  const apiKey = Deno.env.get('RESEND_API_KEY');
+  if (!apiKey) {
+    // Inert by design — no key configured yet. Not an error condition.
+    return json(200, { sent: false, reason: 'not-configured' });
+  }
+
+  const from = Deno.env.get('EMAIL_FROM') ?? 'FinatriX Careers <onboarding@resend.dev>';
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from, to: [to], subject, html: html || undefined, text: text || undefined }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    return json(502, { sent: false, reason: 'provider-error', detail: detail.slice(0, 300) });
+  }
+  return json(200, { sent: true });
+});

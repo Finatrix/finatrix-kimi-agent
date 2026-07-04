@@ -140,3 +140,30 @@
 .fx-tools .bell-item { padding: 12px 14px; border-bottom: 1px solid var(--hair2); font-size: 13px; }
 .fx-tools .bell-item:last-child { border-bottom: none; }
 .fx-tools .bell-item.unread { background: rgba(212,175,55,.05); }
+
+/* Accessibility (Phase 4, Module 15) — honour the OS-level motion preference
+   across every animated Careers element (result cards, DNA reveals, the
+   pipeline pulse) instead of only the tools shell. */
+@media (prefers-reduced-motion: reduce) {
+  .fx-tools *, .fx-tools *::before, .fx-tools *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Visible keyboard-focus ring on every interactive Careers element — many
+   custom controls here (badge-as-button, .nav a, .icon-btn) previously
+   relied only on browser defaults, which some UAs suppress for mouse users
+   and then never restore correctly for keyboard users. */
+.fx-tools a:focus-visible,
+.fx-tools button:focus-visible,
+.fx-tools input:focus-visible,
+.fx-tools select:focus-visible,
+.fx-tools textarea:focus-visible,
+.fx-tools [role="switch"]:focus-visible,
+.fx-tools [tabindex]:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}

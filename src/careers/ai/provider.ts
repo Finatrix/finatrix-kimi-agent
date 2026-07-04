@@ -26,6 +26,9 @@ export interface AiCompletion {
   model: string;
   /** Wall-clock duration reported by the provider, in ms. */
   ms: number;
+  /** Token counts when the transport can report them (0 otherwise). */
+  promptTokens: number;
+  completionTokens: number;
 }
 
 export interface AiProvider {

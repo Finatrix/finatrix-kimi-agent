@@ -25,6 +25,11 @@ export default defineConfig({
         },
       },
     },
+    // docx/pdf/xlsx/jspdf are already isolated into their own chunks and only
+    // ever loaded on-demand (export actions, OCR-adjacent parsing) — they are
+    // never part of the initial bundle. The 500kB default warning is noise
+    // for these specific, deliberately-lazy vendor chunks.
+    chunkSizeWarningLimit: 600,
   },
   test: {
     environment: "jsdom",

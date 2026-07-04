@@ -43,13 +43,18 @@ function configuredModels(): string[] {
   return models.length ? models : DEFAULT_MODELS;
 }
 
+interface TokenUsage {
+  promptTokens: number;
+  completionTokens: number;
+}
+
 async function callModel(
   apiKey: string,
   model: string,
   system: string,
   user: string,
   maxTokens: number,
-): Promise<{ content: string; model: string }> {
+): Promise<{ content: string; model: string; usage: TokenUsage }> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
   try {
@@ -82,7 +87,14 @@ async function callModel(
     if (typeof content !== 'string' || !content.trim()) {
       throw new Error(`Empty completion from ${model}`);
     }
-    return { content, model: String(data?.model ?? model) };
+    return {
+      content,
+      model: String(data?.model ?? model),
+      usage: {
+        promptTokens: Number(data?.usage?.prompt_tokens) || 0,
+        completionTokens: Number(data?.usage?.completion_tokens) || 0,
+      },
+    };
   } finally {
     clearTimeout(timer);
   }
@@ -153,8 +165,15 @@ Deno.serve(async (req) => {
   const errors: string[] = [];
   for (const model of chain) {
     try {
-      const { content, model: used } = await callModel(apiKey, model, system, userMsg, maxTokens);
-      return json(200, { content, model: used, task, ms: Date.now() - started });
+      const { content, model: used, usage: tokenUsage } = await callModel(apiKey, model, system, userMsg, maxTokens);
+      return json(200, {
+        content,
+        model: used,
+        task,
+        ms: Date.now() - started,
+        promptTokens: tokenUsage.promptTokens,
+        completionTokens: tokenUsage.completionTokens,
+      });
     } catch (e) {
       errors.push(e instanceof Error ? e.message : String(e));
     }
