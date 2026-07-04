@@ -27,30 +27,39 @@ export const CAREERS_ROUTES = {
   admin: '/careers/admin',
 } as const;
 
-/** Primary tab bar (Phase 2 layout). Upload/Profile stay routable below. */
+/**
+ * Primary tab bar — intentionally kept to 7 items (master context, 2026-07-04):
+ * the platform should focus on one thing, getting users interviews and jobs.
+ * Every other routable section still exists and works; it's just not in the
+ * main nav. See CAREERS_HIDDEN_SECTIONS.
+ */
 export const CAREERS_NAV = [
   { id: 'dashboard', name: 'Dashboard', href: CAREERS_ROUTES.dashboard },
   { id: 'resumes', name: 'Resume Library', href: CAREERS_ROUTES.resumes },
-  { id: 'jobs', name: 'Jobs', href: CAREERS_ROUTES.jobs },
+  { id: 'jobs', name: 'Job Search', href: CAREERS_ROUTES.jobs },
   { id: 'applications', name: 'Applications', href: CAREERS_ROUTES.applications },
+  { id: 'interviews', name: 'Interview Prep', href: CAREERS_ROUTES.interviews },
+  { id: 'coach', name: 'Career Coach', href: CAREERS_ROUTES.coach },
+  { id: 'settings', name: 'Settings', href: CAREERS_ROUTES.settings },
+] as const;
+
+/**
+ * Routable sections not shown in the tab bar (breadcrumb/back-link names).
+ * Still fully functional — reachable by direct URL and linked from Settings
+ * ("More tools") — just decluttered from primary navigation.
+ */
+export const CAREERS_HIDDEN_SECTIONS = [
+  { id: 'upload', name: 'Upload', href: CAREERS_ROUTES.upload },
+  { id: 'profile', name: 'Career Profile', href: CAREERS_ROUTES.profile },
   { id: 'tasks', name: 'Tasks', href: CAREERS_ROUTES.tasks },
   { id: 'companies', name: 'Companies', href: CAREERS_ROUTES.companies },
   { id: 'recruiters', name: 'Recruiters', href: CAREERS_ROUTES.recruiters },
   { id: 'network', name: 'Network', href: CAREERS_ROUTES.network },
-  { id: 'interviews', name: 'Interview Prep', href: CAREERS_ROUTES.interviews },
   { id: 'assessments', name: 'Assessments', href: CAREERS_ROUTES.assessments },
   { id: 'offers', name: 'Offers', href: CAREERS_ROUTES.offers },
   { id: 'knowledge', name: 'Knowledge Base', href: CAREERS_ROUTES.knowledge },
-  { id: 'coach', name: 'Career Coach', href: CAREERS_ROUTES.coach },
   { id: 'billing', name: 'Billing', href: CAREERS_ROUTES.billing },
-  { id: 'settings', name: 'Settings', href: CAREERS_ROUTES.settings },
-] as const;
-
-/** Routable sections not shown in the tab bar (breadcrumb/back-link names). */
-export const CAREERS_HIDDEN_SECTIONS = [
-  { id: 'upload', name: 'Upload', href: CAREERS_ROUTES.upload },
-  { id: 'profile', name: 'Career Profile', href: CAREERS_ROUTES.profile },
-  // Admin is RBAC-gated and shown conditionally, not in the static tab bar.
+  // Admin is additionally RBAC-gated (shown conditionally in the nav for admins only).
   { id: 'admin', name: 'Admin Dashboard', href: CAREERS_ROUTES.admin },
 ] as const;
 

@@ -5,11 +5,12 @@
  */
 
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
 import { ConfirmDialog, ErrorCard } from '../components/states';
-import { AI_MODEL_OPTIONS } from '../constants';
+import { AI_MODEL_OPTIONS, CAREERS_HIDDEN_SECTIONS } from '../constants';
 import { useCareers } from '../context/CareersContext';
 import { getAggregates, getAiUsageToday, type CareersAggregates } from '../services/analytics';
 import { ALERT_KINDS, alertEnabled, listAlerts, setAlert } from '../services/notifications';
@@ -18,6 +19,9 @@ import type { AlertRow } from '../types/jobs';
 import { updateProfileMeta } from '../services/careerProfile';
 import { deleteResume } from '../services/resumes';
 import { toCareersError } from '../utils/errors';
+
+/** Hidden nav sections worth surfacing here — excludes upload/profile (linked elsewhere) and admin (RBAC-gated, shown in the nav for admins only). */
+const MORE_TOOLS = CAREERS_HIDDEN_SECTIONS.filter((s) => !['upload', 'profile', 'admin'].includes(s.id));
 
 function Toggle({
   checked,
@@ -253,6 +257,21 @@ export default function CareersSettings() {
           </div>
         </div>
       )}
+
+      <div className="card">
+        <div className="panel-eyebrow">More tools</div>
+        <p className="note" style={{ margin: '8px 0 12px' }}>
+          Kept off the main nav to keep it focused on getting you interviews — everything below
+          still works exactly as before.
+        </p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {MORE_TOOLS.map((t) => (
+            <Link key={t.id} to={t.href} className="btn btn-ghost btn-sm" style={{ width: 'auto', textDecoration: 'none' }}>
+              {t.name}
+            </Link>
+          ))}
+        </div>
+      </div>
 
       <ConfirmDialog
         open={confirmWipe}
