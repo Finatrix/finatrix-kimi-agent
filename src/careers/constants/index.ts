@@ -89,6 +89,9 @@ export const STORAGE_BUCKET = 'resumes';
 export const AI_MODEL_OPTIONS = [
   { id: '', label: 'Automatic (recommended)' },
   { id: 'google/gemini-2.5-flash', label: 'Google Gemini Flash' },
+  { id: 'anthropic/claude-sonnet-5', label: 'Claude Sonnet 5' },
+  { id: 'openai/gpt-5.5', label: 'ChatGPT 5.5' },
+  { id: 'moonshotai/kimi-k2', label: 'Kimi AI' },
   { id: 'deepseek/deepseek-chat-v3.1', label: 'DeepSeek Chat' },
   { id: 'qwen/qwen3-235b-a22b-instruct-2507', label: 'Qwen 3' },
 ] as const;

@@ -16,6 +16,9 @@ const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 const DEFAULT_MODELS = [
   'google/gemini-2.5-flash',
+  'anthropic/claude-sonnet-5',
+  'openai/gpt-5.5',
+  'moonshotai/kimi-k2',
   'deepseek/deepseek-chat-v3.1',
   'qwen/qwen3-235b-a22b-instruct-2507',
 ];

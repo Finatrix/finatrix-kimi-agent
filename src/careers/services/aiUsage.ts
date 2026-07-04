@@ -13,7 +13,9 @@ import type { AiUsageLogRow, AiUsageSummary } from '../types/phase4';
 /** USD per 1,000 tokens, blended prompt+completion. Update as pricing changes. */
 const PRICE_PER_1K_TOKENS: Record<string, number> = {
   'google/gemini-2.5-flash': 0.0002,
-  'deepseek/deepseek-chat-v3.1': 0.0003,
+  'anthropic/claude-sonnet-5': 0.006,
+  'openai/gpt-5.5': 0.005,
+  'moonshotai/kimi-k2': 0.0006,
   'qwen/qwen3-235b-a22b-instruct-2507': 0.0004,
 };
 const DEFAULT_PRICE_PER_1K = 0.0005;
