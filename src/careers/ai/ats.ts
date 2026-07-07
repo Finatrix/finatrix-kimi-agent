@@ -9,9 +9,10 @@ import type { AiTaskResult } from './parser';
 export async function analyzeATSWithAI(
   resumeText: string,
   fileName: string,
-  model = ''
+  model = '',
+  jobText = ''
 ): Promise<AiTaskResult<ATSReport>> {
-  const { system, user } = buildAtsPrompt(resumeText, fileName);
+  const { system, user } = buildAtsPrompt(resumeText, fileName, jobText);
   const completion = await getAiProvider().complete({
     task: 'ats',
     system,

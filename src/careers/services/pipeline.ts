@@ -247,23 +247,11 @@ async function processVersion(
       trackEvent('resume_score', result.overall);
     }
 
-    // ── ATS Score ──
-    if (version.ats_score == null) {
-      onProgress({ step: 'ats', pct: null });
-      const atsSha = await sha256OfText(`${rawText}\n::${version.file_name}`);
-      const { result, ms } = await runCachedTask<ATSReport>(
-        userId, version.id, atsSha, 'ats',
-        () => withRetry(() => analyzeATSWithAI(rawText, version.file_name, model), { attempts: 2 })
-      );
-      aiMs += ms;
-      version = await updateVersion(userId, version.id, {
-        ats_score: result.overall,
-        ats_report: result,
-        stage: 'ats',
-        ai_ms: aiMs,
-      });
-      trackEvent('ats_score', result.overall);
-    }
+    // ── ATS Score: deliberately NOT run here ──
+    // A generic no-JD ATS score is misleading. ATS scoring now requires a job
+    // description and runs on demand via runJdAts() (Resume Library → ATS
+    // panel). Versions complete with ats_score null until the user provides a
+    // JD; older versions keep their previously computed scores.
 
     // ── Finish ──
     onProgress({ step: 'saving', pct: null });
@@ -278,6 +266,37 @@ async function processVersion(
     err.resumeId = version.resume_id;
     throw err;
   }
+}
+
+/**
+ * JD-aware ATS scoring (the required workflow: no ATS score without a job
+ * description). Cached by resume text + file name + JD text, persisted onto
+ * the version row exactly like the other analysis stages.
+ */
+export async function runJdAts(
+  userId: string,
+  version: ResumeVersionRow,
+  jobText: string,
+  settings: CareersSettings
+): Promise<ResumeVersionRow> {
+  const rawText = version.raw_text;
+  if (!rawText) {
+    throw new CareersError('validation', 'This version has no extracted text — re-run the analysis first.');
+  }
+  const jd = jobText.trim();
+  if (jd.length < 100) {
+    throw new CareersError('validation', 'Paste a fuller job description (at least a few sentences).');
+  }
+  const atsSha = await sha256OfText(`${rawText}\n::${version.file_name}\n::jd::${jd}`);
+  const { result } = await runCachedTask<ATSReport>(
+    userId, version.id, atsSha, 'ats',
+    () => withRetry(() => analyzeATSWithAI(rawText, version.file_name, settings.model, jd), { attempts: 2 })
+  );
+  trackEvent('ats_score', result.overall);
+  return updateVersion(userId, version.id, {
+    ats_score: result.overall,
+    ats_report: result,
+  });
 }
 
 /** Check the analysis cache before paying for an AI task; store fresh results. */

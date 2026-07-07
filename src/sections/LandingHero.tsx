@@ -66,32 +66,52 @@ function ToolCard({ card, i }: { card: HeroCard; i: number }) {
   );
 }
 
-function ComingSoonCard() {
+/**
+ * FinatriX Careers occupies the eighth grid cell as a premium spotlight card —
+ * deliberately styled apart from the seven finance tools (gold glow, AI badge)
+ * rather than presented as just another tool tile.
+ */
+function CareersSpotlightCard() {
   return (
-    <div
-      aria-label="Coming soon"
+    <Link
+      to="/careers"
+      aria-label="FinatriX Careers — AI-powered resume intelligence, job search, ATS optimization and career coach"
       style={{ animationDelay: `${0.28 + 7 * 0.06}s` }}
-      className="fx-in fx-card-hover group relative flex flex-col items-center gap-2.5 rounded-2xl border border-[#D4AF37]/45 px-3 py-4 sm:py-5 text-center backdrop-blur-sm transition-all duration-300 hover:border-[#D4AF37]"
+      className="fx-in fx-card-hover group relative flex flex-col items-center gap-2 rounded-2xl border border-[#D4AF37]/45 px-3 py-4 sm:py-5 text-center backdrop-blur-sm transition-all duration-300 hover:border-[#D4AF37] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/70"
     >
       <span
-        className="pointer-events-none absolute inset-0 rounded-2xl"
+        className="pointer-events-none absolute inset-0 rounded-2xl transition-opacity duration-300"
         style={{ background: 'linear-gradient(160deg, rgba(212,175,55,0.16), rgba(212,175,55,0.04) 60%, transparent)', boxShadow: '0 22px 60px -18px rgba(212,175,55,0.6), inset 0 1px 0 rgba(255,255,255,0.18)' }}
         aria-hidden="true"
       />
       <span
-        className="relative grid h-12 w-12 place-items-center rounded-[22%]"
+        className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+        style={{ background: 'radial-gradient(120% 80% at 50% 0%, rgba(212,175,55,0.22), transparent 70%)', boxShadow: '0 26px 70px -16px rgba(212,175,55,0.75)' }}
+        aria-hidden="true"
+      />
+      <span
+        className="relative grid h-12 w-12 place-items-center rounded-[22%] transition-transform duration-300 group-hover:scale-105"
         style={{ background: 'linear-gradient(150deg, #F0D779, #C49B2E)', boxShadow: '0 12px 30px -10px rgba(212,175,55,0.7), inset 0 1px 0 rgba(255,255,255,0.5)' }}
       >
+        <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-[22%] bg-gradient-to-b from-white/25 to-transparent" />
+        {/* briefcase */}
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1400" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <rect x="4" y="11" width="16" height="10" rx="2" />
-          <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+          <rect x="3" y="7" width="18" height="13" rx="2" />
+          <path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+          <path d="M3 12h18" />
         </svg>
       </span>
-      <span className="relative text-[15px] font-semibold tracking-[-0.01em] text-[#F0D779] [text-shadow:0_0_20px_rgba(212,175,55,0.4)]">
-        Coming Soon
+      <span className="relative inline-flex items-center gap-1 rounded-full border border-[#D4AF37]/50 bg-[#D4AF37]/10 px-2 py-[2px] font-mono text-[8.5px] uppercase tracking-[0.14em] text-[#F0D779]">
+        <span className="h-1 w-1 rounded-full bg-[#F0D779]" aria-hidden="true" />
+        AI Powered
       </span>
-      <span className="relative text-[11.5px] leading-snug text-[#b9a874]">Something amazing is on the way</span>
-    </div>
+      <span className="relative text-[15px] font-semibold tracking-[-0.01em] text-[#F0D779] [text-shadow:0_0_20px_rgba(212,175,55,0.4)]">
+        FinatriX Careers
+      </span>
+      <span className="relative text-[11px] leading-snug text-[#b9a874]">
+        Resume intelligence, job search, ATS optimization &amp; career coach
+      </span>
+    </Link>
   );
 }
 
@@ -142,7 +162,7 @@ export default function LandingHero() {
           {HERO_CARDS.map((c, i) => (
             <ToolCard key={c.tool.id} card={c} i={i} />
           ))}
-          <ComingSoonCard />
+          <CareersSpotlightCard />
         </div>
       </div>
 

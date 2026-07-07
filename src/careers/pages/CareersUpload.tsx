@@ -148,7 +148,8 @@ export default function CareersUpload() {
         title="Upload your resume"
       >
         PDF, DOCX or DOC up to 10 MB. We extract the text, build your Career DNA and
-        score it for recruiters and ATS systems — all saved privately to your account.
+        score it for recruiters — all saved privately to your account. Add a job
+        description afterwards for an ATS score tuned to the role.
       </PageHead>
 
       <div style={{ maxWidth: 640, margin: '0 auto' }}>
@@ -266,8 +267,16 @@ export default function CareersUpload() {
             </p>
             <div style={{ display: 'flex', justifyContent: 'center', gap: 28, margin: '24px 0' }}>
               <ScoreRing score={outcome.version.resume_score} caption="Resume score" />
-              <ScoreRing score={outcome.version.ats_score} caption="ATS score" />
+              {outcome.version.ats_score != null && (
+                <ScoreRing score={outcome.version.ats_score} caption="ATS score" />
+              )}
             </div>
+            {outcome.version.ats_score == null && (
+              <p className="note" style={{ marginBottom: 16 }}>
+                Want an ATS Score? Open the analysis in your Library and add the job
+                description you’re targeting — the score is calculated against that role.
+              </p>
+            )}
             <div style={{ display: 'flex', gap: 10 }}>
               <Link to={CAREERS_ROUTES.dashboard} className="btn btn-ghost" style={{ flex: 1, textDecoration: 'none' }}>
                 View dashboard

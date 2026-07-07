@@ -268,7 +268,8 @@ export const PIPELINE_STEPS = [
   { id: 'parsing', label: 'AI analysis' },
   { id: 'dna', label: 'Building Career DNA' },
   { id: 'scoring', label: 'Calculating Resume Score' },
-  { id: 'ats', label: 'Calculating ATS Score' },
+  // 'ats' is no longer an upload stage: ATS scoring requires a job
+  // description and runs on demand (Resume Library → ATS panel).
   { id: 'saving', label: 'Saving results' },
   { id: 'complete', label: 'Completed' },
 ] as const;

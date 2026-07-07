@@ -34,7 +34,7 @@ vi.mock('../careers/parser/validate', () => ({
   validateResumeFile: vi.fn(async () => ({ kind: 'pdf', extension: 'pdf' })),
 }));
 
-import { runPipeline, retryVersion } from '../careers/services/pipeline';
+import { runPipeline, retryVersion, runJdAts } from '../careers/services/pipeline';
 import { findVersionBySha, insertVersion, saveNormalizedEntities, updateVersion } from '../careers/services/resumes';
 import { getCachedAnalysis } from '../careers/services/analysisCache';
 import { parseResumeWithAI } from '../careers/ai/parser';
@@ -95,10 +95,13 @@ describe('runPipeline', () => {
       userId: 'user-1', file: file(), settings: SETTINGS,
       onProgress: (p) => steps.push(p.step),
     });
-    expect(steps).toEqual(['uploading', 'extracting', 'parsing', 'dna', 'scoring', 'ats', 'saving', 'complete']);
+    expect(steps).toEqual(['uploading', 'extracting', 'parsing', 'dna', 'scoring', 'saving', 'complete']);
     expect(outcome.version.status).toBe('complete');
     expect(outcome.version.resume_score).toBe(71);
-    expect(outcome.version.ats_score).toBe(66);
+    // ATS requires a job description and is no longer part of the upload
+    // pipeline — the version completes with ats_score null.
+    expect(outcome.version.ats_score).toBeNull();
+    expect(analyzeATSWithAI).not.toHaveBeenCalled();
     expect(outcome.reusedAnalysis).toBe(false);
     expect(saveNormalizedEntities).toHaveBeenCalledWith('user-1', 'ver-1', PARSED);
   });
@@ -159,7 +162,30 @@ describe('retryVersion', () => {
     expect(parseResumeWithAI).not.toHaveBeenCalled();
     expect(generateCareerDNA).not.toHaveBeenCalled();
     expect(scoreResumeWithAI).toHaveBeenCalledTimes(1);
-    expect(analyzeATSWithAI).toHaveBeenCalledTimes(1);
-    expect(steps).toEqual(['scoring', 'ats', 'saving', 'complete']);
+    expect(analyzeATSWithAI).not.toHaveBeenCalled();
+    expect(steps).toEqual(['scoring', 'saving', 'complete']);
+  });
+});
+
+describe('runJdAts (JD-required ATS workflow)', () => {
+  const JD = 'We are hiring a risk analyst with strong AML, KYC and regulatory reporting experience. '.repeat(3);
+
+  it('rejects a missing or too-short job description without spending AI', async () => {
+    row = { ...baseVersion(), status: 'complete', raw_text: 'resume body' };
+    await expect(runJdAts('user-1', row, 'too short', SETTINGS)).rejects.toMatchObject({ code: 'validation' });
+    expect(analyzeATSWithAI).not.toHaveBeenCalled();
+  });
+
+  it('scores against the JD and persists the result onto the version', async () => {
+    row = { ...baseVersion(), status: 'complete', raw_text: 'resume body' };
+    const updated = await runJdAts('user-1', row, JD, SETTINGS);
+    expect(analyzeATSWithAI).toHaveBeenCalledWith('resume body', 'cv.pdf', '', JD.trim());
+    expect(updated.ats_score).toBe(66);
+    expect(updated.ats_report).toEqual(ATS);
+  });
+
+  it('refuses to run on a version with no extracted text', async () => {
+    row = { ...baseVersion(), status: 'complete', raw_text: '' };
+    await expect(runJdAts('user-1', row, JD, SETTINGS)).rejects.toMatchObject({ code: 'validation' });
   });
 });

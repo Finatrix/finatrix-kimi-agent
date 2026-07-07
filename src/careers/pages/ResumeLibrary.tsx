@@ -17,7 +17,7 @@ import { PipelineProgress } from '../components/PipelineProgress';
 import { CAREERS_ROUTES } from '../constants';
 import { useCareers } from '../context/CareersContext';
 import { compareVersions } from '../services/compare';
-import { retryVersion } from '../services/pipeline';
+import { retryVersion, runJdAts } from '../services/pipeline';
 import {
   deleteResume,
   duplicateResume,
@@ -437,9 +437,48 @@ function AnalysisModal({
   version: ResumeVersionRow;
   onClose: () => void;
 }) {
+  const { user } = useAuth();
+  const { settings, refresh } = useCareers();
+  const { notify } = useToast();
   const [selected, setSelected] = useState(version.id);
-  const v = resume.versions.find((x) => x.id === selected) ?? version;
+  // Versions updated in-modal (JD-based ATS) override the possibly-stale prop.
+  const [patched, setPatched] = useState<Record<string, ResumeVersionRow>>({});
+  const [jdText, setJdText] = useState('');
+  const [jdOpen, setJdOpen] = useState(false);
+  const [atsBusy, setAtsBusy] = useState(false);
+  const v = patched[selected] ?? resume.versions.find((x) => x.id === selected) ?? version;
   const parsed = v.parsed;
+
+  const generateAts = async (text: string) => {
+    if (!user) {
+      notify('Sign in to run the ATS analysis.', 'error');
+      return;
+    }
+    setAtsBusy(true);
+    try {
+      const updated = await runJdAts(user.id, v, text, settings);
+      setPatched((p) => ({ ...p, [updated.id]: updated }));
+      notify('ATS Score generated against your job description.', 'ok');
+      void refresh();
+    } catch (e) {
+      notify(toCareersError(e).message, 'error');
+    } finally {
+      setAtsBusy(false);
+    }
+  };
+
+  const atsFromFile = async (file: File) => {
+    setAtsBusy(true);
+    try {
+      const { extractResumeText } = await import('../parser/extract');
+      const { text } = await extractResumeText(file, { ocrEnabled: false });
+      setJdText(text);
+      await generateAts(text);
+    } catch (e) {
+      notify(toCareersError(e).message, 'error');
+      setAtsBusy(false);
+    }
+  };
   return (
     <div className="fx-modal-wrap" role="dialog" aria-modal="true" aria-label={`Analysis of ${resume.name}`}>
       <div className="fx-modal-back" onClick={onClose} />
@@ -487,6 +526,63 @@ function AnalysisModal({
               </div>
             )}
           </>
+        )}
+
+        {v.status === 'complete' && v.ats_score == null && (
+          <div className="tip tip-info" style={{ marginBottom: 18 }}>
+            <b>Upload a Job Description to generate an accurate ATS Score.</b>
+            ATS systems score resumes against a specific job — a generic score would be misleading,
+            so FinatriX scores your resume against the role you're actually targeting.
+            {!jdOpen ? (
+              <div style={{ marginTop: 10 }}>
+                <button className="btn btn-sm" style={{ width: 'auto' }} onClick={() => setJdOpen(true)}>
+                  Upload a Job Description
+                </button>
+              </div>
+            ) : (
+              <div style={{ marginTop: 10 }}>
+                <textarea
+                  className="fi"
+                  style={{ minHeight: 120, resize: 'vertical', lineHeight: 1.55 }}
+                  placeholder="Paste the job description here…"
+                  aria-label="Job description for ATS scoring"
+                  value={jdText}
+                  onChange={(e) => setJdText(e.target.value)}
+                />
+                <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                  <button
+                    className={`btn btn-sm ${atsBusy ? 'btn-loading' : ''}`}
+                    style={{ width: 'auto' }}
+                    disabled={atsBusy}
+                    onClick={() => void generateAts(jdText)}
+                  >
+                    {atsBusy ? 'Scoring…' : 'Generate ATS Score'}
+                  </button>
+                  <label className="btn btn-ghost btn-sm" style={{ width: 'auto', cursor: 'pointer' }}>
+                    Upload JD as PDF / DOCX
+                    <input
+                      type="file" hidden accept=".pdf,.docx,.doc"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) void atsFromFile(f);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {v.ats_score != null && (
+          <div className="tip tip-info" style={{ marginBottom: 14 }}>
+            <b>Keep going with this job.</b>
+            Run the full workflow for the same job description — resume match with missing skills,
+            tailoring suggestions and{' '}
+            <Link to={CAREERS_ROUTES.interviews} style={{ color: 'var(--gold)' }}>interview questions</Link> — from the{' '}
+            <Link to={`${CAREERS_ROUTES.jobs}?view=analyzer`} style={{ color: 'var(--gold)' }}>Job Description Analyzer</Link>.
+          </div>
         )}
 
         {v.ats_report && v.ats_report.issues.length > 0 && (

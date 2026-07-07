@@ -87,8 +87,18 @@ export function buildScorePrompt(resumeText: string): { system: string; user: st
 
 // ─────────────────────────── ATS score ───────────────────────────
 
-export function buildAtsPrompt(resumeText: string, fileName: string): { system: string; user: string } {
+export function buildAtsPrompt(
+  resumeText: string,
+  fileName: string,
+  jobText = ''
+): { system: string; user: string } {
   const safeName = fileName.replace(/[^\w.\-()\s]/g, '').slice(0, 120);
+  const jdInstruction = jobText
+    ? 'A specific job description is provided. Score "keywords" and "skills" against THIS job: ' +
+      'which of its required skills, tools, certifications and title terms appear in the resume, ' +
+      'exactly or as close synonyms? Missing must-have terms are high-severity issues (name the ' +
+      'exact missing term in the issue title). '
+    : '';
   return {
     system:
       'You are an ATS (applicant tracking system) compatibility auditor working from the ' +
@@ -96,13 +106,16 @@ export function buildAtsPrompt(resumeText: string, fileName: string): { system: 
       'structure, keyword coverage, skills section, formatting artifacts (garbled columns/tables ' +
       'show up as jumbled text order), likely icon/image use (missing contact glyph text), ' +
       'header/footer content, contact info completeness, file naming, bullet quality, section ' +
-      'order and whitespace. ' + INJECTION_GUARD +
+      'order and whitespace. ' + jdInstruction + INJECTION_GUARD +
       '\nReturn JSON exactly: {"overall":0,' +
       '"checks":[{"id":"","score":0,"suggestion":""}],' +
       '"issues":[{"id":"","title":"","detail":"","severity":"low|medium|high|critical","fix":"","priority":1}]}' +
       '\nUse exactly these check ids: headings, keywords, skills, formatting, tables, columns, ' +
       'fonts, icons, images, headerFooter, contact, fileNaming, bullets, sectionOrder, whitespace. ' +
       'Only report issues you can actually evidence from the text; priority 1 = fix first.',
-    user: `File name: ${safeName}\n${fenceResume(resumeText)}`,
+    user:
+      `File name: ${safeName}\n` +
+      (jobText ? `JOB DESCRIPTION:\n<<<DATA>>>\n${jobText.slice(0, 12_000)}\n<<<END DATA>>>\n` : '') +
+      fenceResume(resumeText),
   };
 }

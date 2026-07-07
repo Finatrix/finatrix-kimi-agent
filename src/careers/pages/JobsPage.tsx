@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useLocation } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
@@ -243,20 +243,25 @@ function JobWorkbench({
           )}
         </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 6 }}>
           <button className={`btn btn-sm ${busy === 'match' ? 'btn-loading' : ''}`} disabled={!!busy} onClick={() => void runMatch()}>
-            {match ? 'Re-match' : 'Match my resume'}
+            {busy === 'match' ? 'Matching…' : match ? 'Re-match' : 'Match my resume'}
           </button>
           <button className={`btn btn-ghost btn-sm ${busy === 'tailor' ? 'btn-loading' : ''}`} disabled={!!busy} onClick={() => void runTailor()}>
-            Tailor resume
+            {busy === 'tailor' ? 'Tailoring…' : 'Tailor resume'}
           </button>
           <button className="btn btn-ghost btn-sm" disabled={!!busy || !version} onClick={() => setLetterOpen(true)}>
             Cover letter
           </button>
           <button className={`btn btn-ghost btn-sm ${busy === 'track' ? 'btn-loading' : ''}`} disabled={!!busy} onClick={() => void track()}>
-            Track application
+            {busy === 'track' ? 'Adding…' : 'Track application'}
           </button>
         </div>
+        {/* The mount-time AI analysis disables the buttons above — without this
+            line, clicks during those seconds look like the buttons are broken. */}
+        <p className="note" style={{ marginBottom: 12, minHeight: 16 }} aria-live="polite">
+          {busy === 'intel' ? 'Analysing this job with AI — actions unlock in a few seconds…' : ''}
+        </p>
 
         <div className="nav" style={{ padding: 0, marginBottom: 14 }}>
           <a role="tab" aria-selected={tab === 'intel'} className={tab === 'intel' ? 'on' : ''} style={{ cursor: 'pointer' }} onClick={() => setTab('intel')}>Intelligence</a>
@@ -266,11 +271,16 @@ function JobWorkbench({
 
         {tab === 'intel' && (
           busy === 'intel' ? (
-            <p className="note">Analysing this job with AI…</p>
+            <p className="note" aria-busy="true">Analysing this job with AI…</p>
           ) : intel ? (
             <JobIntelView analysis={intel.analysis} keywords={intel.keywords} resumeText={version?.raw_text} />
           ) : (
-            <p className="note">Analysis unavailable. Close and reopen to retry.</p>
+            <EmptyState icon="invest" title="Analysis unavailable">
+              The AI analysis didn't complete.{' '}
+              <button className="btn btn-sm" style={{ width: 'auto', marginTop: 10 }} onClick={() => void ensureIntel()}>
+                Retry analysis
+              </button>
+            </EmptyState>
           )
         )}
 
@@ -365,12 +375,18 @@ export default function JobsPage() {
   const { user } = useAuth();
   const { loading, error, profile, resumes, refresh } = useCareers();
   const { notify } = useToast();
+  const location = useLocation();
 
   const versions = useMemo(() => completeVersions(resumes), [resumes]);
   const [versionId, setVersionId] = useState('');
   const version = versions.find((v) => v.version.id === versionId)?.version ?? versions[0]?.version ?? null;
 
-  const [view, setView] = useState<View>('search');
+  // Deep-linkable views (?view=analyzer|saved) so other pages can send users
+  // straight to the JD analyzer workflow.
+  const [view, setView] = useState<View>(() => {
+    const wanted = new URLSearchParams(location.search).get('view');
+    return wanted === 'analyzer' || wanted === 'saved' ? wanted : 'search';
+  });
   const [params, setParams] = useState<JobSearchParams>({ ...DEFAULT_SEARCH_PARAMS });
   const [searching, setSearching] = useState(false);
   const [report, setReport] = useState<SearchReport | null>(null);
@@ -443,8 +459,17 @@ export default function JobsPage() {
     }
   };
 
+  // The job currently being persisted/opened — drives the button's loading
+  // state so "Analyse & match" never looks dead during the network write.
+  const [openingKey, setOpeningKey] = useState('');
+
   const openNormalized = async (job: NormalizedJob) => {
-    if (!user) return;
+    if (!user) {
+      notify('Sign in to analyse jobs.', 'error');
+      return;
+    }
+    const key = `${job.source}-${job.external_id}`;
+    setOpeningKey(key);
     try {
       // Persist first (idempotent) so analysis/matching attach to a row.
       const row = await saveJob(user.id, job);
@@ -458,6 +483,8 @@ export default function JobsPage() {
       void loadSaved();
     } catch (e) {
       notify(toCareersError(e).message, 'error');
+    } finally {
+      setOpeningKey('');
     }
   };
 
@@ -471,7 +498,10 @@ export default function JobsPage() {
   };
 
   const analyzePasted = async () => {
-    if (!user) return;
+    if (!user) {
+      notify('Sign in to analyse a job description.', 'error');
+      return;
+    }
     const text = pasteText.trim();
     if (text.length < 100) {
       notify('Paste a fuller job description (at least a few sentences).', 'error');
@@ -489,7 +519,10 @@ export default function JobsPage() {
   };
 
   const analyzeFile = async (file: File) => {
-    if (!user) return;
+    if (!user) {
+      notify('Sign in to analyse a job description.', 'error');
+      return;
+    }
     setAnalyzing(true);
     try {
       const { extractResumeText } = await import('../parser/extract');
@@ -714,8 +747,12 @@ export default function JobsPage() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-                  <button className="btn btn-sm" onClick={() => void openNormalized(job)}>
-                    Analyse &amp; match
+                  <button
+                    className={`btn btn-sm ${openingKey === `${job.source}-${job.external_id}` ? 'btn-loading' : ''}`}
+                    disabled={!!openingKey}
+                    onClick={() => void openNormalized(job)}
+                  >
+                    {openingKey === `${job.source}-${job.external_id}` ? 'Opening…' : 'Analyse & match'}
                   </button>
                   <button className="btn btn-ghost btn-sm" onClick={() => {
                     if (user) void saveJob(user.id, job).then(() => { notify('Job saved.', 'ok'); void loadSaved(); })

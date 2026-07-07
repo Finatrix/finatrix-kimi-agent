@@ -117,8 +117,9 @@ export default function CareersDashboard() {
               </Link>
             }
           >
-            In under a minute you’ll get a recruiter-grade Resume Score, an ATS
-            compatibility audit and an AI Career DNA profile.
+            In under a minute you’ll get a recruiter-grade Resume Score and an AI
+            Career DNA profile — then add a job description for an ATS audit
+            scored against the role you’re targeting.
           </EmptyState>
         </div>
       )}
@@ -138,6 +139,11 @@ export default function CareersDashboard() {
                 <ScoreRing score={latest.version.resume_score} caption="Resume score" />
                 <ScoreRing score={latest.version.ats_score} caption="ATS score" />
               </div>
+              {latest.version.ats_score == null && (
+                <p className="note" style={{ textAlign: 'center', marginTop: 10 }}>
+                  ATS scoring needs a job description — add one from the full analysis.
+                </p>
+              )}
               <Link
                 to={CAREERS_ROUTES.resumes}
                 className="btn btn-ghost btn-sm"

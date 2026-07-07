@@ -30,7 +30,7 @@ describe('Landing nav', () => {
 });
 
 describe('Landing hero', () => {
-  it('shows the wordmark, every tool card, the Coming Soon card, and the logo hub', () => {
+  it('shows the wordmark, every tool card, the Careers spotlight card, and the logo hub', () => {
     render(wrap(<LandingHero />));
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('FinatriX');
     // Every tool has a card linking to its route (label is "Name — subtitle").
@@ -38,7 +38,10 @@ describe('Landing hero', () => {
     for (const t of TOOLS) {
       expect(hrefs).toContain(t.href);
     }
-    expect(screen.getByText('Coming Soon')).toBeInTheDocument();
+    // The eighth cell is the premium FinatriX Careers spotlight (AI Powered badge, links to /careers).
+    expect(screen.getByText('FinatriX Careers')).toBeInTheDocument();
+    expect(screen.getByText('AI Powered')).toBeInTheDocument();
+    expect(hrefs).toContain('/careers');
     expect(screen.getByRole('link', { name: /open all tools/i })).toHaveAttribute('href', '/tools');
   });
 });
