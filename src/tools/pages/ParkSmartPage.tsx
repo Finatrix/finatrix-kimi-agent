@@ -19,7 +19,6 @@ export default function ParkSmartPage() {
   const [dur, setDur] = useState(saved['ps-duration'] ?? '3-6');
   const [slab, setSlab] = useState(saved['ps-slab'] ?? '20');
   const [result, setResult] = useState<ParkResult | null>(null);
-  const [loading, setLoading] = useState(false);
 
   const persist = (next: Partial<Saved>) => {
     setJSON('fx_parksmart', { 'ps-amount': amount, 'ps-duration': dur, 'ps-slab': slab, ...next });
@@ -31,11 +30,8 @@ export default function ParkSmartPage() {
       notify('Please enter at least ₹1,000.', 'error');
       return;
     }
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setResult(computeParkSmart(amt, dur, Number(slab) / 100));
-    }, 500);
+    // computeParkSmart is synchronous — no artificial delay needed.
+    setResult(computeParkSmart(amt, dur, Number(slab) / 100));
   };
 
   return (
@@ -82,8 +78,8 @@ export default function ParkSmartPage() {
               </select>
             </div>
           </div>
-          <button className={`btn ${loading ? 'btn-loading' : ''}`} disabled={loading} onClick={submit}>
-            {loading ? 'Comparing options…' : 'Find the best options'}
+          <button className="btn" onClick={submit}>
+            Find the best options
           </button>
         </div>
       ) : (

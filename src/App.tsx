@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react'
-import { Routes, Route, Navigate } from 'react-router'
+import { lazy, Suspense, useEffect } from 'react'
+import { Routes, Route, Navigate, useLocation } from 'react-router'
 import ErrorBoundary from './components/ErrorBoundary'
 import LoginReminderModal from './components/LoginReminderModal'
 
@@ -36,13 +36,69 @@ const Terms = lazy(() => import('./pages/Terms'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 
 function RouteFallback() {
-  return <div className="min-h-screen bg-[#060607]" aria-hidden="true" />
+  return (
+    <div className="min-h-screen bg-[#060607]" role="status" aria-busy="true">
+      <span className="sr-only">Loading…</span>
+    </div>
+  )
+}
+
+const DEFAULT_TITLE = 'FinatriX — Smart Money Tools for India'
+
+// Per-route document titles so browser tabs, history and screen readers
+// reflect the current page instead of always showing the landing title.
+// /tools/:toolId is excluded — ToolRoute already sets its own title.
+const ROUTE_TITLES: Record<string, string> = {
+  '/tools': 'Money Tools',
+  '/careers': 'Careers Dashboard',
+  '/careers/dashboard': 'Careers Dashboard',
+  '/careers/upload': 'Upload Resume',
+  '/careers/resumes': 'Resume Library',
+  '/careers/jobs': 'Job Search',
+  '/careers/applications': 'Applications',
+  '/careers/tasks': 'Tasks',
+  '/careers/companies': 'Companies',
+  '/careers/recruiters': 'Recruiters',
+  '/careers/network': 'Network',
+  '/careers/interviews': 'Interview Prep',
+  '/careers/assessments': 'Assessments',
+  '/careers/offers': 'Offers',
+  '/careers/knowledge': 'Knowledge Base',
+  '/careers/coach': 'Career Coach',
+  '/careers/billing': 'Billing',
+  '/careers/admin': 'Admin',
+  '/careers/profile': 'Career Profile',
+  '/careers/settings': 'Careers Settings',
+  '/login': 'Sign In',
+  '/signup': 'Create Account',
+  '/profile': 'Your Profile',
+  '/privacy': 'Privacy Policy',
+  '/terms': 'Terms of Use',
+}
+
+function DocumentTitle() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    if (/^\/tools\/[^/]+/.test(pathname)) return // ToolRoute manages its own title
+    const path = pathname.replace(/\/+$/, '') || '/'
+    const title = ROUTE_TITLES[path]
+    document.title = title ? `${title} — FinatriX` : DEFAULT_TITLE
+  }, [pathname])
+  return null
 }
 
 export default function App() {
   return (
     <ErrorBoundary>
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:rounded-md focus:bg-[#D4AF37] focus:px-4 focus:py-2 focus:font-mono focus:text-[12px] focus:text-black"
+      >
+        Skip to content
+      </a>
+      <DocumentTitle />
       <Suspense fallback={<RouteFallback />}>
+        <div id="main">
         <Routes>
           <Route path="/" element={<Home />} />
           {/* Legacy route — the landing page now lives at "/". */}
@@ -79,6 +135,7 @@ export default function App() {
           <Route path="/terms" element={<Terms />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </div>
       </Suspense>
       <LoginReminderModal />
     </ErrorBoundary>

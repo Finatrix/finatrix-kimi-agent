@@ -54,3 +54,24 @@ describe('Phase 2 routes render', () => {
     });
   }
 });
+
+describe('per-route document titles', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    cleanup();
+  });
+
+  it('sets a route-specific title on careers sub-pages', async () => {
+    renderAt('/careers/jobs');
+    await screen.findAllByText('Career Coach');
+    expect(document.title).toBe('Job Search — FinatriX');
+  });
+
+  it('offers a skip-to-content link targeting #main', async () => {
+    renderAt('/careers/jobs');
+    await screen.findAllByText('Career Coach');
+    const skip = screen.getByText('Skip to content') as HTMLAnchorElement;
+    expect(skip.getAttribute('href')).toBe('#main');
+    expect(document.getElementById('main')).not.toBeNull();
+  });
+});

@@ -39,3 +39,13 @@ if (typeof Blob !== 'undefined' && typeof Blob.prototype.arrayBuffer !== 'functi
     });
   };
 }
+
+// jsdom does not implement HTMLCanvasElement.prototype.getContext. Chart.js
+// calls it in a useEffect during ExpensePage renders; without this shim
+// every ExpensePage test logs a "Not implemented" error to stderr even though
+// the tests themselves pass. Provide a minimal no-op implementation.
+if (typeof HTMLCanvasElement !== 'undefined') {
+  HTMLCanvasElement.prototype.getContext = function () {
+    return null;
+  } as typeof HTMLCanvasElement.prototype.getContext;
+}
