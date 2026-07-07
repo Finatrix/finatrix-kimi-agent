@@ -182,18 +182,25 @@ export function buildInterviewQuestionsPrompt(
   };
 }
 
-export function buildStarPrompt(digest: string, question: string, userDraft: string): { system: string; user: string } {
+export function buildStarPrompt(
+  digest: string,
+  question: string,
+  userDraft: string,
+  knowledge = ''
+): { system: string; user: string } {
   return {
     system:
       'You are an interview coach building a STAR answer from the candidate\'s real experience. ' +
       'Use only their actual background; never fabricate employers or outcomes. If their draft is ' +
-      'provided, improve it rather than replacing it. ' + GUARD +
+      'provided, improve it rather than replacing it. When saved stories are provided, prefer a ' +
+      'relevant saved story over inventing details from the resume alone. ' + GUARD +
       '\nReturn JSON exactly: {"situation":"","task":"","action":"","result":"","reflection":"",' +
       '"confidence":0,"improvements":[]}' +
       '\nconfidence (0–100) rates how convincing this answer will be; improvements list what would strengthen it.',
     user:
       `QUESTION: ${question.slice(0, 400)}\n` +
       (userDraft ? `CANDIDATE DRAFT:\n${fence(userDraft, 3_000)}\n` : '') +
+      (knowledge ? `SAVED STORIES (the candidate's own logged experiences):\n${fence(knowledge, 4_000)}\n` : '') +
       `CANDIDATE:\n${fence(digest, 8_000)}`,
   };
 }

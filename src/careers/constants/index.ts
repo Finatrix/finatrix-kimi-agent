@@ -93,7 +93,7 @@ export const AI_MODEL_OPTIONS = [
   { id: 'openai/gpt-5.5', label: 'ChatGPT 5.5' },
   { id: 'moonshotai/kimi-k2', label: 'Kimi AI' },
   { id: 'deepseek/deepseek-chat-v3.1', label: 'DeepSeek Chat' },
-  { id: 'qwen/qwen3-235b-a22b-instruct-2507', label: 'Qwen 3' },
+  { id: 'qwen/qwen3-235b-a22b-2507', label: 'Qwen 3' },
 ] as const;
 
 /** Resume text is clamped to this many characters before it is sent to AI. */

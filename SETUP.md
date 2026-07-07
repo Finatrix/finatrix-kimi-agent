@@ -89,7 +89,7 @@ Supabase project:
    defaults):
 
    ```
-   supabase secrets set CAREERS_AI_MODELS="google/gemini-2.5-flash,deepseek/deepseek-chat-v3.1,qwen/qwen3-235b-a22b-instruct-2507"
+   supabase secrets set CAREERS_AI_MODELS="google/gemini-2.5-flash,deepseek/deepseek-chat-v3.1,qwen/qwen3-235b-a22b-2507"
    supabase secrets set CAREERS_AI_DAILY_LIMIT="60"
    ```
 

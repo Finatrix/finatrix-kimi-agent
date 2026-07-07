@@ -155,8 +155,8 @@ describe('task manager helpers (Module 14)', () => {
 
   it('separates upcoming from overdue open tasks', () => {
     const tasks = [task({ id: 'soon', due_at: days(2) }), task({ id: 'late', due_at: days(-1) }), task({ id: 'done', due_at: days(-1), status: 'done' })];
-    expect(upcomingTasks(tasks, 7).map((t) => t.id).sort()).toEqual(['late', 'soon']);
-    expect(overdueTasks(tasks).map((t) => t.id)).toEqual(['late']);
+    expect(upcomingTasks(tasks, 7, NOW).map((t) => t.id).sort()).toEqual(['late', 'soon']);
+    expect(overdueTasks(tasks, NOW).map((t) => t.id)).toEqual(['late']);
   });
 });
 

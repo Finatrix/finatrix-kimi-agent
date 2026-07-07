@@ -163,7 +163,7 @@ export default function InterviewPrepPage() {
     setStarBusy(questionId);
     try {
       const draft = answerFor(questionId).text;
-      const star: StarAnswer = await buildStarAnswer(version, questionText, draft, settings.model);
+      const star: StarAnswer = await buildStarAnswer(version, questionText, draft, settings.model, user?.id ?? '');
       setAnswer(questionId, { star });
       notify('STAR answer built from your real experience.', 'ok');
     } catch (e) {

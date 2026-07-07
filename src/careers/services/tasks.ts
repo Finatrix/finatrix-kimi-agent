@@ -74,12 +74,12 @@ export async function deleteTask(userId: string, id: string): Promise<void> {
 }
 
 /** Tasks due within `days` days (or overdue), open only — for reminders/automation. */
-export function upcomingTasks(tasks: TaskRow[], days = 7): TaskRow[] {
-  const horizon = Date.now() + days * 86_400_000;
+export function upcomingTasks(tasks: TaskRow[], days = 7, now: Date = new Date()): TaskRow[] {
+  const horizon = now.getTime() + days * 86_400_000;
   return tasks.filter((t) => t.status === 'open' && t.due_at && new Date(t.due_at).getTime() <= horizon);
 }
 
-export function overdueTasks(tasks: TaskRow[]): TaskRow[] {
-  const now = Date.now();
-  return tasks.filter((t) => t.status === 'open' && t.due_at && new Date(t.due_at).getTime() < now);
+export function overdueTasks(tasks: TaskRow[], now: Date = new Date()): TaskRow[] {
+  const cutoff = now.getTime();
+  return tasks.filter((t) => t.status === 'open' && t.due_at && new Date(t.due_at).getTime() < cutoff);
 }

@@ -10,6 +10,7 @@ import {
   generateQuestionsWithAI,
   interviewFeedbackWithAI,
 } from '../ai/tasks-jobs';
+import { knowledgeDigest, listKnowledgeItems } from './knowledge';
 import type { ResumeVersionRow } from '../types';
 import type {
   InterviewAnswer,
@@ -108,13 +109,24 @@ export async function buildStarAnswer(
   version: ResumeVersionRow,
   question: string,
   userDraft: string,
-  model = ''
+  model = '',
+  userId = ''
 ): Promise<StarAnswer> {
   if (!version.parsed) {
     throw new CareersError('validation', 'Pick a fully analysed resume version first.');
   }
+  // Saved Knowledge Base stories enrich the answer when available; a fetch
+  // failure must never block the STAR builder, so it degrades to resume-only.
+  let knowledge = '';
+  if (userId) {
+    try {
+      knowledge = knowledgeDigest(await listKnowledgeItems(userId));
+    } catch {
+      knowledge = '';
+    }
+  }
   const { result } = await withRetry(
-    () => buildStarWithAI(version.parsed!, version.career_dna, question, userDraft, model),
+    () => buildStarWithAI(version.parsed!, version.career_dna, question, userDraft, model, knowledge),
     { attempts: 2 }
   );
   return result;

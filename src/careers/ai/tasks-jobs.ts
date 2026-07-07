@@ -137,9 +137,16 @@ export function buildStarWithAI(
   dna: CareerDNA | null,
   question: string,
   userDraft = '',
-  model = ''
+  model = '',
+  knowledge = ''
 ): Promise<AiTaskResult<StarAnswer>> {
-  return run('star', buildStarPrompt(resumeDigest(parsed, dna), question, userDraft), validateStar, model, 2_500);
+  return run(
+    'star',
+    buildStarPrompt(resumeDigest(parsed, dna), question, userDraft, knowledge),
+    validateStar,
+    model,
+    2_500
+  );
 }
 
 export function interviewFeedbackWithAI(
