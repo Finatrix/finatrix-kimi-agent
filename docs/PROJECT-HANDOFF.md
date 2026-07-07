@@ -153,7 +153,7 @@ All three deployed and `ACTIVE` on the live project as of this writing (`careers
 **Purpose:** the only place the OpenRouter API key exists. Every AI task in the app funnels through this one function.
 **Flow:** authenticate JWT → parse `{task, system, user, model?, maxTokens?}` → bound input size (80,000 chars combined) and output tokens (max 8,192) → atomic daily per-user quota check (Postgres RPC `increment_ai_usage`, with a non-atomic fallback path if the RPC doesn't exist yet — this fixes a previously-flagged race condition) → walk a configurable model fallback chain until one answers → return `{content, model, task, ms, promptTokens, completionTokens}`.
 **Security:** JWT-required, model allowlist (client-requested model must be in the allowlist or it's ignored), quota-limited, input-bounded.
-**Providers/fallback:** default chain is Gemini Flash → Claude Sonnet 5 → ChatGPT 5.5 → Kimi AI → DeepSeek → Qwen 3 (configurable via `CAREERS_AI_MODELS` env secret). **Caveat:** the Claude/GPT-5.5/Kimi model ID strings were added speculatively and have not been verified against OpenRouter's actual catalogue — if wrong, the fallback chain silently skips to the next model (no hard failure, but those three options won't route until corrected).
+**Providers/fallback:** default chain is Gemini Flash → Claude Sonnet 5 → ChatGPT 5.5 → Kimi AI → DeepSeek → Qwen 3 (configurable via `CAREERS_AI_MODELS` env secret). **All six model IDs verified against OpenRouter's live catalogue on 2026-07-07** — the speculative Claude/GPT-5.5/Kimi slugs were all correct; the stale Qwen slug (`qwen3-235b-a22b-instruct-2507`) was corrected to `qwen/qwen3-235b-a22b-2507` everywhere it appeared (edge fn, model picker, cost table, SETUP.md).
 **Cost optimization:** every result-producing service caches its AI output by SHA-256 of the input (`analysisCache` table pattern) so identical content never re-spends a token.
 
 ### `careers-jobs`
@@ -252,12 +252,11 @@ Every AI feature shares one contract: **prompt (fenced untrusted content + injec
 
 **Known fixes already applied** (per the production audit, confirmed live in the working tree): the AI usage-counter race condition (now an atomic Postgres RPC with a fallback path), and the `careers-email` open-relay vulnerability (now recipient-locked to the caller's own verified email).
 
-**Remaining known issues (from the audit, not yet fixed):**
-- `careers_analytics` table is `select`-able by *any* authenticated user (should be admin-only or removed for non-admin consumers).
-- `careers_analytics` has no index on `(event, created_at)` — will full-scan as it grows.
-- CORS `Access-Control-Allow-Origin: *` on all three edge functions — fine for public endpoints, overly permissive for authenticated mutation endpoints; should be restricted to the production origin.
+**Fixed in the 2026-07-07 production pass:** `careers_analytics` select policy restricted to platform admins + `(event, created_at DESC)` index added; CORS on all three edge functions restricted to an origin allowlist (`finatrix.online` + www + localhost dev, overridable via `CAREERS_ALLOWED_ORIGINS`); `increment_ai_usage` RPC EXECUTE revoked from anon/authenticated (service-role-only); the edge function's RPC-result check corrected (the RPC returns a bare int, not `{calls}` — the -1 limit sentinel was previously never detected on the RPC path).
+
+**Remaining known issues:**
 - No per-IP rate limiting at the edge-function layer (Supabase platform limits provide a baseline).
-- `dist/` build artifacts appear to be tracked in git in at least one snapshot — should be gitignored if not already.
+- `dist/` is correctly gitignored and untracked (audit claim re-verified 2026-07-07 — nothing to fix).
 
 ---
 
@@ -271,7 +270,7 @@ Every AI feature shares one contract: **prompt (fenced untrusted content + injec
 
 **Database:** composite indexes on every list-view table (`user_id, created_at/updated_at DESC`), SHA-256 dedup indexes, a partial unique index for "one active subscription per user."
 
-**Known remaining optimizations (from the audit, not yet done):** `mammoth` (DOCX parser, ~197kB) is statically imported into the entry chunk rather than dynamically imported at the point of use — should save ~197kB off initial load. `html2canvas` (~201kB) is similarly not behind a dynamic import at its PDF-export call site. Neither has been fixed as of this document.
+**Fixed 2026-07-07:** `mammoth` is now dynamically imported in `parser/docx.ts` — verified out of the entry chunk in the production build. A Supabase `preconnect` hint is injected at boot (`main.tsx`, env-driven). Note on `html2canvas`: it is **not a direct dependency** — it arrives as jspdf's optional html plugin and Vite already emits it as its own lazily-loaded chunk; no action needed (the audit's framing was stale).
 
 ---
 
@@ -279,7 +278,7 @@ Every AI feature shares one contract: **prompt (fenced untrusted content + injec
 
 **Strategy:** Vitest + `@testing-library/react`, jsdom environment. Business logic (pure functions: taxonomy classification, deterministic matching, quota checks, flag resolution, ICS generation, reminder computation) gets direct unit tests with zero mocking. Pages get rendered-route smoke tests (every route renders without throwing, for both authenticated-gated and public paths).
 
-**Current coverage:** 754+ tests across 40+ files as of the last full run (re-verify with `npx vitest run` before trusting this number — it changes every session). Zero known failing tests at last check; one flaky timing-dependent test has been observed to intermittently fail and then pass on rerun (not yet root-caused, not consistently reproducing).
+**Current coverage:** 767 tests across 41 files as of 2026-07-07 (re-verify with `npx vitest run` before trusting this number — it changes every session). The previously "flaky" test was root-caused 2026-07-07: it was never flaky — `upcomingTasks`/`overdueTasks` used the real clock while the test pinned NOW to 2026-07-04, so it started failing deterministically once the calendar passed the fixture dates. Both helpers now accept an injectable `now` (same pattern as `computeAutomationReminders`) and the test passes it.
 
 **Regression tests of note:**
 - `src/test/careers21.search-engine.test.ts` — the exact five flagship India searches, asserting ≥90% relevance and zero junk-category leakage.
@@ -295,7 +294,7 @@ Every AI feature shares one contract: **prompt (fenced untrusted content + injec
 
 A full audit (`FINATRIX_COMPLETE_AUDIT.md`, dated 2026-07-04) scored overall launch readiness at **82/100**. Category breakdown: Features 88, Architecture 92, Testing 85, Documentation 80, Deployment 75, Security 82, Performance 83, UX/Accessibility 74.
 
-**Critical (launch blocker):** canonical/OG/sitemap URL typo (`fiantrix.online` instead of `finatrix.online`) across `index.html`, `sitemap.xml`, `robots.txt` — 9 occurrences. **Status: unknown, re-check before launch** — not confirmed fixed as of this document.
+**Critical (launch blocker):** canonical/OG/sitemap URL typo (`fiantrix.online` instead of `finatrix.online`) across `index.html`, `sitemap.xml`, `robots.txt`. **Status: FIXED 2026-07-07** — all occurrences corrected, including `robots.txt` (which the earlier partial fix had missed).
 
 **High severity — both since fixed** (confirmed present in the current working tree, per external edits observed mid-session): the AI-usage-counter race condition (atomic RPC now in place) and the `careers-email` open relay (recipient now locked to caller's own email).
 
@@ -316,13 +315,13 @@ Phase 1 (resume intelligence), Phase 2 (job intelligence platform), Phase 2.1 (s
 - Phase 4 Organizations (schema + basic service exist; no management UI beyond invite/remove).
 - Email infrastructure (code-complete, deployed, inert without `RESEND_API_KEY`).
 - Browser push (real Notification API implementation; no VAPID/background push).
-- Knowledge Base → STAR builder integration (`knowledgeDigest()` exists, not yet called from the STAR prompt).
+- ~~Knowledge Base → STAR builder integration~~ **done 2026-07-07**: `buildStarAnswer` now loads the user's Knowledge Base (soft-fail to resume-only) and passes `knowledgeDigest()` into `buildStarPrompt` as a fenced SAVED STORIES section, with regression tests.
 
 ## Intentionally postponed
 Payments (Stripe/Razorpay), error monitoring (Sentry), product analytics (PostHog), University Portal, Recruiter Portal, full Organization Management UI, Marketing Website, Public API, all 9 OAuth integrations, CI/CD pipeline, load/stress testing, disaster recovery documentation. All deferred because they need external accounts/credentials the user doesn't have yet, or are substantial standalone efforts (the marketing site alone implies a blog/CMS) that shouldn't be half-built as filler.
 
-## Also outstanding (from the production audit, not yet actioned)
-Canonical URL typo fix, `careers_analytics` RLS/index fixes, CORS restriction on edge functions, mammoth/html2canvas dynamic imports, Canvas test mock, accessibility polish (skip link, document.title per route).
+## Audit backlog status (2026-07-07 production pass)
+All previously-outstanding audit items are done: canonical URL typo (incl. robots.txt), `careers_analytics` RLS + index, CORS restriction, mammoth dynamic import (html2canvas needed nothing — see §11), Canvas test mock, skip-to-content link, per-route `document.title`, ErrorBoundary `role="alert"`, accessible Suspense fallback, ParkSmart fake delay removed, `companies (user_id, industry)` and `audit_log (target_type, action, created_at)` indexes. Also fixed beyond the audit: **`netlify.toml` still invoked the deleted `build:netlify` script (every Netlify deploy would have failed — now `npm run build`)**, the deterministic-clock test bug (§12), and the `increment_ai_usage` RPC return-shape bug in `careers-ai`.
 
 ---
 
@@ -366,14 +365,12 @@ Canonical URL typo fix, `careers_analytics` RLS/index fixes, CORS restriction on
 7. Connect external services (Stripe, Resend, Sentry, PostHog, OAuth).
 8. Prepare for beta launch.
 
-**Immediate remaining work before "stabilized":**
-- Fix the canonical/OG/sitemap URL typo (5-minute fix, launch-blocking per the audit).
-- Restrict `careers_analytics` RLS to admins and add its missing index.
-- Restrict CORS on the three edge functions to the production origin.
-- Verify the Claude Sonnet 5 / ChatGPT 5.5 / Kimi AI model IDs actually resolve on OpenRouter (added speculatively, unverified).
-- Redeploy `careers-ai` to push the latest local changes (token-usage reporting + new model IDs) — confirmed not yet deployed as of the last check.
+**Immediate remaining work before "stabilized":** everything on this list except the deploy step was completed 2026-07-07 (URL typo, analytics RLS/index, CORS, model-ID verification — see §13/§14). What remains is deployment, which is the user's call:
+- Apply the updated schema files to the live project (analytics policy/index, `increment_ai_usage` RPC + grants, new indexes): re-run `careers_schema.sql`, `careers_phase2_schema.sql`, `careers_phase4_schema.sql` (all idempotent).
+- Redeploy all three edge functions (`supabase functions deploy careers-ai careers-jobs careers-email`) to pick up the quota-race fix, corrected RPC handling, recipient lock, CORS allowlist and corrected Qwen slug.
+- Netlify will succeed again on the next deploy now that `netlify.toml` calls `npm run build`.
 
-**Beta checklist:** the above, plus dynamic imports for mammoth/html2canvas, document.title per route, a skip-to-content link, and a decision on whether Phase 4's "not yet connected" admin sections (Users list, Payments, Errors, System Health) need to exist in some form before inviting outside beta users, or can stay placeholder for an internal-only beta.
+**Beta checklist:** the above deploys, plus a decision on whether Phase 4's "not yet connected" admin sections (Users list, Payments, Errors, System Health) need to exist in some form before inviting outside beta users, or can stay placeholder for an internal-only beta. (The former items on this list — mammoth dynamic import, document.title per route, skip-to-content link — were all completed 2026-07-07.)
 
 **Production checklist:** all of the above, plus whichever of the deferred Phase 4 modules the beta reveals as actually necessary (most likely Stripe/Razorpay if the beta includes paid plans, Sentry if beta users hit errors you need visibility into).
 
