@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /profile
 
-Sitemap: https://fiantrix.online/sitemap.xml
+Sitemap: https://finatrix.online/sitemap.xml
