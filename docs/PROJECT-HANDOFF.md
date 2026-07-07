@@ -255,7 +255,7 @@ Every AI feature shares one contract: **prompt (fenced untrusted content + injec
 **Fixed in the 2026-07-07 production pass:** `careers_analytics` select policy restricted to platform admins + `(event, created_at DESC)` index added; CORS on all three edge functions restricted to an origin allowlist (`finatrix.online` + www + localhost dev, overridable via `CAREERS_ALLOWED_ORIGINS`); `increment_ai_usage` RPC EXECUTE revoked from anon/authenticated (service-role-only); the edge function's RPC-result check corrected (the RPC returns a bare int, not `{calls}` — the -1 limit sentinel was previously never detected on the RPC path).
 
 **Remaining known issues:**
-- No per-IP rate limiting at the edge-function layer (Supabase platform limits provide a baseline).
+- Rate limiting at the edge layer is now present but per-isolate (best-effort burst protection in `functions/_shared/ratelimit.ts`; the atomic daily quota in Postgres remains the authoritative limit). A globally-consistent limiter would need KV/Redis — deliberately not added pre-beta.
 - `dist/` is correctly gitignored and untracked (audit claim re-verified 2026-07-07 — nothing to fix).
 
 ---
