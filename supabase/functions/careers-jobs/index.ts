@@ -23,11 +23,14 @@
 //   Remotive needs no key.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { rateLimited } from '../_shared/ratelimit.ts';
+
+const RATE_PER_MINUTE = Number(Deno.env.get('CAREERS_JOBS_RATE_PER_MINUTE') ?? '30');
 
 // CORS: authenticated endpoint — restricted to the production site (plus
 // local dev), not '*'. Override with CAREERS_ALLOWED_ORIGINS if needed.
 const ALLOWED_ORIGINS = (Deno.env.get('CAREERS_ALLOWED_ORIGINS') ??
-  'https://finatrix.online,https://www.finatrix.online,http://localhost:5173,http://localhost:4173'
+  'https://finatrix.online,https://www.finatrix.online,https://finatrix.finatrix-hub.workers.dev,http://localhost:5173,http://localhost:4173'
 ).split(',').map((s) => s.trim()).filter(Boolean);
 
 function corsFor(req: Request): Record<string, string> {
@@ -328,6 +331,11 @@ Deno.serve(async (req) => {
   );
   const { data: userData, error: userErr } = await supabase.auth.getUser();
   if (userErr || !userData?.user) return json(401, { error: 'Sign in to search jobs.' });
+
+  // Burst protection (per-isolate, second line of defence behind JWT auth).
+  if (rateLimited(userData.user.id, RATE_PER_MINUTE)) {
+    return json(429, { error: 'Too many searches. Wait a minute and try again.' });
+  }
 
   let body: Partial<SearchParams> & { providers?: string[] };
   try {

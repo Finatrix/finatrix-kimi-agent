@@ -131,7 +131,7 @@ export default function NetworkPage() {
       )}
 
       {editOpen && (
-        <div className="fx-modal-wrap" role="dialog" aria-modal="true">
+        <div className="fx-modal-wrap" role="dialog" aria-modal="true" aria-label="Add contact">
           <div className="fx-modal-back" onClick={() => setEditOpen(false)} />
           <div className="fx-modal">
             <h3>Add contact</h3>
@@ -157,7 +157,7 @@ export default function NetworkPage() {
       )}
 
       {detail && (
-        <div className="fx-modal-wrap" role="dialog" aria-modal="true">
+        <div className="fx-modal-wrap" role="dialog" aria-modal="true" aria-label={`Contact — ${detail.name}`}>
           <div className="fx-modal-back" onClick={() => setDetail(null)} />
           <div className="fx-modal wide">
             <h3>{detail.name}</h3>

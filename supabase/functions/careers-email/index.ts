@@ -10,11 +10,14 @@
 // Optional: EMAIL_FROM="FinatriX Careers <careers@finatrix.app>"
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { rateLimited } from '../_shared/ratelimit.ts';
+
+const RATE_PER_MINUTE = Number(Deno.env.get('CAREERS_EMAIL_RATE_PER_MINUTE') ?? '5');
 
 // CORS: authenticated mutation endpoint — restricted to the production site
 // (plus local dev), not '*'. Override with CAREERS_ALLOWED_ORIGINS if needed.
 const ALLOWED_ORIGINS = (Deno.env.get('CAREERS_ALLOWED_ORIGINS') ??
-  'https://finatrix.online,https://www.finatrix.online,http://localhost:5173,http://localhost:4173'
+  'https://finatrix.online,https://www.finatrix.online,https://finatrix.finatrix-hub.workers.dev,http://localhost:5173,http://localhost:4173'
 ).split(',').map((s) => s.trim()).filter(Boolean);
 
 function corsFor(req: Request): Record<string, string> {
@@ -51,6 +54,11 @@ Deno.serve(async (req) => {
   // Resend API key and sender domain.
   const userEmail = userData.user.email;
   if (!userEmail) return json(403, { error: 'Your account has no verified email address.' });
+
+  // Burst protection (per-isolate) — email is the most abuse-sensitive endpoint.
+  if (rateLimited(userData.user.id, RATE_PER_MINUTE)) {
+    return json(429, { error: 'Too many emails. Wait a minute and try again.' });
+  }
 
   let body: { to?: string; subject?: string; html?: string; text?: string };
   try {

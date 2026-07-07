@@ -11,8 +11,10 @@
 //           CAREERS_AI_DAILY_LIMIT="60"
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { rateLimited } from '../_shared/ratelimit.ts';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const RATE_PER_MINUTE = Number(Deno.env.get('CAREERS_AI_RATE_PER_MINUTE') ?? '20');
 
 const DEFAULT_MODELS = [
   'google/gemini-2.5-flash',
@@ -31,7 +33,7 @@ const REQUEST_TIMEOUT_MS = 90_000;
 // restricted to the production site (plus local dev), not '*'. Override with
 // CAREERS_ALLOWED_ORIGINS="https://a.com,https://b.com" if the origin changes.
 const ALLOWED_ORIGINS = (Deno.env.get('CAREERS_ALLOWED_ORIGINS') ??
-  'https://finatrix.online,https://www.finatrix.online,http://localhost:5173,http://localhost:4173'
+  'https://finatrix.online,https://www.finatrix.online,https://finatrix.finatrix-hub.workers.dev,http://localhost:5173,http://localhost:4173'
 ).split(',').map((s) => s.trim()).filter(Boolean);
 
 function corsFor(req: Request): Record<string, string> {
@@ -133,6 +135,12 @@ Deno.serve(async (req) => {
   const { data: userData, error: userErr } = await anonClient.auth.getUser();
   if (userErr || !userData?.user) return json(401, { error: 'Sign in to use AI analysis.' });
   const userId = userData.user.id;
+
+  // Burst protection (per-isolate; the atomic daily quota below is the
+  // authoritative limit).
+  if (rateLimited(userId, RATE_PER_MINUTE)) {
+    return json(429, { error: 'Too many AI requests. Wait a minute and try again.' });
+  }
 
   // ── Parse and bound the request ──
   let body: { task?: string; system?: string; user?: string; model?: string; maxTokens?: number };

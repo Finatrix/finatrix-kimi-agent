@@ -38,8 +38,8 @@
 | Charts | `chart.js` (finance tools only; Careers module uses hand-rolled CSS bar/ring visualizations, no chart library) |
 | Testing | Vitest + `@testing-library/react` + jsdom |
 | Linting | ESLint 9 flat config + `typescript-eslint` + `eslint-plugin-react-hooks` (includes the newer compiler-powered rules, e.g. `set-state-in-effect`) |
-| Hosting | Netlify (`netlify.toml` present — security headers, redirects) |
-| CI | Present (type-check → lint → test → build), no CD pipeline yet |
+| Hosting | **Cloudflare Workers static assets** (`wrangler.jsonc` — SPA fallback; `public/_headers` — security/caching headers). `netlify.toml` deleted 2026-07-07: the user deploys via Cloudflare only. |
+| CI | GitHub Actions: `.github/workflows/ci.yml` (type-check → lint → test → build on every push/PR) + `deploy.yml` (wrangler deploy on main, needs `CLOUDFLARE_API_TOKEN` repo secret) |
 | Version control | Git, feature-phase branches off `main` |
 
 **Not yet integrated (architecture-ready, no credentials):** Stripe, Razorpay, Resend (email), Sentry (errors), PostHog (product analytics), OAuth providers (Google, Microsoft, LinkedIn, GitHub, Slack, Discord, Dropbox).
@@ -321,7 +321,7 @@ Phase 1 (resume intelligence), Phase 2 (job intelligence platform), Phase 2.1 (s
 Payments (Stripe/Razorpay), error monitoring (Sentry), product analytics (PostHog), University Portal, Recruiter Portal, full Organization Management UI, Marketing Website, Public API, all 9 OAuth integrations, CI/CD pipeline, load/stress testing, disaster recovery documentation. All deferred because they need external accounts/credentials the user doesn't have yet, or are substantial standalone efforts (the marketing site alone implies a blog/CMS) that shouldn't be half-built as filler.
 
 ## Audit backlog status (2026-07-07 production pass)
-All previously-outstanding audit items are done: canonical URL typo (incl. robots.txt), `careers_analytics` RLS + index, CORS restriction, mammoth dynamic import (html2canvas needed nothing — see §11), Canvas test mock, skip-to-content link, per-route `document.title`, ErrorBoundary `role="alert"`, accessible Suspense fallback, ParkSmart fake delay removed, `companies (user_id, industry)` and `audit_log (target_type, action, created_at)` indexes. Also fixed beyond the audit: **`netlify.toml` still invoked the deleted `build:netlify` script (every Netlify deploy would have failed — now `npm run build`)**, the deterministic-clock test bug (§12), and the `increment_ai_usage` RPC return-shape bug in `careers-ai`.
+All previously-outstanding audit items are done: canonical URL typo (incl. robots.txt), `careers_analytics` RLS + index, CORS restriction, mammoth dynamic import (html2canvas needed nothing — see §11), Canvas test mock, skip-to-content link, per-route `document.title`, ErrorBoundary `role="alert"`, accessible Suspense fallback, ParkSmart fake delay removed, `companies (user_id, industry)` and `audit_log (target_type, action, created_at)` indexes. Also fixed beyond the audit: `netlify.toml` invoked a deleted `build:netlify` script (fixed, then the whole file was removed once the user confirmed Cloudflare-only hosting), the deterministic-clock test bug (§12), and the `increment_ai_usage` RPC return-shape bug in `careers-ai`.
 
 ---
 
@@ -368,7 +368,7 @@ All previously-outstanding audit items are done: canonical URL typo (incl. robot
 **Immediate remaining work before "stabilized":** everything on this list except the deploy step was completed 2026-07-07 (URL typo, analytics RLS/index, CORS, model-ID verification — see §13/§14). What remains is deployment, which is the user's call:
 - Apply the updated schema files to the live project (analytics policy/index, `increment_ai_usage` RPC + grants, new indexes): re-run `careers_schema.sql`, `careers_phase2_schema.sql`, `careers_phase4_schema.sql` (all idempotent).
 - Redeploy all three edge functions (`supabase functions deploy careers-ai careers-jobs careers-email`) to pick up the quota-race fix, corrected RPC handling, recipient lock, CORS allowlist and corrected Qwen slug.
-- Netlify will succeed again on the next deploy now that `netlify.toml` calls `npm run build`.
+- Frontend deploys via Cloudflare: `npm run build && npx wrangler deploy` (see `docs/DEPLOYMENT.md`).
 
 **Beta checklist:** the above deploys, plus a decision on whether Phase 4's "not yet connected" admin sections (Users list, Payments, Errors, System Health) need to exist in some form before inviting outside beta users, or can stay placeholder for an internal-only beta. (The former items on this list — mammoth dynamic import, document.title per route, skip-to-content link — were all completed 2026-07-07.)
 
@@ -382,7 +382,7 @@ All previously-outstanding audit items are done: canonical URL typo (incl. robot
 
 **Version 2.0 ideas (not committed, just visible from the architecture):** full Organization Management UI (departments/teams/RBAC within an org) building on the Phase 4 foundation; University Portal and Recruiter Portal (both have plan-tier placeholders already in `subscription_plans.features`); a public API once the platform has paying customers who'd want one; Knowledge Base → interview answer integration.
 
-**Scaling roadmap:** no explicit scaling work has been done (no load testing, no CDN strategy beyond Netlify defaults, no read-replica or connection-pooling strategy documented). This is appropriately deferred pre-beta — premature scaling work before real usage data would be wasted effort.
+**Scaling roadmap:** no explicit scaling work has been done (no load testing, no CDN strategy beyond Cloudflare's edge defaults, no read-replica or connection-pooling strategy documented). This is appropriately deferred pre-beta — premature scaling work before real usage data would be wasted effort.
 
 ---
 

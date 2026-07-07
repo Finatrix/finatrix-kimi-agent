@@ -1,0 +1,44 @@
+# Continuous deployment to Cloudflare Workers (static assets) on main.
+#
+# Requires two repository secrets (Settings → Secrets and variables → Actions):
+#   CLOUDFLARE_API_TOKEN   — API token with "Workers Scripts: Edit" permission
+#   CLOUDFLARE_ACCOUNT_ID  — the account id shown by `npx wrangler whoami`
+#
+# Until those secrets exist this workflow fails fast at the guard step with a
+# clear message instead of a cryptic wrangler auth error. Manual deploys keep
+# working regardless: `npm run build && npx wrangler deploy`.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check deploy credentials are configured
+        run: |
+          if [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN secret is not set — skipping deploy. See docs/DEPLOYMENT.md."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      # Deploy only what passed the gates.
+      - run: npx tsc -b && npx eslint . --max-warnings 0 && npx vitest run
+      - run: npm run build
+      - name: Deploy to Cloudflare Workers
+        run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
