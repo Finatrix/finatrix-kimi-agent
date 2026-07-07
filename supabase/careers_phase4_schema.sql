@@ -183,6 +183,9 @@ create table if not exists public.audit_log (
   created_at     timestamptz not null default now()
 );
 create index if not exists audit_log_actor_idx on public.audit_log (actor_user_id, created_at desc);
+-- Additional index for admin filtering by action/table — avoids full scans on the audit log.
+create index if not exists audit_log_action_idx
+on public.audit_log(target_type, action, created_at desc);
 
 -- ───────────────────────── support tickets (Module 4) ─────────────────────────
 create table if not exists public.support_tickets (
@@ -365,6 +368,43 @@ create policy "announcements_select" on public.announcements for select to authe
 drop policy if exists "announcements_admin_write" on public.announcements;
 create policy "announcements_admin_write" on public.announcements for all
   using (public.is_platform_admin(auth.uid())) with check (public.is_platform_admin(auth.uid()));
+
+-- ═════════════════════════ atomic AI usage metering ═════════════════════════
+-- Replaces the non-atomic read-then-write pattern in careers-ai edge function.
+-- Returns the new call count for the day, or -1 if the limit is already reached.
+-- Called by the edge function with service-role credentials (bypasses RLS).
+create or replace function public.increment_ai_usage(
+  p_user_id uuid,
+  p_day     date,
+  p_limit   int
+) returns int language plpgsql as $$
+declare
+  v_calls int;
+begin
+  insert into public.careers_ai_usage (user_id, day, calls)
+  values (p_user_id, p_day, 1)
+  on conflict (user_id, day) do update
+    set calls = careers_ai_usage.calls + 1
+  where careers_ai_usage.calls < p_limit
+  returning calls into v_calls;
+
+  -- If no row was updated (calls >= limit), return sentinel -1.
+  if v_calls is null then
+    select calls into v_calls from public.careers_ai_usage
+    where user_id = p_user_id and day = p_day;
+    if v_calls >= p_limit then
+      return -1;
+    end if;
+  end if;
+  return coalesce(v_calls, 1);
+end $$;
+
+-- Only the edge function (service role) may call the metering RPC. Without
+-- this, Postgres's default EXECUTE-to-public grant would let any signed-in
+-- user invoke it directly through PostgREST (RLS blocks writes to other
+-- users' meters, but the function should not be client-callable at all).
+revoke execute on function public.increment_ai_usage(uuid, date, int) from public, anon, authenticated;
+grant execute on function public.increment_ai_usage(uuid, date, int) to service_role;
 
 -- ═════════════════════════ housekeeping triggers ═════════════════════════
 do $$

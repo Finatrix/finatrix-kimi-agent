@@ -11,17 +11,30 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+// CORS: authenticated mutation endpoint — restricted to the production site
+// (plus local dev), not '*'. Override with CAREERS_ALLOWED_ORIGINS if needed.
+const ALLOWED_ORIGINS = (Deno.env.get('CAREERS_ALLOWED_ORIGINS') ??
+  'https://finatrix.online,https://www.finatrix.online,http://localhost:5173,http://localhost:4173'
+).split(',').map((s) => s.trim()).filter(Boolean);
 
-function json(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
+function corsFor(req: Request): Record<string, string> {
+  const origin = req.headers.get('Origin') ?? '';
+  return {
+    'Access-Control-Allow-Origin': ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    Vary: 'Origin',
+  };
+}
+
+function jsonWith(cors: Record<string, string>) {
+  return (status: number, body: unknown): Response =>
+    new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 }
 
 Deno.serve(async (req) => {
+  const CORS = corsFor(req);
+  const json = jsonWith(CORS);
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json(405, { error: 'Method not allowed' });
 
@@ -31,6 +44,13 @@ Deno.serve(async (req) => {
   });
   const { data: userData, error: userErr } = await anonClient.auth.getUser();
   if (userErr || !userData?.user) return json(401, { error: 'Sign in to send email.' });
+
+  // The authenticated user's verified email address — the only allowed recipient.
+  // This prevents the function from being used as an open relay: an authenticated
+  // user cannot send email to arbitrary third-party addresses using FinatriX's
+  // Resend API key and sender domain.
+  const userEmail = userData.user.email;
+  if (!userEmail) return json(403, { error: 'Your account has no verified email address.' });
 
   let body: { to?: string; subject?: string; html?: string; text?: string };
   try {
@@ -43,6 +63,12 @@ Deno.serve(async (req) => {
   const html = String(body.html ?? '');
   const text = String(body.text ?? '');
   if (!to || !subject || (!html && !text)) return json(400, { error: 'Missing to/subject/content.' });
+
+  // Enforce that the recipient is the authenticated user's own email.
+  // Case-insensitive comparison to handle normalisation differences.
+  if (to.toLowerCase() !== userEmail.toLowerCase()) {
+    return json(403, { error: 'You may only send email to your own account address.' });
+  }
 
   const apiKey = Deno.env.get('RESEND_API_KEY');
   if (!apiKey) {

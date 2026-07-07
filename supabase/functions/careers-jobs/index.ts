@@ -24,20 +24,31 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+// CORS: authenticated endpoint — restricted to the production site (plus
+// local dev), not '*'. Override with CAREERS_ALLOWED_ORIGINS if needed.
+const ALLOWED_ORIGINS = (Deno.env.get('CAREERS_ALLOWED_ORIGINS') ??
+  'https://finatrix.online,https://www.finatrix.online,http://localhost:5173,http://localhost:4173'
+).split(',').map((s) => s.trim()).filter(Boolean);
+
+function corsFor(req: Request): Record<string, string> {
+  const origin = req.headers.get('Origin') ?? '';
+  return {
+    'Access-Control-Allow-Origin': ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    Vary: 'Origin',
+  };
+}
 
 const PROVIDER_TIMEOUT_MS = 12_000;
 const MAX_RESULTS_PER_PROVIDER = 40;
 
-function json(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...CORS, 'Content-Type': 'application/json' },
-  });
+function jsonWith(cors: Record<string, string>) {
+  return (status: number, body: unknown): Response =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...cors, 'Content-Type': 'application/json' },
+    });
 }
 
 // ─────────────────────────── canonical shapes ───────────────────────────
@@ -304,6 +315,8 @@ function dedupeKey(j: NormalizedJob): string {
 // ─────────────────────────── handler ───────────────────────────
 
 Deno.serve(async (req) => {
+  const CORS = corsFor(req);
+  const json = jsonWith(CORS);
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json(405, { error: 'Method not allowed' });
 

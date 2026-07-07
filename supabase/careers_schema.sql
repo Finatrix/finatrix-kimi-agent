@@ -248,8 +248,10 @@ begin
   end loop;
 end $$;
 
--- Analytics: signed-in users may record and read anonymous events. Rows carry
--- no user id or resume content, so reads expose only aggregate product stats.
+-- Analytics: signed-in users may record anonymous events (insert-only).
+-- Reads are restricted to platform admins — the aggregate event stream is not
+-- user-specific data, but restricting reads prevents non-admin users from
+-- querying the full event history via the Supabase client.
 drop policy if exists "careers_analytics_insert" on public.careers_analytics;
 create policy "careers_analytics_insert"
   on public.careers_analytics for insert
@@ -259,7 +261,11 @@ drop policy if exists "careers_analytics_select" on public.careers_analytics;
 create policy "careers_analytics_select"
   on public.careers_analytics for select
   to authenticated
-  using (true);
+  using (public.is_platform_admin(auth.uid()));
+
+-- Add performance index for admin analytics queries.
+create index if not exists careers_analytics_event_idx
+  on public.careers_analytics (event, created_at desc);
 
 -- AI usage: users can see their own meter; only the edge function
 -- (service role, bypasses RLS) writes it.

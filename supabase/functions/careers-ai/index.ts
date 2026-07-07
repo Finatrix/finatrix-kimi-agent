@@ -7,7 +7,7 @@
 //
 // Deploy:   supabase functions deploy careers-ai
 // Secrets:  supabase secrets set OPENROUTER_API_KEY=sk-or-...
-// Optional: CAREERS_AI_MODELS="google/gemini-2.5-flash,deepseek/deepseek-chat-v3.1,qwen/qwen3-235b-a22b-instruct-2507"
+// Optional: CAREERS_AI_MODELS="google/gemini-2.5-flash,deepseek/deepseek-chat-v3.1,qwen/qwen3-235b-a22b-2507"
 //           CAREERS_AI_DAILY_LIMIT="60"
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
@@ -20,24 +20,36 @@ const DEFAULT_MODELS = [
   'openai/gpt-5.5',
   'moonshotai/kimi-k2',
   'deepseek/deepseek-chat-v3.1',
-  'qwen/qwen3-235b-a22b-instruct-2507',
+  'qwen/qwen3-235b-a22b-2507',
 ];
 
 const MAX_INPUT_CHARS = 80_000;   // system + user combined
 const MAX_OUTPUT_TOKENS = 8_192;
 const REQUEST_TIMEOUT_MS = 90_000;
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+// CORS: this is an authenticated mutation endpoint, so the allowed origin is
+// restricted to the production site (plus local dev), not '*'. Override with
+// CAREERS_ALLOWED_ORIGINS="https://a.com,https://b.com" if the origin changes.
+const ALLOWED_ORIGINS = (Deno.env.get('CAREERS_ALLOWED_ORIGINS') ??
+  'https://finatrix.online,https://www.finatrix.online,http://localhost:5173,http://localhost:4173'
+).split(',').map((s) => s.trim()).filter(Boolean);
 
-function json(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...CORS, 'Content-Type': 'application/json' },
-  });
+function corsFor(req: Request): Record<string, string> {
+  const origin = req.headers.get('Origin') ?? '';
+  return {
+    'Access-Control-Allow-Origin': ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    Vary: 'Origin',
+  };
+}
+
+function jsonWith(cors: Record<string, string>) {
+  return (status: number, body: unknown): Response =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...cors, 'Content-Type': 'application/json' },
+    });
 }
 
 function configuredModels(): string[] {
@@ -104,6 +116,8 @@ async function callModel(
 }
 
 Deno.serve(async (req) => {
+  const CORS = corsFor(req);
+  const json = jsonWith(CORS);
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json(405, { error: 'Method not allowed' });
 
@@ -146,22 +160,39 @@ Deno.serve(async (req) => {
     : allowed;
 
   // ── Daily per-user metering (service role bypasses RLS) ──
+  // Uses an atomic Postgres upsert + conditional increment to avoid the
+  // read-then-write race condition that would let concurrent requests exceed
+  // the daily quota. The RPC returns the post-increment call count so we can
+  // gate on it in a single round-trip.
   const admin = createClient(supabaseUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
   const limit = Number(Deno.env.get('CAREERS_AI_DAILY_LIMIT') ?? '60');
   const today = new Date().toISOString().slice(0, 10);
-  const { data: usage } = await admin
-    .from('careers_ai_usage')
-    .select('calls')
-    .eq('user_id', userId)
-    .eq('day', today)
-    .maybeSingle();
-  const calls = usage?.calls ?? 0;
-  if (calls >= limit) {
+  const { data: meterData, error: meterError } = await admin.rpc('increment_ai_usage', {
+    p_user_id: userId,
+    p_day: today,
+    p_limit: limit,
+  });
+  if (meterError) {
+    // If the RPC doesn't exist yet (schema not updated), fall back to the
+    // non-atomic path so existing deployments keep working.
+    const { data: usage } = await admin
+      .from('careers_ai_usage')
+      .select('calls')
+      .eq('user_id', userId)
+      .eq('day', today)
+      .maybeSingle();
+    const calls = usage?.calls ?? 0;
+    if (calls >= limit) {
+      return json(429, { error: 'Daily AI limit reached. Try again tomorrow.' });
+    }
+    await admin
+      .from('careers_ai_usage')
+      .upsert({ user_id: userId, day: today, calls: calls + 1 }, { onConflict: 'user_id,day' });
+  } else if (Number(meterData) === -1) {
+    // The RPC returns a bare integer: the post-increment call count, or -1
+    // when the daily limit is already reached.
     return json(429, { error: 'Daily AI limit reached. Try again tomorrow.' });
   }
-  await admin
-    .from('careers_ai_usage')
-    .upsert({ user_id: userId, day: today, calls: calls + 1 }, { onConflict: 'user_id,day' });
 
   // ── Walk the fallback chain ──
   const started = Date.now();

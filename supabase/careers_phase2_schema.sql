@@ -164,6 +164,7 @@ create table if not exists public.companies (
   updated_at    timestamptz not null default now()
 );
 create index if not exists companies_user_idx on public.companies (user_id, name);
+create index if not exists companies_industry_idx on public.companies (user_id, industry);
 
 create table if not exists public.company_reviews (
   id         uuid primary key default gen_random_uuid(),
