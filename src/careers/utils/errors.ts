@@ -15,11 +15,13 @@ export type CareersErrorCode =
   | 'ai-limit'        // daily AI limit reached — retry tomorrow
   | 'ai-response'     // AI answered with something unusable — retryable
   | 'network'         // offline / fetch failed — retryable
+  | 'rate-limit'      // too many requests — retry after a short wait
+  | 'backend'         // provider backend / edge function error — retryable
   | 'auth'            // signed out mid-flight
   | 'unknown';
 
 const RETRYABLE: ReadonlySet<CareersErrorCode> = new Set([
-  'upload', 'storage', 'database', 'ai', 'ai-response', 'network', 'unknown',
+  'upload', 'storage', 'database', 'ai', 'ai-response', 'network', 'rate-limit', 'backend', 'unknown',
 ]);
 
 export class CareersError extends Error {

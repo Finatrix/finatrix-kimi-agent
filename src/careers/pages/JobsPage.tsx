@@ -32,6 +32,11 @@ import { matchResumeToJob } from '../services/matchService';
 import { saveTailoredVersion, setSectionAccepted } from '../services/resumeTailoring';
 import type { ResumeTailoredVersionRow } from '../types/phase3';
 import { runSearchPipeline, type ScoredJob, type SearchReport } from '../search/pipeline';
+import { enrichScoredJobs, intelBadges } from '../search/enrich';
+import { intelBoost, type RankPreferences } from '../search/rerank';
+import { searchCompanies } from '../services/companyIntelligence';
+import { listSavedCompanies } from '../services/companyIntelUser';
+import type { CompanyIntel, CompanyFilters } from '../types/companyIntel';
 import { categoryLabel } from '../search/taxonomy';
 import type { QuickMatchInput } from '../search/quickMatch';
 import type { ResumeVersionRow, ResumeWithVersions } from '../types';
@@ -373,7 +378,7 @@ type View = 'search' | 'saved' | 'analyzer';
 
 export default function JobsPage() {
   const { user } = useAuth();
-  const { loading, error, profile, resumes, refresh } = useCareers();
+  const { loading, error, profile, resumes, refresh, settings } = useCareers();
   const { notify } = useToast();
   const location = useLocation();
 
@@ -396,6 +401,19 @@ export default function JobsPage() {
   const [saved, setSaved] = useState<JobRow[]>([]);
   const [matches, setMatches] = useState<Map<string, { report: MatchReport; intel: JobIntelResult }>>(new Map());
   const [resultKeys, setResultKeys] = useState<Map<ScoredJob, string>>(new Map());
+  // Phase 4.1 — Company Intelligence enrichment (never mutates the job source).
+  const [intelMap, setIntelMap] = useState<Map<ScoredJob, CompanyIntel | null>>(new Map());
+  const [boostMap, setBoostMap] = useState<Map<ScoredJob, { boost: number; why: string[] }>>(new Map());
+  const [companyFallback, setCompanyFallback] = useState<CompanyIntel[]>([]);
+  const [savedCompanyIds, setSavedCompanyIds] = useState<string[]>([]);
+
+  // Company Intelligence ranking preferences (Settings) — extend, not replace.
+  const rankPrefs = useMemo<RankPreferences>(() => ({
+    preferredIndustries: settings.preferredIndustries ?? [],
+    preferredLocations: settings.preferredLocations ?? [],
+    preferredDepartments: settings.preferredDepartments ?? [],
+    preferredCompanyIds: savedCompanyIds,
+  }), [settings.preferredIndustries, settings.preferredLocations, settings.preferredDepartments, savedCompanyIds]);
   const [workbench, setWorkbench] = useState<WorkbenchTarget | null>(null);
   // Monotonic search sequence — stale responses never clobber newer ones.
   const searchSeq = useRef(0);
@@ -428,6 +446,14 @@ export default function JobsPage() {
     void loadSaved();
   }, [loadSaved]);
 
+  useEffect(() => {
+    if (!user) return;
+    void listSavedCompanies(user.id).then(
+      (rows) => setSavedCompanyIds(rows.map((r) => r.company_id)),
+      () => setSavedCompanyIds([]),
+    );
+  }, [user]);
+
   const runSearch = async (page = 0) => {
     if (!params.query.trim()) {
       notify('Enter a job title or keyword.', 'error');
@@ -436,6 +462,7 @@ export default function JobsPage() {
     const seq = ++searchSeq.current;
     setSearching(true);
     setSearchError(null);
+    setCompanyFallback([]);
     try {
       const out = await runSearchPipeline(
         { ...params, page },
@@ -451,9 +478,57 @@ export default function JobsPage() {
         keys.set(s, await jobContentSha(s.job));
       }));
       setResultKeys(keys);
-      if (!out.jobs.length) notify('No relevant jobs found — try broader keywords or another location.', 'info');
+
+      // Company Intelligence enrichment + no-jobs fallback. Degrades gracefully:
+      // if the CI backend is unavailable, job results still render unchanged.
+      let fallback: CompanyIntel[] = [];
+      try {
+        const enriched = await enrichScoredJobs(out.jobs);
+        if (seq !== searchSeq.current) return;
+        const im = new Map<ScoredJob, CompanyIntel | null>();
+        const bm = new Map<ScoredJob, { boost: number; why: string[] }>();
+        out.jobs.forEach((s, i) => {
+          im.set(s, enriched[i]?.intel ?? null);
+          if (enriched[i]) bm.set(s, intelBoost(enriched[i], rankPrefs));
+        });
+        setIntelMap(im);
+        setBoostMap(bm);
+        if (!out.jobs.length) {
+          const filters: CompanyFilters = {
+            industry: params.industry || undefined,
+            location: params.location || undefined,
+          };
+          fallback = await searchCompanies(params.query, filters, 12);
+        }
+        if (seq === searchSeq.current) setCompanyFallback(fallback);
+      } catch {
+        setIntelMap(new Map());
+        setCompanyFallback([]);
+      }
+
+      if (!out.jobs.length) {
+        notify(
+          fallback.length
+            ? 'No live jobs found — showing matching companies from your intelligence base.'
+            : 'No relevant jobs found — try broader keywords or another location.',
+          'info'
+        );
+      }
     } catch (e) {
-      if (seq === searchSeq.current) setSearchError(toCareersError(e));
+      if (seq !== searchSeq.current) return;
+      const err = toCareersError(e);
+      setSearchError(err);
+      // Backend/network down → still surface matching companies so the user
+      // isn't left at a dead end while live listings are unavailable.
+      if (['backend', 'network', 'rate-limit'].includes(err.code)) {
+        try {
+          const companies = await searchCompanies(params.query, {
+            industry: params.industry || undefined,
+            location: params.location || undefined,
+          }, 12);
+          if (seq === searchSeq.current) setCompanyFallback(companies);
+        } catch { /* CI base also unavailable — leave the error card as-is */ }
+      }
     } finally {
       if (seq === searchSeq.current) setSearching(false);
     }
@@ -552,10 +627,21 @@ export default function JobsPage() {
   };
 
   // Hard threshold — jobs scoring below it are never shown, no exceptions.
-  const visibleResults = results.filter((s) => {
-    const m = effectiveMatch(s);
-    return m == null || m >= threshold;
-  });
+  // Ordering EXTENDS the pipeline's ranking with a Company-Intelligence boost
+  // (preferred industries/locations/departments, saved companies) — it only
+  // re-orders what the pipeline already returned; it never changes membership.
+  const visibleResults = results
+    .filter((s) => {
+      const m = effectiveMatch(s);
+      return m == null || m >= threshold;
+    })
+    .map((s) => {
+      const m = effectiveMatch(s);
+      const base = m != null ? s.relevance * 0.5 + m * 0.5 : s.relevance * 0.85;
+      return { s, score: base + (boostMap.get(s)?.boost ?? 0) };
+    })
+    .sort((a, b) => b.score - a.score)
+    .map((x) => x.s);
 
   if (loading) return <div style={{ minHeight: '50vh' }} aria-busy="true" />;
 
@@ -699,6 +785,29 @@ export default function JobsPage() {
             </div>
           )}
 
+          {/* Provider-by-provider status — partial failures never fail the whole search. */}
+          {report && Object.keys(report.quality.providerCoverage).length > 0 && (() => {
+            const cov = report.quality.providerCoverage;
+            const counts = report.quality.providerCounts;
+            const label: Record<string, string> = { jsearch: 'JSearch', adzuna: 'Adzuna', jooble: 'Jooble', remotive: 'Remotive' };
+            const ran = Object.values(cov).filter((s) => s === 'ok' || s === 'error').length;
+            return (
+              <div className="card" role="status" style={{ padding: '10px 18px', marginBottom: 10 }}>
+                <div className="job-meta" style={{ gap: 14 }}>
+                  <span><b style={{ color: 'var(--ink)' }}>{ran}</b> provider{ran === 1 ? '' : 's'} searched</span>
+                  {Object.entries(cov).map(([id, st]) => {
+                    const name = label[id] ?? id;
+                    if (st === 'ok') return <span key={id} style={{ color: 'var(--green, #12b76a)' }}>✓ {name} ({counts[id] ?? 0})</span>;
+                    if (st === 'error') return <span key={id} style={{ color: 'var(--amber, #e0a300)' }}>⚠️ {name} temporarily unavailable</span>;
+                    if (st === 'not-configured') return <span key={id} className="note">○ {name} not configured</span>;
+                    if (st === 'skipped') return <span key={id} className="note">– {name} skipped</span>;
+                    return <span key={id} className="note">{name}: {st}</span>;
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
           {visibleResults.map((s, i) => {
             const job = s.job;
             const key = resultKeys.get(s);
@@ -723,6 +832,23 @@ export default function JobsPage() {
                       {job.posted_at && <span>Posted {formatDate(job.posted_at)}</span>}
                       <span className="badge badge-mute">via {job.via}</span>
                     </div>
+                    {intelMap.get(s) && (
+                      <div className="job-meta" style={{ marginTop: 4 }}>
+                        {intelBadges(intelMap.get(s)!).map((b) => (
+                          <span key={b} className="badge badge-blue">{b}</span>
+                        ))}
+                        <Link
+                          className="badge badge-gold"
+                          style={{ textDecoration: 'none' }}
+                          to={`${CAREERS_ROUTES.companyProfile}?id=${encodeURIComponent(intelMap.get(s)!.id)}`}
+                        >
+                          Company intelligence ↗
+                        </Link>
+                        {(boostMap.get(s)?.why ?? []).map((w) => (
+                          <span key={w} className="badge" style={{ background: 'rgba(18,183,106,.12)', color: 'var(--green, #12b76a)' }}>★ {w}</span>
+                        ))}
+                      </div>
+                    )}
                     {s.why.length > 0 && (
                       <div className="note" style={{ marginTop: 6 }}>
                         Why this job: {s.why.slice(0, 2).join(' · ')}
@@ -775,6 +901,39 @@ export default function JobsPage() {
               )}
               <button className="btn btn-ghost btn-sm" disabled={searching} onClick={() => void runSearch(params.page + 1)}>Next page →</button>
             </div>
+          )}
+
+          {/* No live jobs (or backend down) → Company Intelligence fallback. */}
+          {results.length === 0 && companyFallback.length > 0 && (
+            <section aria-label="Matching companies from your intelligence base" style={{ marginTop: 4 }}>
+              <div className="note" style={{ marginBottom: 8 }}>
+                {searchError ? 'Live job search is unavailable right now, but ' : 'No live job listings matched, but '}
+                {companyFallback.length} compan{companyFallback.length === 1 ? 'y' : 'ies'} in your intelligence base match this search:
+              </div>
+              {companyFallback.map((c) => (
+                <div className="card" key={c.id} style={{ padding: 16, marginBottom: 8 }}>
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 15, fontWeight: 650 }}>{c.name}</div>
+                      <div className="job-meta">
+                        {c.industry && <span className="badge badge-gold">{c.industry}</span>}
+                        {(c.hqCity || c.hqCountry) && <span>{[c.hqCity, c.hqCountry].filter(Boolean).join(', ')}</span>}
+                        {(c.graduateFriendly || c.graduatePrograms.length > 0) && <span className="badge badge-blue">Graduate program</span>}
+                        {(c.internFriendly || c.internships.length > 0) && <span className="badge badge-blue">Internships</span>}
+                        {c.confidenceScore != null && <span className="badge badge-mute">Intel {c.confidenceScore}%</span>}
+                      </div>
+                    </div>
+                    <Link
+                      className="btn btn-ghost btn-sm"
+                      style={{ width: 'auto', textDecoration: 'none', flexShrink: 0 }}
+                      to={`${CAREERS_ROUTES.companyProfile}?id=${encodeURIComponent(c.id)}`}
+                    >
+                      View intelligence ↗
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </section>
           )}
         </>
       )}

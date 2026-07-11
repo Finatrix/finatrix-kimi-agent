@@ -33,10 +33,20 @@ const ALLOWED_ORIGINS = (Deno.env.get('CAREERS_ALLOWED_ORIGINS') ??
   'https://finatrix.online,https://www.finatrix.online,https://finatrix.space,https://www.finatrix.space,https://finatrix.finatrix-hub.workers.dev,http://localhost:5173,http://localhost:4173'
 ).split(',').map((s) => s.trim()).filter(Boolean);
 
+/** Any localhost / 127.0.0.1 origin (any port) is allowed for local dev. */
+function isLocalOrigin(origin: string): boolean {
+  return /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+}
+
 function corsFor(req: Request): Record<string, string> {
   const origin = req.headers.get('Origin') ?? '';
+  // Reflect the caller's origin when it is explicitly allowed or is localhost
+  // (any port — the dev server runs on :3000, preview on :4173, etc). Falling
+  // back to a fixed production origin would make the browser block the response
+  // and surface as an opaque "check your connection" failure.
+  const allow = ALLOWED_ORIGINS.includes(origin) || isLocalOrigin(origin) ? origin : ALLOWED_ORIGINS[0];
   return {
-    'Access-Control-Allow-Origin': ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
+    'Access-Control-Allow-Origin': allow,
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     Vary: 'Origin',
@@ -322,7 +332,20 @@ Deno.serve(async (req) => {
   const json = jsonWith(CORS);
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json(405, { error: 'Method not allowed' });
+  try {
+    return await handle(req, json);
+  } catch (e) {
+    // Always answer with CORS + JSON so the client can distinguish a backend
+    // crash from a network/CORS failure and show an accurate message.
+    console.error('careers-jobs: unhandled error', String(e).slice(0, 300));
+    return json(500, { error: 'The job search backend hit an unexpected error.' });
+  }
+});
 
+async function handle(
+  req: Request,
+  json: (status: number, body: unknown) => Response
+): Promise<Response> {
   // Authenticate the caller.
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -376,26 +399,38 @@ Deno.serve(async (req) => {
 
   const settled = await Promise.allSettled(active.map((p) => p.search(params, env)));
   const status: Record<string, string> = {};
+  const counts: Record<string, number> = {};
+  const errors: Record<string, string> = {};
   const seen = new Set<string>();
   const jobs: NormalizedJob[] = [];
   settled.forEach((result, i) => {
     const id = active[i].id;
     if (result.status === 'rejected') {
       status[id] = 'error';
-      console.error(`careers-jobs: ${id} failed`, String(result.reason).slice(0, 200));
+      counts[id] = 0;
+      errors[id] = String(result.reason).slice(0, 160);
+      console.error(`careers-jobs: ${id} failed`, errors[id]);
       return;
     }
     status[id] = 'ok';
+    let kept = 0;
     for (const job of result.value) {
       if (!job.title || !job.apply_url) continue;
       const key = dedupeKey(job);
       if (seen.has(key)) continue;
       seen.add(key);
       jobs.push(job);
+      kept++;
     }
+    counts[id] = kept;
   });
-  for (const id of inactive) status[id] = 'not-configured';
-  for (const id of skipped) status[id] = 'skipped';
+  for (const id of inactive) { status[id] = 'not-configured'; counts[id] = 0; }
+  for (const id of skipped) { status[id] = 'skipped'; counts[id] = 0; }
 
-  return json(200, { jobs, status, page: params.page });
-});
+  // Distinguish "no providers could run" from "providers ran, found nothing".
+  const ran = active.length;
+  const failed = Object.values(status).filter((s) => s === 'error').length;
+  const providersUp = ran > 0 && failed < ran;
+
+  return json(200, { jobs, status, counts, errors, page: params.page, providersUp, ran });
+}

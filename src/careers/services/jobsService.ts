@@ -20,8 +20,16 @@ import { sanitizeField, sanitizeText } from '../utils/sanitize';
 
 export interface SearchOutcome {
   jobs: NormalizedJob[];
-  /** provider id → ok | error | not-configured */
+  /** provider id → ok | error | not-configured | skipped */
   status: Record<string, string>;
+  /** provider id → number of jobs returned (after dedupe). */
+  counts?: Record<string, number>;
+  /** provider id → short error string (only for failed providers). */
+  errors?: Record<string, string>;
+  /** True when at least one provider ran and not all of them failed. */
+  providersUp?: boolean;
+  /** How many providers actually ran (had secrets + supported the query). */
+  ran?: number;
   page: number;
 }
 
@@ -50,16 +58,29 @@ export async function searchProviders(params: JobSearchParams, terms: string[] =
   });
   if (error) {
     const ctx = (error as { context?: Response }).context;
-    if (ctx instanceof Response && ctx.status === 401) {
-      throw new CareersError('auth', 'Sign in to search jobs.');
+    const status = ctx instanceof Response ? ctx.status : 0;
+    // Try to read the backend's own error message (CORS-safe JSON), if any.
+    let serverMessage = '';
+    if (ctx instanceof Response) {
+      try { serverMessage = String(((await ctx.clone().json()) as { error?: string })?.error ?? ''); }
+      catch { /* not JSON — leave blank */ }
     }
-    if (ctx instanceof Response && ctx.status === 404) {
+    if (status === 401) throw new CareersError('auth', serverMessage || 'Sign in to search jobs.');
+    if (status === 404) {
       throw new CareersError(
         'not-setup',
         'The careers-jobs function is not deployed yet. Run "supabase functions deploy careers-jobs" (see SETUP.md §6).'
       );
     }
-    throw new CareersError('network', 'Job search failed. Check your connection and try again.');
+    if (status === 429) throw new CareersError('rate-limit', serverMessage || 'Too many searches. Wait a minute and try again.');
+    if (status >= 500) {
+      throw new CareersError('backend', serverMessage || 'The job search backend is temporarily unavailable. Please try again shortly.');
+    }
+    if (status === 0) {
+      // No HTTP response reached us at all → network or CORS.
+      throw new CareersError('network', 'Could not reach the job search service. Check your connection and try again.');
+    }
+    throw new CareersError('network', serverMessage || 'Job search failed. Please try again.');
   }
   const out = data as SearchOutcome;
   if (!Array.isArray(out?.jobs)) {

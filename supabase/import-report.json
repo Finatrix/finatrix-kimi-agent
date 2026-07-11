@@ -1,0 +1,31 @@
+{
+  "started_at": "2026-07-11T18:59:17.465322Z",
+  "batches": [
+    "/sessions/peaceful-epic-noether/mnt/Database/Batch 1",
+    "/sessions/peaceful-epic-noether/mnt/Database/Batch 2"
+  ],
+  "companies_total": 804,
+  "companies_new": 804,
+  "companies_updated": 0,
+  "duplicate_ids_merged": 804,
+  "alias_merges": [],
+  "id_conflicts": [],
+  "fk_orphans_dropped": {},
+  "source_orphans_dropped": 0,
+  "aliases_added": 0,
+  "row_counts": {
+    "ci_companies": 804,
+    "ci_career_pages": 296,
+    "ci_graduate_programs": 524,
+    "ci_internships": 511,
+    "ci_ats_platforms": 547,
+    "ci_company_locations": 1012,
+    "ci_company_functions": 6986,
+    "ci_company_tags": 5531,
+    "ci_company_sources": 2437,
+    "ci_salary_intelligence": 3282,
+    "ci_opportunity_sources": 57
+  },
+  "errors": [],
+  "ok": true
+}

@@ -5,7 +5,9 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
+import { CAREERS_ROUTES } from '../constants';
 import { useToast } from '../../tools/ui/Toast';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
 import { ConfirmDialog, EmptyState, ErrorCard } from '../components/states';
@@ -158,6 +160,9 @@ export default function CompaniesPage() {
       <div className="lib-toolbar">
         <input className="fi" type="search" placeholder="Search companies…" aria-label="Search companies" value={search} onChange={(e) => setSearch(e.target.value)} />
         <button className="btn btn-sm" style={{ width: 'auto' }} onClick={() => { setForm({ ...EMPTY_FORM }); setEditOpen(true); }}>+ Add company</button>
+        <Link className="btn btn-ghost btn-sm" style={{ width: 'auto', textDecoration: 'none' }} to={CAREERS_ROUTES.intelligence}>
+          Search intelligence base ↗
+        </Link>
         {compareIds.length >= 2 && (
           <button className="btn btn-ghost btn-sm" onClick={() => setCompareOpen(true)}>Compare ({compareIds.length})</button>
         )}

@@ -1,0 +1,2372 @@
+{
+ "ci_companies": [
+  {
+   "company_id": "CMP-00001",
+   "company_name": "HDFC Bank",
+   "name_normalized": "hdfc bank",
+   "country_code": "IN",
+   "industry": "Banking",
+   "sector": "Private Sector Bank",
+   "sub_sector": "Universal Bank",
+   "hq_city": "Mumbai",
+   "hq_state": "Maharashtra",
+   "hq_country": "India",
+   "official_website": "https://www.hdfcbank.com",
+   "company_size_band": "50000+",
+   "ownership_type": "public_listed_india",
+   "listed_exchange": "NSE;BSE",
+   "market_cap_category": "Large",
+   "freshers_friendly": "yes",
+   "graduate_friendly": "yes",
+   "intern_friendly": "yes",
+   "experienced_hiring": "yes",
+   "visa_sponsorship": "not_applicable_domestic",
+   "work_modes": "on-site;hybrid",
+   "hiring_frequency": "continuous",
+   "notice_period_preference": "30-90 days",
+   "hiring_confidence_score": "90",
+   "priority_tier": "1",
+   "confidence_level": "medium",
+   "verification_status": "pending",
+   "last_verified_date": "",
+   "data_source": "knowledge_base_2026_01",
+   "needs_review": "false",
+   "notes": "Batch 1 (India). Awaiting live URL/ATS verification via verify_urls.py"
+  },
+  {
+   "company_id": "CMP-00002",
+   "company_name": "ICICI Bank",
+   "name_normalized": "icici bank",
+   "country_code": "IN",
+   "industry": "Banking",
+   "sector": "Private Sector Bank",
+   "sub_sector": "Universal Bank",
+   "hq_city": "Mumbai",
+   "hq_state": "Maharashtra",
+   "hq_country": "India",
+   "official_website": "https://www.icicibank.com",
+   "company_size_band": "50000+",
+   "ownership_type": "public_listed_india",
+   "listed_exchange": "NSE;BSE",
+   "market_cap_category": "Large",
+   "freshers_friendly": "yes",
+   "graduate_friendly": "yes",
+   "intern_friendly": "yes",
+   "experienced_hiring": "yes",
+   "visa_sponsorship": "not_applicable_domestic",
+   "work_modes": "on-site;hybrid",
+   "hiring_frequency": "continuous",
+   "notice_period_preference": "30-90 days",
+   "hiring_confidence_score": "90",
+   "priority_tier": "1",
+   "confidence_level": "medium",
+   "verification_status": "pending",
+   "last_verified_date": "",
+   "data_source": "knowledge_base_2026_01",
+   "needs_review": "false",
+   "notes": "Batch 1 (India). Awaiting live URL/ATS verification via verify_urls.py"
+  },
+  {
+   "company_id": "CMP-00003",
+   "company_name": "Axis Bank",
+   "name_normalized": "axis bank",
+   "country_code": "IN",
+   "industry": "Banking",
+   "sector": "Private Sector Bank",
+   "sub_sector": "Universal Bank",
+   "hq_city": "Mumbai",
+   "hq_state": "Maharashtra",
+   "hq_country": "India",
+   "official_website": "https://www.axisbank.com",
+   "company_size_band": "50000+",
+   "ownership_type": "public_listed_india",
+   "listed_exchange": "NSE;BSE",
+   "market_cap_category": "Large",
+   "freshers_friendly": "yes",
+   "graduate_friendly": "yes",
+   "intern_friendly": "yes",
+   "experienced_hiring": "yes",
+   "visa_sponsorship": "not_applicable_domestic",
+   "work_modes": "on-site;hybrid",
+   "hiring_frequency": "continuous",
+   "notice_period_preference": "30-90 days",
+   "hiring_confidence_score": "90",
+   "priority_tier": "1",
+   "confidence_level": "medium",
+   "verification_status": "pending",
+   "last_verified_date": "",
+   "data_source": "knowledge_base_2026_01",
+   "needs_review": "false",
+   "notes": "Batch 1 (India). Awaiting live URL/ATS verification via verify_urls.py"
+  },
+  {
+   "company_id": "CMP-00031",
+   "company_name": "State Bank of India",
+   "name_normalized": "state bank of",
+   "country_code": "IN",
+   "industry": "Banking",
+   "sector": "Public Sector Bank",
+   "sub_sector": "Universal Bank",
+   "hq_city": "Mumbai",
+   "hq_state": "Maharashtra",
+   "hq_country": "India",
+   "official_website": "https://sbi.co.in",
+   "company_size_band": "50000+",
+   "ownership_type": "public_listed_india",
+   "listed_exchange": "NSE;BSE",
+   "market_cap_category": "Large",
+   "freshers_friendly": "yes",
+   "graduate_friendly": "yes",
+   "intern_friendly": "no",
+   "experienced_hiring": "yes",
+   "visa_sponsorship": "not_applicable_domestic",
+   "work_modes": "on-site;hybrid",
+   "hiring_frequency": "exam_cycle",
+   "notice_period_preference": "90 days",
+   "hiring_confidence_score": "85",
+   "priority_tier": "1",
+   "confidence_level": "medium",
+   "verification_status": "pending",
+   "last_verified_date": "",
+   "data_source": "knowledge_base_2026_01",
+   "needs_review": "false",
+   "notes": "Batch 1 (India). Awaiting live URL/ATS verification via verify_urls.py"
+  },
+  {
+   "company_id": "CMP-00043",
+   "company_name": "J.P. Morgan (India)",
+   "name_normalized": "j p morgan",
+   "country_code": "IN",
+   "industry": "Banking",
+   "sector": "Global Bank GCC",
+   "sub_sector": "Global Capability Centre",
+   "hq_city": "Mumbai",
+   "hq_state": "Maharashtra",
+   "hq_country": "India",
+   "official_website": "https://www.jpmorganchase.com",
+   "company_size_band": "10001-50000",
+   "ownership_type": "public_listed_overseas",
+   "listed_exchange": "NYSE",
+   "market_cap_category": "Parent-Large",
+   "freshers_friendly": "yes",
+   "graduate_friendly": "yes",
+   "intern_friendly": "yes",
+   "experienced_hiring": "yes",
+   "visa_sponsorship": "not_applicable_domestic",
+   "work_modes": "on-site;hybrid",
+   "hiring_frequency": "continuous",
+   "notice_period_preference": "60-90 days",
+   "hiring_confidence_score": "92",
+   "priority_tier": "1",
+   "confidence_level": "medium",
+   "verification_status": "pending",
+   "last_verified_date": "",
+   "data_source": "knowledge_base_2026_01",
+   "needs_review": "false",
+   "notes": "Batch 1 (India). Awaiting live URL/ATS verification via verify_urls.py"
+  }
+ ],
+ "ci_career_pages": [
+  {
+   "page_id": "PG-00001",
+   "company_id": "CMP-00031",
+   "page_type": "careers",
+   "url": "https://sbi.co.in/web/careers",
+   "url_status": "unverified",
+   "confidence_level": "medium",
+   "source": "vendor_knowledge"
+  },
+  {
+   "page_id": "PG-00002",
+   "company_id": "CMP-00043",
+   "page_type": "careers",
+   "url": "https://careers.jpmorgan.com",
+   "url_status": "unverified",
+   "confidence_level": "medium",
+   "source": "vendor_knowledge"
+  }
+ ],
+ "ci_graduate_programs": [
+  {
+   "program_id": "GP-00001",
+   "company_id": "CMP-00001",
+   "program_name": "HDFC Bank campus / graduate hiring",
+   "program_type": "campus_hiring",
+   "program_url": "",
+   "is_generic_record": "true",
+   "confidence_level": "low"
+  },
+  {
+   "program_id": "GP-00002",
+   "company_id": "CMP-00002",
+   "program_name": "ICICI Bank campus / graduate hiring",
+   "program_type": "campus_hiring",
+   "program_url": "",
+   "is_generic_record": "true",
+   "confidence_level": "low"
+  },
+  {
+   "program_id": "GP-00003",
+   "company_id": "CMP-00003",
+   "program_name": "Axis Bank campus / graduate hiring",
+   "program_type": "campus_hiring",
+   "program_url": "",
+   "is_generic_record": "true",
+   "confidence_level": "low"
+  },
+  {
+   "program_id": "GP-00028",
+   "company_id": "CMP-00031",
+   "program_name": "SBI Probationary Officer (PO) Recruitment",
+   "program_type": "exam_based_recruitment",
+   "program_url": "",
+   "is_generic_record": "false",
+   "confidence_level": "medium"
+  },
+  {
+   "program_id": "GP-00040",
+   "company_id": "CMP-00043",
+   "program_name": "J.P. Morgan (India) campus / graduate hiring",
+   "program_type": "campus_hiring",
+   "program_url": "",
+   "is_generic_record": "true",
+   "confidence_level": "low"
+  }
+ ],
+ "ci_internships": [
+  {
+   "internship_id": "IN-00001",
+   "company_id": "CMP-00001",
+   "internship_type": "summer",
+   "typical_season": "Jan-Jun (summer) / rolling",
+   "internship_url": "",
+   "confidence_level": "low"
+  },
+  {
+   "internship_id": "IN-00002",
+   "company_id": "CMP-00002",
+   "internship_type": "summer",
+   "typical_season": "Jan-Jun (summer) / rolling",
+   "internship_url": "",
+   "confidence_level": "low"
+  },
+  {
+   "internship_id": "IN-00003",
+   "company_id": "CMP-00003",
+   "internship_type": "summer",
+   "typical_season": "Jan-Jun (summer) / rolling",
+   "internship_url": "",
+   "confidence_level": "low"
+  },
+  {
+   "internship_id": "IN-00031",
+   "company_id": "CMP-00043",
+   "internship_type": "summer",
+   "typical_season": "Jan-Jun (summer) / rolling",
+   "internship_url": "",
+   "confidence_level": "low"
+  }
+ ],
+ "ci_ats_platforms": [
+  {
+   "ats_record_id": "ATS-00001",
+   "company_id": "CMP-00001",
+   "detected_ats": "Unknown",
+   "detection_confidence": "low",
+   "detection_method": "unknown",
+   "detected_url": "",
+   "last_checked": ""
+  },
+  {
+   "ats_record_id": "ATS-00002",
+   "company_id": "CMP-00002",
+   "detected_ats": "Unknown",
+   "detection_confidence": "low",
+   "detection_method": "unknown",
+   "detected_url": "",
+   "last_checked": ""
+  },
+  {
+   "ats_record_id": "ATS-00003",
+   "company_id": "CMP-00003",
+   "detected_ats": "Unknown",
+   "detection_confidence": "low",
+   "detection_method": "unknown",
+   "detected_url": "",
+   "last_checked": ""
+  },
+  {
+   "ats_record_id": "ATS-00031",
+   "company_id": "CMP-00031",
+   "detected_ats": "Unknown",
+   "detection_confidence": "low",
+   "detection_method": "unknown",
+   "detected_url": "",
+   "last_checked": ""
+  },
+  {
+   "ats_record_id": "ATS-00043",
+   "company_id": "CMP-00043",
+   "detected_ats": "Oracle Recruiting",
+   "detection_confidence": "medium",
+   "detection_method": "vendor_knowledge",
+   "detected_url": "https://careers.jpmorgan.com",
+   "last_checked": ""
+  }
+ ],
+ "ci_company_locations": [
+  {
+   "location_id": "LOC-00001",
+   "company_id": "CMP-00001",
+   "city": "Mumbai",
+   "state_region": "Maharashtra",
+   "country_code": "IN",
+   "is_headquarters": "true"
+  },
+  {
+   "location_id": "LOC-00002",
+   "company_id": "CMP-00001",
+   "city": "Bengaluru",
+   "state_region": "Karnataka",
+   "country_code": "IN",
+   "is_headquarters": "false"
+  },
+  {
+   "location_id": "LOC-00003",
+   "company_id": "CMP-00001",
+   "city": "Chennai",
+   "state_region": "Tamil Nadu",
+   "country_code": "IN",
+   "is_headquarters": "false"
+  },
+  {
+   "location_id": "LOC-00004",
+   "company_id": "CMP-00001",
+   "city": "Hyderabad",
+   "state_region": "Telangana",
+   "country_code": "IN",
+   "is_headquarters": "false"
+  },
+  {
+   "location_id": "LOC-00005",
+   "company_id": "CMP-00001",
+   "city": "Pune",
+   "state_region": "Maharashtra",
+   "country_code": "IN",
+   "is_headquarters": "false"
+  },
+  {
+   "location_id": "LOC-00006",
+   "company_id": "CMP-00001",
+   "city": "Gurugram",
+   "state_region": "Haryana",
+   "country_code": "IN",
+   "is_headquarters": "false"
+  },
+  {
+   "location_id": "LOC-00007",
+   "company_id": "CMP-00002",
+   "city": "Mumbai",
+   "state_region": "Maharashtra",
+   "country_code": "IN",
+   "is_headquarters": "true"
+  },
+  {
+   "location_id": "LOC-00008",
+   "company_id": "CMP-00002",
+   "city": "Hyderabad",
+   "state_region": "Telangana",
+   "country_code": "IN",
+   "is_headquarters": "false"
+  },
+  {
+   "location_id": "LOC-00009",
+   "company_id": "CMP-00002",
+   "city": "Bengaluru",
+   "state_region": "Karnataka",
+   "country_code": "IN",
+   "is_headquarters": "false"
+  },
+  {
+   "location_id": "LOC-00010",
+   "company_id": "CMP-00002",
+   "city": "Chennai",
+   "state_region": "Tamil Nadu",
+   "country_code": "IN",
+   "is_headquarters": "false"
+  },
+  {
+   "location_id": "LOC-00011",
+   "company_id": "CMP-00002",
+   "city": "Gurugram",
+   "state_region": "Haryana",
+   "country_code": "IN",
+   "is_headquarters": "false"
+  },
+  {
+   "location_id": "LOC-00012",
+   "company_id": "CMP-00003",
+   "city": "Mumbai",
+   "state_region": "Maharashtra",
+   "country_code": "IN",
+   "is_headquarters": "true"
+  },
+  {
+   "location_id": "LOC-00013",
+   "company_id": "CMP-00003",
+   "city": "Bengaluru",
+   "state_region": "Karnataka",
+   "country_code": "IN",
+   "is_headquarters": "false"
+  },
+  {
+   "location_id": "LOC-00014",
+   "company_id": "CMP-00003",
+   "city": "Chennai",
+   "state_region": "Tamil Nadu",
+   "country_code": "IN",
+   "is_headquarters": "false"
+  },
+  {
+   "location_id": "LOC-00015",
+   "company_id": "CMP-00003",
+   "city": "Noida",
+   "state_region": "Uttar Pradesh",
+   "country_code": "IN",
+   "is_headquarters": "false"
+  },
+  {
+   "location_id": "LOC-00075",
+   "company_id": "CMP-00031",
+   "city": "Mumbai",
+   "state_region": "Maharashtra",
+   "country_code": "IN",
+   "is_headquarters": "true"
+  },
+  {
+   "location_id": "LOC-00076",
+   "company_id": "CMP-00031",
+   "city": "Kolkata",
+   "state_region": "West Bengal",
+   "country_code": "IN",
+   "is_headquarters": "false"
+  },
+  {
+   "location_id": "LOC-00077",
+   "company_id": "CMP-00031",
+   "city": "Hyderabad",
+   "state_region": "Telangana",
+   "country_code": "IN",
+   "is_headquarters": "false"
+  },
+  {
+   "location_id": "LOC-00078",
+   "company_id": "CMP-00031",
+   "city": "Navi Mumbai",
+   "state_region": "Maharashtra",
+   "country_code": "IN",
+   "is_headquarters": "false"
+  },
+  {
+   "location_id": "LOC-00091",
+   "company_id": "CMP-00043",
+   "city": "Mumbai",
+   "state_region": "Maharashtra",
+   "country_code": "IN",
+   "is_headquarters": "true"
+  },
+  {
+   "location_id": "LOC-00092",
+   "company_id": "CMP-00043",
+   "city": "Bengaluru",
+   "state_region": "Karnataka",
+   "country_code": "IN",
+   "is_headquarters": "false"
+  },
+  {
+   "location_id": "LOC-00093",
+   "company_id": "CMP-00043",
+   "city": "Hyderabad",
+   "state_region": "Telangana",
+   "country_code": "IN",
+   "is_headquarters": "false"
+  }
+ ],
+ "ci_company_functions": [
+  {
+   "function_id": "FN-000001",
+   "company_id": "CMP-00001",
+   "function_name": "risk",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000002",
+   "company_id": "CMP-00001",
+   "function_name": "compliance",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000003",
+   "company_id": "CMP-00001",
+   "function_name": "fraud",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000004",
+   "company_id": "CMP-00001",
+   "function_name": "aml_financial_crime",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000005",
+   "company_id": "CMP-00001",
+   "function_name": "internal_audit",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000006",
+   "company_id": "CMP-00001",
+   "function_name": "finance",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000007",
+   "company_id": "CMP-00001",
+   "function_name": "technology",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000008",
+   "company_id": "CMP-00001",
+   "function_name": "analytics",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000009",
+   "company_id": "CMP-00001",
+   "function_name": "data",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000010",
+   "company_id": "CMP-00001",
+   "function_name": "operations",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000011",
+   "company_id": "CMP-00001",
+   "function_name": "graduate_hiring",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000012",
+   "company_id": "CMP-00001",
+   "function_name": "internship_hiring",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000013",
+   "company_id": "CMP-00002",
+   "function_name": "risk",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000014",
+   "company_id": "CMP-00002",
+   "function_name": "compliance",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000015",
+   "company_id": "CMP-00002",
+   "function_name": "fraud",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000016",
+   "company_id": "CMP-00002",
+   "function_name": "aml_financial_crime",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000017",
+   "company_id": "CMP-00002",
+   "function_name": "internal_audit",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000018",
+   "company_id": "CMP-00002",
+   "function_name": "finance",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000019",
+   "company_id": "CMP-00002",
+   "function_name": "technology",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000020",
+   "company_id": "CMP-00002",
+   "function_name": "analytics",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000021",
+   "company_id": "CMP-00002",
+   "function_name": "data",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000022",
+   "company_id": "CMP-00002",
+   "function_name": "operations",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000023",
+   "company_id": "CMP-00002",
+   "function_name": "graduate_hiring",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000024",
+   "company_id": "CMP-00002",
+   "function_name": "internship_hiring",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000025",
+   "company_id": "CMP-00003",
+   "function_name": "risk",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000026",
+   "company_id": "CMP-00003",
+   "function_name": "compliance",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000027",
+   "company_id": "CMP-00003",
+   "function_name": "fraud",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000028",
+   "company_id": "CMP-00003",
+   "function_name": "aml_financial_crime",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000029",
+   "company_id": "CMP-00003",
+   "function_name": "internal_audit",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000030",
+   "company_id": "CMP-00003",
+   "function_name": "finance",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000031",
+   "company_id": "CMP-00003",
+   "function_name": "technology",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000032",
+   "company_id": "CMP-00003",
+   "function_name": "analytics",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000033",
+   "company_id": "CMP-00003",
+   "function_name": "data",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000034",
+   "company_id": "CMP-00003",
+   "function_name": "operations",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000035",
+   "company_id": "CMP-00003",
+   "function_name": "graduate_hiring",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000036",
+   "company_id": "CMP-00003",
+   "function_name": "internship_hiring",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000361",
+   "company_id": "CMP-00031",
+   "function_name": "risk",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000362",
+   "company_id": "CMP-00031",
+   "function_name": "compliance",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000363",
+   "company_id": "CMP-00031",
+   "function_name": "fraud",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000364",
+   "company_id": "CMP-00031",
+   "function_name": "aml_financial_crime",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000365",
+   "company_id": "CMP-00031",
+   "function_name": "internal_audit",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000366",
+   "company_id": "CMP-00031",
+   "function_name": "finance",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000367",
+   "company_id": "CMP-00031",
+   "function_name": "technology",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000368",
+   "company_id": "CMP-00031",
+   "function_name": "analytics",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000369",
+   "company_id": "CMP-00031",
+   "function_name": "data",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000370",
+   "company_id": "CMP-00031",
+   "function_name": "operations",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000371",
+   "company_id": "CMP-00031",
+   "function_name": "graduate_hiring",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000372",
+   "company_id": "CMP-00031",
+   "function_name": "internship_hiring",
+   "hiring_active": "no",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000505",
+   "company_id": "CMP-00043",
+   "function_name": "risk",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000506",
+   "company_id": "CMP-00043",
+   "function_name": "compliance",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000507",
+   "company_id": "CMP-00043",
+   "function_name": "fraud",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000508",
+   "company_id": "CMP-00043",
+   "function_name": "aml_financial_crime",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000509",
+   "company_id": "CMP-00043",
+   "function_name": "internal_audit",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000510",
+   "company_id": "CMP-00043",
+   "function_name": "finance",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000511",
+   "company_id": "CMP-00043",
+   "function_name": "technology",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000512",
+   "company_id": "CMP-00043",
+   "function_name": "analytics",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000513",
+   "company_id": "CMP-00043",
+   "function_name": "data",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000514",
+   "company_id": "CMP-00043",
+   "function_name": "operations",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000515",
+   "company_id": "CMP-00043",
+   "function_name": "graduate_hiring",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  },
+  {
+   "function_id": "FN-000516",
+   "company_id": "CMP-00043",
+   "function_name": "internship_hiring",
+   "hiring_active": "likely",
+   "confidence_level": "medium"
+  }
+ ],
+ "ci_company_tags": [
+  {
+   "tag_id": "TAG-000001",
+   "company_id": "CMP-00001",
+   "tag_type": "industry",
+   "tag_value": "Banking"
+  },
+  {
+   "tag_id": "TAG-000002",
+   "company_id": "CMP-00001",
+   "tag_type": "synonym",
+   "tag_value": "HDFC Bank"
+  },
+  {
+   "tag_id": "TAG-000003",
+   "company_id": "CMP-00001",
+   "tag_type": "keyword",
+   "tag_value": "credit risk"
+  },
+  {
+   "tag_id": "TAG-000004",
+   "company_id": "CMP-00001",
+   "tag_type": "keyword",
+   "tag_value": "operational risk"
+  },
+  {
+   "tag_id": "TAG-000005",
+   "company_id": "CMP-00001",
+   "tag_type": "keyword",
+   "tag_value": "AML"
+  },
+  {
+   "tag_id": "TAG-000006",
+   "company_id": "CMP-00001",
+   "tag_type": "keyword",
+   "tag_value": "KYC"
+  },
+  {
+   "tag_id": "TAG-000007",
+   "company_id": "CMP-00001",
+   "tag_type": "keyword",
+   "tag_value": "compliance"
+  },
+  {
+   "tag_id": "TAG-000008",
+   "company_id": "CMP-00001",
+   "tag_type": "keyword",
+   "tag_value": "internal audit"
+  },
+  {
+   "tag_id": "TAG-000009",
+   "company_id": "CMP-00001",
+   "tag_type": "keyword",
+   "tag_value": "branch banking"
+  },
+  {
+   "tag_id": "TAG-000010",
+   "company_id": "CMP-00001",
+   "tag_type": "keyword",
+   "tag_value": "treasury"
+  },
+  {
+   "tag_id": "TAG-000011",
+   "company_id": "CMP-00001",
+   "tag_type": "role_taxonomy",
+   "tag_value": "Risk Analyst"
+  },
+  {
+   "tag_id": "TAG-000012",
+   "company_id": "CMP-00001",
+   "tag_type": "role_taxonomy",
+   "tag_value": "Compliance Analyst"
+  },
+  {
+   "tag_id": "TAG-000013",
+   "company_id": "CMP-00001",
+   "tag_type": "role_taxonomy",
+   "tag_value": "Financial Analyst"
+  },
+  {
+   "tag_id": "TAG-000014",
+   "company_id": "CMP-00002",
+   "tag_type": "industry",
+   "tag_value": "Banking"
+  },
+  {
+   "tag_id": "TAG-000015",
+   "company_id": "CMP-00002",
+   "tag_type": "synonym",
+   "tag_value": "ICICI Bank"
+  },
+  {
+   "tag_id": "TAG-000016",
+   "company_id": "CMP-00002",
+   "tag_type": "keyword",
+   "tag_value": "credit risk"
+  },
+  {
+   "tag_id": "TAG-000017",
+   "company_id": "CMP-00002",
+   "tag_type": "keyword",
+   "tag_value": "operational risk"
+  },
+  {
+   "tag_id": "TAG-000018",
+   "company_id": "CMP-00002",
+   "tag_type": "keyword",
+   "tag_value": "AML"
+  },
+  {
+   "tag_id": "TAG-000019",
+   "company_id": "CMP-00002",
+   "tag_type": "keyword",
+   "tag_value": "KYC"
+  },
+  {
+   "tag_id": "TAG-000020",
+   "company_id": "CMP-00002",
+   "tag_type": "keyword",
+   "tag_value": "compliance"
+  },
+  {
+   "tag_id": "TAG-000021",
+   "company_id": "CMP-00002",
+   "tag_type": "keyword",
+   "tag_value": "internal audit"
+  },
+  {
+   "tag_id": "TAG-000022",
+   "company_id": "CMP-00002",
+   "tag_type": "keyword",
+   "tag_value": "branch banking"
+  },
+  {
+   "tag_id": "TAG-000023",
+   "company_id": "CMP-00002",
+   "tag_type": "keyword",
+   "tag_value": "treasury"
+  },
+  {
+   "tag_id": "TAG-000024",
+   "company_id": "CMP-00002",
+   "tag_type": "role_taxonomy",
+   "tag_value": "Risk Analyst"
+  },
+  {
+   "tag_id": "TAG-000025",
+   "company_id": "CMP-00002",
+   "tag_type": "role_taxonomy",
+   "tag_value": "Compliance Analyst"
+  },
+  {
+   "tag_id": "TAG-000026",
+   "company_id": "CMP-00002",
+   "tag_type": "role_taxonomy",
+   "tag_value": "Financial Analyst"
+  },
+  {
+   "tag_id": "TAG-000027",
+   "company_id": "CMP-00003",
+   "tag_type": "industry",
+   "tag_value": "Banking"
+  },
+  {
+   "tag_id": "TAG-000028",
+   "company_id": "CMP-00003",
+   "tag_type": "synonym",
+   "tag_value": "Axis Bank"
+  },
+  {
+   "tag_id": "TAG-000029",
+   "company_id": "CMP-00003",
+   "tag_type": "keyword",
+   "tag_value": "credit risk"
+  },
+  {
+   "tag_id": "TAG-000030",
+   "company_id": "CMP-00003",
+   "tag_type": "keyword",
+   "tag_value": "operational risk"
+  },
+  {
+   "tag_id": "TAG-000031",
+   "company_id": "CMP-00003",
+   "tag_type": "keyword",
+   "tag_value": "AML"
+  },
+  {
+   "tag_id": "TAG-000032",
+   "company_id": "CMP-00003",
+   "tag_type": "keyword",
+   "tag_value": "KYC"
+  },
+  {
+   "tag_id": "TAG-000033",
+   "company_id": "CMP-00003",
+   "tag_type": "keyword",
+   "tag_value": "compliance"
+  },
+  {
+   "tag_id": "TAG-000034",
+   "company_id": "CMP-00003",
+   "tag_type": "keyword",
+   "tag_value": "internal audit"
+  },
+  {
+   "tag_id": "TAG-000035",
+   "company_id": "CMP-00003",
+   "tag_type": "keyword",
+   "tag_value": "branch banking"
+  },
+  {
+   "tag_id": "TAG-000036",
+   "company_id": "CMP-00003",
+   "tag_type": "keyword",
+   "tag_value": "treasury"
+  },
+  {
+   "tag_id": "TAG-000037",
+   "company_id": "CMP-00003",
+   "tag_type": "role_taxonomy",
+   "tag_value": "Risk Analyst"
+  },
+  {
+   "tag_id": "TAG-000038",
+   "company_id": "CMP-00003",
+   "tag_type": "role_taxonomy",
+   "tag_value": "Compliance Analyst"
+  },
+  {
+   "tag_id": "TAG-000039",
+   "company_id": "CMP-00003",
+   "tag_type": "role_taxonomy",
+   "tag_value": "Financial Analyst"
+  },
+  {
+   "tag_id": "TAG-000377",
+   "company_id": "CMP-00031",
+   "tag_type": "industry",
+   "tag_value": "Banking"
+  },
+  {
+   "tag_id": "TAG-000378",
+   "company_id": "CMP-00031",
+   "tag_type": "synonym",
+   "tag_value": "State Bank of India"
+  },
+  {
+   "tag_id": "TAG-000379",
+   "company_id": "CMP-00031",
+   "tag_type": "keyword",
+   "tag_value": "IBPS"
+  },
+  {
+   "tag_id": "TAG-000380",
+   "company_id": "CMP-00031",
+   "tag_type": "keyword",
+   "tag_value": "probationary officer"
+  },
+  {
+   "tag_id": "TAG-000381",
+   "company_id": "CMP-00031",
+   "tag_type": "keyword",
+   "tag_value": "specialist officer"
+  },
+  {
+   "tag_id": "TAG-000382",
+   "company_id": "CMP-00031",
+   "tag_type": "keyword",
+   "tag_value": "credit"
+  },
+  {
+   "tag_id": "TAG-000383",
+   "company_id": "CMP-00031",
+   "tag_type": "keyword",
+   "tag_value": "risk"
+  },
+  {
+   "tag_id": "TAG-000384",
+   "company_id": "CMP-00031",
+   "tag_type": "keyword",
+   "tag_value": "compliance"
+  },
+  {
+   "tag_id": "TAG-000385",
+   "company_id": "CMP-00031",
+   "tag_type": "keyword",
+   "tag_value": "treasury"
+  },
+  {
+   "tag_id": "TAG-000386",
+   "company_id": "CMP-00031",
+   "tag_type": "keyword",
+   "tag_value": "priority sector"
+  },
+  {
+   "tag_id": "TAG-000387",
+   "company_id": "CMP-00031",
+   "tag_type": "role_taxonomy",
+   "tag_value": "Risk Analyst"
+  },
+  {
+   "tag_id": "TAG-000388",
+   "company_id": "CMP-00031",
+   "tag_type": "role_taxonomy",
+   "tag_value": "Compliance Analyst"
+  },
+  {
+   "tag_id": "TAG-000389",
+   "company_id": "CMP-00031",
+   "tag_type": "role_taxonomy",
+   "tag_value": "Financial Analyst"
+  },
+  {
+   "tag_id": "TAG-000533",
+   "company_id": "CMP-00043",
+   "tag_type": "industry",
+   "tag_value": "Banking"
+  },
+  {
+   "tag_id": "TAG-000534",
+   "company_id": "CMP-00043",
+   "tag_type": "synonym",
+   "tag_value": "J.P. Morgan"
+  },
+  {
+   "tag_id": "TAG-000535",
+   "company_id": "CMP-00043",
+   "tag_type": "keyword",
+   "tag_value": "market risk"
+  },
+  {
+   "tag_id": "TAG-000536",
+   "company_id": "CMP-00043",
+   "tag_type": "keyword",
+   "tag_value": "credit risk"
+  },
+  {
+   "tag_id": "TAG-000537",
+   "company_id": "CMP-00043",
+   "tag_type": "keyword",
+   "tag_value": "model risk"
+  },
+  {
+   "tag_id": "TAG-000538",
+   "company_id": "CMP-00043",
+   "tag_type": "keyword",
+   "tag_value": "financial crime"
+  },
+  {
+   "tag_id": "TAG-000539",
+   "company_id": "CMP-00043",
+   "tag_type": "keyword",
+   "tag_value": "sanctions"
+  },
+  {
+   "tag_id": "TAG-000540",
+   "company_id": "CMP-00043",
+   "tag_type": "keyword",
+   "tag_value": "KYC/CDD"
+  },
+  {
+   "tag_id": "TAG-000541",
+   "company_id": "CMP-00043",
+   "tag_type": "keyword",
+   "tag_value": "regulatory reporting"
+  },
+  {
+   "tag_id": "TAG-000542",
+   "company_id": "CMP-00043",
+   "tag_type": "keyword",
+   "tag_value": "VaR"
+  },
+  {
+   "tag_id": "TAG-000543",
+   "company_id": "CMP-00043",
+   "tag_type": "role_taxonomy",
+   "tag_value": "Risk Analyst"
+  },
+  {
+   "tag_id": "TAG-000544",
+   "company_id": "CMP-00043",
+   "tag_type": "role_taxonomy",
+   "tag_value": "Compliance Analyst"
+  },
+  {
+   "tag_id": "TAG-000545",
+   "company_id": "CMP-00043",
+   "tag_type": "role_taxonomy",
+   "tag_value": "Financial Analyst"
+  }
+ ],
+ "ci_company_sources": [
+  {
+   "link_id": "LNK-000001",
+   "company_id": "CMP-00001",
+   "source_id": "SRC-0016",
+   "presence": "likely",
+   "listing_url": "",
+   "confidence_level": "low"
+  },
+  {
+   "link_id": "LNK-000002",
+   "company_id": "CMP-00001",
+   "source_id": "SRC-0001",
+   "presence": "likely",
+   "listing_url": "",
+   "confidence_level": "low"
+  },
+  {
+   "link_id": "LNK-000003",
+   "company_id": "CMP-00001",
+   "source_id": "SRC-0003",
+   "presence": "likely",
+   "listing_url": "",
+   "confidence_level": "low"
+  },
+  {
+   "link_id": "LNK-000004",
+   "company_id": "CMP-00001",
+   "source_id": "SRC-0012",
+   "presence": "likely",
+   "listing_url": "",
+   "confidence_level": "low"
+  },
+  {
+   "link_id": "LNK-000005",
+   "company_id": "CMP-00001",
+   "source_id": "SRC-0004",
+   "presence": "likely",
+   "listing_url": "",
+   "confidence_level": "low"
+  },
+  {
+   "link_id": "LNK-000006",
+   "company_id": "CMP-00002",
+   "source_id": "SRC-0016",
+   "presence": "likely",
+   "listing_url": "",
+   "confidence_level": "low"
+  },
+  {
+   "link_id": "LNK-000007",
+   "company_id": "CMP-00002",
+   "source_id": "SRC-0001",
+   "presence": "likely",
+   "listing_url": "",
+   "confidence_level": "low"
+  },
+  {
+   "link_id": "LNK-000008",
+   "company_id": "CMP-00002",
+   "source_id": "SRC-0003",
+   "presence": "likely",
+   "listing_url": "",
+   "confidence_level": "low"
+  },
+  {
+   "link_id": "LNK-000009",
+   "company_id": "CMP-00002",
+   "source_id": "SRC-0012",
+   "presence": "likely",
+   "listing_url": "",
+   "confidence_level": "low"
+  },
+  {
+   "link_id": "LNK-000010",
+   "company_id": "CMP-00002",
+   "source_id": "SRC-0004",
+   "presence": "likely",
+   "listing_url": "",
+   "confidence_level": "low"
+  },
+  {
+   "link_id": "LNK-000011",
+   "company_id": "CMP-00003",
+   "source_id": "SRC-0016",
+   "presence": "likely",
+   "listing_url": "",
+   "confidence_level": "low"
+  },
+  {
+   "link_id": "LNK-000012",
+   "company_id": "CMP-00003",
+   "source_id": "SRC-0001",
+   "presence": "likely",
+   "listing_url": "",
+   "confidence_level": "low"
+  },
+  {
+   "link_id": "LNK-000013",
+   "company_id": "CMP-00003",
+   "source_id": "SRC-0003",
+   "presence": "likely",
+   "listing_url": "",
+   "confidence_level": "low"
+  },
+  {
+   "link_id": "LNK-000014",
+   "company_id": "CMP-00003",
+   "source_id": "SRC-0012",
+   "presence": "likely",
+   "listing_url": "",
+   "confidence_level": "low"
+  },
+  {
+   "link_id": "LNK-000015",
+   "company_id": "CMP-00003",
+   "source_id": "SRC-0004",
+   "presence": "likely",
+   "listing_url": "",
+   "confidence_level": "low"
+  },
+  {
+   "link_id": "LNK-000137",
+   "company_id": "CMP-00031",
+   "source_id": "SRC-0015",
+   "presence": "likely",
+   "listing_url": "",
+   "confidence_level": "low"
+  },
+  {
+   "link_id": "LNK-000138",
+   "company_id": "CMP-00031",
+   "source_id": "SRC-0016",
+   "presence": "likely",
+   "listing_url": "",
+   "confidence_level": "low"
+  },
+  {
+   "link_id": "LNK-000139",
+   "company_id": "CMP-00031",
+   "source_id": "SRC-0001",
+   "presence": "likely",
+   "listing_url": "",
+   "confidence_level": "low"
+  },
+  {
+   "link_id": "LNK-000173",
+   "company_id": "CMP-00043",
+   "source_id": "SRC-0016",
+   "presence": "likely",
+   "listing_url": "",
+   "confidence_level": "low"
+  },
+  {
+   "link_id": "LNK-000174",
+   "company_id": "CMP-00043",
+   "source_id": "SRC-0003",
+   "presence": "likely",
+   "listing_url": "",
+   "confidence_level": "low"
+  },
+  {
+   "link_id": "LNK-000175",
+   "company_id": "CMP-00043",
+   "source_id": "SRC-0012",
+   "presence": "likely",
+   "listing_url": "",
+   "confidence_level": "low"
+  },
+  {
+   "link_id": "LNK-000176",
+   "company_id": "CMP-00043",
+   "source_id": "SRC-0001",
+   "presence": "likely",
+   "listing_url": "",
+   "confidence_level": "low"
+  },
+  {
+   "link_id": "LNK-000177",
+   "company_id": "CMP-00043",
+   "source_id": "SRC-0014",
+   "presence": "likely",
+   "listing_url": "",
+   "confidence_level": "low"
+  }
+ ],
+ "ci_salary_intelligence": [
+  {
+   "salary_id": "SAL-000001",
+   "company_id": "CMP-00001",
+   "role_family": "risk_compliance",
+   "experience_level": "entry_0_3y",
+   "currency": "INR",
+   "min_annual": "6",
+   "max_annual": "12",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  },
+  {
+   "salary_id": "SAL-000002",
+   "company_id": "CMP-00001",
+   "role_family": "risk_compliance",
+   "experience_level": "mid_3_7y",
+   "currency": "INR",
+   "min_annual": "10",
+   "max_annual": "22",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  },
+  {
+   "salary_id": "SAL-000003",
+   "company_id": "CMP-00001",
+   "role_family": "finance",
+   "experience_level": "entry_0_3y",
+   "currency": "INR",
+   "min_annual": "5",
+   "max_annual": "10",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  },
+  {
+   "salary_id": "SAL-000004",
+   "company_id": "CMP-00001",
+   "role_family": "finance",
+   "experience_level": "mid_3_7y",
+   "currency": "INR",
+   "min_annual": "9",
+   "max_annual": "18",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  },
+  {
+   "salary_id": "SAL-000005",
+   "company_id": "CMP-00001",
+   "role_family": "technology_analytics",
+   "experience_level": "entry_0_3y",
+   "currency": "INR",
+   "min_annual": "7",
+   "max_annual": "14",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  },
+  {
+   "salary_id": "SAL-000006",
+   "company_id": "CMP-00001",
+   "role_family": "technology_analytics",
+   "experience_level": "mid_3_7y",
+   "currency": "INR",
+   "min_annual": "12",
+   "max_annual": "24",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  },
+  {
+   "salary_id": "SAL-000007",
+   "company_id": "CMP-00002",
+   "role_family": "risk_compliance",
+   "experience_level": "entry_0_3y",
+   "currency": "INR",
+   "min_annual": "6",
+   "max_annual": "12",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  },
+  {
+   "salary_id": "SAL-000008",
+   "company_id": "CMP-00002",
+   "role_family": "risk_compliance",
+   "experience_level": "mid_3_7y",
+   "currency": "INR",
+   "min_annual": "10",
+   "max_annual": "22",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  },
+  {
+   "salary_id": "SAL-000009",
+   "company_id": "CMP-00002",
+   "role_family": "finance",
+   "experience_level": "entry_0_3y",
+   "currency": "INR",
+   "min_annual": "5",
+   "max_annual": "10",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  },
+  {
+   "salary_id": "SAL-000010",
+   "company_id": "CMP-00002",
+   "role_family": "finance",
+   "experience_level": "mid_3_7y",
+   "currency": "INR",
+   "min_annual": "9",
+   "max_annual": "18",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  },
+  {
+   "salary_id": "SAL-000011",
+   "company_id": "CMP-00002",
+   "role_family": "technology_analytics",
+   "experience_level": "entry_0_3y",
+   "currency": "INR",
+   "min_annual": "7",
+   "max_annual": "14",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  },
+  {
+   "salary_id": "SAL-000012",
+   "company_id": "CMP-00002",
+   "role_family": "technology_analytics",
+   "experience_level": "mid_3_7y",
+   "currency": "INR",
+   "min_annual": "12",
+   "max_annual": "24",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  },
+  {
+   "salary_id": "SAL-000013",
+   "company_id": "CMP-00003",
+   "role_family": "risk_compliance",
+   "experience_level": "entry_0_3y",
+   "currency": "INR",
+   "min_annual": "6",
+   "max_annual": "12",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  },
+  {
+   "salary_id": "SAL-000014",
+   "company_id": "CMP-00003",
+   "role_family": "risk_compliance",
+   "experience_level": "mid_3_7y",
+   "currency": "INR",
+   "min_annual": "10",
+   "max_annual": "22",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  },
+  {
+   "salary_id": "SAL-000015",
+   "company_id": "CMP-00003",
+   "role_family": "finance",
+   "experience_level": "entry_0_3y",
+   "currency": "INR",
+   "min_annual": "5",
+   "max_annual": "10",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  },
+  {
+   "salary_id": "SAL-000016",
+   "company_id": "CMP-00003",
+   "role_family": "finance",
+   "experience_level": "mid_3_7y",
+   "currency": "INR",
+   "min_annual": "9",
+   "max_annual": "18",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  },
+  {
+   "salary_id": "SAL-000017",
+   "company_id": "CMP-00003",
+   "role_family": "technology_analytics",
+   "experience_level": "entry_0_3y",
+   "currency": "INR",
+   "min_annual": "7",
+   "max_annual": "14",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  },
+  {
+   "salary_id": "SAL-000018",
+   "company_id": "CMP-00003",
+   "role_family": "technology_analytics",
+   "experience_level": "mid_3_7y",
+   "currency": "INR",
+   "min_annual": "12",
+   "max_annual": "24",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  },
+  {
+   "salary_id": "SAL-000181",
+   "company_id": "CMP-00031",
+   "role_family": "risk_compliance",
+   "experience_level": "entry_0_3y",
+   "currency": "INR",
+   "min_annual": "8",
+   "max_annual": "13",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  },
+  {
+   "salary_id": "SAL-000182",
+   "company_id": "CMP-00031",
+   "role_family": "risk_compliance",
+   "experience_level": "mid_3_7y",
+   "currency": "INR",
+   "min_annual": "12",
+   "max_annual": "18",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  },
+  {
+   "salary_id": "SAL-000183",
+   "company_id": "CMP-00031",
+   "role_family": "finance",
+   "experience_level": "entry_0_3y",
+   "currency": "INR",
+   "min_annual": "8",
+   "max_annual": "13",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  },
+  {
+   "salary_id": "SAL-000184",
+   "company_id": "CMP-00031",
+   "role_family": "finance",
+   "experience_level": "mid_3_7y",
+   "currency": "INR",
+   "min_annual": "12",
+   "max_annual": "18",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  },
+  {
+   "salary_id": "SAL-000185",
+   "company_id": "CMP-00031",
+   "role_family": "technology_analytics",
+   "experience_level": "entry_0_3y",
+   "currency": "INR",
+   "min_annual": "8",
+   "max_annual": "14",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  },
+  {
+   "salary_id": "SAL-000186",
+   "company_id": "CMP-00031",
+   "role_family": "technology_analytics",
+   "experience_level": "mid_3_7y",
+   "currency": "INR",
+   "min_annual": "12",
+   "max_annual": "20",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  },
+  {
+   "salary_id": "SAL-000253",
+   "company_id": "CMP-00043",
+   "role_family": "risk_compliance",
+   "experience_level": "entry_0_3y",
+   "currency": "INR",
+   "min_annual": "10",
+   "max_annual": "22",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  },
+  {
+   "salary_id": "SAL-000254",
+   "company_id": "CMP-00043",
+   "role_family": "risk_compliance",
+   "experience_level": "mid_3_7y",
+   "currency": "INR",
+   "min_annual": "18",
+   "max_annual": "40",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  },
+  {
+   "salary_id": "SAL-000255",
+   "company_id": "CMP-00043",
+   "role_family": "finance",
+   "experience_level": "entry_0_3y",
+   "currency": "INR",
+   "min_annual": "9",
+   "max_annual": "18",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  },
+  {
+   "salary_id": "SAL-000256",
+   "company_id": "CMP-00043",
+   "role_family": "finance",
+   "experience_level": "mid_3_7y",
+   "currency": "INR",
+   "min_annual": "16",
+   "max_annual": "32",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  },
+  {
+   "salary_id": "SAL-000257",
+   "company_id": "CMP-00043",
+   "role_family": "technology_analytics",
+   "experience_level": "entry_0_3y",
+   "currency": "INR",
+   "min_annual": "12",
+   "max_annual": "25",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  },
+  {
+   "salary_id": "SAL-000258",
+   "company_id": "CMP-00043",
+   "role_family": "technology_analytics",
+   "experience_level": "mid_3_7y",
+   "currency": "INR",
+   "min_annual": "20",
+   "max_annual": "45",
+   "unit": "LPA",
+   "basis": "market_estimate",
+   "confidence_level": "low"
+  }
+ ],
+ "ci_opportunity_sources": [
+  {
+   "source_id": "SRC-0001",
+   "source_name": "Naukri",
+   "source_type": "job_board",
+   "coverage_country": "IN",
+   "website_url": "https://www.naukri.com",
+   "notes": "India's largest job board; strong for risk/compliance/finance",
+   "data_source": "knowledge_base"
+  },
+  {
+   "source_id": "SRC-0002",
+   "source_name": "Foundit",
+   "source_type": "job_board",
+   "coverage_country": "IN",
+   "website_url": "https://www.foundit.in",
+   "notes": "Formerly Monster India",
+   "data_source": "knowledge_base"
+  },
+  {
+   "source_id": "SRC-0003",
+   "source_name": "LinkedIn Jobs",
+   "source_type": "job_board",
+   "coverage_country": "ZZ",
+   "website_url": "https://www.linkedin.com/jobs",
+   "notes": "Global; strong for GCC and mid-senior roles",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0004",
+   "source_name": "Indeed India",
+   "source_type": "job_board",
+   "coverage_country": "IN",
+   "website_url": "https://in.indeed.com",
+   "notes": "Aggregator",
+   "data_source": "knowledge_base"
+  },
+  {
+   "source_id": "SRC-0005",
+   "source_name": "TimesJobs",
+   "source_type": "job_board",
+   "coverage_country": "IN",
+   "website_url": "https://www.timesjobs.com",
+   "notes": "Legacy Indian board",
+   "data_source": "knowledge_base"
+  },
+  {
+   "source_id": "SRC-0006",
+   "source_name": "Shine",
+   "source_type": "job_board",
+   "coverage_country": "IN",
+   "website_url": "https://www.shine.com",
+   "notes": "HT Media job board",
+   "data_source": "knowledge_base"
+  },
+  {
+   "source_id": "SRC-0007",
+   "source_name": "Freshersworld",
+   "source_type": "job_board",
+   "coverage_country": "IN",
+   "website_url": "https://www.freshersworld.com",
+   "notes": "Entry-level and campus",
+   "data_source": "knowledge_base"
+  },
+  {
+   "source_id": "SRC-0008",
+   "source_name": "Internshala",
+   "source_type": "graduate_platform",
+   "coverage_country": "IN",
+   "website_url": "https://internshala.com",
+   "notes": "Internships and fresher jobs",
+   "data_source": "knowledge_base"
+  },
+  {
+   "source_id": "SRC-0009",
+   "source_name": "Cutshort",
+   "source_type": "job_board",
+   "coverage_country": "IN",
+   "website_url": "https://cutshort.io",
+   "notes": "Startup/tech hiring",
+   "data_source": "knowledge_base"
+  },
+  {
+   "source_id": "SRC-0010",
+   "source_name": "Wellfound",
+   "source_type": "job_board",
+   "coverage_country": "ZZ",
+   "website_url": "https://wellfound.com",
+   "notes": "Startup jobs (ex-AngelList Talent)",
+   "data_source": "knowledge_base"
+  },
+  {
+   "source_id": "SRC-0011",
+   "source_name": "Apna",
+   "source_type": "job_board",
+   "coverage_country": "IN",
+   "website_url": "https://apna.co",
+   "notes": "High-volume/frontline and entry roles",
+   "data_source": "knowledge_base"
+  },
+  {
+   "source_id": "SRC-0012",
+   "source_name": "iimjobs",
+   "source_type": "job_board",
+   "coverage_country": "IN",
+   "website_url": "https://www.iimjobs.com",
+   "notes": "Mid-senior management, finance, risk",
+   "data_source": "knowledge_base"
+  },
+  {
+   "source_id": "SRC-0013",
+   "source_name": "hirist",
+   "source_type": "job_board",
+   "coverage_country": "IN",
+   "website_url": "https://www.hirist.tech",
+   "notes": "Tech roles",
+   "data_source": "knowledge_base"
+  },
+  {
+   "source_id": "SRC-0014",
+   "source_name": "Instahyre",
+   "source_type": "job_board",
+   "coverage_country": "IN",
+   "website_url": "https://www.instahyre.com",
+   "notes": "Tech and product hiring",
+   "data_source": "knowledge_base"
+  },
+  {
+   "source_id": "SRC-0015",
+   "source_name": "Government Portals (IBPS/UPSC/PSU)",
+   "source_type": "government_portal",
+   "coverage_country": "IN",
+   "website_url": "https://www.ibps.in",
+   "notes": "Exam-based PSU/bank recruitment",
+   "data_source": "knowledge_base"
+  },
+  {
+   "source_id": "SRC-0016",
+   "source_name": "Company Careers Page",
+   "source_type": "company_careers",
+   "coverage_country": "ZZ",
+   "website_url": "",
+   "notes": "Direct employer application",
+   "data_source": "knowledge_base"
+  },
+  {
+   "source_id": "SRC-0017",
+   "source_name": "SEEK",
+   "source_type": "job_board",
+   "coverage_country": "AU",
+   "website_url": "https://www.seek.com.au",
+   "notes": "Australia's largest job board; filter by Compliance & Risk category",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0018",
+   "source_name": "Indeed Australia",
+   "source_type": "job_board",
+   "coverage_country": "AU",
+   "website_url": "https://au.indeed.com",
+   "notes": "Search AML CTF Compliance Risk Governance",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0019",
+   "source_name": "CareerOne",
+   "source_type": "job_board",
+   "coverage_country": "AU",
+   "website_url": "https://www.careerone.com.au",
+   "notes": "Financial crime jobs listed; avg $123K salary",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0020",
+   "source_name": "Jora",
+   "source_type": "job_board",
+   "coverage_country": "AU",
+   "website_url": "https://au.jora.com",
+   "notes": "Aggregates SEEK and other boards",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0021",
+   "source_name": "GradConnection (SEEK Grad)",
+   "source_type": "graduate_platform",
+   "coverage_country": "AU",
+   "website_url": "https://au.gradconnection.com",
+   "notes": "Largest Australian graduate program aggregator",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0022",
+   "source_name": "GradAustralia",
+   "source_type": "graduate_platform",
+   "coverage_country": "AU",
+   "website_url": "https://gradaustralia.com.au",
+   "notes": "Profiles all major employer graduate schemes",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0023",
+   "source_name": "Prosple Australia",
+   "source_type": "graduate_platform",
+   "coverage_country": "AU",
+   "website_url": "https://au.prosple.com",
+   "notes": "Graduate job board with employer profiles",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0024",
+   "source_name": "Australian JobSearch (Jobs.gov.au)",
+   "source_type": "government_portal",
+   "coverage_country": "AU",
+   "website_url": "https://www.jobs.gov.au",
+   "notes": "Federal government positions; links to APS",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0025",
+   "source_name": "APS Jobs",
+   "source_type": "government_portal",
+   "coverage_country": "AU",
+   "website_url": "https://www.apsjobs.gov.au",
+   "notes": "Australian Public Service Commission job listings",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0026",
+   "source_name": "NSW Jobs",
+   "source_type": "government_portal",
+   "coverage_country": "AU",
+   "website_url": "https://iworkfor.nsw.gov.au",
+   "notes": "NSW public sector vacancies",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0027",
+   "source_name": "Victoria Careers (VPSC)",
+   "source_type": "government_portal",
+   "coverage_country": "AU",
+   "website_url": "https://careers.vic.gov.au",
+   "notes": "Victorian government careers portal",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0028",
+   "source_name": "Queensland Government Jobs",
+   "source_type": "government_portal",
+   "coverage_country": "AU",
+   "website_url": "https://smartjobs.qld.gov.au",
+   "notes": "Queensland public service positions",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0029",
+   "source_name": "SA Careers (iWorkForSA)",
+   "source_type": "government_portal",
+   "coverage_country": "AU",
+   "website_url": "https://iworkforsa.sa.gov.au",
+   "notes": "South Australian government vacancies",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0030",
+   "source_name": "WA Jobs (WA Government)",
+   "source_type": "government_portal",
+   "coverage_country": "AU",
+   "website_url": "https://www.jobs.wa.gov.au",
+   "notes": "Western Australian government careers",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0031",
+   "source_name": "ACT Government Jobs",
+   "source_type": "government_portal",
+   "coverage_country": "AU",
+   "website_url": "https://www.jobs.act.gov.au",
+   "notes": "ACT public service vacancies",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0032",
+   "source_name": "NT Government Careers",
+   "source_type": "government_portal",
+   "coverage_country": "AU",
+   "website_url": "https://jobs.nt.gov.au",
+   "notes": "Northern Territory government careers",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0033",
+   "source_name": "Ethical Jobs",
+   "source_type": "job_board",
+   "coverage_country": "AU",
+   "website_url": "https://www.ethicaljobs.com.au",
+   "notes": "Not-for-profit and ethical sector roles",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0034",
+   "source_name": "Hays Australia",
+   "source_type": "recruiter_agency",
+   "coverage_country": "AU",
+   "website_url": "https://www.hays.com.au",
+   "notes": "Major generalist recruiter; risk/compliance division",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0035",
+   "source_name": "Robert Half",
+   "source_type": "recruiter_agency",
+   "coverage_country": "AU",
+   "website_url": "https://www.roberthalf.com.au",
+   "notes": "Finance and accounting specialist recruiter",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0036",
+   "source_name": "Michael Page Australia",
+   "source_type": "recruiter_agency",
+   "coverage_country": "AU",
+   "website_url": "https://www.michaelpage.com.au",
+   "notes": "Finance and banking specialist divisions",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0037",
+   "source_name": "Hudson Australia",
+   "source_type": "recruiter_agency",
+   "coverage_country": "AU",
+   "website_url": "https://au.hudson.com",
+   "notes": "Professional services and finance recruitment",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0038",
+   "source_name": "Morgan McKinley Australia",
+   "source_type": "recruiter_agency",
+   "coverage_country": "AU",
+   "website_url": "https://www.morganmckinley.com/au",
+   "notes": "Finance and banking specialist recruiter",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0039",
+   "source_name": "TalentWeb",
+   "source_type": "recruiter_agency",
+   "coverage_country": "AU",
+   "website_url": "https://www.talentweb.com.au",
+   "notes": "Specialist risk compliance financial crime; AML/CTF focus",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0040",
+   "source_name": "Bluefin Resources",
+   "source_type": "recruiter_agency",
+   "coverage_country": "AU",
+   "website_url": "https://www.bluefinresources.com.au",
+   "notes": "Premier Australian risk and compliance specialist since 2003",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0041",
+   "source_name": "GRC Talent",
+   "source_type": "recruiter_agency",
+   "coverage_country": "AU",
+   "website_url": "https://www.grctalent.com.au",
+   "notes": "Specialist AML CTF compliance recruiter; Tranche 2 focus",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0042",
+   "source_name": "Kaizen Recruitment",
+   "source_type": "recruiter_agency",
+   "coverage_country": "AU",
+   "website_url": "https://www.kaizenrecruitment.com.au",
+   "notes": "Financial services risk and compliance specialists",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0043",
+   "source_name": "Lanson Partners",
+   "source_type": "recruiter_agency",
+   "coverage_country": "AU",
+   "website_url": "https://www.lansonpartners.com",
+   "notes": "In-house legal risk and compliance placements",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0044",
+   "source_name": "Keegan Adams",
+   "source_type": "recruiter_agency",
+   "coverage_country": "AU",
+   "website_url": "https://www.keeganadams.com.au",
+   "notes": "Funds management banking risk and compliance",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0045",
+   "source_name": "Succession Recruitment",
+   "source_type": "recruiter_agency",
+   "coverage_country": "AU",
+   "website_url": "https://www.successionrecruitment.com.au",
+   "notes": "Financial crime and compliance specialist placements",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0046",
+   "source_name": "Profusion Group",
+   "source_type": "recruiter_agency",
+   "coverage_country": "AU",
+   "website_url": "https://www.profusiongroup.com.au",
+   "notes": "Finance risk compliance specialist; listed on CareerOne financialcrime ads",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0047",
+   "source_name": "Ashurst (Legal/Advisory)",
+   "source_type": "recruiter_agency",
+   "coverage_country": "AU",
+   "website_url": "https://www.ashurst.com/en/careers",
+   "notes": "Law firm with specialist financial crime advisory; posts via CareerOne",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0048",
+   "source_name": "Nixon Peabody (Legal)",
+   "source_type": "recruiter_agency",
+   "coverage_country": "ZZ",
+   "website_url": "https://www.nixonpeabody.com/careers",
+   "notes": "US law firm with Australia presence; financial crime advisory",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0049",
+   "source_name": "Finite IT Recruitment",
+   "source_type": "recruiter_agency",
+   "coverage_country": "AU",
+   "website_url": "https://www.finite.com.au",
+   "notes": "Tech and risk roles; financial services focus",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0050",
+   "source_name": "Davidson Recruitment",
+   "source_type": "recruiter_agency",
+   "coverage_country": "AU",
+   "website_url": "https://www.davidsonwp.com",
+   "notes": "Professional services; governance and compliance roles",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0051",
+   "source_name": "Six Degrees Executive",
+   "source_type": "recruiter_agency",
+   "coverage_country": "AU",
+   "website_url": "https://www.sixdegreesexecutive.com.au",
+   "notes": "Executive and professional recruitment",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0052",
+   "source_name": "Chandler Macleod",
+   "source_type": "recruiter_agency",
+   "coverage_country": "AU",
+   "website_url": "https://www.chandlermacleod.com",
+   "notes": "Large recruiter; compliance and risk divisions",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0053",
+   "source_name": "DFP Recruitment",
+   "source_type": "recruiter_agency",
+   "coverage_country": "AU",
+   "website_url": "https://www.dfp.com.au",
+   "notes": "Government and corporate sectors",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0054",
+   "source_name": "Robert Walters Australia",
+   "source_type": "recruiter_agency",
+   "coverage_country": "AU",
+   "website_url": "https://www.robertwalters.com.au",
+   "notes": "Global recruiter; strong financial services division",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0055",
+   "source_name": "Randstad Australia",
+   "source_type": "recruiter_agency",
+   "coverage_country": "AU",
+   "website_url": "https://www.randstad.com.au",
+   "notes": "Major generalist with finance/risk specialisation",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0056",
+   "source_name": "Manpower Australia",
+   "source_type": "recruiter_agency",
+   "coverage_country": "AU",
+   "website_url": "https://www.manpower.com.au",
+   "notes": "General staffing; some compliance roles",
+   "data_source": "user_dataset_v2"
+  },
+  {
+   "source_id": "SRC-0057",
+   "source_name": "Allegis Group",
+   "source_type": "recruiter_agency",
+   "coverage_country": "ZZ",
+   "website_url": "https://www.allegisgroup.com",
+   "notes": "Global staffing; Australian operations",
+   "data_source": "user_dataset_v2"
+  }
+ ]
+}

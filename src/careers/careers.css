@@ -162,3 +162,9 @@
   outline: 2px solid var(--gold);
   outline-offset: 2px;
 }
+
+/* Phase 4.1 — Company Intelligence salary table. Theme-aware via tokens. */
+.ci-table { border-collapse: collapse; font-size: 13px; }
+.ci-table th, .ci-table td { padding: 8px 10px; border-bottom: 1px solid var(--hair2); text-align: left; }
+.ci-table th { color: var(--ink2); font-weight: 600; }
+.ci-table tbody tr:last-child td { border-bottom: none; }

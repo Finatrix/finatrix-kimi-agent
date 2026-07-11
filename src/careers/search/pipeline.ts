@@ -34,8 +34,12 @@ export interface SearchQuality {
   returned: number;
   rejected: number;
   rejectedByReason: Partial<Record<RejectReason, number>>;
-  /** provider id → ok | error | not-configured */
+  /** provider id → ok | error | not-configured | skipped */
   providerCoverage: Record<string, string>;
+  /** provider id → number of jobs returned (before filtering). */
+  providerCounts: Record<string, number>;
+  /** True when at least one provider ran and not all failed. */
+  providersUp: boolean;
   /** Mean Resume Match % of returned jobs (null without a resume). */
   averageMatch: number | null;
   /** 0–100: how confidently the intent engine understood the query. */
@@ -57,7 +61,13 @@ export interface SearchReport {
 export type ProviderFetcher = (
   params: JobSearchParams,
   expandedTerms: string[]
-) => Promise<{ jobs: NormalizedJob[]; status: Record<string, string>; page: number }>;
+) => Promise<{
+  jobs: NormalizedJob[];
+  status: Record<string, string>;
+  counts?: Record<string, number>;
+  providersUp?: boolean;
+  page: number;
+}>;
 
 // ─────────────────────────── ranking ───────────────────────────
 
@@ -199,6 +209,8 @@ export async function runSearchPipeline(
     rejected: rejected.length,
     rejectedByReason,
     providerCoverage: out.status,
+    providerCounts: out.counts ?? {},
+    providersUp: out.providersUp ?? Object.values(out.status).some((s) => s === 'ok'),
     averageMatch: matches.length ? Math.round(matches.reduce((a, b) => a + b, 0) / matches.length) : null,
     searchConfidence: intent.targetCategories.size ? 90 : params.query ? 55 : 0,
     filterConfidence: Math.round(Math.min(1, survival * 1.25) * 100),

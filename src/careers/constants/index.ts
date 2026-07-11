@@ -11,6 +11,9 @@ export const CAREERS_ROUTES = {
   jobs: '/careers/jobs',
   applications: '/careers/applications',
   companies: '/careers/companies',
+  // Phase 4.1 — Company Intelligence search + profiles.
+  intelligence: '/careers/intelligence',
+  companyProfile: '/careers/intelligence/company',
   interviews: '/careers/interviews',
   coach: '/careers/coach',
   profile: '/careers/profile',
@@ -53,6 +56,8 @@ export const CAREERS_HIDDEN_SECTIONS = [
   { id: 'profile', name: 'Career Profile', href: CAREERS_ROUTES.profile },
   { id: 'tasks', name: 'Tasks', href: CAREERS_ROUTES.tasks },
   { id: 'companies', name: 'Companies', href: CAREERS_ROUTES.companies },
+  { id: 'intelligence', name: 'Company Intelligence', href: CAREERS_ROUTES.intelligence },
+  { id: 'companyProfile', name: 'Company Intelligence', href: CAREERS_ROUTES.companyProfile },
   { id: 'recruiters', name: 'Recruiters', href: CAREERS_ROUTES.recruiters },
   { id: 'network', name: 'Network', href: CAREERS_ROUTES.network },
   { id: 'assessments', name: 'Assessments', href: CAREERS_ROUTES.assessments },
@@ -153,4 +158,8 @@ export const DEFAULT_SETTINGS = {
   model: '',
   ocrEnabled: true,
   analyticsEnabled: true,
+  preferredIndustries: [] as string[],
+  preferredLocations: [] as string[],
+  preferredDepartments: [] as string[],
+  preferredAts: [] as string[],
 } as const;

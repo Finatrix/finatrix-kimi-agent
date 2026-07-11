@@ -158,6 +158,11 @@ export interface CareersSettings {
   ocrEnabled: boolean;
   /** Whether anonymous product analytics are recorded. */
   analyticsEnabled: boolean;
+  /** Phase 4.1 — Company Intelligence preferences that boost search ranking. */
+  preferredIndustries?: string[];
+  preferredLocations?: string[];
+  preferredDepartments?: string[];
+  preferredAts?: string[];
 }
 
 export interface CareerProfileRow {

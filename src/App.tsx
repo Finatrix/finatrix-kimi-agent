@@ -19,6 +19,8 @@ const ResumeLibrary = lazy(() => import('./careers/pages/ResumeLibrary'))
 const JobsPage = lazy(() => import('./careers/pages/JobsPage'))
 const ApplicationsPage = lazy(() => import('./careers/pages/ApplicationsPage'))
 const CompaniesPage = lazy(() => import('./careers/pages/CompaniesPage'))
+const CompanyIntelPage = lazy(() => import('./careers/pages/CompanyIntelPage'))
+const CompanyProfilePage = lazy(() => import('./careers/pages/CompanyProfilePage'))
 const InterviewPrepPage = lazy(() => import('./careers/pages/InterviewPrepPage'))
 const CareerCoachPage = lazy(() => import('./careers/pages/CareerCoachPage'))
 const CareerProfilePage = lazy(() => import('./careers/pages/CareerProfilePage'))
@@ -54,6 +56,8 @@ const ROUTE_TITLES: Record<string, string> = {
   '/careers/applications': 'Applications',
   '/careers/tasks': 'Tasks',
   '/careers/companies': 'Companies',
+  '/careers/intelligence': 'Company Intelligence',
+  '/careers/intelligence/company': 'Company Intelligence',
   '/careers/recruiters': 'Recruiters',
   '/careers/network': 'Network',
   '/careers/interviews': 'Interview Prep',
@@ -118,6 +122,8 @@ export default function App() {
             <Route path="applications" element={<ApplicationsPage />} />
             <Route path="tasks" element={<TasksPage />} />
             <Route path="companies" element={<CompaniesPage />} />
+            <Route path="intelligence" element={<CompanyIntelPage />} />
+            <Route path="intelligence/company" element={<CompanyProfilePage />} />
             <Route path="recruiters" element={<RecruitersPage />} />
             <Route path="network" element={<NetworkPage />} />
             <Route path="interviews" element={<InterviewPrepPage />} />

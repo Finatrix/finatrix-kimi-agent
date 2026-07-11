@@ -14,6 +14,7 @@ import { EmptyState, ErrorCard } from '../components/states';
 import { CareerReadiness } from '../components/CareerReadiness';
 import { CAREERS_ROUTES } from '../constants';
 import { useCareers } from '../context/CareersContext';
+import { CompanyIntelPanel } from '../components/CompanyIntelPanel';
 import { computeApplicationStats, listApplications } from '../services/applications';
 import type { ResumeVersionRow, ResumeWithVersions } from '../types';
 import { formatDate, timeAgo } from '../utils/format';
@@ -305,6 +306,8 @@ export default function CareersDashboard() {
           </Link>
         </>
       )}
+
+      <CompanyIntelPanel userId={user?.id ?? null} industry={profile?.preferred_industry || undefined} />
 
       <ToolFoot>
         <b>FinatriX Careers</b> · your resumes never leave your private account storage

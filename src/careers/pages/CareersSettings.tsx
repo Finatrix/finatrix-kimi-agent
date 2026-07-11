@@ -188,6 +188,34 @@ export default function CareersSettings() {
           </div>
 
           <div className="card">
+            <div className="panel-eyebrow">Company Intelligence preferences</div>
+            <p className="note" style={{ margin: '8px 0 10px' }}>
+              Comma-separated. These gently boost matching jobs higher in your search results —
+              they never hide anything. Saved companies are always boosted automatically.
+            </p>
+            {([
+              { key: 'preferredIndustries', label: 'Preferred industries', ph: 'Banking, FinTech & Payments' },
+              { key: 'preferredLocations', label: 'Preferred locations', ph: 'Mumbai, Bengaluru' },
+              { key: 'preferredDepartments', label: 'Preferred departments', ph: 'risk, compliance, engineering' },
+              { key: 'preferredAts', label: 'Preferred ATS platforms', ph: 'Workday, SuccessFactors' },
+            ] as const).map(({ key, label, ph }) => (
+              <div key={key} style={{ marginBottom: 10 }}>
+                <label className="fl" htmlFor={`pref-${key}`}>{label}</label>
+                <input
+                  id={`pref-${key}`}
+                  className="fi"
+                  type="text"
+                  placeholder={ph}
+                  defaultValue={(settings[key] ?? []).join(', ')}
+                  onBlur={(e) => void setSetting({
+                    [key]: e.target.value.split(',').map((s) => s.trim()).filter(Boolean),
+                  })}
+                />
+              </div>
+            ))}
+          </div>
+
+          <div className="card">
             <div className="panel-eyebrow">Smart alerts</div>
             <p className="note" style={{ margin: '8px 0 4px' }}>
               Delivered in-app (bell icon). Browser push is available below; transactional
