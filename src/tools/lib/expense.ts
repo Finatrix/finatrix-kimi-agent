@@ -36,17 +36,101 @@ export const ET_CATS: Record<string, ExpenseCat> = {
   other: { ic: 'other', l: 'Other', c: '#9A9A94' },
 };
 
+/**
+ * A single logged expense.
+ *
+ * `id` is a **stable, persistent identifier** — never a positional index. Every
+ * mutation (edit, delete, duplicate) and every future feature (attachments,
+ * recurring instances, AI insights, audit history, cross-device sync) references
+ * this id so a transaction keeps its identity regardless of ordering or which
+ * device wrote it. Legacy records that stored a numeric id are migrated to their
+ * string form on load (see `normalizeExpense`), preserving that identity.
+ *
+ * Only `amount`, `category` and `date` feed the calculation engine; the
+ * remaining fields are descriptive metadata and never alter any total.
+ */
 export interface ExpenseItem {
-  id: number;
+  id: string;
   amount: number;
   category: string;
   date: string;
+  /** Short description / label for the spend (legacy field, still primary). */
   note?: string;
+  /** Who it was paid to, e.g. "Blue Bottle Coffee". */
+  merchant?: string;
+  /** How it was paid, one of PAYMENT_METHODS (free-form tolerated). */
+  paymentMethod?: string;
+  /** Free-form user tags for filtering/search. */
+  tags?: string[];
+  /** Marks a recurring commitment (rent, subscriptions, EMIs…). */
+  recurring?: boolean;
+  /** Longer free-form notes, distinct from the short `note` label. */
+  notes?: string;
+  /* ── Audit history (ISO timestamps) — descriptive only, never affects totals ── */
+  /** When the transaction was first created. */
+  createdAt?: string;
+  /** When the transaction was last modified (== createdAt until first edit). */
+  updatedAt?: string;
+  /** Number of times the transaction has been edited. */
+  editCount?: number;
+}
+
+/** Selectable payment methods surfaced in the editor. */
+export const PAYMENT_METHODS = [
+  'Cash', 'Credit card', 'Debit card', 'UPI', 'Bank transfer', 'Wallet', 'Cheque', 'Other',
+] as const;
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+
+/**
+ * Generate a collision-resistant, persistent transaction id. Prefers the
+ * platform UUID; falls back to a time+random token when `crypto.randomUUID`
+ * is unavailable (older embedded webviews). Unlike `Date.now()` this never
+ * collides when two transactions are created in the same millisecond
+ * (e.g. rapid "Duplicate").
+ */
+export function genExpenseId(): string {
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return 'tx_' + crypto.randomUUID();
+    }
+  } catch {
+    /* fall through */
+  }
+  return 'tx_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
+}
+
+/**
+ * Coerce a raw stored record into a well-formed ExpenseItem. Guarantees a
+ * stable string `id` (migrating legacy numeric ids, minting one only when truly
+ * absent) and normalises optional fields so the rest of the app can rely on the
+ * shape. Never touches numeric amount/category/date semantics.
+ */
+export function normalizeExpense(raw: Partial<ExpenseItem> & { id?: string | number }): ExpenseItem {
+  const id =
+    raw.id === undefined || raw.id === null || raw.id === ''
+      ? genExpenseId()
+      : String(raw.id);
+  const tags = Array.isArray(raw.tags) ? raw.tags.filter((t): t is string => typeof t === 'string' && t.trim() !== '') : undefined;
+  return {
+    id,
+    amount: Number(raw.amount) || 0,
+    category: String(raw.category ?? ''),
+    date: String(raw.date ?? ''),
+    ...(raw.note ? { note: String(raw.note) } : {}),
+    ...(raw.merchant ? { merchant: String(raw.merchant) } : {}),
+    ...(raw.paymentMethod ? { paymentMethod: String(raw.paymentMethod) } : {}),
+    ...(tags && tags.length ? { tags } : {}),
+    ...(raw.recurring ? { recurring: true } : {}),
+    ...(raw.notes ? { notes: String(raw.notes) } : {}),
+    ...(raw.createdAt ? { createdAt: String(raw.createdAt) } : {}),
+    ...(raw.updatedAt ? { updatedAt: String(raw.updatedAt) } : {}),
+    ...(typeof raw.editCount === 'number' && raw.editCount > 0 ? { editCount: raw.editCount } : {}),
+  };
 }
 
 export function loadExpenses(): ExpenseItem[] {
-  const arr = getJSON<ExpenseItem[]>('fx_expenses', []);
-  return Array.isArray(arr) ? arr : [];
+  const arr = getJSON<Array<Partial<ExpenseItem> & { id?: string | number }>>('fx_expenses', []);
+  return Array.isArray(arr) ? arr.map(normalizeExpense) : [];
 }
 export function saveExpenses(items: ExpenseItem[]): void {
   setJSON('fx_expenses', items);

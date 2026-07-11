@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Breadcrumb } from './Breadcrumb';
+import ThemeToggle from './ThemeToggle';
 
 export default function AuthShell({
   title,
@@ -14,26 +15,27 @@ export default function AuthShell({
   footer?: ReactNode;
 }) {
   return (
-    <div className="relative min-h-[100dvh] w-full overflow-hidden bg-[#060607] text-[#F5F5F0] flex flex-col items-center justify-center px-6 py-16">
+    <div className="relative min-h-[100dvh] w-full overflow-hidden bg-surface-base text-ink flex flex-col items-center justify-center px-6 py-16">
       {/* Ambient backdrop (cohesive with the landing) */}
       <div className="pointer-events-none absolute inset-0 z-0">
-        <div className="absolute left-1/2 top-[-10%] h-[60vh] w-[60vh] -translate-x-1/2 rounded-full blur-[120px] opacity-[0.18]" style={{ background: 'radial-gradient(circle, #E6C766 0%, #9c7a26 40%, transparent 70%)' }} />
-        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.6) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.6) 1px,transparent 1px)', backgroundSize: '52px 52px', maskImage: 'radial-gradient(circle at 50% 30%, black 0%, transparent 70%)', WebkitMaskImage: 'radial-gradient(circle at 50% 30%, black 0%, transparent 70%)' }} />
+        <div className="absolute left-1/2 top-[-10%] h-[60vh] w-[60vh] -translate-x-1/2 rounded-full blur-[120px]" style={{ background: 'var(--hero-aurora)', opacity: 'var(--hero-aurora-opacity)' }} />
+        <div className="absolute inset-0" style={{ backgroundImage: 'var(--hero-grid)', opacity: 'var(--hero-grid-opacity)', backgroundSize: '52px 52px', maskImage: 'radial-gradient(circle at 50% 30%, black 0%, transparent 70%)', WebkitMaskImage: 'radial-gradient(circle at 50% 30%, black 0%, transparent 70%)' }} />
       </div>
 
       {/* Persistent unified nav */}
       <nav className="absolute top-4 right-4 z-20 flex items-center gap-4" aria-label="Primary">
-        <Link to="/" className="font-mono text-[11px] uppercase tracking-[0.08em] text-[#8A8A8A] hover:text-[#F5F5F0] transition-colors">Home</Link>
-        <Link to="/tools" className="font-mono text-[11px] uppercase tracking-[0.08em] text-[#8A8A8A] hover:text-[#F5F5F0] transition-colors">Tools</Link>
+        <Link to="/" className="font-mono text-[11px] uppercase tracking-[0.08em] text-ink-3 hover:text-ink transition-colors">Home</Link>
+        <Link to="/tools" className="font-mono text-[11px] uppercase tracking-[0.08em] text-ink-3 hover:text-ink transition-colors">Tools</Link>
+        <ThemeToggle />
       </nav>
 
       <Link to="/" className="relative z-10 flex items-center gap-2.5 mb-9 group" aria-label="FinatriX home">
         <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
           <rect x="7" y="7" width="10" height="10" rx="2.5" fill="#D4AF37" />
-          <circle cx="12" cy="12" r="2.1" fill="#060607" />
+          <circle cx="12" cy="12" r="2.1" fill="var(--surface-base)" />
           <path d="M12 7V2M12 22v-5M7 12H2M22 12h-5" stroke="#D4AF37" strokeWidth="1.6" strokeLinecap="round" />
         </svg>
-        <span className="font-semibold text-[15px] tracking-[-0.01em] text-[#F5F5F0]">
+        <span className="font-semibold text-[15px] tracking-[-0.01em] text-ink">
           Finatri<span className="fx-gold-text">X</span>
         </span>
       </Link>
@@ -41,14 +43,14 @@ export default function AuthShell({
       <Breadcrumb current={title} className="relative z-10 mb-5 justify-center" />
 
       <div className="fx-glass relative z-10 w-full max-w-[430px] rounded-[22px] p-8 md:p-10">
-        <h1 className="text-[27px] font-semibold tracking-[-0.025em] text-white">{title}</h1>
+        <h1 className="text-[27px] font-semibold tracking-[-0.025em] text-ink">{title}</h1>
         {subtitle && (
-          <p className="mt-2.5 text-[14px] text-[#9c9c96] leading-relaxed">{subtitle}</p>
+          <p className="mt-2.5 text-[14px] text-ink-2 leading-relaxed">{subtitle}</p>
         )}
         <div className="mt-8">{children}</div>
       </div>
 
-      {footer && <div className="relative z-10 mt-6 text-[13px] text-[#8A8A8A]">{footer}</div>}
+      {footer && <div className="relative z-10 mt-6 text-[13px] text-ink-3">{footer}</div>}
     </div>
   );
 }
@@ -62,14 +64,14 @@ export function Field({
   const [show, setShow] = useState(false);
   return (
     <label className="block mb-5">
-      <span className="block font-mono text-[10px] uppercase tracking-[0.08em] text-[#8A8A8A] mb-2">
+      <span className="block font-mono text-[10px] uppercase tracking-[0.08em] text-ink-3 mb-2">
         {label}
       </span>
       <div className="relative">
         <input
           {...props}
           type={isPassword ? (show ? 'text' : 'password') : type}
-          className={`w-full bg-white/[0.03] border border-white/[0.12] focus:border-[#D4AF37] focus:bg-white/[0.05] focus:ring-2 focus:ring-[#D4AF37]/20 rounded-xl outline-none text-[15px] text-[#F5F5F0] px-4 py-3 transition-all placeholder:text-[#5A5A5A] ${
+          className={`w-full bg-[var(--tile-bg)] border border-hairline focus:border-[#D4AF37] focus:bg-hairline-2 focus:ring-2 focus:ring-[#D4AF37]/20 rounded-xl outline-none text-[15px] text-ink px-4 py-3 transition-all placeholder:text-ink-3 ${
             isPassword ? 'pr-11' : ''
           }`}
         />
@@ -79,7 +81,7 @@ export function Field({
             tabIndex={-1}
             onClick={() => setShow((s) => !s)}
             aria-label={show ? 'Hide password' : 'Show password'}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8A8A8A] hover:text-[#D4AF37] transition-colors"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-3 hover:text-accent-text transition-colors"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z" />
@@ -110,11 +112,11 @@ export function PrimaryButton({
 export function OrDivider({ label = 'or' }: { label?: string }) {
   return (
     <div className="my-6 flex items-center gap-4">
-      <span className="h-px flex-1 bg-white/[0.08]" />
-      <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#5A5A5A]">
+      <span className="h-px flex-1 bg-hairline" />
+      <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-3">
         {label}
       </span>
-      <span className="h-px flex-1 bg-white/[0.08]" />
+      <span className="h-px flex-1 bg-hairline" />
     </div>
   );
 }
@@ -127,7 +129,7 @@ export function SocialButton({
     <button
       type="button"
       {...props}
-      className="w-full flex items-center justify-center gap-3 bg-white/[0.03] border border-white/[0.12] hover:border-[#D4AF37]/50 hover:bg-white/[0.05] text-[#F5F5F0] text-[14px] py-3 mb-3 rounded-xl transition-colors active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+      className="w-full flex items-center justify-center gap-3 bg-[var(--tile-bg)] border border-hairline hover:border-[#D4AF37]/50 hover:bg-hairline-2 text-ink text-[14px] py-3 mb-3 rounded-xl transition-colors active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
     >
       <GoogleIcon />
       <span>{children}</span>
@@ -165,14 +167,19 @@ export function Notice({
   kind?: 'info' | 'error' | 'success';
   children: ReactNode;
 }) {
-  const color =
+  // Convey kind via a tinted border + wash; keep the message in primary ink so
+  // it always clears contrast in both themes (coloured text on tint can fail AA).
+  const tint =
     kind === 'error'
-      ? 'border-[#E74C3C]/40 text-[#E74C3C]'
+      ? 'border-[#E5484D]/50 bg-[#E5484D]/10'
       : kind === 'success'
-        ? 'border-[#1d7d46]/50 text-[#5fd394]'
-        : 'border-[#D4AF37]/40 text-[#D4AF37]';
+        ? 'border-[#1FAE5A]/50 bg-[#1FAE5A]/10'
+        : 'border-[#D4AF37]/45 bg-[#D4AF37]/10';
   return (
-    <div className={`mb-5 border ${color} bg-black/30 rounded-xl px-4 py-3 text-[13px] leading-relaxed`}>
+    <div
+      role={kind === 'error' ? 'alert' : 'status'}
+      className={`mb-5 border ${tint} rounded-xl px-4 py-3 text-[13px] leading-relaxed text-ink`}
+    >
       {children}
     </div>
   );

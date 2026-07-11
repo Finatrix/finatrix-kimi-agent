@@ -38,7 +38,7 @@ function ToolCard({ card, i }: { card: HeroCard; i: number }) {
       to={tool.href}
       aria-label={`${name} — ${sub}`}
       style={{ animationDelay: `${0.28 + i * 0.06}s` }}
-      className="fx-in fx-card-hover group relative flex flex-col items-center gap-2.5 rounded-2xl border border-white/[0.07] bg-white/[0.02] px-3 py-4 sm:py-5 text-center backdrop-blur-sm transition-all duration-300 hover:border-white/[0.14] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+      className="fx-in fx-card-hover group relative flex flex-col items-center gap-2.5 rounded-2xl border border-[color:var(--tile-border)] bg-[var(--tile-bg)] px-3 py-4 sm:py-5 text-center backdrop-blur-sm transition-all duration-300 hover:border-[color:var(--tile-border-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/70"
     >
       {/* per-tool colour wash + glow on hover */}
       <span
@@ -58,10 +58,10 @@ function ToolCard({ card, i }: { card: HeroCard; i: number }) {
         <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-[22%] bg-gradient-to-b from-white/25 to-transparent" />
         <ToolIcon name={tool.icon} className="relative h-[46%] w-[46%] drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]" />
       </span>
-      <span className="relative text-[15px] font-semibold tracking-[-0.01em] text-white [text-shadow:0_0_18px_rgba(255,255,255,0.18)]">
+      <span className="relative text-[15px] font-semibold tracking-[-0.01em] text-ink">
         {name}
       </span>
-      <span className="relative text-[11.5px] leading-snug text-[#8f8f89]">{sub}</span>
+      <span className="relative text-[11.5px] leading-snug text-ink-3">{sub}</span>
     </Link>
   );
 }
@@ -101,14 +101,14 @@ function CareersSpotlightCard() {
           <path d="M3 12h18" />
         </svg>
       </span>
-      <span className="relative inline-flex items-center gap-1 rounded-full border border-[#D4AF37]/50 bg-[#D4AF37]/10 px-2 py-[2px] font-mono text-[8.5px] uppercase tracking-[0.14em] text-[#F0D779]">
-        <span className="h-1 w-1 rounded-full bg-[#F0D779]" aria-hidden="true" />
+      <span className="relative inline-flex items-center gap-1 rounded-full border border-[#D4AF37]/50 bg-[#D4AF37]/10 px-2 py-[2px] font-mono text-[8.5px] uppercase tracking-[0.14em] text-accent-text">
+        <span className="h-1 w-1 rounded-full bg-[#D4AF37]" aria-hidden="true" />
         AI Powered
       </span>
-      <span className="relative text-[15px] font-semibold tracking-[-0.01em] text-[#F0D779] [text-shadow:0_0_20px_rgba(212,175,55,0.4)]">
+      <span className="relative text-[15px] font-semibold tracking-[-0.01em] text-accent-text [text-shadow:0_0_20px_rgba(212,175,55,0.25)]">
         FinatriX Careers
       </span>
-      <span className="relative text-[11px] leading-snug text-[#b9a874]">
+      <span className="relative text-[11px] leading-snug text-ink-2">
         Resume intelligence, job search, ATS optimization &amp; career coach
       </span>
     </Link>
@@ -117,22 +117,22 @@ function CareersSpotlightCard() {
 
 export default function LandingHero() {
   return (
-    <section className="relative min-h-[100dvh] w-full overflow-hidden bg-[#060607] flex flex-col items-center justify-center px-5 pt-28 pb-20">
-      {/* ── Layered ambient lighting ── */}
+    <section className="relative min-h-[100dvh] w-full overflow-hidden bg-surface-base flex flex-col items-center justify-center px-5 pt-28 pb-20">
+      {/* ── Layered ambient lighting (theme-aware via tokens) ── */}
       <div className="pointer-events-none absolute inset-0 z-0">
-        <div className="fx-aurora absolute left-1/2 top-[34%] h-[78vh] w-[78vh] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[120px] opacity-[0.20]" style={{ background: 'radial-gradient(circle at 50% 50%, #E6C766 0%, #9c7a26 38%, transparent 70%)' }} />
-        <div className="absolute inset-0" style={{ background: 'radial-gradient(1100px 560px at 50% 30%, rgba(212,175,55,0.07), transparent 70%), radial-gradient(900px 700px at 50% 118%, rgba(80,120,255,0.05), transparent 62%)' }} />
-        <div className="absolute inset-0 opacity-[0.05]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.6) 1px, transparent 1px)', backgroundSize: '52px 52px', maskImage: 'radial-gradient(circle at 50% 42%, black 0%, transparent 72%)', WebkitMaskImage: 'radial-gradient(circle at 50% 42%, black 0%, transparent 72%)' }} />
-        <div className="absolute inset-0" style={{ background: 'radial-gradient(120% 90% at 50% 30%, transparent 55%, rgba(0,0,0,0.55) 100%)' }} />
+        <div className="fx-aurora absolute left-1/2 top-[34%] h-[78vh] w-[78vh] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[120px]" style={{ background: 'var(--hero-aurora)', opacity: 'var(--hero-aurora-opacity)' }} />
+        <div className="absolute inset-0" style={{ background: 'var(--hero-wash)' }} />
+        <div className="absolute inset-0" style={{ backgroundImage: 'var(--hero-grid)', backgroundSize: '52px 52px', opacity: 'var(--hero-grid-opacity)', maskImage: 'radial-gradient(circle at 50% 42%, black 0%, transparent 72%)', WebkitMaskImage: 'radial-gradient(circle at 50% 42%, black 0%, transparent 72%)' }} />
+        <div className="absolute inset-0" style={{ background: 'var(--hero-vignette)' }} />
       </div>
 
       {/* ── Eyebrow ── */}
-      <div className="fx-in relative z-10 mb-8 inline-flex items-center gap-2 rounded-full border border-white/[0.09] bg-white/[0.03] px-3.5 py-1.5 backdrop-blur-sm" style={{ animationDelay: '0s' }}>
+      <div className="fx-in relative z-10 mb-8 inline-flex items-center gap-2 rounded-full border border-hairline bg-[var(--tile-bg)] px-3.5 py-1.5 backdrop-blur-sm" style={{ animationDelay: '0s' }}>
         <span className="relative flex h-1.5 w-1.5">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#D4AF37] opacity-60" />
           <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#D4AF37]" />
         </span>
-        <span className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-[#C9C9C2]">Money, quantified · built for India</span>
+        <span className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-ink-2">Money, quantified · built for India</span>
       </div>
 
       {/* ── Tool grid + centre logo hub (constellation) ── */}
@@ -152,7 +152,7 @@ export default function LandingHero() {
           </svg>
           <div className="relative">
             <span className="fx-hub-ring absolute inset-0 rounded-full bg-[#D4AF37]/25" aria-hidden="true" />
-            <Link to="/tools" aria-label="Open all tools" className="fx-in fx-card-hover relative grid h-[74px] w-[74px] place-items-center rounded-full border border-[#D4AF37]/40 bg-[#0A0A0A]" style={{ animationDelay: '0.05s', boxShadow: '0 14px 44px -10px rgba(212,175,55,0.6)' }}>
+            <Link to="/tools" aria-label="Open all tools" className="fx-in fx-card-hover relative grid h-[74px] w-[74px] place-items-center rounded-full border border-[#D4AF37]/40 bg-surface-1" style={{ animationDelay: '0.05s', boxShadow: '0 14px 44px -10px rgba(212,175,55,0.6)' }}>
               <BrandLogo size={52} style={{ borderRadius: '50%' }} />
             </Link>
           </div>
@@ -169,13 +169,13 @@ export default function LandingHero() {
       {/* ── Wordmark + CTAs ── */}
       <div className="relative z-10 mt-9 sm:mt-10 text-center max-w-[720px]">
         <h1
-          className="fx-in font-extrabold italic tracking-[-0.035em] leading-[0.95] text-white"
+          className="fx-in font-extrabold italic tracking-[-0.035em] leading-[0.95] text-ink"
           style={{ fontSize: 'clamp(44px,9vw,102px)', animationDelay: '0.78s', paddingRight: '0.16em', paddingBottom: '0.06em', overflow: 'visible' }}
         >
           Finatri<span className="fx-gold-text">X</span>
         </h1>
 
-        <p className="fx-in mt-4 text-[13.5px] sm:text-[15px] text-[#9c9c96]" style={{ animationDelay: '0.86s' }}>
+        <p className="fx-in mt-4 text-[13.5px] sm:text-[15px] text-ink-2" style={{ animationDelay: '0.86s' }}>
           A complete money toolkit — refined into one premium experience.
         </p>
 
@@ -189,19 +189,19 @@ export default function LandingHero() {
           </a>
         </div>
 
-        {/* trust strip — unchanged */}
+        {/* trust strip */}
         <div className="fx-in mt-11 flex flex-wrap items-center justify-center gap-2 sm:gap-2.5" style={{ animationDelay: '1.04s' }}>
           {TRUST.map((label, i) => (
-            <span key={i} className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.09] bg-white/[0.03] px-3 py-1.5 backdrop-blur-sm">
+            <span key={i} className="inline-flex items-center gap-1.5 rounded-full border border-hairline bg-[var(--tile-bg)] px-3 py-1.5 backdrop-blur-sm">
               <span className="h-1 w-1 rounded-full bg-[#D4AF37]" aria-hidden="true" />
-              <span className="font-mono text-[10px] sm:text-[10.5px] uppercase tracking-[0.1em] text-[#C9C9C2]">{label}</span>
+              <span className="font-mono text-[10px] sm:text-[10.5px] uppercase tracking-[0.1em] text-ink-2">{label}</span>
             </span>
           ))}
         </div>
       </div>
 
       {/* scroll cue */}
-      <a href="#showcase" aria-label="Scroll to features" className="fx-scroll-cue absolute bottom-7 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2 text-[#6b6b70] hover:text-[#D4AF37] transition-colors">
+      <a href="#showcase" aria-label="Scroll to features" className="fx-scroll-cue absolute bottom-7 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2 text-ink-3 hover:text-[#D4AF37] transition-colors">
         <span className="font-mono text-[9px] uppercase tracking-[0.14em]">Scroll</span>
         <span className="h-7 w-[1px] bg-gradient-to-b from-[#D4AF37] to-transparent" />
       </a>

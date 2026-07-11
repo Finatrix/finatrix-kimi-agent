@@ -52,7 +52,7 @@ export function NotificationsBell() {
       <button
         onClick={() => void toggle()}
         aria-label={unread.length ? `Notifications — ${unread.length} unread` : 'Notifications'}
-        className="p-2 text-[#8A8A8A] hover:text-[#D4AF37] transition-colors relative"
+        className="p-2 text-ink-3 hover:text-accent-text transition-colors relative"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />

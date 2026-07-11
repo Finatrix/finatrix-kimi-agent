@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { reportError } from '../lib/errorReporting';
 
 interface Props {
   children: ReactNode;
@@ -19,8 +20,10 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    // Log for debugging; replace with a real logging service if desired.
+    // Log for debugging (dev console only).
     console.error('Unhandled UI error:', error, info);
+    // Privacy-first telemetry: error TYPE + route only, never message/stack.
+    reportError(error.name, 'boundary');
   }
 
   private handleReload = () => {
@@ -31,15 +34,15 @@ export default class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div role="alert" aria-live="assertive" className="relative min-h-screen overflow-hidden bg-[#060607] text-[#F5F5F0] flex flex-col items-center justify-center px-6 text-center">
+        <div role="alert" aria-live="assertive" className="relative min-h-screen overflow-hidden bg-surface-base text-ink flex flex-col items-center justify-center px-6 text-center">
           <div className="pointer-events-none absolute left-1/2 top-1/2 h-[55vh] w-[55vh] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[120px] opacity-[0.16]" style={{ background: 'radial-gradient(circle, #E6C766 0%, #9c7a26 40%, transparent 70%)' }} />
-          <span className="relative font-mono text-[11px] uppercase tracking-[0.18em] text-[#D4AF37] mb-4">
+          <span className="relative font-mono text-[11px] uppercase tracking-[0.18em] text-accent-text mb-4">
             Something broke
           </span>
           <h1 className="relative text-[32px] sm:text-[44px] font-medium tracking-[-0.02em] leading-tight">
             A small glitch on our end
           </h1>
-          <p className="relative mt-4 max-w-[440px] text-[15px] text-[#8A8A8A] leading-relaxed">
+          <p className="relative mt-4 max-w-[440px] text-[15px] text-ink-2 leading-relaxed">
             The page hit an unexpected error. Your saved data is safe. Try reloading.
           </p>
           <button

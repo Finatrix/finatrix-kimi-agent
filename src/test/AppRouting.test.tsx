@@ -30,9 +30,9 @@ describe('tools routing (through the real App)', () => {
     expect(await screen.findByText('Simulate your entire financial life.')).toBeInTheDocument();
   });
 
-  it('redirects /tools to a concrete tool route', async () => {
+  it('redirects /tools to the dashboard hub by default', async () => {
     renderApp('/tools');
-    // Index redirects to the last-used tool (budget by default).
-    expect(await screen.findByText('The 50/30/20 rule, made effortless.')).toBeInTheDocument();
+    // New visitors (no last-used tool) land on the unified dashboard hub.
+    expect(await screen.findByText('Your financial journey')).toBeInTheDocument();
   });
 });

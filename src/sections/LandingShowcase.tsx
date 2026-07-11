@@ -5,15 +5,15 @@ import Reveal from '../components/Reveal';
 
 export default function LandingShowcase() {
   return (
-    <section id="showcase" className="relative w-full bg-[#060607] px-5 sm:px-8 py-24 sm:py-32">
+    <section id="showcase" className="relative w-full bg-surface-base px-5 sm:px-8 py-24 sm:py-32">
       <div className="mx-auto max-w-[1120px]">
         <Reveal className="max-w-[640px]">
-          <span className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-[#D4AF37]">The toolkit</span>
-          <h2 className="mt-4 text-[clamp(30px,5vw,52px)] font-semibold leading-[1.04] tracking-[-0.025em] text-white">
+          <span className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-accent-text">The toolkit</span>
+          <h2 className="mt-4 text-[clamp(30px,5vw,52px)] font-semibold leading-[1.04] tracking-[-0.025em] text-ink">
             Seven tools.<br />
-            <span className="text-[#8A8A84]">One clear picture of your money.</span>
+            <span className="text-ink-2">One clear picture of your money.</span>
           </h2>
-          <p className="mt-5 text-[15px] sm:text-[16px] leading-relaxed text-[#9c9c96]">
+          <p className="mt-5 text-[15px] sm:text-[16px] leading-relaxed text-ink-2">
             Each one is purpose-built for India — and they all share the same data, currency
             and design, so moving between them feels like one continuous experience.
           </p>
@@ -41,9 +41,9 @@ export default function LandingShowcase() {
                 >
                   <ToolIcon name={t.icon} className="h-[22px] w-[22px]" />
                 </span>
-                <h3 className="mt-5 text-[18px] font-semibold tracking-[-0.01em] text-[#F4F4EF]">{t.name}</h3>
-                <p className="mt-2 text-[14px] leading-relaxed text-[#9c9c96] flex-grow">{t.blurb}</p>
-                <span className="mt-5 inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.08em] text-[#8A8A84] transition-colors group-hover:text-[#D4AF37]">
+                <h3 className="mt-5 text-[18px] font-semibold tracking-[-0.01em] text-ink">{t.name}</h3>
+                <p className="mt-2 text-[14px] leading-relaxed text-ink-2 flex-grow">{t.blurb}</p>
+                <span className="mt-5 inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.08em] text-ink-3 transition-colors group-hover:text-accent-text">
                   Open
                   <span className="transition-transform duration-300 group-hover:translate-x-0.5">→</span>
                 </span>

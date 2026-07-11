@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { TOOLS } from '../lib/tools';
 import { HomeButton } from '../components/HomeButton';
 import { BrandLogo } from '../components/BrandLogo';
+import ThemeToggle from '../components/ThemeToggle';
 
 // [ Home ] [ FinatriX Logo ] [ FinatriX Wordmark ]
 function BrandCluster() {
@@ -11,7 +12,7 @@ function BrandCluster() {
       <HomeButton />
       <Link to="/" className="flex items-center gap-2 group" aria-label="FinatriX home">
         <BrandLogo size={26} className="shrink-0" />
-        <span className="font-semibold tracking-[-0.01em] text-[15px] text-[#F5F5F0]">
+        <span className="font-semibold tracking-[-0.01em] text-[15px] text-ink">
           Finatri<span className="text-[#D4AF37]">X</span>
         </span>
       </Link>
@@ -23,7 +24,7 @@ export default function LandingNav() {
   const { user } = useAuth();
 
   return (
-    <header className="fixed top-0 left-0 w-full z-50 bg-[#060607]/70 backdrop-blur-[16px] border-b border-white/[0.06]">
+    <header className="fixed top-0 left-0 w-full z-50 border-b border-[color:var(--nav-border)] bg-[var(--nav-bg)] backdrop-blur-[16px]">
       <div className="mx-auto max-w-[1280px] px-4 sm:px-6">
         {/* Top row */}
         <div className="flex items-center justify-between h-14">
@@ -35,7 +36,7 @@ export default function LandingNav() {
               <Link
                 key={t.id}
                 to={t.href}
-                className="group flex items-center gap-2 px-3 py-1.5 rounded-full text-[13px] text-[#B8B8B2] hover:text-white hover:bg-white/[0.06] transition-colors"
+                className="group flex items-center gap-2 px-3 py-1.5 rounded-full text-[13px] text-ink-2 hover:text-ink hover:bg-hairline-2 transition-colors"
               >
                 <span
                   className="h-1.5 w-1.5 rounded-full opacity-80 group-hover:opacity-100 transition-opacity"
@@ -46,7 +47,7 @@ export default function LandingNav() {
             ))}
             <Link
               to="/careers"
-              className="group flex items-center gap-2 px-3 py-1.5 rounded-full text-[13px] text-[#B8B8B2] hover:text-white hover:bg-white/[0.06] transition-colors"
+              className="group flex items-center gap-2 px-3 py-1.5 rounded-full text-[13px] text-ink-2 hover:text-ink hover:bg-hairline-2 transition-colors"
             >
               <span
                 className="h-1.5 w-1.5 rounded-full opacity-80 group-hover:opacity-100 transition-opacity"
@@ -57,17 +58,18 @@ export default function LandingNav() {
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <ThemeToggle />
             {user ? (
               <Link
                 to="/profile"
-                className="font-mono text-[11px] uppercase tracking-[0.08em] text-[#B8B8B2] hover:text-white transition-colors hidden sm:inline"
+                className="font-mono text-[11px] uppercase tracking-[0.08em] text-ink-2 hover:text-ink transition-colors hidden sm:inline"
               >
                 Account
               </Link>
             ) : (
               <Link
                 to="/login"
-                className="font-mono text-[11px] uppercase tracking-[0.08em] text-[#B8B8B2] hover:text-white transition-colors hidden sm:inline"
+                className="font-mono text-[11px] uppercase tracking-[0.08em] text-ink-2 hover:text-ink transition-colors hidden sm:inline"
               >
                 Sign in
               </Link>

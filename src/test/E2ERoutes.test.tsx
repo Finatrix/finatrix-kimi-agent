@@ -24,12 +24,15 @@ const CASES: [string, string | RegExp][] = [
   ['/privacy', 'Privacy Policy'],
   ['/terms', 'Terms & Conditions'],
   ['/tools/budget', 'The 50/30/20 rule, made effortless.'],
-  ['/tools/expenses', 'Your budget, tracked live.'],
+  ['/tools/expenses', 'Your money, tracked and understood.'],
   ['/tools/investmatch', 'A portfolio shaped to you.'],
   ['/tools/parksmart', "Idle money shouldn't idle."],
   ['/tools/peercompare', 'How do you really stack up?'],
   ['/tools/goals', 'Start at the dream. Work backwards.'],
   ['/tools/lifemap', 'Simulate your entire financial life.'],
+  ['/tools/reports', 'Your finances, ready to share.'],
+  ['/tools/calendar', 'Your money month, at a glance.'],
+  ['/tools/settings', 'Settings & personalisation.'],
   ['/this-route-does-not-exist', 'Off the chart'],
 ];
 

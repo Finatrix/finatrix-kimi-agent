@@ -30,7 +30,7 @@ export default function Profile() {
   if (loading) {
     return (
       <AuthShell title="Loading…">
-        <p className="text-[14px] text-[#8A8A8A]">One moment.</p>
+        <p className="text-[14px] text-ink-3">One moment.</p>
       </AuthShell>
     );
   }
@@ -41,13 +41,13 @@ export default function Profile() {
         title="Your profile"
         subtitle="Sign in to view your account and synced data."
         footer={
-          <Link to="/login" className="text-[#D4AF37] hover:underline">
+          <Link to="/login" className="text-accent-text hover:underline">
             Go to sign in
           </Link>
         }
       >
         <Notice kind="info">You're browsing as a guest. Tools work, but data stays on this device only.</Notice>
-        <Link to="/tools" className="text-[#D4AF37] hover:underline text-[14px]">
+        <Link to="/tools" className="text-accent-text hover:underline text-[14px]">
           ← Back to tools
         </Link>
       </AuthShell>
@@ -69,7 +69,7 @@ export default function Profile() {
       title="Your profile"
       subtitle="Manage your account. Your tool data is securely saved here and synced everywhere you sign in."
       footer={
-        <Link to="/tools" className="text-[#D4AF37] hover:underline">
+        <Link to="/tools" className="text-accent-text hover:underline">
           ← Back to tools
         </Link>
       }
@@ -78,11 +78,11 @@ export default function Profile() {
       {error && <Notice kind="error">{error}</Notice>}
 
       <div className="mb-6">
-        <span className="block font-mono text-[10px] uppercase tracking-[0.08em] text-[#8A8A8A] mb-2">
+        <span className="block font-mono text-[10px] uppercase tracking-[0.08em] text-ink-3 mb-2">
           Email
         </span>
-        <div className="text-[15px] text-[#F5F5F0]">{user.email}</div>
-        <div className="mt-1 text-[12px] text-[#5fd394]">
+        <div className="text-[15px] text-ink">{user.email}</div>
+        <div className="mt-1 text-[12px] text-ink-2">
           {user.email_confirmed_at ? 'Verified' : 'Not verified yet'}
         </div>
       </div>
@@ -102,7 +102,7 @@ export default function Profile() {
         onClick={() => {
           void signOut().then(() => navigate('/'));
         }}
-        className="mt-4 w-full rounded-full border border-white/[0.12] text-[#8A8A8A] hover:text-white hover:border-white/[0.3] font-mono text-[12px] uppercase tracking-[0.08em] py-3.5 transition-colors"
+        className="mt-4 w-full rounded-full border border-hairline text-ink-3 hover:text-ink hover:border-hairline font-mono text-[12px] uppercase tracking-[0.08em] py-3.5 transition-colors"
       >
         Sign out
       </button>

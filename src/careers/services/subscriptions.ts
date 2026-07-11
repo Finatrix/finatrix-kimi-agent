@@ -93,18 +93,16 @@ export async function cancelSubscription(userId: string, subscriptionId: string,
 }
 
 export async function applyCoupon(userId: string, subscriptionId: string, code: string): Promise<SubscriptionRow> {
-  const { data: coupon, error: cErr } = await supabase
-    .from('coupons')
-    .select('*')
-    .eq('code', code.trim().toUpperCase())
-    .eq('active', true)
-    .maybeSingle();
-  if (cErr || !coupon) throw mapSupabaseError(cErr ?? new Error('not found'), 'That coupon code is invalid or expired.');
-  if (coupon.valid_until && new Date(coupon.valid_until).getTime() < Date.now()) {
-    throw mapSupabaseError(new Error('expired'), 'That coupon has expired.');
-  }
-  if (coupon.max_redemptions != null && coupon.times_redeemed >= coupon.max_redemptions) {
-    throw mapSupabaseError(new Error('exhausted'), 'That coupon has reached its redemption limit.');
+  // Validate via the SECURITY DEFINER RPC. The coupons table is not client-
+  // readable (a broad select policy would let anyone enumerate all codes); the
+  // RPC checks active/expiry/redemption-limit server-side and returns only the
+  // single submitted code when it is redeemable, or nothing when it is not.
+  const { data: rows, error: cErr } = await supabase.rpc('validate_coupon', {
+    p_code: code.trim().toUpperCase(),
+  });
+  const coupon = Array.isArray(rows) ? rows[0] : rows;
+  if (cErr || !coupon) {
+    throw mapSupabaseError(cErr ?? new Error('not found'), 'That coupon code is invalid or expired.');
   }
   const { data, error } = await supabase
     .from('subscriptions')

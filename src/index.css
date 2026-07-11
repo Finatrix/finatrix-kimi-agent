@@ -18,10 +18,37 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Accessibility: always show a clear keyboard-focus ring across the app. */
+/* Accessibility: always show a clear keyboard-focus ring across the app,
+   driven by design tokens (styles/tokens.css). */
 *:focus-visible {
-  outline: 2px solid #d4af37;
-  outline-offset: 2px;
+  outline: var(--focus-ring-width, 2px) solid var(--focus-ring-color, #d4af37);
+  outline-offset: var(--focus-ring-offset, 2px);
+}
+
+/* Global reduced-motion safety net: any animation/transition anywhere is
+   near-instant for users who ask for less motion (belt-and-suspenders on top of
+   the per-effect rules below). WCAG 2.2 SC 2.3.3. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* High-contrast: for users who request more contrast, lift muted inks and
+   borders toward AAA. Because tools/careers inherit these canonical tokens,
+   one block strengthens the whole app. */
+@media (prefers-contrast: more) {
+  :root {
+    --ink-2: #E8E8E3;
+    --ink-3: #D6D6D0;
+    --hairline: rgba(255, 255, 255, 0.30);
+    --hairline-2: rgba(255, 255, 255, 0.20);
+  }
 }
 
 @layer base {
@@ -56,16 +83,48 @@
     --sidebar-ring: 43 65% 52%;
   }
 
+  html {
+    color-scheme: var(--color-scheme, dark);
+  }
+
   body {
-    @apply bg-[#060607] text-[#F5F5F0];
+    background: var(--surface-base);
+    color: var(--ink);
     font-family: 'Geist', system-ui, -apple-system, sans-serif;
     overflow-x: hidden;
   }
 
+  /* Default hairline colour for any bordered element without an explicit
+     colour class. Token-driven so it flips from white-alpha (dark) to
+     black-alpha (light). Component-level border classes still win on
+     specificity, exactly as before. */
   * {
-    @apply border-white/[0.08];
+    border-color: var(--hairline-2);
   }
 
+}
+
+/* Brief global crossfade while a theme switch is in flight. The class is added
+   to <html> by the theme toggle and removed after the transition, so there is
+   NO perma-transition cost on ordinary hover/scroll. */
+.theme-anim,
+.theme-anim *,
+.theme-anim *::before,
+.theme-anim *::after {
+  transition:
+    background-color 320ms var(--ease-out, ease),
+    border-color 320ms var(--ease-out, ease),
+    color 320ms var(--ease-out, ease),
+    fill 320ms var(--ease-out, ease),
+    box-shadow 320ms var(--ease-out, ease) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-anim,
+  .theme-anim *,
+  .theme-anim *::before,
+  .theme-anim *::after {
+    transition: none !important;
+  }
 }
 
 /* ─────────────── Landing page animations ─────────────── */
@@ -130,7 +189,7 @@
 }
 /* Gradient gold text (headlines, the X) */
 .fx-gold-text {
-  background: linear-gradient(180deg, #F8ECC0 0%, #E6C766 38%, #C9A23C 72%, #9C7A26 100%);
+  background: linear-gradient(180deg, var(--gold-grad-1) 0%, var(--gold-grad-2) 38%, var(--gold-grad-3) 72%, var(--gold-grad-4) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -138,12 +197,11 @@
 }
 /* Premium glass surface */
 .fx-glass {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015));
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.05) inset,
-    0 24px 60px -30px rgba(0, 0, 0, 0.9);
+    0 1px 0 var(--glass-inset) inset,
+    var(--glass-shadow);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
 }
@@ -153,37 +211,84 @@
 }
 .fx-card-hover:hover {
   transform: translateY(-5px);
-  border-color: rgba(212, 175, 55, 0.35);
+  border-color: var(--card-hover-border);
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.06) inset,
-    0 30px 70px -28px rgba(0, 0, 0, 0.95),
-    0 0 50px -20px rgba(212, 175, 55, 0.3);
+    0 1px 0 var(--glass-inset) inset,
+    var(--glass-shadow),
+    var(--card-hover-glow);
 }
 /* Gold gradient button with inner sheen */
+/* Primary CTA — always the strongest element on the surface. Solid gold fill
+   with dark text (≈10:1), a restrained shadow (never a detached glow), and a
+   cross-theme focus ring in --ink (a gold ring on gold is invisible). */
 .fx-btn-gold {
-  background: linear-gradient(180deg, #EAD27E 0%, #D4AF37 100%);
+  background: #D4AF37;
   color: #0A0A0A;
+  /* Thin premium border: a burnished-gold edge that keeps the CTA distinct
+     from the page background in both themes without a detached glow. */
+  border: 1px solid #B8962E;
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.45) inset,
-    0 12px 30px -12px rgba(212, 175, 55, 0.55);
-  transition: transform 0.25s var(--fx-ease), box-shadow 0.25s var(--fx-ease), filter 0.25s var(--fx-ease);
+    0 1px 0 rgba(255, 255, 255, 0.28) inset,
+    0 4px 14px -6px rgba(212, 175, 55, 0.45);
+  transition: transform 0.2s var(--fx-ease), box-shadow 0.2s var(--fx-ease), background-color 0.2s var(--fx-ease);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 .fx-btn-gold:hover {
   transform: translateY(-1px);
-  filter: brightness(1.05);
+  background: #E0BC4B;
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.6) inset,
-    0 16px 40px -12px rgba(212, 175, 55, 0.7);
+    0 1px 0 rgba(255, 255, 255, 0.38) inset,
+    0 8px 22px -8px rgba(212, 175, 55, 0.6);
+}
+.fx-btn-gold:active {
+  transform: translateY(0) scale(0.985);
+  background: #C9A431;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.28) inset,
+    0 3px 10px -6px rgba(212, 175, 55, 0.4);
+}
+.fx-btn-gold:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+.fx-btn-gold:disabled,
+.fx-btn-gold[aria-disabled='true'] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+/* Loading state — subtle breathing dim, never a shifting glow. Pair with
+   aria-busy="true" so the state is exposed to assistive technology. */
+.fx-btn-gold[aria-busy='true'] {
+  cursor: progress;
+  pointer-events: none;
+  animation: fxBtnGoldPulse 1.2s ease-in-out infinite;
+}
+@keyframes fxBtnGoldPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.72; }
+}
+/* Touch devices: give immediate press feedback since there is no hover. */
+@media (hover: none) {
+  .fx-btn-gold:active {
+    transform: scale(0.97);
+    background: #C9A431;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx-btn-gold[aria-busy='true'] { animation: none; }
 }
 .fx-btn-ghost {
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  color: #E8E8E3;
+  border: 1px solid var(--btn-ghost-border);
+  color: var(--btn-ghost-text);
   transition: border-color 0.3s var(--fx-ease), background 0.3s var(--fx-ease), color 0.3s var(--fx-ease);
 }
 .fx-btn-ghost:hover {
-  border-color: rgba(212, 175, 55, 0.5);
-  background: rgba(212, 175, 55, 0.06);
-  color: #fff;
+  border-color: var(--btn-ghost-border-hover);
+  background: var(--btn-ghost-bg-hover);
+  color: var(--btn-ghost-text-hover);
 }
 /* Connector pulse + slow float */
 @keyframes fxConnPulse { 0%, 100% { opacity: 0.22; } 50% { opacity: 0.5; } }

@@ -33,7 +33,7 @@ const REQUEST_TIMEOUT_MS = 90_000;
 // restricted to the production site (plus local dev), not '*'. Override with
 // CAREERS_ALLOWED_ORIGINS="https://a.com,https://b.com" if the origin changes.
 const ALLOWED_ORIGINS = (Deno.env.get('CAREERS_ALLOWED_ORIGINS') ??
-  'https://finatrix.online,https://www.finatrix.online,https://finatrix.finatrix-hub.workers.dev,http://localhost:5173,http://localhost:4173'
+  'https://finatrix.online,https://www.finatrix.online,https://finatrix.space,https://www.finatrix.space,https://finatrix.finatrix-hub.workers.dev,http://localhost:5173,http://localhost:4173'
 ).split(',').map((s) => s.trim()).filter(Boolean);
 
 function corsFor(req: Request): Record<string, string> {
@@ -207,8 +207,18 @@ Deno.serve(async (req) => {
   const errors: string[] = [];
   for (const model of chain) {
     try {
-      const { content, model: used, usage: tokenUsage } = await callModel(apiKey, model, system, userMsg, maxTokens);
-      return json(200, {
+      
+const { content, model: used, usage: tokenUsage } = await callModel(apiKey, model, system, userMsg, maxTokens);
+console.log("================================");
+console.log("MODEL:", used);
+console.log("RAW RESPONSE:");
+console.log(content);
+console.log("================================");     
+
+
+
+
+ return json(200, {
         content,
         model: used,
         task,

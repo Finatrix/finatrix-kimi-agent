@@ -60,7 +60,7 @@ export default function Signup() {
         title="Verify your email"
         subtitle="We've sent a confirmation link to your inbox."
         footer={
-          <Link to="/login" className="text-[#D4AF37] hover:underline">
+          <Link to="/login" className="text-accent-text hover:underline">
             Back to sign in
           </Link>
         }
@@ -69,7 +69,7 @@ export default function Signup() {
           Check <strong>{email}</strong> and click the verification link to activate your
           account. After verifying, sign in to start using your synced tools.
         </Notice>
-        <p className="text-[13px] text-[#8A8A8A] leading-relaxed">
+        <p className="text-[13px] text-ink-3 leading-relaxed">
           Didn't get it? Check spam, or use “Resend verification” on the sign-in page.
         </p>
       </AuthShell>
@@ -83,7 +83,7 @@ export default function Signup() {
       footer={
         <>
           Already have an account?{' '}
-          <Link to="/login" className="text-[#D4AF37] hover:underline">
+          <Link to="/login" className="text-accent-text hover:underline">
             Sign in
           </Link>
         </>
@@ -142,13 +142,13 @@ export default function Signup() {
             onChange={(e) => setAgreed(e.target.checked)}
             className="mt-0.5 h-4 w-4 shrink-0 accent-[#D4AF37] cursor-pointer"
           />
-          <span className="text-[13px] text-[#8A8A8A] leading-relaxed">
+          <span className="text-[13px] text-ink-3 leading-relaxed">
             I agree to the{' '}
             <Link
               to="/terms"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#D4AF37] hover:underline"
+              className="text-accent-text hover:underline"
             >
               Terms &amp; Conditions
             </Link>{' '}
@@ -157,7 +157,7 @@ export default function Signup() {
               to="/privacy"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#D4AF37] hover:underline"
+              className="text-accent-text hover:underline"
             >
               Privacy Policy
             </Link>

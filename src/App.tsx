@@ -2,6 +2,8 @@ import { lazy, Suspense, useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router'
 import ErrorBoundary from './components/ErrorBoundary'
 import LoginReminderModal from './components/LoginReminderModal'
+import RouteFallback from './components/RouteFallback'
+import { trackPageView } from './lib/analytics'
 
 // Route-level code-splitting: each page (and its heavy deps like the
 // Supabase-backed tools) loads only when its route is visited.
@@ -9,6 +11,7 @@ const Home = lazy(() => import('./pages/Home'))
 const ToolsLayout = lazy(() => import('./tools/ToolsLayout'))
 const ToolsIndex = lazy(() => import('./tools/ToolsIndex'))
 const ToolRoute = lazy(() => import('./tools/ToolRoute'))
+const Dashboard = lazy(() => import('./tools/pages/DashboardPage'))
 const CareersLayout = lazy(() => import('./careers/CareersLayout'))
 const CareersDashboard = lazy(() => import('./careers/pages/CareersDashboard'))
 const CareersUpload = lazy(() => import('./careers/pages/CareersUpload'))
@@ -30,18 +33,11 @@ const BillingPage = lazy(() => import('./careers/pages/BillingPage'))
 const AdminDashboard = lazy(() => import('./careers/pages/AdminDashboard'))
 const Login = lazy(() => import('./pages/Login'))
 const Signup = lazy(() => import('./pages/Signup'))
+const Onboarding = lazy(() => import('./pages/Onboarding'))
 const Profile = lazy(() => import('./pages/Profile'))
 const Privacy = lazy(() => import('./pages/Privacy'))
 const Terms = lazy(() => import('./pages/Terms'))
 const NotFound = lazy(() => import('./pages/NotFound'))
-
-function RouteFallback() {
-  return (
-    <div className="min-h-screen bg-[#060607]" role="status" aria-busy="true">
-      <span className="sr-only">Loading…</span>
-    </div>
-  )
-}
 
 const DEFAULT_TITLE = 'FinatriX — Smart Money Tools for India'
 
@@ -71,6 +67,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/careers/settings': 'Careers Settings',
   '/login': 'Sign In',
   '/signup': 'Create Account',
+  '/welcome': 'Welcome',
   '/profile': 'Your Profile',
   '/privacy': 'Privacy Policy',
   '/terms': 'Terms of Use',
@@ -79,6 +76,8 @@ const ROUTE_TITLES: Record<string, string> = {
 function DocumentTitle() {
   const { pathname } = useLocation()
   useEffect(() => {
+    // Privacy-first page view (route template only — never the raw URL).
+    trackPageView(pathname)
     if (/^\/tools\/[^/]+/.test(pathname)) return // ToolRoute manages its own title
     const path = pathname.replace(/\/+$/, '') || '/'
     const title = ROUTE_TITLES[path]
@@ -105,8 +104,11 @@ export default function App() {
           <Route path="/home" element={<Navigate to="/" replace />} />
           <Route path="/tools" element={<ToolsLayout />}>
             <Route index element={<ToolsIndex />} />
+            <Route path="dashboard" element={<Dashboard />} />
             <Route path=":toolId" element={<ToolRoute />} />
           </Route>
+          {/* Clean top-level alias for the hub. */}
+          <Route path="/dashboard" element={<Navigate to="/tools/dashboard" replace />} />
           <Route path="/careers" element={<CareersLayout />}>
             <Route index element={<CareersDashboard />} />
             <Route path="dashboard" element={<CareersDashboard />} />
@@ -130,6 +132,7 @@ export default function App() {
           </Route>
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/welcome" element={<Onboarding />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />

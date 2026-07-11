@@ -84,13 +84,13 @@ function expectedBreakdown(r: ReturnType<typeof computeExpense>, month: string):
 }
 
 const ITEMS: ExpenseItem[] = [
-  { id: 1, amount: 500, category: 'food', date: '2026-07-15', note: 'lunch' },
-  { id: 2, amount: 1200.5, category: 'grocery', date: '2026-07-15', note: '' },
-  { id: 3, amount: 3000, category: 'rent', date: '2026-07-02', note: 'July rent' },
-  { id: 4, amount: 250, category: 'transport', date: '2026-07-10', note: '' },
-  { id: 5, amount: 800, category: 'food', date: '2026-05-20', note: 'May dinner' },
-  { id: 6, amount: 4000, category: 'shopping', date: '2026-05-05', note: '' },
-  { id: 7, amount: 99.99, category: 'unknownCat', date: '2026-07-11', note: 'weird' },
+  { id: '1', amount: 500, category: 'food', date: '2026-07-15', note: 'lunch' },
+  { id: '2', amount: 1200.5, category: 'grocery', date: '2026-07-15', note: '' },
+  { id: '3', amount: 3000, category: 'rent', date: '2026-07-02', note: 'July rent' },
+  { id: '4', amount: 250, category: 'transport', date: '2026-07-10', note: '' },
+  { id: '5', amount: 800, category: 'food', date: '2026-05-20', note: 'May dinner' },
+  { id: '6', amount: 4000, category: 'shopping', date: '2026-05-05', note: '' },
+  { id: '7', amount: 99.99, category: 'unknownCat', date: '2026-07-11', note: 'weird' },
 ];
 
 const CASES: Array<{ name: string; month: string; items: ExpenseItem[]; budget: number }> = [

@@ -16,17 +16,17 @@ function Glyph({ name }: { name: 'lock' | 'flag' | 'spark' }) {
 
 export default function LandingClose() {
   return (
-    <section className="relative w-full bg-[#060607] px-5 sm:px-8 pb-28">
+    <section className="relative w-full bg-surface-base px-5 sm:px-8 pb-28">
       {/* Principles */}
       <div className="mx-auto max-w-[1120px] grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
         {PRINCIPLES.map((p, i) => (
           <Reveal key={p.title} delay={i * 80}>
             <div className="fx-glass rounded-[20px] p-7 h-full">
-              <span className="grid h-11 w-11 place-items-center rounded-[13px] border border-[#D4AF37]/25 bg-[#D4AF37]/[0.08] text-[#D4AF37]">
+              <span className="grid h-11 w-11 place-items-center rounded-[13px] border border-[#D4AF37]/25 bg-[#D4AF37]/[0.08] text-accent-text">
                 <Glyph name={p.icon} />
               </span>
-              <h3 className="mt-5 text-[17px] font-semibold tracking-[-0.01em] text-[#F4F4EF]">{p.title}</h3>
-              <p className="mt-2.5 text-[14px] leading-relaxed text-[#9c9c96]">{p.body}</p>
+              <h3 className="mt-5 text-[17px] font-semibold tracking-[-0.01em] text-ink">{p.title}</h3>
+              <p className="mt-2.5 text-[14px] leading-relaxed text-ink-2">{p.body}</p>
             </div>
           </Reveal>
         ))}
@@ -34,14 +34,14 @@ export default function LandingClose() {
 
       {/* Closing CTA */}
       <Reveal className="mx-auto max-w-[1120px] mt-6">
-        <div className="relative overflow-hidden rounded-[28px] border border-white/[0.08] px-6 sm:px-12 py-16 sm:py-20 text-center">
-          <div className="pointer-events-none absolute inset-0 -z-0" style={{ background: 'radial-gradient(120% 140% at 50% 0%, rgba(212,175,55,0.16), transparent 60%), linear-gradient(180deg, #0d0d0f, #0a0a0b)' }} />
+        <div className="relative overflow-hidden rounded-[28px] border border-hairline px-6 sm:px-12 py-16 sm:py-20 text-center">
+          <div className="pointer-events-none absolute inset-0 -z-0" style={{ background: 'radial-gradient(120% 140% at 50% 0%, rgba(212,175,55,0.16), transparent 60%), var(--surface-2)' }} />
           <div className="relative z-10">
-            <h2 className="mx-auto max-w-[680px] text-[clamp(28px,4.6vw,46px)] font-semibold leading-[1.06] tracking-[-0.025em] text-white">
+            <h2 className="mx-auto max-w-[680px] text-[clamp(28px,4.6vw,46px)] font-semibold leading-[1.06] tracking-[-0.025em] text-ink">
               Your clearest financial picture is{' '}
               <span className="fx-gold-text">one tap away.</span>
             </h2>
-            <p className="mx-auto mt-5 max-w-[480px] text-[15px] leading-relaxed text-[#a3a39d]">
+            <p className="mx-auto mt-5 max-w-[480px] text-[15px] leading-relaxed text-ink-2">
               Start as a guest in seconds. Create a free account to save and sync across every device.
             </p>
             <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
@@ -52,7 +52,7 @@ export default function LandingClose() {
                 Create free account
               </Link>
             </div>
-            <p className="mt-7 font-mono text-[10px] uppercase tracking-[0.14em] text-[#5A5A5A]">
+            <p className="mt-7 font-mono text-[10px] uppercase tracking-[0.14em] text-ink-3">
               Educational tools · not financial advice
             </p>
           </div>

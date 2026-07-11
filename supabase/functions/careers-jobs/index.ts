@@ -30,7 +30,7 @@ const RATE_PER_MINUTE = Number(Deno.env.get('CAREERS_JOBS_RATE_PER_MINUTE') ?? '
 // CORS: authenticated endpoint — restricted to the production site (plus
 // local dev), not '*'. Override with CAREERS_ALLOWED_ORIGINS if needed.
 const ALLOWED_ORIGINS = (Deno.env.get('CAREERS_ALLOWED_ORIGINS') ??
-  'https://finatrix.online,https://www.finatrix.online,https://finatrix.finatrix-hub.workers.dev,http://localhost:5173,http://localhost:4173'
+  'https://finatrix.online,https://www.finatrix.online,https://finatrix.space,https://www.finatrix.space,https://finatrix.finatrix-hub.workers.dev,http://localhost:5173,http://localhost:4173'
 ).split(',').map((s) => s.trim()).filter(Boolean);
 
 function corsFor(req: Request): Record<string, string> {

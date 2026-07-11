@@ -6,7 +6,7 @@ import LandingFooter from '../sections/LandingFooter';
 
 export default function Home() {
   return (
-    <div className="relative bg-[#060607]">
+    <div className="relative bg-surface-base">
       <LandingNav />
       <LandingHero />
       <LandingShowcase />

@@ -9,6 +9,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { TOOL_IDS } from '../shared/routes';
 
 const root = join(__dirname, '..', '..');
 const read = (p: string) => readFileSync(join(root, p), 'utf8');
@@ -36,6 +37,15 @@ describe('deploy configuration', () => {
     expect(read('public/sitemap.xml')).toContain('<loc>https://finatrix.online/</loc>');
   });
 
+  it('sitemap lists every public calculator route (the acquisition surface)', () => {
+    const sitemap = read('public/sitemap.xml');
+    for (const t of TOOL_IDS) {
+      expect(sitemap, `sitemap is missing /tools/${t}`).toContain(
+        `<loc>https://finatrix.online/tools/${t}</loc>`,
+      );
+    }
+  });
+
   it('ships the Cloudflare security headers', () => {
     const headers = read('public/_headers');
     for (const h of [
@@ -50,14 +60,42 @@ describe('deploy configuration', () => {
     expect(headers).toContain('Cache-Control: public, max-age=31536000, immutable');
   });
 
-  it('wrangler serves dist with SPA fallback so deep links resolve', () => {
+  it('wrangler serves dist through a Worker that returns real 404s for unknown routes', () => {
     const wrangler = read('wrangler.jsonc');
-    expect(wrangler).toContain('"not_found_handling": "single-page-application"');
     expect(wrangler).toContain('"directory": "./dist"');
+    expect(wrangler).toContain('"main": "worker/index.ts"');
+    expect(wrangler).toContain('"binding": "ASSETS"');
+    // The soft-404 SPA fallback must be gone — the Worker owns status codes now.
+    expect(wrangler).toContain('"not_found_handling": "none"');
+    expect(wrangler).not.toContain('single-page-application');
   });
 
   it('has a CSP meta tag in index.html (headers file intentionally omits CSP)', () => {
     expect(read('index.html')).toMatch(/http-equiv="Content-Security-Policy"/);
     expect(read('public/_headers')).not.toMatch(/^\s*Content-Security-Policy:/m);
+  });
+});
+
+describe('observability wiring', () => {
+  it('the edge Worker exposes a /healthz liveness probe', () => {
+    expect(read('worker/index.ts')).toContain("'/healthz'");
+  });
+
+  it('the analytics table denies client writes and restricts reads to admins', () => {
+    const sql = read('supabase/analytics_schema.sql');
+    expect(sql).toContain('enable row level security');
+    expect(sql).toContain('analytics_events_admin_select');
+    // No insert/update/delete policy → PostgREST denies direct client writes.
+    expect(sql).not.toMatch(/for insert/i);
+    // Retention function must be present.
+    expect(sql).toContain('prune_analytics_events');
+  });
+
+  it('the analytics ingest re-validates the event allowlist and never stores IP', () => {
+    const fn = read('supabase/functions/analytics-collect/index.ts');
+    expect(fn).toContain('ALLOWED_EVENTS'); // server-side re-validation (never trust client)
+    expect(fn).toContain('CF-Connecting-IP'); // IP read for rate-limiting…
+    // …but the inserted row object has no `ip` field (session_id/event/props/client_t only).
+    expect(fn).not.toContain('ip:');
   });
 });

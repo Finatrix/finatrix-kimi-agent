@@ -11,6 +11,7 @@ import { PageHead, ToolFoot } from '../../tools/ui/common';
 import { Icon } from '../../tools/ui/Icon';
 import { ScoreRing } from '../components/ScoreRing';
 import { EmptyState, ErrorCard } from '../components/states';
+import { CareerReadiness } from '../components/CareerReadiness';
 import { CAREERS_ROUTES } from '../constants';
 import { useCareers } from '../context/CareersContext';
 import { computeApplicationStats, listApplications } from '../services/applications';
@@ -103,6 +104,15 @@ export default function CareersDashboard() {
         Resume intelligence, ATS readiness and your Career DNA — refreshed with every
         version you upload.
       </PageHead>
+
+      {!error && (
+        <CareerReadiness
+          hasResume={!!latest}
+          resumeScore={latest?.version.resume_score ?? null}
+          atsScore={latest?.version.ats_score ?? null}
+          stats={stats}
+        />
+      )}
 
       {error && <ErrorCard error={error} onRetry={() => void refresh()} />}
 

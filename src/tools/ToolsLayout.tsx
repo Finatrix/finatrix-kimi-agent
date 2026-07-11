@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { Link, Outlet, useLocation } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { TOOLS } from '../lib/tools';
@@ -20,6 +20,8 @@ import { LocalClock } from './ui/LocalClock';
 import { HomeButton } from '../components/HomeButton';
 import { BrandLogo } from '../components/BrandLogo';
 import { Breadcrumb } from '../components/Breadcrumb';
+import ThemeToggle from '../components/ThemeToggle';
+import { NotificationsBell } from './ui/NotificationsBell';
 import './tools.css';
 
 const syncLabel: Record<SyncStatus, string> = {
@@ -30,10 +32,10 @@ const syncLabel: Record<SyncStatus, string> = {
   error: 'Sync error',
 };
 const syncColor: Record<SyncStatus, string> = {
-  idle: 'text-[#8A8A8A]',
-  saving: 'text-[#D4AF37]',
-  saved: 'text-[#5fd394]',
-  offline: 'text-[#8A8A8A]',
+  idle: 'text-ink-3',
+  saving: 'text-accent-text',
+  saved: 'text-ink-2',
+  offline: 'text-ink-3',
   error: 'text-[#E74C3C]',
 };
 
@@ -93,6 +95,13 @@ function ToolTabs({ activeTool }: { activeTool: string }) {
         aria-label="Tools"
         style={{ maxWidth: 'none', margin: 0, flex: '1 1 auto', minWidth: 0, padding: '10px 8px' }}
       >
+        <Link
+          to="/tools/dashboard"
+          data-route="dashboard"
+          className={activeTool === 'dashboard' ? 'on' : undefined}
+        >
+          Dashboard
+        </Link>
         {TOOLS.map((t) => (
           <Link
             key={t.id}
@@ -103,12 +112,85 @@ function ToolTabs({ activeTool }: { activeTool: string }) {
             {t.name}
           </Link>
         ))}
+        <Link
+          to="/tools/reports"
+          data-route="reports"
+          className={activeTool === 'reports' ? 'on' : undefined}
+        >
+          Reports
+        </Link>
+        <Link
+          to="/tools/calendar"
+          data-route="calendar"
+          className={activeTool === 'calendar' ? 'on' : undefined}
+        >
+          Calendar
+        </Link>
         <Link to="/careers" data-route="careers">
           Careers
         </Link>
       </nav>
       <CurrencySelect />
     </div>
+  );
+}
+
+/* Mobile bottom navigation (<768px). Thumb-reachable, one-handed quick access
+   to the hub and the three core money tools, plus a "More" affordance that opens
+   the full drawer — so nothing is hidden and there is no horizontal scrolling. */
+const BOTTOM_NAV_TOOLS = ['budget', 'expenses', 'goals'] as const;
+const BOTTOM_NAV_ICONS: Record<string, ReactElement> = {
+  dashboard: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" />
+    </svg>
+  ),
+  budget: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 12a9 9 0 1 1-9-9v9z" /><path d="M12 3a9 9 0 0 1 9 9h-9z" opacity="0.55" />
+    </svg>
+  ),
+  expenses: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-1 2z" /><path d="M9 8h6M9 12h6" />
+    </svg>
+  ),
+  goals: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="4" /><circle cx="12" cy="12" r="0.6" fill="currentColor" />
+    </svg>
+  ),
+  more: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" /><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none" />
+    </svg>
+  ),
+};
+
+function MobileTabBar({ activeTool, onMore, moreActive }: { activeTool: string; onMore: () => void; moreActive: boolean }) {
+  const items = [
+    { key: 'dashboard', label: 'Dashboard', href: '/tools/dashboard' },
+    ...BOTTOM_NAV_TOOLS.map((id) => {
+      const t = TOOLS.find((x) => x.id === id)!;
+      return { key: id, label: t.short, href: t.href };
+    }),
+  ];
+  return (
+    <nav className="fx-mobnav md:hidden" aria-label="Primary">
+      {items.map((it) => {
+        const active = activeTool === it.key;
+        return (
+          <Link key={it.key} to={it.href} className={`fx-mobnav-item${active ? ' on' : ''}`} aria-current={active ? 'page' : undefined}>
+            {BOTTOM_NAV_ICONS[it.key]}
+            <span>{it.label}</span>
+          </Link>
+        );
+      })}
+      <button type="button" onClick={onMore} className={`fx-mobnav-item${moreActive ? ' on' : ''}`} aria-haspopup="dialog" aria-label="More tools and menu">
+        {BOTTOM_NAV_ICONS.more}
+        <span>More</span>
+      </button>
+    </nav>
   );
 }
 
@@ -204,14 +286,14 @@ export default function ToolsLayout() {
 
           {/* Slim app bar */}
           <header
-            className="flex items-center justify-between h-12 px-3 sm:px-4 border-b border-white/[0.06]"
-            style={{ position: 'sticky', top: 0, zIndex: 51, background: 'rgba(6,6,7,0.72)', backdropFilter: 'saturate(180%) blur(20px)', WebkitBackdropFilter: 'saturate(180%) blur(20px)' }}
+            className="flex items-center justify-between h-12 px-3 sm:px-4 border-b border-hairline-2"
+            style={{ position: 'sticky', top: 0, zIndex: 51, background: 'var(--nav-bg)', backdropFilter: 'saturate(180%) blur(20px)', WebkitBackdropFilter: 'saturate(180%) blur(20px)' }}
           >
             <div className="flex items-center gap-1.5 sm:gap-2.5">
               <button
                 onClick={() => setDrawerOpen(true)}
                 aria-label="Open menu"
-                className="md:hidden -ml-1 p-2 text-[#F5F5F0] hover:text-[#D4AF37] transition-colors"
+                className="md:hidden -ml-1 p-2 text-ink hover:text-accent-text transition-colors"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
                   <path d="M3 6h18M3 12h18M3 18h18" />
@@ -220,13 +302,15 @@ export default function ToolsLayout() {
               <HomeButton compact className="hidden sm:inline-flex" />
               <Link to="/" aria-label="FinatriX home" className="flex items-center gap-2 group">
                 <BrandLogo size={22} className="shrink-0" />
-                <span className="font-mono text-[12px] uppercase tracking-[0.12em] sm:tracking-[0.16em] text-[#F5F5F0] group-hover:text-[#D4AF37] transition-colors select-none">
+                <span className="font-mono text-[12px] uppercase tracking-[0.12em] sm:tracking-[0.16em] text-ink group-hover:text-accent-text transition-colors select-none">
                   FinatriX
                 </span>
               </Link>
             </div>
 
             <div className="relative flex items-center gap-2.5 sm:gap-4">
+              <NotificationsBell />
+              <ThemeToggle />
               {user ? (
                 <>
                   <span className={`hidden sm:inline font-mono text-[10px] uppercase tracking-[0.06em] ${syncColor[sync]}`}>
@@ -234,22 +318,25 @@ export default function ToolsLayout() {
                   </span>
                   <button
                     onClick={() => setMenuOpen((o) => !o)}
-                    className="hidden md:inline font-mono text-[11px] uppercase tracking-[0.08em] text-[#F5F5F0] hover:text-[#D4AF37] transition-colors"
+                    className="hidden md:inline font-mono text-[11px] uppercase tracking-[0.08em] text-ink hover:text-accent-text transition-colors"
                   >
                     {firstName} ▾
                   </button>
                   {menuOpen && (
                     <div
-                      className="absolute right-0 top-[calc(100%+8px)] min-w-[180px] bg-[#111111] border border-white/[0.08] rounded-lg py-1 flex flex-col z-30 shadow-[0_10px_30px_rgba(0,0,0,0.5)]"
+                      className="absolute right-0 top-[calc(100%+8px)] min-w-[180px] bg-surface-2 border border-hairline rounded-lg py-1 flex flex-col z-30 shadow-[0_10px_30px_rgba(0,0,0,0.5)]"
                       onMouseLeave={() => setMenuOpen(false)}
                     >
-                      <Link to="/profile" onClick={() => setMenuOpen(false)} className="px-4 py-2.5 text-[13px] text-[#F5F5F0] hover:bg-white/[0.05]">
-                        Profile &amp; settings
+                      <Link to="/profile" onClick={() => setMenuOpen(false)} className="px-4 py-2.5 text-[13px] text-ink hover:bg-hairline-2">
+                        Profile
                       </Link>
-                      <Link to="/" onClick={() => setMenuOpen(false)} className="px-4 py-2.5 text-[13px] text-[#F5F5F0] hover:bg-white/[0.05]">
+                      <Link to="/tools/settings" onClick={() => setMenuOpen(false)} className="px-4 py-2.5 text-[13px] text-ink hover:bg-hairline-2">
+                        Settings
+                      </Link>
+                      <Link to="/" onClick={() => setMenuOpen(false)} className="px-4 py-2.5 text-[13px] text-ink hover:bg-hairline-2">
                         Back to home
                       </Link>
-                      <button onClick={() => { setMenuOpen(false); void signOut(); }} className="px-4 py-2.5 text-[13px] text-left text-[#E0726B] hover:bg-white/[0.05]">
+                      <button onClick={() => { setMenuOpen(false); void signOut(); }} className="px-4 py-2.5 text-[13px] text-left text-[#E0726B] hover:bg-hairline-2">
                         Sign out
                       </button>
                     </div>
@@ -257,7 +344,7 @@ export default function ToolsLayout() {
                 </>
               ) : (
                 <>
-                  <span className="hidden sm:inline font-mono text-[10px] uppercase tracking-[0.06em] text-[#8A8A8A]">
+                  <span className="hidden sm:inline font-mono text-[10px] uppercase tracking-[0.06em] text-ink-3">
                     {configured ? 'Not signed in' : 'Local only'}
                   </span>
                   <Link
@@ -279,7 +366,7 @@ export default function ToolsLayout() {
           {/* Tool content */}
           <div className="wrap">
             <div style={{ paddingTop: 14 }}>
-              <Breadcrumb current={TOOLS.find((t) => t.id === activeTool)?.name ?? 'Tools'} />
+              <Breadcrumb current={activeTool === 'dashboard' ? 'Dashboard' : activeTool === 'reports' ? 'Reports' : activeTool === 'calendar' ? 'Calendar' : activeTool === 'settings' ? 'Settings' : (TOOLS.find((t) => t.id === activeTool)?.name ?? 'Tools')} />
             </div>
             {ready ? <Outlet /> : <div style={{ minHeight: '50vh' }} aria-hidden="true" />}
             {ready && (
@@ -298,56 +385,79 @@ export default function ToolsLayout() {
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setDrawerOpen(false)} />
             <nav
               aria-label="Main"
-              className={`absolute top-0 left-0 h-full w-[82%] max-w-[320px] bg-[#0E0E0E] border-r border-white/[0.07] flex flex-col transition-transform duration-300 ease-out ${
+              className={`absolute top-0 left-0 h-full w-[82%] max-w-[320px] bg-surface-2 border-r border-hairline-2 flex flex-col transition-transform duration-300 ease-out ${
                 drawerOpen ? 'translate-x-0' : '-translate-x-full'
               }`}
             >
-              <div className="flex items-center justify-between h-12 px-4 border-b border-white/[0.06] shrink-0">
-                <span className="font-mono text-[12px] uppercase tracking-[0.16em] text-[#F5F5F0]">FinatriX</span>
-                <button onClick={() => setDrawerOpen(false)} aria-label="Close menu" className="p-2 -mr-2 text-[#8A8A8A] hover:text-[#F5F5F0]">
+              <div className="flex items-center justify-between h-12 px-4 border-b border-hairline-2 shrink-0">
+                <span className="font-mono text-[12px] uppercase tracking-[0.16em] text-ink">FinatriX</span>
+                <button onClick={() => setDrawerOpen(false)} aria-label="Close menu" className="p-2 -mr-2 text-ink-3 hover:text-ink">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
                     <path d="M6 6l12 12M18 6L6 18" />
                   </svg>
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto py-2">
-                <Link to="/" onClick={() => setDrawerOpen(false)} className="flex items-center gap-3 px-5 py-3 text-[15px] text-[#F5F5F0] hover:bg-white/[0.04]">
+                <Link to="/" onClick={() => setDrawerOpen(false)} className="flex items-center gap-3 px-5 py-3 text-[15px] text-ink hover:bg-hairline-2">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M3 11l9-8 9 8" /><path d="M5 10v10h14V10" />
                   </svg>
                   Home
                 </Link>
-                <div className="mt-1 mb-1 px-5 text-[10px] uppercase tracking-[0.12em] text-[#5A5A5A] font-mono">Tools</div>
+                <Link to="/tools/dashboard" onClick={() => setDrawerOpen(false)} className={`flex items-center gap-3 px-5 py-3 text-[15px] hover:bg-hairline-2 ${activeTool === 'dashboard' ? 'text-accent-text' : 'text-ink'}`}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" />
+                  </svg>
+                  Dashboard
+                </Link>
+                <div className="mt-1 mb-1 px-5 text-[10px] uppercase tracking-[0.12em] text-ink-3 font-mono">Tools</div>
                 {TOOLS.map((t) => (
                   <Link
                     key={t.id}
                     to={t.href}
                     onClick={() => setDrawerOpen(false)}
-                    className={`flex items-center gap-3 px-5 py-2.5 text-[15px] hover:bg-white/[0.04] ${
-                      activeTool === t.id ? 'text-[#D4AF37]' : 'text-[#E8E8E3]'
+                    className={`flex items-center gap-3 px-5 py-2.5 text-[15px] hover:bg-hairline-2 ${
+                      activeTool === t.id ? 'text-accent-text' : 'text-ink'
                     }`}
                   >
                     <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
                     {t.name}
                   </Link>
                 ))}
-                <div className="mt-2 mb-1 px-5 text-[10px] uppercase tracking-[0.12em] text-[#5A5A5A] font-mono">Careers</div>
+                <Link
+                  to="/tools/reports"
+                  onClick={() => setDrawerOpen(false)}
+                  className={`flex items-center gap-3 px-5 py-2.5 text-[15px] hover:bg-hairline-2 ${activeTool === 'reports' ? 'text-accent-text' : 'text-ink'}`}
+                >
+                  <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: '#D4AF37' }} />
+                  Reports
+                </Link>
+                <Link
+                  to="/tools/calendar"
+                  onClick={() => setDrawerOpen(false)}
+                  className={`flex items-center gap-3 px-5 py-2.5 text-[15px] hover:bg-hairline-2 ${activeTool === 'calendar' ? 'text-accent-text' : 'text-ink'}`}
+                >
+                  <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: '#D4AF37' }} />
+                  Calendar
+                </Link>
+                <div className="mt-2 mb-1 px-5 text-[10px] uppercase tracking-[0.12em] text-ink-3 font-mono">Careers</div>
                 <Link
                   to="/careers"
                   onClick={() => setDrawerOpen(false)}
-                  className="flex items-center gap-3 px-5 py-2.5 text-[15px] text-[#E8E8E3] hover:bg-white/[0.04]"
+                  className="flex items-center gap-3 px-5 py-2.5 text-[15px] text-ink hover:bg-hairline-2"
                 >
                   <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: '#D4AF37' }} />
                   FinatriX Careers
                 </Link>
-                <div className="my-2 mx-5 border-t border-white/[0.06]" />
-                <Link to="/profile" onClick={() => setDrawerOpen(false)} className="block px-5 py-2.5 text-[15px] text-[#E8E8E3] hover:bg-white/[0.04]">Profile</Link>
-                <Link to="/privacy" onClick={() => setDrawerOpen(false)} className="block px-5 py-2.5 text-[14px] text-[#8A8A8A] hover:bg-white/[0.04]">Privacy</Link>
-                <Link to="/terms" onClick={() => setDrawerOpen(false)} className="block px-5 py-2.5 text-[14px] text-[#8A8A8A] hover:bg-white/[0.04]">Terms</Link>
+                <div className="my-2 mx-5 border-t border-hairline-2" />
+                <Link to="/profile" onClick={() => setDrawerOpen(false)} className="block px-5 py-2.5 text-[15px] text-ink hover:bg-hairline-2">Profile</Link>
+                <Link to="/tools/settings" onClick={() => setDrawerOpen(false)} className={`block px-5 py-2.5 text-[15px] hover:bg-hairline-2 ${activeTool === 'settings' ? 'text-accent-text' : 'text-ink'}`}>Settings</Link>
+                <Link to="/privacy" onClick={() => setDrawerOpen(false)} className="block px-5 py-2.5 text-[14px] text-ink-3 hover:bg-hairline-2">Privacy</Link>
+                <Link to="/terms" onClick={() => setDrawerOpen(false)} className="block px-5 py-2.5 text-[14px] text-ink-3 hover:bg-hairline-2">Terms</Link>
               </div>
-              <div className="border-t border-white/[0.06] p-4 shrink-0">
+              <div className="border-t border-hairline-2 p-4 shrink-0">
                 {user ? (
-                  <button onClick={() => { setDrawerOpen(false); void signOut(); }} className="w-full text-center font-mono text-[12px] uppercase tracking-[0.08em] text-[#E0726B] border border-white/[0.1] hover:border-[#E0726B]/50 rounded-full py-2.5 transition-colors">
+                  <button onClick={() => { setDrawerOpen(false); void signOut(); }} className="w-full text-center font-mono text-[12px] uppercase tracking-[0.08em] text-[#E0726B] border border-hairline hover:border-[#E0726B]/50 rounded-full py-2.5 transition-colors">
                     Sign out
                   </button>
                 ) : (
@@ -358,6 +468,13 @@ export default function ToolsLayout() {
               </div>
             </nav>
           </div>
+
+          {/* Mobile bottom navigation (<768px) */}
+          <MobileTabBar
+            activeTool={activeTool}
+            onMore={() => setDrawerOpen(true)}
+            moreActive={activeTool !== 'dashboard' && !BOTTOM_NAV_TOOLS.includes(activeTool as typeof BOTTOM_NAV_TOOLS[number])}
+          />
         </div>
       </ToastProvider>
     </CurrencyProvider>

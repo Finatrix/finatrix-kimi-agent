@@ -1,8 +1,21 @@
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router'
+import './styles/tokens.css' // canonical design tokens — must load before index.css
 import './index.css'
 import App from './App.tsx'
+import { ThemeProvider } from './context/ThemeContext'
 import { AuthProvider } from './context/AuthContext'
+import { initAnalytics } from './lib/analytics'
+import { initWebVitals } from './lib/webVitals'
+import { initErrorReporting } from './lib/errorReporting'
+import { initActivityTracking } from './tools/lib/activity'
+
+// Privacy-first observability. Each initialiser is a no-op unless an analytics
+// endpoint is configured AND the user has not opted out (DNT / GPC).
+initAnalytics()
+initWebVitals()
+initErrorReporting()
+initActivityTracking()
 
 // Preconnect to Supabase so the first authenticated request skips DNS/TLS
 // setup. Done here (not index.html) because the URL comes from the env.
@@ -21,8 +34,10 @@ if (supabaseUrl) {
 
 createRoot(document.getElementById('root')!).render(
   <BrowserRouter>
-    <AuthProvider>
-      <App />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </ThemeProvider>
   </BrowserRouter>,
 )

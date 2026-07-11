@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, type ComponentType } from 'react';
 import { Navigate, useParams } from 'react-router';
 import { store } from './lib/storage';
+import { track } from '../lib/analytics';
 
 /**
  * Registry mapping each tool id to its native React page. All seven tools are
@@ -15,6 +16,9 @@ const TOOL_PAGES: Record<string, ComponentType> = {
   peercompare: lazy(() => import('./pages/PeerComparePage')),
   goals: lazy(() => import('./pages/GoalPlannerPage')),
   lifemap: lazy(() => import('./pages/LifeMapPage')),
+  reports: lazy(() => import('./pages/ReportsPage')),
+  calendar: lazy(() => import('./pages/CalendarPage')),
+  settings: lazy(() => import('./pages/SettingsPage')),
 };
 
 const TITLES: Record<string, string> = {
@@ -25,6 +29,9 @@ const TITLES: Record<string, string> = {
   peercompare: 'PeerCompare',
   goals: 'Reverse Goal Planner',
   lifemap: 'LifeMap',
+  reports: 'Reports',
+  calendar: 'Calendar',
+  settings: 'Settings',
 };
 
 export default function ToolRoute() {
@@ -35,6 +42,7 @@ export default function ToolRoute() {
   useEffect(() => {
     if (Page) {
       document.title = `${TITLES[id]} — FinatriX`;
+      track('tool_view', { tool: id });
       try {
         store.set('fx_last_tool', id);
       } catch {

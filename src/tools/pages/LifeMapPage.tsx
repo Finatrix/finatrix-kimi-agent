@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Chart from 'chart.js/auto';
+import { useTheme } from '../../context/ThemeContext';
+import { getChartTheme } from '../lib/chartTheme';
 import { useCurrency } from '../CurrencyContext';
 import { PageHead, ToolFoot } from '../ui/common';
 import { Icon } from '../ui/Icon';
@@ -352,12 +354,14 @@ function CompareCol({ title, color, bg, border, nw, inv, debt, debtColor }: { ti
 function WealthChart({ profile: p, dec, applied, cfmt, code }: { profile: LifeProfile; dec: Decision[]; applied: Set<string>; cfmt: (n: number) => string; code: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const chartRef = useRef<Chart | null>(null);
+  const { theme } = useTheme();
   const ages = useMemo(() => Array.from({ length: 60 - p.age + 1 }, (_, i) => p.age + i), [p.age]);
   const smart = useMemo(() => ages.map((a) => calcWealth(p, dec, applied, a, true)), [ages, p, dec, applied]);
   const imp = useMemo(() => ages.map((a) => calcWealth(p, dec, applied, a, false)), [ages, p, dec, applied]);
 
   useEffect(() => {
     if (!ref.current) return;
+    const ct = getChartTheme(theme);
     chartRef.current = new Chart(ref.current, {
       type: 'line',
       data: {
@@ -371,18 +375,18 @@ function WealthChart({ profile: p, dec, applied, cfmt, code }: { profile: LifePr
         responsive: true, animation: { duration: 450 },
         plugins: {
           legend: { display: false },
-          tooltip: { backgroundColor: '#15151A', borderColor: '#26262B', borderWidth: 1, titleColor: '#F5F5F0', bodyColor: '#9A9A94', callbacks: { label: (c) => ' ' + cfmt(c.raw as number) } },
+          tooltip: { backgroundColor: ct.tooltipBg, borderColor: ct.tooltipBorder, borderWidth: 1, titleColor: ct.tooltipTitle, bodyColor: ct.tooltipBody, callbacks: { label: (c) => ' ' + cfmt(c.raw as number) } },
         },
         scales: {
-          x: { ticks: { color: '#9A9A94', font: { size: 10 }, maxTicksLimit: 8 }, grid: { color: 'rgba(255,255,255,.06)' } },
-          y: { ticks: { color: '#9A9A94', font: { size: 10 }, callback: (v) => cfmt(v as number) }, grid: { color: 'rgba(255,255,255,.06)' } },
+          x: { ticks: { color: ct.tick, font: { size: 10 }, maxTicksLimit: 8 }, grid: { color: ct.grid } },
+          y: { ticks: { color: ct.tick, font: { size: 10 }, callback: (v) => cfmt(v as number) }, grid: { color: ct.grid } },
         },
       },
     });
     return () => { chartRef.current?.destroy(); chartRef.current = null; };
-    // Rebuild when the currency changes so axis/tooltip formatting updates.
+    // Rebuild when the currency OR theme changes so axis/tooltip match.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code]);
+  }, [code, theme]);
 
   useEffect(() => {
     const ch = chartRef.current;

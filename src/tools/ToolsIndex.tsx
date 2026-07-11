@@ -21,7 +21,9 @@ export default function ToolsIndex() {
     } catch {
       /* ignore */
     }
-    target = ids.includes(last) ? last : 'budget';
+    // New visitors land on the hub (Dashboard); returning users resume their
+    // last-used tool. 'dashboard' is a static /tools route, not a TOOLS id.
+    target = ids.includes(last) ? last : 'dashboard';
   }
 
   return <Navigate to={`/tools/${target}`} replace />;

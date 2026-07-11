@@ -3,7 +3,7 @@ import LegalPage, { H2, P, UL } from '../components/LegalPage';
 
 export default function Privacy() {
   return (
-    <LegalPage title="Privacy Policy" updated="20 June 2026">
+    <LegalPage title="Privacy Policy" updated="11 July 2026">
       <P>
         This Privacy Policy explains what information FinatriX (&ldquo;we&rdquo;,
         &ldquo;us&rdquo;) collects when you use our website and financial education tools
@@ -75,9 +75,9 @@ export default function Privacy() {
       <P>
         We use trusted processors to run the Service: <strong>Supabase</strong> (account
         authentication, email verification and the database that stores your saved tool
-        data) and <strong>Netlify</strong> (website hosting). These providers process data
-        on our behalf under their own security and privacy terms. We do not share your data
-        with anyone else except where required by law.
+        data) and <strong>Cloudflare</strong> (website hosting and global content delivery).
+        These providers process data on our behalf under their own security and privacy
+        terms. We do not share your data with anyone else except where required by law.
       </P>
 
       <H2>Cookies &amp; local storage</H2>

@@ -25,7 +25,7 @@ export function PageHead({
         <Icon name={icon} size={14} style={{ marginRight: 5 }} />
         {chip}
       </span>
-      <h2>{title}</h2>
+      <h1>{title}</h1>
       <p>{children}</p>
     </div>
   );
@@ -34,4 +34,24 @@ export function PageHead({
 /** Footer line used at the bottom of every tool. */
 export function ToolFoot({ children }: { children: ReactNode }) {
   return <div className="foot">{children}</div>;
+}
+
+/**
+ * Methodology / transparency disclosure — a reusable "how this is calculated"
+ * note (progressive-disclosure `<details>`). Reinforces trust and the
+ * educational mission consistently across tools without repeating markup.
+ */
+export function MethodologyNote({
+  summary = 'How this is calculated',
+  children,
+}: {
+  summary?: string;
+  children: ReactNode;
+}) {
+  return (
+    <details className="fx-method fx-method-card">
+      <summary>{summary}</summary>
+      <p>{children}</p>
+    </details>
+  );
 }

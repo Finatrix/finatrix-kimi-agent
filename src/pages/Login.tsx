@@ -66,7 +66,7 @@ export default function Login() {
       footer={
         <>
           New here?{' '}
-          <Link to="/signup" className="text-[#D4AF37] hover:underline">
+          <Link to="/signup" className="text-accent-text hover:underline">
             Create an account
           </Link>
         </>
@@ -114,11 +114,11 @@ export default function Login() {
         </PrimaryButton>
       </form>
 
-      <div className="mt-5 flex items-center justify-between text-[12px] text-[#8A8A8A]">
-        <button onClick={onReset} className="hover:text-[#D4AF37] transition-colors">
+      <div className="mt-5 flex items-center justify-between text-[12px] text-ink-3">
+        <button onClick={onReset} className="hover:text-accent-text transition-colors">
           Forgot password?
         </button>
-        <button onClick={onResend} className="hover:text-[#D4AF37] transition-colors">
+        <button onClick={onResend} className="hover:text-accent-text transition-colors">
           Resend verification
         </button>
       </div>

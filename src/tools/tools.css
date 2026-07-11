@@ -5,16 +5,32 @@
    ========================================================================== */
 
 .fx-tools {
-  --bg: #0A0A0A; --card: rgba(21,21,24,.64); --card-solid: #121214;
-  --ink: #F5F5F0; --ink2: #9c9c96; --ink3: #6b6b70;
-  --hair: rgba(255,255,255,.12); --hair2: rgba(255,255,255,.07); --dark: #060607;
-  --gold: #D4AF37; --gold-2: #F0D779; --gold-bg: rgba(212,175,55,.10);
-  --blue: #4D9BFF; --green: #34D27A; --orange: #E8833D; --purple: #9B7BFF; --teal: #2BC4B0; --red: #FF5A52;
-  --r: 20px; --shadow: 0 18px 50px -14px rgba(0,0,0,.55); --glass-blur: blur(14px) saturate(150%);
-  --spring: cubic-bezier(.34,1.56,.64,1);
-  --ease-out: cubic-bezier(.4,0,.2,1);
+  /* All values below now resolve from the canonical tokens in styles/tokens.css
+     (loaded first in main.tsx). Identical values → no visual change, one source
+     of truth. Local names kept so the large tools/careers CSS need not change. */
+  /* Note: --ink and --ease-out are NOT redeclared here — they share the
+     canonical names, so they inherit the identical :root values (redeclaring
+     as var(--ink) would be a self-referential cycle). */
+  --bg: var(--surface-1); --card: rgba(21,21,24,.64); --card-solid: var(--surface-2);
+  --ink2: var(--ink-2); --ink3: var(--ink-3);
+  --hair: var(--hairline); --hair2: var(--hairline-2); --dark: var(--surface-base);
+  --gold: var(--accent); --gold-2: var(--accent-soft); --gold-bg: var(--accent-bg);
+  --blue: var(--status-info); --green: var(--status-success); --orange: var(--status-warn); --purple: var(--data-purple); --teal: var(--data-teal); --red: var(--status-danger);
+  --r: var(--radius-xl); --shadow: var(--shadow-2); --glass-blur: blur(14px) saturate(150%);
+  --spring: var(--ease-spring);
   --ease-in-out: cubic-bezier(.42,0,.58,1);
-  --duration-fast: 200ms; --duration-med: 420ms; --duration-slow: 680ms;
+  --duration-fast: var(--dur-fast); --duration-med: var(--dur-med); --duration-slow: var(--dur-slow);
+
+  /* Themeable surface fills (dark defaults). White-alpha on obsidian; the
+     [data-theme="light"] block below flips these to warm black-alpha so every
+     chip, tag, input, card and nav in tools + careers reads correctly on paper.
+     Gold and data colours are theme-constant and stay as canonical tokens. */
+  --fill-02: rgba(255,255,255,.02); --fill-03: rgba(255,255,255,.03);
+  --fill-04: rgba(255,255,255,.04); --fill-05: rgba(255,255,255,.05);
+  --fill-06: rgba(255,255,255,.06); --fill-07: rgba(255,255,255,.07);
+  --fill-08: rgba(255,255,255,.08); --fill-13: rgba(255,255,255,.13);
+  --fill-18: rgba(255,255,255,.18);
+  --grid-line: rgba(255,255,255,.6); --nav-solid: rgba(6,6,7,.72); --vignette: rgba(0,0,0,.45);
 
   position: relative;
   min-height: 100%;
@@ -25,17 +41,35 @@
 }
 .fx-tools *, .fx-tools *::before, .fx-tools *::after { box-sizing: border-box; }
 
+/* ═══════════ LIGHT THEME — tools + careers (Apple-calm on warm paper) ═══════════
+   Identical layout, spacing, motion and hierarchy; only the surface/fill/ambient
+   values flip. Ink, hairlines, gold accent and data colours already theme through
+   the canonical tokens, so this block is deliberately small. */
+[data-theme="light"] .fx-tools {
+  --card: rgba(255,255,255,.72);
+  --fill-02: rgba(23,21,15,.03); --fill-03: rgba(23,21,15,.04);
+  --fill-04: rgba(23,21,15,.05); --fill-05: rgba(23,21,15,.06);
+  --fill-06: rgba(23,21,15,.07); --fill-07: rgba(23,21,15,.085);
+  --fill-08: rgba(23,21,15,.10); --fill-13: rgba(23,21,15,.16);
+  --fill-18: rgba(23,21,15,.22);
+  --grid-line: rgba(23,21,15,.5);
+  --nav-solid: rgba(247,245,240,.82);
+  --vignette: rgba(23,21,15,.05);
+}
+/* Gold ambient glow is softened on paper so it reads as a whisper, not a smudge. */
+[data-theme="light"] .fx-tools .fx-amb-glow { opacity: .10; }
+
 /* ============ AMBIENT BACKDROP ============ */
 .fx-tools .fx-amb { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
 .fx-tools .fx-amb-glow { position: absolute; left: 50%; top: -14%; height: 64vh; width: 64vh; transform: translateX(-50%); border-radius: 50%; filter: blur(120px); opacity: .16; background: radial-gradient(circle,#E6C766 0%,#9c7a26 40%,transparent 70%); }
-.fx-tools .fx-amb-grid { position: absolute; inset: 0; opacity: .04; background-image: linear-gradient(rgba(255,255,255,.6) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.6) 1px,transparent 1px); background-size: 52px 52px; -webkit-mask-image: radial-gradient(circle at 50% 18%,#000 0%,transparent 68%); mask-image: radial-gradient(circle at 50% 18%,#000 0%,transparent 68%); }
-.fx-tools .fx-amb-vig { position: absolute; inset: 0; background: radial-gradient(120% 80% at 50% 0%,transparent 58%,rgba(0,0,0,.45) 100%); }
+.fx-tools .fx-amb-grid { position: absolute; inset: 0; opacity: .04; background-image: linear-gradient(var(--grid-line) 1px,transparent 1px),linear-gradient(90deg,var(--grid-line) 1px,transparent 1px); background-size: 52px 52px; -webkit-mask-image: radial-gradient(circle at 50% 18%,#000 0%,transparent 68%); mask-image: radial-gradient(circle at 50% 18%,#000 0%,transparent 68%); }
+.fx-tools .fx-amb-vig { position: absolute; inset: 0; background: radial-gradient(120% 80% at 50% 0%,transparent 58%,var(--vignette) 100%); }
 
 /* ============ TOOL NAV (in-page tab bar) ============ */
-.fx-tools .nav-wrap { position: sticky; top: 0; z-index: 50; background: rgba(6,6,7,.72); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-bottom: 1px solid rgba(255,255,255,.06); }
+.fx-tools .nav-wrap { position: sticky; top: 0; z-index: 50; background: var(--nav-solid); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-bottom: 1px solid var(--hair); }
 .fx-tools .nav { max-width: 1024px; margin: 0 auto; display: flex; gap: 2px; overflow-x: auto; padding: 10px 16px; scrollbar-width: none; }
 .fx-tools .nav::-webkit-scrollbar { display: none; }
-.fx-tools .nav a { display: inline-flex; align-items: center; flex-shrink: 0; font-size: 13px; font-weight: 500; color: var(--ink2); text-decoration: none; padding: 7px 14px; border-radius: 980px; transition: color .2s var(--ease-out), background .2s var(--ease-out); white-space: nowrap; letter-spacing: -.01em; }
+.fx-tools .nav a { display: inline-flex; align-items: center; flex-shrink: 0; font-size: 13px; font-weight: 500; color: color-mix(in srgb, var(--ink) 72%, transparent); text-decoration: none; padding: 7px 14px; border-radius: 980px; transition: color .2s var(--ease-out), background .2s var(--ease-out); white-space: nowrap; letter-spacing: -.01em; }
 .fx-tools .nav a::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 8px; background: currentColor; opacity: .55; transition: opacity .2s ease, transform .2s ease; }
 .fx-tools .nav a[data-route="budget"]::before { background: #16A36A; opacity: .85; }
 .fx-tools .nav a[data-route="expenses"]::before { background: #1FAE5A; opacity: .85; }
@@ -44,19 +78,52 @@
 .fx-tools .nav a[data-route="peercompare"]::before { background: #7C5CFF; opacity: .85; }
 .fx-tools .nav a[data-route="goals"]::before { background: #14B8A6; opacity: .85; }
 .fx-tools .nav a[data-route="lifemap"]::before { background: #D4AF37; opacity: .85; }
+.fx-tools .nav a[data-route="reports"]::before { background: #D4AF37; opacity: .85; }
+.fx-tools .nav a[data-route="calendar"]::before { background: #D4AF37; opacity: .85; }
 .fx-tools .nav a[data-route="careers"]::before { background: #D4AF37; opacity: .85; }
-.fx-tools .nav a:hover { color: var(--ink); background: rgba(255,255,255,.06); }
+.fx-tools .nav a:hover { color: var(--ink); background: var(--fill-06); }
 .fx-tools .nav a:hover::before { transform: scale(1.25); }
 .fx-tools .nav a.on { background: linear-gradient(180deg,var(--gold-2),var(--gold)); color: #1a1400; font-weight: 600; box-shadow: 0 6px 18px -4px rgba(212,175,55,.45); position: relative; }
 .fx-tools .nav a.on::before { background: #1a1400; opacity: .65; }
 @media(max-width:767px){ .fx-tools #mainNav { display: none; } .fx-tools .nav-wrap > div { justify-content: flex-end; } }
 
-.fx-tools .wrap { max-width: 1024px; margin: 0 auto; padding: 0 16px 64px; position: relative; z-index: 1; }
+/* ---- Mobile bottom navigation (<768px) ---- */
+.fx-tools { --fx-bottomnav-h: 0px; }
+@media(max-width:767px){ .fx-tools { --fx-bottomnav-h: 60px; } }
+.fx-mobnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 45; display: grid; grid-template-columns: repeat(5, 1fr); align-items: stretch; gap: 2px; padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); background: var(--nav-solid); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-top: 1px solid var(--hair); }
+.fx-mobnav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 48px; padding: 6px 2px; border: none; background: none; border-radius: 12px; font-family: inherit; font-size: 10.5px; font-weight: 600; letter-spacing: -.01em; color: color-mix(in srgb, var(--ink) 62%, transparent); text-decoration: none; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: color .2s var(--ease-out), background .2s var(--ease-out); }
+.fx-mobnav-item svg { opacity: .9; }
+.fx-mobnav-item:active { background: var(--fill-06); }
+.fx-mobnav-item.on { color: var(--accent-text); }
+.fx-mobnav-item.on svg { opacity: 1; }
+.fx-mobnav-item:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+
+/* ---- Methodology / transparency disclosure (shared primitive) ---- */
+.fx-tools .fx-method { margin-top: 12px; }
+.fx-tools .fx-method > summary { font-size: 12px; color: var(--ink3); cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 6px; user-select: none; transition: color .2s ease; }
+.fx-tools .fx-method > summary::-webkit-details-marker { display: none; }
+.fx-tools .fx-method > summary::before { content: "ⓘ"; font-size: 12px; opacity: .8; }
+.fx-tools .fx-method > summary:hover { color: var(--ink2); }
+.fx-tools .fx-method[open] > summary { color: var(--ink2); margin-bottom: 6px; }
+.fx-tools .fx-method > p { font-size: 12.5px; color: var(--ink2); line-height: 1.6; max-width: 520px; }
+.fx-tools .fx-method-card { background: var(--card); border: 1px solid var(--hair2); border-radius: 14px; padding: 14px 16px; margin-bottom: 16px; }
+.fx-tools .fx-method-card > summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 4px; }
+
+/* ---- Notification bell + panel (shared by tools & careers) ---- */
+.fx-tools .bell-wrap { position: relative; }
+.fx-tools .bell-dot { position: absolute; top: -2px; right: -2px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 980px; background: var(--red); color: #fff; font-size: 9.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.fx-tools .bell-panel { position: absolute; right: 0; top: calc(100% + 10px); width: min(92vw, 360px); max-height: 420px; overflow-y: auto; background: var(--card-solid); border: 1px solid var(--hair); border-radius: 14px; box-shadow: 0 24px 60px -18px rgba(0,0,0,.75); z-index: 60; }
+.fx-tools .bell-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--hair2); position: sticky; top: 0; background: var(--card-solid); }
+.fx-tools .bell-item { padding: 12px 14px; border-bottom: 1px solid var(--hair2); font-size: 13px; }
+.fx-tools .bell-item:last-child { border-bottom: none; }
+.fx-tools .bell-item.unread { background: rgba(212,175,55,.05); }
+
+.fx-tools .wrap { max-width: 1024px; margin: 0 auto; padding: 0 16px calc(64px + var(--fx-bottomnav-h) + env(safe-area-inset-bottom)); position: relative; z-index: 1; }
 
 /* ============ TYPE ============ */
-.fx-tools .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; }
+.fx-tools .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent-text); margin-bottom: 8px; }
 .fx-tools .page-head { text-align: center; padding: 48px 8px 28px; max-width: 640px; margin: 0 auto; }
-.fx-tools .page-head h2 { font-size: clamp(28px,4.5vw,40px); font-weight: 700; letter-spacing: -.02em; }
+.fx-tools .page-head h1 { font-size: clamp(28px,4.5vw,40px); font-weight: 700; letter-spacing: -.02em; }
 .fx-tools .page-head p { font-size: 15px; color: var(--ink2); margin-top: 10px; line-height: 1.55; }
 .fx-tools .tool-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 980px; margin-bottom: 14px; }
 
@@ -73,22 +140,25 @@
 
 .fx-tools .fg { margin-bottom: 16px; }
 .fx-tools .fl { display: block; font-size: 12px; color: var(--ink2); margin-bottom: 7px; font-weight: 600; }
-.fx-tools .fi, .fx-tools .fs { width: 100%; padding: 13px 15px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.13); border-radius: 12px; color: var(--ink); font-size: 16px; font-family: inherit; outline: none; transition: all .2s; -webkit-appearance: none; }
+.fx-tools .fi, .fx-tools .fs { width: 100%; padding: 13px 15px; background: var(--fill-04); border: 1px solid var(--fill-13); border-radius: 12px; color: var(--ink); font-size: 16px; font-family: inherit; outline: none; transition: all .2s; -webkit-appearance: none; }
 .fx-tools .fi::placeholder, .fx-tools .fs::placeholder { color: var(--ink3); }
-.fx-tools .fi:focus, .fx-tools .fs:focus { border-color: var(--gold); background: rgba(255,255,255,.06); box-shadow: 0 0 0 3px rgba(212,175,55,.14), 0 6px 18px -6px rgba(0,0,0,.5); transform: translateY(-1px); }
+.fx-tools .fi:focus, .fx-tools .fs:focus { border-color: var(--gold); background: var(--fill-06); box-shadow: 0 0 0 3px rgba(212,175,55,.14), 0 6px 18px -6px rgba(0,0,0,.5); transform: translateY(-1px); }
 .fx-tools .fs { cursor: pointer; background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239A9A94' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 15px center; padding-right: 38px; }
-.fx-tools .fi-sm { width: 110px; padding: 9px 12px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.13); border-radius: 10px; color: var(--ink); font-size: 14px; font-family: inherit; outline: none; text-align: right; transition: border .2s; }
-.fx-tools .fi-sm:focus { border-color: var(--gold); background: rgba(255,255,255,.06); }
+.fx-tools .fi-sm { width: 110px; padding: 9px 12px; background: var(--fill-04); border: 1px solid var(--fill-13); border-radius: 10px; color: var(--ink); font-size: 14px; font-family: inherit; outline: none; text-align: right; transition: border .2s; }
+.fx-tools .fi-sm:focus { border-color: var(--gold); background: var(--fill-06); }
 
-.fx-tools .btn { display: inline-block; width: 100%; padding: 14px; border: none; border-radius: 980px; font-size: 15px; font-weight: 600; letter-spacing: .01em; cursor: pointer; font-family: inherit; transition: transform 150ms var(--ease-out), box-shadow 150ms var(--ease-out), filter 200ms ease; text-align: center; background: linear-gradient(180deg,var(--gold-2),var(--gold)); color: #1a1400; box-shadow: 0 12px 32px -10px rgba(212,175,55,.55); }
-.fx-tools .btn:hover { filter: brightness(1.05); transform: translateY(-2px); box-shadow: 0 18px 42px -10px rgba(212,175,55,.7); }
-.fx-tools .btn:active { transform: scale(.97) translateY(1px); }
-.fx-tools .btn:disabled { cursor: default; }
-.fx-tools .btn-ghost { background: rgba(255,255,255,.03); color: var(--ink); border: 1px solid var(--hair); box-shadow: none; }
-.fx-tools .btn-ghost:hover { background: rgba(255,255,255,.06); border-color: rgba(212,175,55,.5); filter: none; }
+.fx-tools .btn { display: inline-block; width: 100%; padding: 14px; border: 1px solid #B8962E; border-radius: 980px; font-size: 15px; font-weight: 600; letter-spacing: .01em; cursor: pointer; font-family: inherit; transition: transform 150ms var(--ease-out), box-shadow 150ms var(--ease-out), background-color 200ms ease; text-align: center; background: var(--gold); color: #1a1400; box-shadow: 0 4px 14px -6px rgba(212,175,55,.45); -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.fx-tools .btn:hover { transform: translateY(-2px); background: #E0BC4B; box-shadow: 0 8px 22px -8px rgba(212,175,55,.6); }
+.fx-tools .btn:active { transform: scale(.97) translateY(1px); background: #C9A431; }
+.fx-tools .btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.fx-tools .btn:disabled { cursor: default; opacity: .5; transform: none; box-shadow: none; }
+.fx-tools .btn-ghost { background: var(--fill-03); color: var(--ink); border: 1px solid var(--hair); box-shadow: none; }
+.fx-tools .btn-ghost:hover { background: var(--fill-06); border-color: rgba(212,175,55,.5); filter: none; }
 .fx-tools .btn-sm { width: auto; padding: 9px 18px; font-size: 13px; }
 .fx-tools .btn-loading { animation: fxBtnPulse 1.2s ease-in-out infinite; pointer-events: none; opacity: .75; }
 @keyframes fxBtnPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(0,0,0,.1); } 50% { box-shadow: 0 0 0 8px rgba(0,0,0,0); } }
+@media (hover: none) { .fx-tools .btn:active { transform: scale(.97); background: #C9A431; } }
+@media (prefers-reduced-motion: reduce) { .fx-tools .btn-loading { animation: none; } }
 
 .fx-tools .pill { display: inline-block; font-size: 11px; font-weight: 600; padding: 4px 11px; border-radius: 980px; }
 .fx-tools .pill-ok { background: rgba(29,125,70,.1); color: var(--green); }
@@ -101,8 +171,8 @@
 .fx-tools .hidden { display: none !important; }
 .fx-tools .note { font-size: 12px; color: var(--ink3); line-height: 1.7; }
 .fx-tools .foot { text-align: center; padding: 34px 0 0; font-size: 12px; color: var(--ink3); }
-.fx-tools .foot b { color: var(--gold); }
-.fx-tools .foot a { color: var(--gold); text-decoration: none; }
+.fx-tools .foot b { color: var(--accent-text); }
+.fx-tools .foot a { color: var(--accent-text); text-decoration: none; }
 
 .fx-tools .stat-cell { background: var(--card); border: 1px solid var(--hair2); border-radius: 16px; padding: 20px 14px; text-align: center; box-shadow: var(--shadow); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); transition: transform .25s ease, box-shadow .25s ease; }
 .fx-tools .stat-cell:hover { transform: translateY(-3px); box-shadow: 0 8px 28px rgba(0,0,0,.09); }
@@ -142,11 +212,11 @@
 .fx-tools .metric .mv { font-size: 26px; font-weight: 700; letter-spacing: -.02em; color: var(--ink); margin-top: 7px; line-height: 1.05; }
 .fx-tools .metric .md { font-size: 12px; color: var(--ink2); margin-top: 5px; }
 .fx-tools .insight { display: flex; gap: 12px; align-items: flex-start; background: var(--gold-bg); border: 1px solid rgba(212,175,55,.22); border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; }
-.fx-tools .insight .ii { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center; justify-content: center; background: rgba(212,175,55,.18); color: var(--gold); }
+.fx-tools .insight .ii { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center; justify-content: center; background: rgba(212,175,55,.18); color: var(--accent-text); }
 .fx-tools .insight .it { font-size: 13px; line-height: 1.55; color: var(--ink2); }
 .fx-tools .insight .it b { color: var(--ink); font-weight: 600; }
 .fx-tools .empty-state { text-align: center; padding: 44px 22px; color: var(--ink3); }
-.fx-tools .empty-state .es-ic { width: 46px; height: 46px; border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; background: rgba(255,255,255,.04); border: 1px solid var(--hair2); color: var(--ink2); }
+.fx-tools .empty-state .es-ic { width: 46px; height: 46px; border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; background: var(--fill-04); border: 1px solid var(--hair2); color: var(--ink2); }
 .fx-tools .empty-state .es-t { font-size: 15px; font-weight: 600; color: var(--ink2); }
 .fx-tools .empty-state .es-d { font-size: 13px; margin-top: 5px; line-height: 1.55; }
 

@@ -7,12 +7,12 @@ const NOW = new Date('2026-07-15T10:00:00');
 
 function items(): ExpenseItem[] {
   return [
-    { id: 1, amount: 20000, category: 'rent', date: '2026-07-02', note: 'July rent' },
-    { id: 2, amount: 5000, category: 'groceries', date: '2026-07-05' },
-    { id: 3, amount: 3000, category: 'eating_out', date: '2026-07-08' },
-    { id: 4, amount: 2000, category: 'stocks', date: '2026-07-10' },
-    { id: 5, amount: 1000, category: 'food', date: '2026-07-11' }, // legacy key → eating_out
-    { id: 6, amount: 9999, category: 'rent', date: '2026-06-20' }, // previous month
+    { id: '1', amount: 20000, category: 'rent', date: '2026-07-02', note: 'July rent' },
+    { id: '2', amount: 5000, category: 'groceries', date: '2026-07-05' },
+    { id: '3', amount: 3000, category: 'eating_out', date: '2026-07-08' },
+    { id: '4', amount: 2000, category: 'stocks', date: '2026-07-10' },
+    { id: '5', amount: 1000, category: 'food', date: '2026-07-11' }, // legacy key → eating_out
+    { id: '6', amount: 9999, category: 'rent', date: '2026-06-20' }, // previous month
   ];
 }
 

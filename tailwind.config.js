@@ -5,6 +5,23 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        // ── Theme-aware semantic tokens (flip between light & dark) ────────
+        // Backed by CSS vars in styles/tokens.css. Use these for any new or
+        // refactored surface so it themes automatically. No alpha modifiers.
+        "surface-base": "var(--surface-base)",
+        "surface-1": "var(--surface-1)",
+        "surface-2": "var(--surface-2)",
+        "surface-3": "var(--surface-3)",
+        "surface-footer": "var(--surface-footer)",
+        ink: "var(--ink)",
+        "ink-2": "var(--ink-2)",
+        "ink-3": "var(--ink-3)",
+        "ink-inverse": "var(--ink-inverse)",
+        hairline: "var(--hairline)",
+        "hairline-2": "var(--hairline-2)",
+        "accent-text": "var(--accent-text)",
+        "accent-soft": "var(--accent-soft)",
+
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -48,7 +65,9 @@ module.exports = {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
-        void: "#0A0A0A",
+        // Semantic names mirror the canonical tokens in src/styles/tokens.css.
+        app: "#060607", // app background (bg-app)
+        void: "#0A0A0A", // tools canvas
         surface: "#111111",
         gold: "#D4AF37",
         "gold-bright": "#F1C40F",
@@ -68,6 +87,11 @@ module.exports = {
       },
       boxShadow: {
         xs: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+      },
+      transitionTimingFunction: {
+        // Token-backed easings (see styles/tokens.css) exposed as utilities.
+        standard: "var(--ease-standard)",
+        spring: "var(--ease-spring)",
       },
       keyframes: {
         "accordion-down": {

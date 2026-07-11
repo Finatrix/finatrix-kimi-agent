@@ -21,13 +21,27 @@ create table if not exists public.platform_roles (
   created_at timestamptz not null default now()
 );
 
+-- SECURITY DEFINER + pinned search_path: this helper is called from RLS
+-- policies (including platform_roles' own policy). As a plain function it would
+-- read public.platform_roles under the caller's RLS, which recurses back into
+-- that policy — an infinite-recursion error whenever an admin reads another
+-- user's row. Running it as DEFINER breaks the cycle and reliably answers the
+-- admin check; the empty search_path prevents object-resolution hijacking.
 create or replace function public.is_platform_admin(uid uuid)
-returns boolean language sql stable as $$
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
   select exists (
     select 1 from public.platform_roles
     where user_id = uid and role in ('admin', 'super_admin')
   );
 $$;
+-- Callable from RLS/PostgREST for signed-in users and the edge functions; never anon.
+revoke execute on function public.is_platform_admin(uuid) from public, anon;
+grant execute on function public.is_platform_admin(uuid) to authenticated, service_role;
 
 -- ───────────────────────── organizations (Module 12 foundation) ─────────────────────────
 create table if not exists public.organizations (
@@ -284,11 +298,38 @@ drop policy if exists "subscription_plans_admin_write" on public.subscription_pl
 create policy "subscription_plans_admin_write" on public.subscription_plans for all
   using (public.is_platform_admin(auth.uid())) with check (public.is_platform_admin(auth.uid()));
 
+-- coupons: NOT broadly readable. A `using (active = true)` select policy let any
+-- signed-in user enumerate every active coupon code via PostgREST (discount
+-- abuse). Reads are now admin-only; the client validates a single, explicitly
+-- submitted code through the SECURITY DEFINER `validate_coupon` RPC below, which
+-- never discloses the rest of the table.
 drop policy if exists "coupons_select" on public.coupons;
-create policy "coupons_select" on public.coupons for select to authenticated using (active = true);
+create policy "coupons_select" on public.coupons for select
+  using (public.is_platform_admin(auth.uid()));
 drop policy if exists "coupons_admin_write" on public.coupons;
 create policy "coupons_admin_write" on public.coupons for all
   using (public.is_platform_admin(auth.uid())) with check (public.is_platform_admin(auth.uid()));
+
+-- Validate ONE coupon code, server-side. Returns a single row (the redeemable
+-- discount) or no rows when the code is invalid, inactive, expired or exhausted.
+-- SECURITY DEFINER so it can read the locked coupons table; it only ever reveals
+-- the exact code the caller submitted, never the catalogue.
+create or replace function public.validate_coupon(p_code text)
+returns table (code text, percent_off int, amount_off numeric, currency text)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select c.code, c.percent_off, c.amount_off, c.currency
+  from public.coupons c
+  where c.code = upper(trim(p_code))
+    and c.active = true
+    and (c.valid_until is null or c.valid_until > now())
+    and (c.max_redemptions is null or c.times_redeemed < c.max_redemptions)
+$$;
+revoke execute on function public.validate_coupon(text) from public, anon;
+grant execute on function public.validate_coupon(text) to authenticated, service_role;
 
 -- subscriptions: own row select/insert/update; admins see/manage all.
 drop policy if exists "subscriptions_select" on public.subscriptions;
@@ -377,7 +418,9 @@ create or replace function public.increment_ai_usage(
   p_user_id uuid,
   p_day     date,
   p_limit   int
-) returns int language plpgsql as $$
+) returns int language plpgsql
+set search_path = ''
+as $$
 declare
   v_calls int;
 begin

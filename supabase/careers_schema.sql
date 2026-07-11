@@ -306,7 +306,9 @@ create policy "resumes_storage_delete_own"
 -- ═════════════════════════ housekeeping trigger ═════════════════════════
 -- Keep updated_at fresh on the tables the app edits in place.
 create or replace function public.careers_touch_updated_at()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql
+set search_path = ''
+as $$
 begin
   new.updated_at := now();
   return new;
