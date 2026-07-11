@@ -6,6 +6,7 @@
  */
 
 import { supabase } from '../../lib/supabase';
+import { invokeAuthed } from '../../lib/functions';
 import type {
   JobDescriptionRow,
   JobRow,
@@ -41,21 +42,32 @@ export interface SearchOutcome {
  * translate them into each provider's native query syntax.
  */
 export async function searchProviders(params: JobSearchParams, terms: string[] = []): Promise<SearchOutcome> {
-  const { data, error } = await supabase.functions.invoke('careers-jobs', {
-    body: {
-      query: params.query,
-      terms: terms.slice(0, 18),
-      location: params.location,
-      country: params.country,
-      remoteOnly: params.remoteOnly || params.workMode === 'remote',
-      workMode: params.workMode,
-      employmentType: params.employmentType,
-      salaryMin: params.salaryMin,
-      salaryMax: params.salaryMax,
-      providers: params.providers.length ? params.providers : undefined,
-      page: params.page,
-    },
+  // `invokeAuthed` attaches the current user's JWT explicitly (the publishable
+  // key is NOT a bearer token) and short-circuits when there is no session, so a
+  // signed-out or not-yet-hydrated search never hits the platform with a missing
+  // Authorization header (which returns a 401 the browser masks as a CORS error).
+  const { data, error, reason } = await invokeAuthed<SearchOutcome>('careers-jobs', {
+    query: params.query,
+    terms: terms.slice(0, 18),
+    location: params.location,
+    country: params.country,
+    remoteOnly: params.remoteOnly || params.workMode === 'remote',
+    workMode: params.workMode,
+    employmentType: params.employmentType,
+    salaryMin: params.salaryMin,
+    salaryMax: params.salaryMax,
+    providers: params.providers.length ? params.providers : undefined,
+    page: params.page,
   });
+  if (reason === 'not-configured') {
+    throw new CareersError(
+      'not-setup',
+      'Job search needs the Supabase backend configured (VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY).'
+    );
+  }
+  if (reason === 'no-session') {
+    throw new CareersError('auth', 'Sign in to search jobs.');
+  }
   if (error) {
     const ctx = (error as { context?: Response }).context;
     const status = ctx instanceof Response ? ctx.status : 0;
@@ -65,7 +77,12 @@ export async function searchProviders(params: JobSearchParams, terms: string[] =
       try { serverMessage = String(((await ctx.clone().json()) as { error?: string })?.error ?? ''); }
       catch { /* not JSON — leave blank */ }
     }
-    if (status === 401) throw new CareersError('auth', serverMessage || 'Sign in to search jobs.');
+    if (status === 401 || status === 403) {
+      // Reaching here despite attaching a Bearer means the token was rejected
+      // (expired/rotated) — a re-auth issue, never a CORS one. Show sign-in
+      // guidance rather than the raw gateway string ("Missing authorization header").
+      throw new CareersError('auth', 'Your session has expired. Please sign in again to search jobs.');
+    }
     if (status === 404) {
       throw new CareersError(
         'not-setup',

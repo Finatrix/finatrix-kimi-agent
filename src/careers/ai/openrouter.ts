@@ -6,6 +6,7 @@
  */
 
 import { supabase } from '../../lib/supabase';
+import { invokeAuthed } from '../../lib/functions';
 import { logAiUsage } from '../services/aiUsage';
 import { CareersError } from '../utils/errors';
 import type { AiCompletion, AiProvider, AiRequest } from './provider';
@@ -48,15 +49,19 @@ export const openRouterProvider: AiProvider = {
   id: 'openrouter',
   async complete(req: AiRequest): Promise<AiCompletion> {
     const started = Date.now();
-    const { data, error } = await supabase.functions.invoke('careers-ai', {
-      body: {
-        task: req.task,
-        system: req.system,
-        user: req.user,
-        model: req.model || undefined,
-        maxTokens: req.maxTokens,
-      },
+    const { data, error, reason } = await invokeAuthed<{ content?: string; model?: string; ms?: number; promptTokens?: number; completionTokens?: number }>('careers-ai', {
+      task: req.task,
+      system: req.system,
+      user: req.user,
+      model: req.model || undefined,
+      maxTokens: req.maxTokens,
     });
+    if (reason === 'not-configured') {
+      throw new CareersError('not-setup', 'AI analysis needs the Supabase backend configured (VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY).');
+    }
+    if (reason === 'no-session') {
+      throw new CareersError('auth', 'Sign in to use AI analysis.');
+    }
     if (error) {
       const mapped = await errorFromFunction(error);
       void currentUserId().then((uid) => {

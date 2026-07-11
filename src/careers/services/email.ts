@@ -6,7 +6,7 @@
  * without treating it as a failure.
  */
 
-import { supabase } from '../../lib/supabase';
+import { invokeAuthed } from '../../lib/functions';
 import type { EmailContent } from './emailTemplates';
 
 export interface SendResult {
@@ -15,9 +15,11 @@ export interface SendResult {
 }
 
 export async function sendEmail(to: string, content: EmailContent): Promise<SendResult> {
-  const { data, error } = await supabase.functions.invoke('careers-email', {
-    body: { to, subject: content.subject, html: content.html, text: content.text },
+  const { data, error, reason } = await invokeAuthed<SendResult>('careers-email', {
+    to, subject: content.subject, html: content.html, text: content.text,
   });
-  if (error) return { sent: false, reason: 'request-failed' };
-  return data as SendResult;
+  if (reason === 'not-configured') return { sent: false, reason: 'not-configured' };
+  if (reason === 'no-session') return { sent: false, reason: 'no-session' };
+  if (error || !data) return { sent: false, reason: 'request-failed' };
+  return data;
 }
