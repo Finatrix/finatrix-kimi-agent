@@ -192,8 +192,10 @@ export default function DashboardPage() {
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
   }, []);
-  const snap: DashboardSnapshot = useMemo(() => readDashboard(), [tick]);
-  const upcoming = useMemo(() => getUpcomingEvents(new Date(), 30).slice(0, 4), [tick]);
+  // `tick` is an intentional recompute trigger (focus / local writes); reference
+  // it so the dependency is honoured without the linter flagging it as unused.
+  const snap: DashboardSnapshot = useMemo(() => { void tick; return readDashboard(); }, [tick]);
+  const upcoming = useMemo(() => { void tick; return getUpcomingEvents(new Date(), 30).slice(0, 4); }, [tick]);
 
   useEffect(() => { document.title = 'Dashboard — FinatriX'; }, []);
 

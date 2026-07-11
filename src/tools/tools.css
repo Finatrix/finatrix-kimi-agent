@@ -16,6 +16,10 @@
   --hair: var(--hairline); --hair2: var(--hairline-2); --dark: var(--surface-base);
   --gold: var(--accent); --gold-2: var(--accent-soft); --gold-bg: var(--accent-bg);
   --blue: var(--status-info); --green: var(--status-success); --orange: var(--status-warn); --purple: var(--data-purple); --teal: var(--data-teal); --red: var(--status-danger);
+  /* Wants allocation colour — a premium amber, deliberately distinct from the
+     brand gold so the three budget bands (Needs/Wants/Savings) never rely on
+     brightness alone to be told apart. Visible on both dark and light. */
+  --wants: #F5A524;
   --r: var(--radius-xl); --shadow: var(--shadow-2); --glass-blur: blur(14px) saturate(150%);
   --spring: var(--ease-spring);
   --ease-in-out: cubic-bezier(.42,0,.58,1);
@@ -83,7 +87,7 @@
 .fx-tools .nav a[data-route="careers"]::before { background: #D4AF37; opacity: .85; }
 .fx-tools .nav a:hover { color: var(--ink); background: var(--fill-06); }
 .fx-tools .nav a:hover::before { transform: scale(1.25); }
-.fx-tools .nav a.on { background: linear-gradient(180deg,var(--gold-2),var(--gold)); color: #1a1400; font-weight: 600; box-shadow: 0 6px 18px -4px rgba(212,175,55,.45); position: relative; }
+.fx-tools .nav a.on { background: linear-gradient(180deg,#E6C766,#D4AF37); color: #1a1400; font-weight: 600; box-shadow: 0 6px 18px -4px rgba(212,175,55,.45); position: relative; }
 .fx-tools .nav a.on::before { background: #1a1400; opacity: .65; }
 @media(max-width:767px){ .fx-tools #mainNav { display: none; } .fx-tools .nav-wrap > div { justify-content: flex-end; } }
 
@@ -147,7 +151,7 @@
 .fx-tools .fi-sm { width: 110px; padding: 9px 12px; background: var(--fill-04); border: 1px solid var(--fill-13); border-radius: 10px; color: var(--ink); font-size: 14px; font-family: inherit; outline: none; text-align: right; transition: border .2s; }
 .fx-tools .fi-sm:focus { border-color: var(--gold); background: var(--fill-06); }
 
-.fx-tools .btn { display: inline-block; width: 100%; padding: 14px; border: 1px solid #B8962E; border-radius: 980px; font-size: 15px; font-weight: 600; letter-spacing: .01em; cursor: pointer; font-family: inherit; transition: transform 150ms var(--ease-out), box-shadow 150ms var(--ease-out), background-color 200ms ease; text-align: center; background: var(--gold); color: #1a1400; box-shadow: 0 4px 14px -6px rgba(212,175,55,.45); -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.fx-tools .btn { display: inline-block; width: 100%; padding: 14px; border: 1px solid #B8962E; border-radius: 980px; font-size: 15px; font-weight: 600; letter-spacing: .01em; cursor: pointer; font-family: inherit; transition: transform 150ms var(--ease-out), box-shadow 150ms var(--ease-out), background-color 200ms ease; text-align: center; background: #D4AF37; color: #1a1400; box-shadow: 0 4px 14px -6px rgba(212,175,55,.45); -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 .fx-tools .btn:hover { transform: translateY(-2px); background: #E0BC4B; box-shadow: 0 8px 22px -8px rgba(212,175,55,.6); }
 .fx-tools .btn:active { transform: scale(.97) translateY(1px); background: #C9A431; }
 .fx-tools .btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }

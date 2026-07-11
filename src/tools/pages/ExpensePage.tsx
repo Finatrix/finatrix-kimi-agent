@@ -34,7 +34,7 @@ const HEALTH_COLOR: Record<CatHealth, string> = {
 const HEALTH_LABEL: Record<CatHealth, string> = {
   within: 'Within budget', near: 'Near limit', over: 'Over budget', none: 'No budget',
 };
-const SECTION_COLOR: Record<CatKey, string> = { needs: 'var(--blue)', wants: 'var(--gold)', save: 'var(--green)' };
+const SECTION_COLOR: Record<CatKey, string> = { needs: 'var(--blue)', wants: 'var(--wants)', save: 'var(--green)' };
 
 type Tab = 'overview' | 'analytics' | 'recurring';
 

@@ -135,7 +135,7 @@ export async function exportBudgetPdf(b: BudgetExport) {
   const barY = 120, barX = 40, barW = W - 80, barH = 16;
   const total = b.needs.limit + b.wants.limit + b.save.limit || 1;
   const segs: [number, [number, number, number]][] = [
-    [b.needs.limit, [77, 155, 255]], [b.wants.limit, [212, 175, 55]], [b.save.limit, [52, 210, 122]],
+    [b.needs.limit, [77, 155, 255]], [b.wants.limit, [245, 165, 36]], [b.save.limit, [52, 210, 122]],
   ];
   let x = barX;
   segs.forEach(([val, rgb]) => {

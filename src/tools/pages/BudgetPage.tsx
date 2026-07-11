@@ -12,7 +12,7 @@ import {
   type BudgetVals, type BudgetStore, type BudgetCat, type CatResult, type CatKey, type CustomCats,
 } from '../lib/budget';
 
-const CAT_COLOR: Record<CatKey, string> = { needs: 'var(--blue)', wants: 'var(--gold)', save: 'var(--green)' };
+const CAT_COLOR: Record<CatKey, string> = { needs: 'var(--blue)', wants: 'var(--wants)', save: 'var(--green)' };
 
 export default function BudgetPage() {
   const { cfmt, sym, code } = useCurrency();
@@ -159,7 +159,7 @@ export default function BudgetPage() {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 14 }}>
           <PctInput label="Needs %" color="var(--blue)" value={needsPct} onChange={setNeedsPct} id="bb-pct-needs" />
-          <PctInput label="Wants %" color="var(--gold)" value={wantsPct} onChange={setWantsPct} id="bb-pct-wants" />
+          <PctInput label="Wants %" color="var(--wants)" value={wantsPct} onChange={setWantsPct} id="bb-pct-wants" />
           <PctInput label="Save %" color="var(--green)" value={savePct} onChange={setSavePct} id="bb-pct-save" />
         </div>
         {r.splitWarn && (
@@ -167,7 +167,7 @@ export default function BudgetPage() {
         )}
         <div className="seg-bar">
           <div className="seg" style={{ width: `${r.nPctV}%`, background: 'var(--blue)' }} />
-          <div className="seg" style={{ width: `${r.wPctV}%`, background: 'var(--gold)' }} />
+          <div className="seg" style={{ width: `${r.wPctV}%`, background: 'var(--wants)' }} />
           <div className="seg" style={{ width: `${r.sPctV}%`, background: 'var(--green)' }} />
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--ink2)' }}>

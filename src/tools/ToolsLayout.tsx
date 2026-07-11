@@ -213,6 +213,25 @@ export default function ToolsLayout() {
     };
   }, [drawerOpen]);
 
+  // The drawer + mobile bottom nav only exist below the `md` breakpoint (768px).
+  // If the viewport grows to desktop while the drawer is open, the drawer becomes
+  // display:none but its scroll-lock would otherwise persist — leaving the page
+  // frozen with an invisible lock. Close the mobile overlays on any cross-breakpoint
+  // resize so body scroll is always restored. (No effect on real mobile devices.)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(min-width: 768px)');
+    const onChange = () => {
+      if (mq.matches) {
+        setDrawerOpen(false);
+        setMenuOpen(false);
+      }
+    };
+    onChange(); // reconcile once on mount
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
   // Seed localStorage from the cloud (or clear it) before mounting the tools.
   useEffect(() => {
     if (loading) return;

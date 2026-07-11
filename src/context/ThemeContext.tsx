@@ -2,7 +2,6 @@ import {
   createContext,
   useContext,
   useEffect,
-  useRef,
   useState,
   useCallback,
   type ReactNode,
@@ -82,8 +81,6 @@ function applyTheme(theme: Theme, animate: boolean) {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(getInitialTheme);
-  const themeRef = useRef(theme);
-  themeRef.current = theme;
 
   const setTheme = useCallback((next: Theme) => {
     setThemeState(next);
@@ -96,8 +93,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const toggleTheme = useCallback(() => {
-    setTheme(themeRef.current === 'dark' ? 'light' : 'dark');
-  }, [setTheme]);
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+  }, [setTheme, theme]);
 
   // Follow OS scheme changes, but only while no explicit choice is stored.
   useEffect(() => {
@@ -120,6 +117,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useTheme(): ThemeContextValue {
   return useContext(ThemeContext);
 }
