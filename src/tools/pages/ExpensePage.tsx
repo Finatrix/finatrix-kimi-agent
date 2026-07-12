@@ -72,7 +72,11 @@ export default function ExpensePage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<ExpenseItem | null>(null);
-  const [undo, setUndo] = useState<{ prev: ExpenseItem[]; label: string } | null>(null);
+  // Multi-level undo: every deletion pushes its victims (not an array
+  // snapshot — snapshots can't compose across several deletes). Undo pops
+  // the most recent batch and re-inserts it, so a run of mistaken deletes
+  // can be walked back one by one.
+  const [undoStack, setUndoStack] = useState<{ victims: ExpenseItem[]; label: string }[]>([]);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selKey = flatCats.some((c) => c.k === sel) ? sel : (flatCats[0]?.k ?? '');
@@ -153,37 +157,68 @@ export default function ExpensePage() {
     if (m !== selMonth) switchMonth(m);
   };
 
+  /** Keep the undo window open 15s past the latest delete or undo. */
+  const armUndoExpiry = () => {
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    undoTimer.current = setTimeout(() => setUndoStack([]), 15000);
+  };
+
+  const pushUndo = (victims: ExpenseItem[], label: string) => {
+    setUndoStack((s) => [...s.slice(-9), { victims, label }]); // last 10 deletes
+    armUndoExpiry();
+  };
+
   const deleteTransaction = (id: string) => {
     const victim = items.find((e) => e.id === id);
     if (!victim) return;
-    const prev = items;
     commit(items.filter((e) => e.id !== id));
     setModalOpen(false);
     setEditing(null);
-    if (undoTimer.current) clearTimeout(undoTimer.current);
-    setUndo({ prev, label: victim.note || victim.merchant || 'Transaction' });
-    undoTimer.current = setTimeout(() => setUndo(null), 7000);
+    pushUndo([victim], victim.note || victim.merchant || 'Transaction');
   };
 
   const undoDelete = () => {
-    if (!undo) return;
-    if (undoTimer.current) clearTimeout(undoTimer.current);
-    commit(undo.prev);
-    setUndo(null);
+    const top = undoStack[undoStack.length - 1];
+    if (!top) return;
+    // Re-insert, skipping ids that already exist (e.g. double-click on Undo).
+    const existing = new Set(items.map((e) => e.id));
+    const revived = top.victims.filter((v) => !existing.has(v.id));
+    if (revived.length) commit([...revived, ...items]);
+    const rest = undoStack.slice(0, -1);
+    setUndoStack(rest);
+    if (rest.length) {
+      armUndoExpiry();
+    } else if (undoTimer.current) {
+      clearTimeout(undoTimer.current);
+    }
   };
 
   const openEdit = (item: ExpenseItem) => { setEditing(item); setModalOpen(true); };
   const openAdd = () => { setEditing(null); setModalOpen(true); };
 
+  // Ctrl/Cmd+Z restores the most recent deletion while the undo window is
+  // open. Skipped when typing so the browser's native text undo still works.
+  useEffect(() => {
+    if (!undoStack.length) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.key.toLowerCase() !== 'z') return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      e.preventDefault();
+      undoDelete();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- undoDelete reads current stack/items each render
+  }, [undoStack, items]);
+
   const bulkDelete = (ids: string[]) => {
     if (ids.length === 0) return;
     const set = new Set(ids);
-    const prev = items;
     const victims = items.filter((e) => set.has(e.id));
+    if (!victims.length) return;
     commit(items.filter((e) => !set.has(e.id)));
-    if (undoTimer.current) clearTimeout(undoTimer.current);
-    setUndo({ prev, label: `${victims.length} transaction${victims.length > 1 ? 's' : ''}` });
-    undoTimer.current = setTimeout(() => setUndo(null), 7000);
+    pushUndo(victims, `${victims.length} transaction${victims.length > 1 ? 's' : ''}`);
   };
 
   const bulkDuplicate = (ids: string[]) => {
@@ -320,7 +355,7 @@ export default function ExpensePage() {
         />
       )}
 
-      {undo && (
+      {undoStack.length > 0 && (
         <div className="fx-undo" role="status" aria-live="polite">
           <style>{`
             .fx-undo{position:fixed;left:50%;bottom:calc(22px + var(--fx-bottomnav-h,0px) + env(safe-area-inset-bottom));transform:translateX(-50%);
@@ -330,9 +365,16 @@ export default function ExpensePage() {
               animation:fxUndoIn .28s cubic-bezier(.34,1.3,.5,1) both;}
             @keyframes fxUndoIn{from{opacity:0;transform:translate(-50%,14px)}to{opacity:1;transform:translate(-50%,0)}}
             @media (prefers-reduced-motion:reduce){.fx-undo{animation:none;}}
+            .fx-undo kbd{font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:var(--ink3);
+              border:1px solid var(--hair2);border-radius:5px;padding:1px 5px;}
           `}</style>
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Deleted "{undo.label}".</span>
-          <button type="button" className="btn btn-sm" style={{ width: 'auto', padding: '7px 16px' }} onClick={undoDelete}>Undo</button>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            Deleted “{undoStack[undoStack.length - 1].label}”.
+          </span>
+          <kbd aria-hidden="true">{typeof navigator !== 'undefined' && /Mac/.test(navigator.platform) ? '⌘Z' : 'Ctrl+Z'}</kbd>
+          <button type="button" className="btn btn-sm" style={{ width: 'auto', padding: '7px 16px', flexShrink: 0 }} onClick={undoDelete}>
+            Undo{undoStack.length > 1 ? ` (${undoStack.length})` : ''}
+          </button>
         </div>
       )}
 

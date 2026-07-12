@@ -176,7 +176,11 @@
 .fx-tools .bar { height: 8px; background: var(--bg); border-radius: 8px; overflow: hidden; position: relative; }
 .fx-tools .bar-fill { height: 100%; border-radius: 8px; transition: width 800ms cubic-bezier(.4,0,.2,1); }
 .fx-tools .hr { height: 1px; background: var(--hair2); margin: 18px 0; }
-.fx-tools .hidden { display: none !important; }
+/* NOTE: no `.fx-tools .hidden` override here. This stylesheet loads after the
+   Tailwind utility layer, so an !important display:none would defeat every
+   responsive `hidden md:*` reveal inside the shells (it silently removed the
+   Home button, sync label and account menu on desktop). Tailwind's own
+   `hidden` utility already covers the base case. */
 .fx-tools .note { font-size: 12px; color: var(--ink3); line-height: 1.7; }
 .fx-tools .foot { text-align: center; padding: 34px 0 0; font-size: 12px; color: var(--ink3); }
 .fx-tools .foot b { color: var(--accent-text); }

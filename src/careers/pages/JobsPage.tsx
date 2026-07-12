@@ -935,7 +935,30 @@ export default function JobsPage() {
             );
           })}
 
-          {!searching && results.length > 0 && (
+          {/* Successful search, but the match threshold hid everything — a
+              dead-looking page with no explanation. Say why, and offer the
+              one-click way out. */}
+          {!searching && results.length > 0 && visibleResults.length === 0 && (() => {
+            const best = Math.max(...results.map((s) => effectiveMatch(s) ?? 0));
+            return (
+              <div className="card">
+                <EmptyState
+                  icon="goal"
+                  title={`${results.length} job${results.length === 1 ? '' : 's'} matched — all below your ${threshold}% threshold`}
+                  action={
+                    <button className="btn btn-sm" style={{ width: 'auto' }} onClick={() => setThreshold(0)}>
+                      Show all {results.length} jobs
+                    </button>
+                  }
+                >
+                  The strongest Resume Match in this search scored {best}%. Lower the
+                  threshold above, or show everything and judge for yourself.
+                </EmptyState>
+              </div>
+            );
+          })()}
+
+          {!searching && results.length > 0 && visibleResults.length > 0 && (
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 6 }}>
               {params.page > 0 && (
                 <button className="btn btn-ghost btn-sm" disabled={searching} onClick={() => void runSearch(params.page - 1)}>← Previous</button>

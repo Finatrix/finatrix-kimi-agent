@@ -61,7 +61,9 @@ export default function CareersDashboard() {
 
   const topSkills = useMemo(() => {
     if (!parsed) return [];
-    return [...parsed.skills.technical, ...parsed.skills.tools, ...parsed.skills.frameworks].slice(0, 12);
+    // Set-dedupe: the same skill often appears in technical AND tools
+    // (e.g. "Power BI"), which duplicated chips and React keys.
+    return [...new Set([...parsed.skills.technical, ...parsed.skills.tools, ...parsed.skills.frameworks])].slice(0, 12);
   }, [parsed]);
 
   const industries = useMemo(() => {
