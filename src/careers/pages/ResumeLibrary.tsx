@@ -12,7 +12,7 @@ import { useToast } from '../../tools/ui/Toast';
 import { Icon } from '../../tools/ui/Icon';
 import { PageHead } from '../../tools/ui/common';
 import { ScoreRing } from '../components/ScoreRing';
-import { ConfirmDialog, EmptyState, ErrorCard } from '../components/states';
+import { ConfirmDialog, EmptyState, ErrorCard, ModalShell, PageLoading } from '../components/states';
 import { PipelineProgress } from '../components/PipelineProgress';
 import { CAREERS_ROUTES } from '../constants';
 import { useCareers } from '../context/CareersContext';
@@ -194,7 +194,7 @@ export default function ResumeLibrary() {
     }
   };
 
-  if (loading) return <div style={{ minHeight: '50vh' }} aria-busy="true" />;
+  if (loading) return <PageLoading />;
 
   return (
     <div className="fx-page">
@@ -376,9 +376,7 @@ export default function ResumeLibrary() {
 
       {/* Rename dialog */}
       {renameTarget && (
-        <div className="fx-modal-wrap" role="dialog" aria-modal="true" aria-label="Rename resume">
-          <div className="fx-modal-back" onClick={() => setRenameTarget(null)} />
-          <div className="fx-modal">
+        <ModalShell label="Rename resume" onClose={() => setRenameTarget(null)}>
             <h3>Rename resume</h3>
             <input
               className="fi"
@@ -394,8 +392,7 @@ export default function ResumeLibrary() {
               <button className="btn btn-ghost btn-sm" style={{ flex: 1 }} onClick={() => setRenameTarget(null)}>Cancel</button>
               <button className="btn btn-sm" style={{ flex: 1 }} onClick={onRename}>Save</button>
             </div>
-          </div>
-        </div>
+        </ModalShell>
       )}
 
       <ConfirmDialog
@@ -480,9 +477,7 @@ function AnalysisModal({
     }
   };
   return (
-    <div className="fx-modal-wrap" role="dialog" aria-modal="true" aria-label={`Analysis of ${resume.name}`}>
-      <div className="fx-modal-back" onClick={onClose} />
-      <div className="fx-modal wide">
+    <ModalShell label={`Analysis of ${resume.name}`} onClose={onClose} wide>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
           <h3 style={{ flex: 1, marginBottom: 0 }}>{resume.name}</h3>
           {resume.versions.length > 1 && (
@@ -638,8 +633,7 @@ function AnalysisModal({
             ))}
           </>
         )}
-      </div>
-    </div>
+    </ModalShell>
   );
 }
 
@@ -668,9 +662,7 @@ function CompareModal({
   );
 
   return (
-    <div className="fx-modal-wrap" role="dialog" aria-modal="true" aria-label="Compare resume versions">
-      <div className="fx-modal-back" onClick={onClose} />
-      <div className="fx-modal wide">
+    <ModalShell label="Compare resume versions" onClose={onClose} wide>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14 }}>
           <h3 style={{ flex: 1, marginBottom: 0 }}>Compare versions</h3>
           <button className="icon-btn" aria-label="Close" onClick={onClose}>✕</button>
@@ -752,7 +744,6 @@ function CompareModal({
             </div>
           </>
         )}
-      </div>
-    </div>
+    </ModalShell>
   );
 }

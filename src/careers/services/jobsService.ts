@@ -25,6 +25,8 @@ export interface SearchOutcome {
   status: Record<string, string>;
   /** provider id → number of jobs returned (after dedupe). */
   counts?: Record<string, number>;
+  /** provider id → response time in ms (provider health). */
+  latency?: Record<string, number>;
   /** provider id → short error string (only for failed providers). */
   errors?: Record<string, string>;
   /** True when at least one provider ran and not all of them failed. */

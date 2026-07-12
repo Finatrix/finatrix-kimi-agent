@@ -73,8 +73,8 @@
 .fx-tools .nav-wrap { position: sticky; top: 0; z-index: 50; background: var(--nav-solid); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-bottom: 1px solid var(--hair); }
 .fx-tools .nav { max-width: 1024px; margin: 0 auto; display: flex; gap: 2px; overflow-x: auto; padding: 10px 16px; scrollbar-width: none; }
 .fx-tools .nav::-webkit-scrollbar { display: none; }
-.fx-tools .nav a { display: inline-flex; align-items: center; flex-shrink: 0; font-size: 13px; font-weight: 500; color: color-mix(in srgb, var(--ink) 72%, transparent); text-decoration: none; padding: 7px 14px; border-radius: 980px; transition: color .2s var(--ease-out), background .2s var(--ease-out); white-space: nowrap; letter-spacing: -.01em; }
-.fx-tools .nav a::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 8px; background: currentColor; opacity: .55; transition: opacity .2s ease, transform .2s ease; }
+.fx-tools .nav a, .fx-tools .nav button { display: inline-flex; align-items: center; flex-shrink: 0; font-size: 13px; font-weight: 500; color: color-mix(in srgb, var(--ink) 72%, transparent); text-decoration: none; padding: 7px 14px; border-radius: 980px; transition: color .2s var(--ease-out), background .2s var(--ease-out); white-space: nowrap; letter-spacing: -.01em; background: none; border: none; font-family: inherit; cursor: pointer; }
+.fx-tools .nav a::before, .fx-tools .nav button::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 8px; background: currentColor; opacity: .55; transition: opacity .2s ease, transform .2s ease; }
 .fx-tools .nav a[data-route="budget"]::before { background: #16A36A; opacity: .85; }
 .fx-tools .nav a[data-route="expenses"]::before { background: #1FAE5A; opacity: .85; }
 .fx-tools .nav a[data-route="investmatch"]::before { background: #0A84FF; opacity: .85; }
@@ -85,10 +85,10 @@
 .fx-tools .nav a[data-route="reports"]::before { background: #D4AF37; opacity: .85; }
 .fx-tools .nav a[data-route="calendar"]::before { background: #D4AF37; opacity: .85; }
 .fx-tools .nav a[data-route="careers"]::before { background: #D4AF37; opacity: .85; }
-.fx-tools .nav a:hover { color: var(--ink); background: var(--fill-06); }
-.fx-tools .nav a:hover::before { transform: scale(1.25); }
-.fx-tools .nav a.on { background: linear-gradient(180deg,#E6C766,#D4AF37); color: #1a1400; font-weight: 600; box-shadow: 0 6px 18px -4px rgba(212,175,55,.45); position: relative; }
-.fx-tools .nav a.on::before { background: #1a1400; opacity: .65; }
+.fx-tools .nav a:hover, .fx-tools .nav button:hover { color: var(--ink); background: var(--fill-06); }
+.fx-tools .nav a:hover::before, .fx-tools .nav button:hover::before { transform: scale(1.25); }
+.fx-tools .nav a.on, .fx-tools .nav button.on { background: linear-gradient(180deg,#E6C766,#D4AF37); color: #1a1400; font-weight: 600; box-shadow: 0 6px 18px -4px rgba(212,175,55,.45); position: relative; }
+.fx-tools .nav a.on::before, .fx-tools .nav button.on::before { background: #1a1400; opacity: .65; }
 @media(max-width:767px){ .fx-tools #mainNav { display: none; } .fx-tools .nav-wrap > div { justify-content: flex-end; } }
 
 /* ---- Mobile bottom navigation (<768px) ---- */
@@ -101,6 +101,10 @@
 .fx-mobnav-item.on { color: var(--accent-text); }
 .fx-mobnav-item.on svg { opacity: 1; }
 .fx-mobnav-item:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+/* Mobile-only affordance. Hidden here — not only via the `md:hidden` utility —
+   because this stylesheet is a lazy route chunk that loads after the utility
+   layer, so the `display:grid` above would win the cascade tie on desktop. */
+@media(min-width:768px){ .fx-mobnav { display: none; } }
 
 /* ---- Methodology / transparency disclosure (shared primitive) ---- */
 .fx-tools .fx-method { margin-top: 12px; }
@@ -116,7 +120,7 @@
 /* ---- Notification bell + panel (shared by tools & careers) ---- */
 .fx-tools .bell-wrap { position: relative; }
 .fx-tools .bell-dot { position: absolute; top: -2px; right: -2px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 980px; background: var(--red); color: #fff; font-size: 9.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
-.fx-tools .bell-panel { position: absolute; right: 0; top: calc(100% + 10px); width: min(92vw, 360px); max-height: 420px; overflow-y: auto; background: var(--card-solid); border: 1px solid var(--hair); border-radius: 14px; box-shadow: 0 24px 60px -18px rgba(0,0,0,.75); z-index: 60; }
+.fx-tools .bell-panel { position: absolute; right: 0; top: calc(100% + 10px); width: min(92vw, 360px); max-height: 420px; overflow-y: auto; background: var(--card-solid); border: 1px solid var(--hair); border-radius: 14px; box-shadow: 0 24px 60px -18px rgba(0,0,0,.75); z-index: 60; animation: fxMenuIn 160ms var(--ease-out) both; transform-origin: top right; }
 .fx-tools .bell-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--hair2); position: sticky; top: 0; background: var(--card-solid); }
 .fx-tools .bell-item { padding: 12px 14px; border-bottom: 1px solid var(--hair2); font-size: 13px; }
 .fx-tools .bell-item:last-child { border-bottom: none; }

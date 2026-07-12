@@ -70,9 +70,26 @@ describe('deploy configuration', () => {
     expect(wrangler).not.toContain('single-page-application');
   });
 
-  it('has a CSP meta tag in index.html (headers file intentionally omits CSP)', () => {
-    expect(read('index.html')).toMatch(/http-equiv="Content-Security-Policy"/);
-    expect(read('public/_headers')).not.toMatch(/^\s*Content-Security-Policy:/m);
+  it('delivers the production CSP header on document responses, in sync with the meta CSP', () => {
+    const html = read('index.html');
+    expect(html).toMatch(/http-equiv="Content-Security-Policy"/);
+    const metaPolicy = /http-equiv="Content-Security-Policy"\s+content="([^"]+)"/.exec(html)?.[1];
+    expect(metaPolicy).toBeTruthy();
+
+    const headers = read('public/_headers');
+    const headerPolicies = [...headers.matchAll(/^\s*Content-Security-Policy: (.+)$/gm)].map((m) => m[1]);
+    // One header per document path ("/" and "/index.html"; the SPA Worker
+    // copies /index.html's headers onto every client-route navigation).
+    expect(headerPolicies).toHaveLength(2);
+    for (const policy of headerPolicies) {
+      // Byte-identical to the meta policy (differing CSPs enforce their
+      // intersection), plus frame-ancestors, which meta CSP cannot express.
+      expect(policy).toBe(`${metaPolicy}; frame-ancestors 'self'`);
+    }
+    // CSP must never apply to /* — it would break WASM inside the
+    // self-hosted OCR worker (workers read CSP from their own response).
+    const starBlock = headers.split(/^\/(?:\S*)$/m)[1] ?? '';
+    expect(starBlock).not.toContain('Content-Security-Policy');
   });
 });
 

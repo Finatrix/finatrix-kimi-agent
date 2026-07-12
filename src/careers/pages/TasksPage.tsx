@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
-import { EmptyState, ErrorCard } from '../components/states';
+import { EmptyState, ErrorCard, PageLoading } from '../components/states';
 import { useCareers } from '../context/CareersContext';
 import { listApplications } from '../services/applications';
 import { completeTask, createTask, deleteTask, dismissTask, listTasks } from '../services/tasks';
@@ -83,7 +83,7 @@ export default function TasksPage() {
 
   const overdue = (t: TaskRow) => t.status === 'open' && t.due_at != null && new Date(t.due_at).getTime() < Date.now();
 
-  if (loading) return <div style={{ minHeight: '50vh' }} aria-busy="true" />;
+  if (loading) return <PageLoading />;
 
   return (
     <div className="fx-page">
@@ -117,10 +117,10 @@ export default function TasksPage() {
         </div>
       </div>
 
-      <div className="nav" style={{ padding: 0, marginBottom: 10 }}>
-        <a className={filter === 'open' ? 'on' : ''} style={{ cursor: 'pointer' }} onClick={() => setFilter('open')}>Open ({tasks.filter((t) => t.status === 'open').length})</a>
-        <a className={filter === 'done' ? 'on' : ''} style={{ cursor: 'pointer' }} onClick={() => setFilter('done')}>Done</a>
-        <a className={filter === 'all' ? 'on' : ''} style={{ cursor: 'pointer' }} onClick={() => setFilter('all')}>All</a>
+      <div className="nav" role="tablist" aria-label="Task filter" style={{ padding: 0, marginBottom: 10 }}>
+        <button role="tab" aria-selected={filter === 'open'} className={filter === 'open' ? 'on' : ''} onClick={() => setFilter('open')}>Open ({tasks.filter((t) => t.status === 'open').length})</button>
+        <button role="tab" aria-selected={filter === 'done'} className={filter === 'done' ? 'on' : ''} onClick={() => setFilter('done')}>Done</button>
+        <button role="tab" aria-selected={filter === 'all'} className={filter === 'all' ? 'on' : ''} onClick={() => setFilter('all')}>All</button>
       </div>
 
       {!visible.length ? (
@@ -143,7 +143,7 @@ export default function TasksPage() {
                   <span className="badge badge-mute">{t.kind.replace('_', ' ')}</span>
                   <span className={`badge ${t.priority === 'high' ? 'badge-red' : t.priority === 'low' ? 'badge-mute' : 'badge-blue'}`}>{t.priority}</span>
                   {t.application_id && <span>{appName(t.application_id)}</span>}
-                  {t.due_at && <span style={overdue(t) ? { color: 'var(--danger, #e05252)' } : undefined}>Due {formatDate(t.due_at)}{overdue(t) ? ' · overdue' : ''}</span>}
+                  {t.due_at && <span style={overdue(t) ? { color: 'var(--red)' } : undefined}>Due {formatDate(t.due_at)}{overdue(t) ? ' · overdue' : ''}</span>}
                 </div>
                 {t.detail && <p className="note" style={{ marginTop: 4 }}>{t.detail}</p>}
               </div>

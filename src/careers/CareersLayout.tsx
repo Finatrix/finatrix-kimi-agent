@@ -4,9 +4,10 @@
  * Careers section, so entering /careers feels like the rest of FinatriX.
  */
 
-import { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router';
 import { useAuth } from '../context/AuthContext';
+import { useMobileDrawer } from '../hooks/useMobileDrawer';
+import { AccountMenu } from '../components/AccountMenu';
 import { HomeButton } from '../components/HomeButton';
 import { BrandLogo } from '../components/BrandLogo';
 import { Breadcrumb } from '../components/Breadcrumb';
@@ -42,19 +43,8 @@ function sectionName(id: string): string {
 export default function CareersLayout() {
   const { user, signOut, configured } = useAuth();
   const { isAdmin } = useRole();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useMobileDrawer();
   const active = useActiveCareersTab();
-
-  // Lock body scroll while the mobile drawer is open.
-  useEffect(() => {
-    if (!drawerOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [drawerOpen]);
 
   const firstName =
     (user?.user_metadata?.full_name as string)?.split(' ')[0] ||
@@ -99,36 +89,16 @@ export default function CareersLayout() {
             <ThemeToggle />
             {user && <NotificationsBell />}
             {user ? (
-              <>
-                <button
-                  onClick={() => setMenuOpen((o) => !o)}
-                  className="hidden md:inline font-mono text-[11px] uppercase tracking-[0.08em] text-ink hover:text-accent-text transition-colors"
-                >
-                  {firstName} ▾
-                </button>
-                {menuOpen && (
-                  <div
-                    className="absolute right-0 top-[calc(100%+8px)] min-w-[180px] bg-surface-2 border border-hairline rounded-lg py-1 flex flex-col z-30 shadow-[0_10px_30px_rgba(0,0,0,0.5)]"
-                    onMouseLeave={() => setMenuOpen(false)}
-                  >
-                    <Link to="/tools/dashboard" onClick={() => setMenuOpen(false)} className="px-4 py-2.5 text-[13px] text-ink hover:bg-hairline-2">
-                      Dashboard
-                    </Link>
-                    <Link to="/tools" onClick={() => setMenuOpen(false)} className="px-4 py-2.5 text-[13px] text-ink hover:bg-hairline-2">
-                      Money tools
-                    </Link>
-                    <Link to="/profile" onClick={() => setMenuOpen(false)} className="px-4 py-2.5 text-[13px] text-ink hover:bg-hairline-2">
-                      Profile &amp; settings
-                    </Link>
-                    <Link to="/" onClick={() => setMenuOpen(false)} className="px-4 py-2.5 text-[13px] text-ink hover:bg-hairline-2">
-                      Home
-                    </Link>
-                    <button onClick={() => { setMenuOpen(false); void signOut(); }} className="px-4 py-2.5 text-[13px] text-left text-[#E0726B] hover:bg-hairline-2">
-                      Sign out
-                    </button>
-                  </div>
-                )}
-              </>
+              <AccountMenu
+                name={firstName}
+                items={[
+                  { label: 'Dashboard', to: '/tools/dashboard' },
+                  { label: 'Money tools', to: '/tools' },
+                  { label: 'Profile & settings', to: '/profile' },
+                  { label: 'Home', to: '/' },
+                  { label: 'Sign out', onClick: () => void signOut(), danger: true },
+                ]}
+              />
             ) : (
               <>
                 <span className="hidden sm:inline font-mono text-[10px] uppercase tracking-[0.06em] text-ink-3">

@@ -11,7 +11,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
 import { ScoreRing } from '../components/ScoreRing';
-import { EmptyState, ErrorCard } from '../components/states';
+import { EmptyState, ErrorCard, PageLoading } from '../components/states';
 import { CAREERS_ROUTES } from '../constants';
 import { useCareers } from '../context/CareersContext';
 import { computeApplicationStats, listApplications } from '../services/applications';
@@ -152,7 +152,7 @@ export default function CareerCoachPage() {
     }
   };
 
-  if (loading) return <div style={{ minHeight: '50vh' }} aria-busy="true" />;
+  if (loading) return <PageLoading />;
 
   return (
     <div className="fx-page">
@@ -223,9 +223,9 @@ export default function CareerCoachPage() {
           <div className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <div className="panel-eyebrow" style={{ marginBottom: 0 }}>{review.headline}</div>
-              <div className="nav" style={{ padding: 0 }}>
-                <a className={reviewPeriod === 'weekly' ? 'on' : ''} style={{ cursor: 'pointer' }} onClick={() => setReviewPeriod('weekly')}>Weekly</a>
-                <a className={reviewPeriod === 'monthly' ? 'on' : ''} style={{ cursor: 'pointer' }} onClick={() => setReviewPeriod('monthly')}>Monthly</a>
+              <div className="nav" role="tablist" aria-label="Review period" style={{ padding: 0 }}>
+                <button role="tab" aria-selected={reviewPeriod === 'weekly'} className={reviewPeriod === 'weekly' ? 'on' : ''} onClick={() => setReviewPeriod('weekly')}>Weekly</button>
+                <button role="tab" aria-selected={reviewPeriod === 'monthly'} className={reviewPeriod === 'monthly' ? 'on' : ''} onClick={() => setReviewPeriod('monthly')}>Monthly</button>
               </div>
             </div>
             {review.bullets.map((b, i) => <div key={i} className="note">· {b}</div>)}

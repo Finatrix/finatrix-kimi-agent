@@ -38,13 +38,23 @@ function isLocalOrigin(origin: string): boolean {
   return /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
 }
 
+/** A well-formed http(s) web origin (no path), e.g. https://fiantrix.online. */
+function isWebOrigin(origin: string): boolean {
+  return /^https?:\/\/[a-z0-9.-]+(:\d+)?$/i.test(origin);
+}
+
 function corsFor(req: Request): Record<string, string> {
   const origin = req.headers.get('Origin') ?? '';
-  // Reflect the caller's origin when it is explicitly allowed or is localhost
-  // (any port — the dev server runs on :3000, preview on :4173, etc). Falling
-  // back to a fixed production origin would make the browser block the response
-  // and surface as an opaque "check your connection" failure.
-  const allow = ALLOWED_ORIGINS.includes(origin) || isLocalOrigin(origin) ? origin : ALLOWED_ORIGINS[0];
+  // This endpoint authenticates via a Bearer JWT and uses NO cookies, so
+  // reflecting the caller's origin is safe (it cannot enable CSRF — there are no
+  // ambient credentials to ride on) and removes brittle per-domain allowlists as
+  // a failure mode. We reflect any explicitly-allowed origin, any localhost, or
+  // any well-formed http(s) origin; only malformed/empty origins fall back to
+  // the canonical production origin. Tighten via CAREERS_ALLOWED_ORIGINS if you
+  // ever need a strict allowlist again.
+  const reflectable =
+    ALLOWED_ORIGINS.includes(origin) || isLocalOrigin(origin) || isWebOrigin(origin);
+  const allow = reflectable && origin ? origin : ALLOWED_ORIGINS[0];
   return {
     'Access-Control-Allow-Origin': allow,
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -325,6 +335,26 @@ function dedupeKey(j: NormalizedJob): string {
   return `${norm(j.company)}::${norm(j.title)}::${norm(j.location).slice(0, 24)}`;
 }
 
+/**
+ * Canonical apply URL scoped to company+title for cross-provider dedupe.
+ * Aggregators reuse one generic apply portal (company.com/careers) across many
+ * distinct roles, so a bare URL match must never collapse different jobs; the
+ * client pipeline handles fuzzier near-duplicate detection.
+ */
+function urlKey(j: NormalizedJob): string {
+  const raw = j.apply_url;
+  if (!raw) return '';
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  let url: string;
+  try {
+    const u = new URL(raw);
+    url = `${u.host}${u.pathname.replace(/\/+$/, '')}`.toLowerCase();
+  } catch {
+    url = raw.trim().toLowerCase().split(/[?#]/)[0].replace(/\/+$/, '');
+  }
+  return `${url}::${norm(j.company)}::${norm(j.title)}`;
+}
+
 // ─────────────────────────── handler ───────────────────────────
 
 Deno.serve(async (req) => {
@@ -397,40 +427,65 @@ async function handle(
     .filter((p) => !p.secrets.every((s) => s in env) && !skipped.includes(p.id))
     .map((p) => p.id);
 
-  const settled = await Promise.allSettled(active.map((p) => p.search(params, env)));
+  // Each provider runs in parallel with its OWN timeout (PROVIDER_TIMEOUT_MS,
+  // enforced inside fetchJson). We catch per provider so one failure/timeout can
+  // never reject the batch or block the others.
+  const started = Date.now();
+  const runProvider = async (p: Provider) => {
+    const t = Date.now();
+    try {
+      const jobs = await p.search(params, env);
+      return { id: p.id, jobs, ms: Date.now() - t, error: null as string | null };
+    } catch (e) {
+      return { id: p.id, jobs: [] as NormalizedJob[], ms: Date.now() - t, error: String(e).slice(0, 160) };
+    }
+  };
+  const results = await Promise.all(active.map(runProvider));
+
   const status: Record<string, string> = {};
   const counts: Record<string, number> = {};
+  const latency: Record<string, number> = {};
   const errors: Record<string, string> = {};
-  const seen = new Set<string>();
+  const seenContent = new Set<string>();
+  const seenUrl = new Set<string>();
   const jobs: NormalizedJob[] = [];
-  settled.forEach((result, i) => {
-    const id = active[i].id;
-    if (result.status === 'rejected') {
-      status[id] = 'error';
-      counts[id] = 0;
-      errors[id] = String(result.reason).slice(0, 160);
-      console.error(`careers-jobs: ${id} failed`, errors[id]);
-      return;
+
+  for (const r of results) {
+    latency[r.id] = r.ms;
+    if (r.error) {
+      // A timeout (AbortError) is reported distinctly from a hard failure.
+      status[r.id] = /abort|timeout/i.test(r.error) ? 'timeout' : 'error';
+      counts[r.id] = 0;
+      errors[r.id] = r.error;
+      continue;
     }
-    status[id] = 'ok';
+    status[r.id] = 'ok';
     let kept = 0;
-    for (const job of result.value) {
+    for (const job of r.jobs) {
       if (!job.title || !job.apply_url) continue;
-      const key = dedupeKey(job);
-      if (seen.has(key)) continue;
-      seen.add(key);
+      const uk = urlKey(job);
+      const ck = dedupeKey(job);
+      if ((uk && seenUrl.has(uk)) || seenContent.has(ck)) continue;
+      if (uk) seenUrl.add(uk);
+      seenContent.add(ck);
       jobs.push(job);
       kept++;
     }
-    counts[id] = kept;
-  });
-  for (const id of inactive) { status[id] = 'not-configured'; counts[id] = 0; }
-  for (const id of skipped) { status[id] = 'skipped'; counts[id] = 0; }
+    counts[r.id] = kept;
+  }
+  for (const id of inactive) { status[id] = 'not-configured'; counts[id] = 0; latency[id] = 0; }
+  for (const id of skipped) { status[id] = 'skipped'; counts[id] = 0; latency[id] = 0; }
 
   // Distinguish "no providers could run" from "providers ran, found nothing".
   const ran = active.length;
-  const failed = Object.values(status).filter((s) => s === 'error').length;
-  const providersUp = ran > 0 && failed < ran;
+  const healthy = Object.values(status).filter((s) => s === 'ok').length;
+  const providersUp = ran > 0 && healthy > 0;
 
-  return json(200, { jobs, status, counts, errors, page: params.page, providersUp, ran });
+  // Structured, secret-free log for observability (latency, counts, failures).
+  console.info(JSON.stringify({
+    fn: 'careers-jobs', country: params.country, ran, healthy,
+    status, counts, latency, totalMs: Date.now() - started, returned: jobs.length,
+  }));
+
+  return json(200, { jobs, status, counts, latency, errors, page: params.page, providersUp, ran });
 }

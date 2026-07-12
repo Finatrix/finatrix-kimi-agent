@@ -16,6 +16,7 @@ import {
   exportLetterTxt,
   letterMailto,
 } from '../services/exports';
+import { ModalShell } from './states';
 import type { ResumeVersionRow } from '../types';
 import { COVER_LETTER_LENGTHS, COVER_LETTER_TONES, type CoverLetterLength, type CoverLetterRow } from '../types/jobs';
 import { toCareersError } from '../utils/errors';
@@ -98,9 +99,7 @@ export function CoverLetterModal({
   const current = letter ? { ...letter, content_text: text } : null;
 
   return (
-    <div className="fx-modal-wrap" role="dialog" aria-modal="true" aria-label="Cover letter generator">
-      <div className="fx-modal-back" onClick={onClose} />
-      <div className="fx-modal wide">
+    <ModalShell label="Cover letter generator" onClose={onClose} wide>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
           <h3 style={{ flex: 1, marginBottom: 0 }}>Cover letter — {jobTitle || 'role'} at {company || 'company'}</h3>
           <button className="icon-btn" aria-label="Close" onClick={onClose}>✕</button>
@@ -164,7 +163,6 @@ export function CoverLetterModal({
             </div>
           </>
         )}
-      </div>
-    </div>
+    </ModalShell>
   );
 }

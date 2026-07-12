@@ -30,8 +30,13 @@ export function NotificationsBell() {
     const onDown = (e: MouseEvent) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
     document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
   }, [open]);
 
   const unread = items.filter((n) => !n.read);
@@ -52,6 +57,8 @@ export function NotificationsBell() {
       <button
         onClick={() => void toggle()}
         aria-label={unread.length ? `Notifications — ${unread.length} unread` : 'Notifications'}
+        aria-haspopup="menu"
+        aria-expanded={open}
         className="p-2 text-ink-3 hover:text-accent-text transition-colors relative"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

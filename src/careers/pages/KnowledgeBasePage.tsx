@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
-import { EmptyState, ErrorCard } from '../components/states';
+import { EmptyState, ErrorCard, PageLoading } from '../components/states';
 import { useCareers } from '../context/CareersContext';
 import { deleteKnowledgeItem, listKnowledgeItems, searchKnowledge, upsertKnowledgeItem } from '../services/knowledge';
 import { KNOWLEDGE_KINDS, type KnowledgeItemRow, type KnowledgeKind } from '../types/phase3';
@@ -49,7 +49,7 @@ export default function KnowledgeBasePage() {
     } catch (e) { notify(toCareersError(e).message, 'error'); } finally { setSaving(false); }
   };
 
-  if (loading) return <div style={{ minHeight: '50vh' }} aria-busy="true" />;
+  if (loading) return <PageLoading />;
 
   return (
     <div className="fx-page">

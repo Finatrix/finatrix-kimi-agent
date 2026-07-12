@@ -10,7 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 import { CAREERS_ROUTES } from '../constants';
 import { useToast } from '../../tools/ui/Toast';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
-import { ConfirmDialog, EmptyState, ErrorCard } from '../components/states';
+import { ConfirmDialog, EmptyState, ErrorCard, ModalShell, PageLoading } from '../components/states';
 import { useCareers } from '../context/CareersContext';
 import {
   deleteCompany,
@@ -140,7 +140,7 @@ export default function CompaniesPage() {
 
   const compareRows = companies.filter((c) => compareIds.includes(c.id));
 
-  if (loading) return <div style={{ minHeight: '50vh' }} aria-busy="true" />;
+  if (loading) return <PageLoading />;
 
   return (
     <div className="fx-page">
@@ -182,7 +182,7 @@ export default function CompaniesPage() {
       ) : (
         <div className="lib-grid">
           {visible.map((c) => (
-            <div className="card" key={c.id} style={{ marginBottom: 0 }}>
+            <div className="card result-card-anim" key={c.id} style={{ marginBottom: 0 }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 16, fontWeight: 650 }}>{c.name}</div>
@@ -226,9 +226,7 @@ export default function CompaniesPage() {
 
       {/* Add / edit modal */}
       {editOpen && (
-        <div className="fx-modal-wrap" role="dialog" aria-modal="true" aria-label="Company details">
-          <div className="fx-modal-back" onClick={() => setEditOpen(false)} />
-          <div className="fx-modal">
+        <ModalShell label="Company details" onClose={() => setEditOpen(false)}>
             <h3>{form.id ? 'Edit company' : 'Add company'}</h3>
             {([
               ['name', 'Name *'], ['industry', 'Industry'], ['headquarters', 'Headquarters'],
@@ -248,15 +246,12 @@ export default function CompaniesPage() {
               <button className="btn btn-ghost btn-sm" style={{ flex: 1 }} onClick={() => setEditOpen(false)}>Cancel</button>
               <button className="btn btn-sm" style={{ flex: 1 }} onClick={() => void save()}>Save</button>
             </div>
-          </div>
-        </div>
+        </ModalShell>
       )}
 
       {/* Detail modal */}
       {detail && (
-        <div className="fx-modal-wrap" role="dialog" aria-modal="true" aria-label={`Company — ${detail.name}`}>
-          <div className="fx-modal-back" onClick={() => setDetail(null)} />
-          <div className="fx-modal wide">
+        <ModalShell label={`Company — ${detail.name}`} onClose={() => setDetail(null)} wide>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <h3 style={{ flex: 1, marginBottom: 0 }}>{detail.name}</h3>
               <button className="icon-btn" aria-label="Close" onClick={() => setDetail(null)}>✕</button>
@@ -313,15 +308,12 @@ export default function CompaniesPage() {
               <input className="fi" style={{ padding: '10px 13px' }} placeholder="Email" aria-label="Contact email" value={contactForm.email} onChange={(e) => setContactForm((f) => ({ ...f, email: e.target.value }))} />
               <button className="btn btn-ghost btn-sm" onClick={() => void addContact(detail.id)}>Add contact</button>
             </div>
-          </div>
-        </div>
+        </ModalShell>
       )}
 
       {/* Compare modal */}
       {compareOpen && compareRows.length >= 2 && (
-        <div className="fx-modal-wrap" role="dialog" aria-modal="true" aria-label="Compare companies">
-          <div className="fx-modal-back" onClick={() => setCompareOpen(false)} />
-          <div className="fx-modal wide">
+        <ModalShell label="Compare companies" onClose={() => setCompareOpen(false)} wide>
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <h3 style={{ flex: 1, marginBottom: 0 }}>Company comparison</h3>
               <button className="icon-btn" aria-label="Close" onClick={() => setCompareOpen(false)}>✕</button>
@@ -352,8 +344,7 @@ export default function CompaniesPage() {
             <p className="note" style={{ marginTop: 10 }}>
               Fields showing “—” need AI insights — open the company and run “Generate AI insights”.
             </p>
-          </div>
-        </div>
+        </ModalShell>
       )}
 
       <ConfirmDialog

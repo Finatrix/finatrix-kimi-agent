@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import { Icon, type IconName } from './Icon';
 import { SECTION_LABEL, type CatKey } from '../lib/budget';
 import {
@@ -132,13 +133,26 @@ export default function TransactionModal({
     onSave(buildItem());
   }, [draft, validate, onSave, buildItem]);
 
-  // Body scroll lock + focus management + Escape + focus trap.
+  // Body scroll lock — reference-counted, safe under overlapping overlays.
+  // The parent mounts this component only while the modal is open.
+  useBodyScrollLock(true);
+
+  // Focus management: remember the opener, autofocus the amount once, restore
+  // focus on close. Mount-only — this must never re-run while the user types.
   useEffect(() => {
     lastFocused.current = document.activeElement as HTMLElement | null;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
     const t = setTimeout(() => amountRef.current?.focus(), 40);
+    return () => {
+      clearTimeout(t);
+      lastFocused.current?.focus?.();
+    };
+  }, []);
 
+  // Escape / Cmd+Enter / focus trap. Kept separate from the focus effect:
+  // `submit` changes identity on every draft keystroke, and when these lived
+  // in one effect each keystroke re-ran the autofocus timer, stealing focus
+  // from whichever field was being typed in.
+  useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
       if (ev.key === 'Escape') {
         ev.preventDefault();
@@ -164,12 +178,7 @@ export default function TransactionModal({
       }
     };
     window.addEventListener('keydown', onKey, true);
-    return () => {
-      clearTimeout(t);
-      document.body.style.overflow = prevOverflow;
-      window.removeEventListener('keydown', onKey, true);
-      lastFocused.current?.focus?.();
-    };
+    return () => window.removeEventListener('keydown', onKey, true);
   }, [onClose, submit, confirmDel]);
 
   const grouped = useMemo(() => {

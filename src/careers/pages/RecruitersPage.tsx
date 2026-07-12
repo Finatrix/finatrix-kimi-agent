@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
-import { EmptyState, ErrorCard } from '../components/states';
+import { EmptyState, ErrorCard, ModalShell, PageLoading } from '../components/states';
 import { useCareers } from '../context/CareersContext';
 import {
   deleteRecruiter,
@@ -80,7 +80,7 @@ export default function RecruitersPage() {
     } catch (e) { notify(toCareersError(e).message, 'error'); }
   };
 
-  if (loading) return <div style={{ minHeight: '50vh' }} aria-busy="true" />;
+  if (loading) return <PageLoading />;
 
   return (
     <div className="fx-page">
@@ -117,9 +117,7 @@ export default function RecruitersPage() {
       )}
 
       {editOpen && (
-        <div className="fx-modal-wrap" role="dialog" aria-modal="true">
-          <div className="fx-modal-back" onClick={() => setEditOpen(false)} />
-          <div className="fx-modal">
+        <ModalShell label="Add recruiter" onClose={() => setEditOpen(false)}>
             <h3>Add recruiter</h3>
             <div className="grid2" style={{ marginTop: 12 }}>
               <input className="fi" placeholder="Name *" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
@@ -134,14 +132,11 @@ export default function RecruitersPage() {
               <button className="btn btn-sm" onClick={() => void save()}>Save</button>
               <button className="btn btn-ghost btn-sm" onClick={() => setEditOpen(false)}>Cancel</button>
             </div>
-          </div>
-        </div>
+        </ModalShell>
       )}
 
       {detail && (
-        <div className="fx-modal-wrap" role="dialog" aria-modal="true">
-          <div className="fx-modal-back" onClick={() => setDetail(null)} />
-          <div className="fx-modal wide">
+        <ModalShell label={`Recruiter — ${detail.name}`} onClose={() => setDetail(null)} wide>
             <h3>{detail.name} — {detail.company_name || 'no company'}</h3>
             {detail.notes && <p className="note" style={{ marginTop: 8 }}>{detail.notes}</p>}
             <div className="panel-eyebrow" style={{ marginTop: 16 }}>Log a contact</div>
@@ -165,8 +160,7 @@ export default function RecruitersPage() {
               </div>
             ))}
             <button className="btn btn-ghost btn-sm" style={{ marginTop: 14 }} onClick={() => setDetail(null)}>Close</button>
-          </div>
-        </div>
+        </ModalShell>
       )}
 
       <ToolFoot><b>Recruiter CRM</b> · relationship score grows automatically as you log contact</ToolFoot>

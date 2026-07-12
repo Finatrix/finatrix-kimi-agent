@@ -9,7 +9,7 @@ import { Link } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
-import { ConfirmDialog, ErrorCard } from '../components/states';
+import { ConfirmDialog, ErrorCard, PageLoading } from '../components/states';
 import { AI_MODEL_OPTIONS, CAREERS_HIDDEN_SECTIONS } from '../constants';
 import { useCareers } from '../context/CareersContext';
 import { getAggregates, getAiUsageToday, type CareersAggregates } from '../services/analytics';
@@ -125,7 +125,7 @@ export default function CareersSettings() {
     }
   };
 
-  if (loading) return <div style={{ minHeight: '50vh' }} aria-busy="true" />;
+  if (loading) return <PageLoading />;
 
   return (
     <div className="fx-page">

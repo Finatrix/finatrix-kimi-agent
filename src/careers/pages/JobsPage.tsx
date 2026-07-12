@@ -13,7 +13,8 @@ import { PageHead, ToolFoot } from '../../tools/ui/common';
 import { CoverLetterModal } from '../components/CoverLetterModal';
 import { JobIntelView } from '../components/JobIntelView';
 import { MatchPanel } from '../components/MatchPanel';
-import { EmptyState, ErrorCard } from '../components/states';
+import { EmptyState, ErrorCard, ModalShell, SkeletonCards, PageLoading } from '../components/states';
+import { ScoreRing } from '../components/ScoreRing';
 import { CAREERS_ROUTES, INDUSTRY_OPTIONS } from '../constants';
 import { useCareers } from '../context/CareersContext';
 import { tailorResumeWithAI } from '../ai/tasks-jobs';
@@ -222,9 +223,7 @@ function JobWorkbench({
   };
 
   return (
-    <div className="fx-modal-wrap" role="dialog" aria-modal="true" aria-label={`Job details — ${target.title}`}>
-      <div className="fx-modal-back" onClick={onClose} />
-      <div className="fx-modal wide">
+    <ModalShell label={`Job details — ${target.title}`} onClose={onClose} wide>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
           <h3 style={{ flex: 1, marginBottom: 0 }}>{target.title || 'Job'} — {target.company || 'company'}</h3>
           <button className="icon-btn" aria-label="Close" onClick={onClose}>✕</button>
@@ -268,15 +267,25 @@ function JobWorkbench({
           {busy === 'intel' ? 'Analysing this job with AI — actions unlock in a few seconds…' : ''}
         </p>
 
-        <div className="nav" style={{ padding: 0, marginBottom: 14 }}>
-          <a role="tab" aria-selected={tab === 'intel'} className={tab === 'intel' ? 'on' : ''} style={{ cursor: 'pointer' }} onClick={() => setTab('intel')}>Intelligence</a>
-          <a role="tab" aria-selected={tab === 'match'} className={tab === 'match' ? 'on' : ''} style={{ cursor: 'pointer' }} onClick={() => setTab('match')}>Match</a>
-          <a role="tab" aria-selected={tab === 'tailor'} className={tab === 'tailor' ? 'on' : ''} style={{ cursor: 'pointer' }} onClick={() => setTab('tailor')}>Tailoring</a>
+        <div className="nav" role="tablist" aria-label="Job workbench" style={{ padding: 0, marginBottom: 14 }}>
+          <button role="tab" aria-selected={tab === 'intel'} className={tab === 'intel' ? 'on' : ''} onClick={() => setTab('intel')}>Intelligence</button>
+          <button role="tab" aria-selected={tab === 'match'} className={tab === 'match' ? 'on' : ''} onClick={() => setTab('match')}>Match</button>
+          <button role="tab" aria-selected={tab === 'tailor'} className={tab === 'tailor' ? 'on' : ''} onClick={() => setTab('tailor')}>Tailoring</button>
         </div>
 
         {tab === 'intel' && (
           busy === 'intel' ? (
-            <p className="note" aria-busy="true">Analysing this job with AI…</p>
+            <div role="status" aria-label="Analysing this job with AI">
+              <div className="skel" style={{ width: '55%', height: 14 }} />
+              <div className="skel" style={{ width: '92%', height: 11, marginTop: 12 }} />
+              <div className="skel" style={{ width: '84%', height: 11, marginTop: 8 }} />
+              <div className="skel" style={{ width: '70%', height: 11, marginTop: 8 }} />
+              <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+                <div className="skel" style={{ width: 90, height: 24, borderRadius: 980 }} />
+                <div className="skel" style={{ width: 74, height: 24, borderRadius: 980 }} />
+                <div className="skel" style={{ width: 102, height: 24, borderRadius: 980 }} />
+              </div>
+            </div>
           ) : intel ? (
             <JobIntelView analysis={intel.analysis} keywords={intel.keywords} resumeText={version?.raw_text} />
           ) : (
@@ -359,8 +368,7 @@ function JobWorkbench({
             onClose={() => setLetterOpen(false)}
           />
         )}
-      </div>
-    </div>
+    </ModalShell>
   );
 }
 
@@ -432,6 +440,10 @@ export default function JobsPage() {
   // Analyzer state
   const [pasteText, setPasteText] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
+
+  // Presentation-only ordering of already-ranked results.
+  type SortMode = 'best' | 'newest' | 'salary';
+  const [sortMode, setSortMode] = useState<SortMode>('best');
 
   useEffect(() => {
     void listJobSources().then(setSources, () => setSources([]));
@@ -640,10 +652,19 @@ export default function JobsPage() {
       const base = m != null ? s.relevance * 0.5 + m * 0.5 : s.relevance * 0.85;
       return { s, score: base + (boostMap.get(s)?.boost ?? 0) };
     })
-    .sort((a, b) => b.score - a.score)
+    .sort((a, b) => {
+      if (sortMode === 'newest') {
+        return (b.s.job.posted_at ?? '').localeCompare(a.s.job.posted_at ?? '');
+      }
+      if (sortMode === 'salary') {
+        const sal = (x: ScoredJob) => x.job.salary_max ?? x.job.salary_min ?? -1;
+        return sal(b.s) - sal(a.s);
+      }
+      return b.score - a.score;
+    })
     .map((x) => x.s);
 
-  if (loading) return <div style={{ minHeight: '50vh' }} aria-busy="true" />;
+  if (loading) return <PageLoading />;
 
   return (
     <div className="fx-page">
@@ -674,10 +695,10 @@ export default function JobsPage() {
             </Link>
           )}
         </div>
-        <div className="nav" style={{ padding: 0 }}>
-          <a className={view === 'search' ? 'on' : ''} style={{ cursor: 'pointer' }} onClick={() => setView('search')}>Search</a>
-          <a className={view === 'saved' ? 'on' : ''} style={{ cursor: 'pointer' }} onClick={() => setView('saved')}>Saved ({saved.length})</a>
-          <a className={view === 'analyzer' ? 'on' : ''} style={{ cursor: 'pointer' }} onClick={() => setView('analyzer')}>JD Analyzer</a>
+        <div className="nav" role="tablist" aria-label="Jobs view" style={{ padding: 0 }}>
+          <button role="tab" aria-selected={view === 'search'} className={view === 'search' ? 'on' : ''} onClick={() => setView('search')}>Search</button>
+          <button role="tab" aria-selected={view === 'saved'} className={view === 'saved' ? 'on' : ''} onClick={() => setView('saved')}>Saved ({saved.length})</button>
+          <button role="tab" aria-selected={view === 'analyzer'} className={view === 'analyzer' ? 'on' : ''} onClick={() => setView('analyzer')}>JD Analyzer</button>
         </div>
       </div>
 
@@ -689,7 +710,8 @@ export default function JobsPage() {
                 onChange={(e) => setParams((p) => ({ ...p, query: e.target.value }))}
                 onKeyDown={(e) => e.key === 'Enter' && void runSearch(0)} />
               <input className="fi" placeholder="City / state" aria-label="Location" value={params.location}
-                onChange={(e) => setParams((p) => ({ ...p, location: e.target.value }))} />
+                onChange={(e) => setParams((p) => ({ ...p, location: e.target.value }))}
+                onKeyDown={(e) => e.key === 'Enter' && void runSearch(0)} />
               <select className="fs" aria-label="Country" value={params.country}
                 onChange={(e) => setParams((p) => ({ ...p, country: e.target.value }))}>
                 <option value="in">India</option>
@@ -735,9 +757,10 @@ export default function JobsPage() {
               Sources:{' '}
               {sources.filter((s) => s.kind !== 'manual').map((s) => {
                 const st = report?.quality.providerCoverage[s.id];
+                const dot = st === undefined ? 'tl-mute' : st === 'ok' ? 'tl-green' : st === 'error' || st === 'timeout' ? 'tl-red' : 'tl-yellow';
                 return (
                   <span key={s.id} title={s.description} style={{ marginRight: 12 }}>
-                    <span className={`tl-dot ${st === 'ok' ? 'tl-green' : st === 'error' ? 'tl-red' : 'tl-yellow'}`} />
+                    <span className={`tl-dot ${dot}`} />
                     {s.name}{st === 'not-configured' ? ' (needs key — see SETUP.md §6)' : st === 'skipped' ? ' (skipped for this search)' : ''}
                   </span>
                 );
@@ -748,7 +771,7 @@ export default function JobsPage() {
 
           {searchError && <ErrorCard error={searchError} onRetry={() => void runSearch(params.page)} />}
 
-          {report && (
+          {report && !searching && (
             <div className="lib-toolbar" style={{ flexWrap: 'wrap' }}>
               <label className="fl" style={{ marginBottom: 0 }} htmlFor="jobs-threshold">
                 Match threshold: <b style={{ color: 'var(--gold)' }}>{threshold}%</b>
@@ -758,6 +781,15 @@ export default function JobsPage() {
                 onChange={(e) => setThreshold(Number(e.target.value))}
                 style={{ flex: '0 1 200px', accentColor: '#D4AF37' }}
               />
+              <select
+                className="fs" aria-label="Sort results" value={sortMode}
+                style={{ width: 'auto', padding: '8px 34px 8px 12px', fontSize: 13 }}
+                onChange={(e) => setSortMode(e.target.value as SortMode)}
+              >
+                <option value="best">Best match first</option>
+                <option value="newest">Newest first</option>
+                <option value="salary">Highest salary first</option>
+              </select>
               <span className="note">
                 {resumeInput
                   ? `Jobs below ${threshold}% Resume Match are never shown.`
@@ -766,55 +798,68 @@ export default function JobsPage() {
             </div>
           )}
 
-          {report && (
-            <div className="card" style={{ padding: '12px 18px', marginBottom: 10 }}>
-              <div className="job-meta" style={{ gap: 16 }}>
-                <span><b style={{ color: 'var(--ink)' }}>{visibleResults.length}</b> relevant jobs shown</span>
-                <span>{report.quality.rejected} filtered out
-                  {report.quality.rejected > 0 && (
-                    <span className="note">
-                      {' '}({Object.entries(report.quality.rejectedByReason).map(([r, n]) => `${n} ${r.replace('-', ' ')}`).join(', ')})
-                    </span>
-                  )}
-                </span>
-                {report.quality.averageMatch != null && (
-                  <span>Avg match <b style={{ color: scoreColor(report.quality.averageMatch) }}>{report.quality.averageMatch}%</b></span>
-                )}
-                <span>Search confidence {report.quality.searchConfidence}%</span>
-              </div>
-            </div>
-          )}
-
-          {/* Provider-by-provider status — partial failures never fail the whole search. */}
-          {report && Object.keys(report.quality.providerCoverage).length > 0 && (() => {
-            const cov = report.quality.providerCoverage;
-            const counts = report.quality.providerCounts;
+          {/* One search-quality strip: result counts + provider health. Partial
+              provider failures never fail the whole search. */}
+          {report && !searching && (() => {
+            const q = report.quality;
+            const cov = q.providerCoverage;
+            const counts = q.providerCounts;
+            const lat = q.providerLatency ?? {};
             const label: Record<string, string> = { jsearch: 'JSearch', adzuna: 'Adzuna', jooble: 'Jooble', remotive: 'Remotive' };
-            const ran = Object.values(cov).filter((s) => s === 'ok' || s === 'error').length;
+            const ran = Object.values(cov).filter((s) => s === 'ok' || s === 'error' || s === 'timeout').length;
+            const ms = (id: string) => (lat[id] ? ` · ${lat[id]}ms` : '');
+            const cb = q.confidenceBreakdown;
             return (
-              <div className="card" role="status" style={{ padding: '10px 18px', marginBottom: 10 }}>
-                <div className="job-meta" style={{ gap: 14 }}>
-                  <span><b style={{ color: 'var(--ink)' }}>{ran}</b> provider{ran === 1 ? '' : 's'} searched</span>
-                  {Object.entries(cov).map(([id, st]) => {
-                    const name = label[id] ?? id;
-                    if (st === 'ok') return <span key={id} style={{ color: 'var(--green, #12b76a)' }}>✓ {name} ({counts[id] ?? 0})</span>;
-                    if (st === 'error') return <span key={id} style={{ color: 'var(--amber, #e0a300)' }}>⚠️ {name} temporarily unavailable</span>;
-                    if (st === 'not-configured') return <span key={id} className="note">○ {name} not configured</span>;
-                    if (st === 'skipped') return <span key={id} className="note">– {name} skipped</span>;
-                    return <span key={id} className="note">{name}: {st}</span>;
-                  })}
+              <div className="card" role="status" style={{ padding: '12px 18px', marginBottom: 10 }}>
+                <div className="job-meta" style={{ gap: 16 }}>
+                  <span><b style={{ color: 'var(--ink)' }}>{visibleResults.length}</b> relevant jobs shown</span>
+                  <span>{q.rejected} filtered out
+                    {q.rejected > 0 && (
+                      <span className="note">
+                        {' '}({Object.entries(q.rejectedByReason).map(([r, n]) => `${n} ${r.replace('-', ' ')}`).join(', ')})
+                      </span>
+                    )}
+                  </span>
+                  {q.averageMatch != null && (
+                    <span>Avg match <b style={{ color: scoreColor(q.averageMatch) }}>{q.averageMatch}%</b></span>
+                  )}
+                  <span
+                    title={cb ? `Providers ${cb.providerCoverage}% · Resume ${cb.resume}% · Query ${cb.query}% · Classification ${cb.classification}%` : undefined}
+                    style={{ cursor: cb ? 'help' : undefined }}
+                  >
+                    Search confidence <b style={{ color: scoreColor(q.searchConfidence) }}>{q.searchConfidence}%</b>
+                  </span>
                 </div>
+                {Object.keys(cov).length > 0 && (
+                  <div className="job-meta" style={{ gap: 14, marginTop: 6 }}>
+                    <span><b style={{ color: 'var(--ink)' }}>{ran}</b> provider{ran === 1 ? '' : 's'} searched</span>
+                    {Object.entries(cov).map(([id, st]) => {
+                      const name = label[id] ?? id;
+                      if (st === 'ok') return <span key={id} style={{ color: 'var(--green)' }}>✓ {name} ({counts[id] ?? 0}){ms(id)}</span>;
+                      if (st === 'timeout') return <span key={id} style={{ color: 'var(--orange)' }}>⚠️ {name} timeout</span>;
+                      if (st === 'error') return <span key={id} style={{ color: 'var(--orange)' }}>⚠️ {name} unavailable</span>;
+                      if (st === 'not-configured') return <span key={id} className="note">○ {name} not configured</span>;
+                      if (st === 'skipped') return <span key={id} className="note">– {name} skipped</span>;
+                      return <span key={id} className="note">{name}: {st}</span>;
+                    })}
+                    {q.duplicatesRemoved > 0 && <span className="note">· {q.duplicatesRemoved} duplicate{q.duplicatesRemoved === 1 ? '' : 's'} removed</span>}
+                    {q.timings?.totalMs != null && <span className="note">· ranked in {Math.round(q.timings.totalMs)}ms</span>}
+                  </div>
+                )}
               </div>
             );
           })()}
 
-          {visibleResults.map((s, i) => {
+          {/* Skeletons while providers respond — content-shaped, no dead air. */}
+          {searching && <SkeletonCards count={4} label="Searching for jobs" />}
+
+          {!searching && visibleResults.map((s, i) => {
             const job = s.job;
             const key = resultKeys.get(s);
             const ai = key ? matches.get(key) : undefined;
             const pct = effectiveMatch(s);
             return (
-              <div className="card" key={`${job.source}-${job.external_id}-${i}`} style={{ padding: 18, marginBottom: 10 }}>
+              <div className="card result-card-anim" key={`${job.source}-${job.external_id}-${i}`} style={{ padding: 18, marginBottom: 10 }}>
                 <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 15.5, fontWeight: 650 }}>{job.title}</div>
@@ -862,11 +907,7 @@ export default function JobsPage() {
                   </div>
                   <div style={{ textAlign: 'center', flexShrink: 0 }}>
                     {pct != null ? (
-                      <>
-                        <div className="match-pct" style={{ color: scoreColor(pct) }}>{pct}%</div>
-                        <span className={`tl-dot tl-${matchBand(pct)}`} />
-                        <div className="note">{ai ? 'AI match' : 'resume match'}</div>
-                      </>
+                      <ScoreRing score={pct} caption={ai ? 'AI match' : 'match'} size={62} />
                     ) : (
                       <span className="note">no resume</span>
                     )}
@@ -894,7 +935,7 @@ export default function JobsPage() {
             );
           })}
 
-          {results.length > 0 && (
+          {!searching && results.length > 0 && (
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 6 }}>
               {params.page > 0 && (
                 <button className="btn btn-ghost btn-sm" disabled={searching} onClick={() => void runSearch(params.page - 1)}>← Previous</button>

@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
-import { EmptyState, ErrorCard } from '../components/states';
+import { EmptyState, ErrorCard, ModalShell, PageLoading } from '../components/states';
 import { useCareers } from '../context/CareersContext';
 import {
   deleteNetworkContact,
@@ -86,7 +86,7 @@ export default function NetworkPage() {
     } catch (e) { notify(toCareersError(e).message, 'error'); }
   };
 
-  if (loading) return <div style={{ minHeight: '50vh' }} aria-busy="true" />;
+  if (loading) return <PageLoading />;
 
   return (
     <div className="fx-page">
@@ -131,9 +131,7 @@ export default function NetworkPage() {
       )}
 
       {editOpen && (
-        <div className="fx-modal-wrap" role="dialog" aria-modal="true" aria-label="Add contact">
-          <div className="fx-modal-back" onClick={() => setEditOpen(false)} />
-          <div className="fx-modal">
+        <ModalShell label="Add contact" onClose={() => setEditOpen(false)}>
             <h3>Add contact</h3>
             <div className="grid2" style={{ marginTop: 12 }}>
               <input className="fi" placeholder="Name *" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
@@ -152,14 +150,11 @@ export default function NetworkPage() {
               <button className="btn btn-sm" onClick={() => void save()}>Save</button>
               <button className="btn btn-ghost btn-sm" onClick={() => setEditOpen(false)}>Cancel</button>
             </div>
-          </div>
-        </div>
+        </ModalShell>
       )}
 
       {detail && (
-        <div className="fx-modal-wrap" role="dialog" aria-modal="true" aria-label={`Contact — ${detail.name}`}>
-          <div className="fx-modal-back" onClick={() => setDetail(null)} />
-          <div className="fx-modal wide">
+        <ModalShell label={`Contact — ${detail.name}`} onClose={() => setDetail(null)} wide>
             <h3>{detail.name}</h3>
             {detail.notes && <p className="note" style={{ marginTop: 8 }}>{detail.notes}</p>}
             <div className="panel-eyebrow" style={{ marginTop: 16 }}>Log a conversation</div>
@@ -173,8 +168,7 @@ export default function NetworkPage() {
               </div>
             ))}
             <button className="btn btn-ghost btn-sm" style={{ marginTop: 14 }} onClick={() => setDetail(null)}>Close</button>
-          </div>
-        </div>
+        </ModalShell>
       )}
 
       <ToolFoot><b>Networking CRM</b> · every relationship, tracked</ToolFoot>

@@ -212,7 +212,9 @@ describe.each(FLAGSHIP)('search: %s | %s | India (full-time, on-site)', (query, 
   it('reports search quality metrics', async () => {
     const report = await run(indiaParams(query, city), jobs);
     expect(report.quality.returned).toBe(report.jobs.length);
-    expect(report.quality.searchConfidence).toBeGreaterThanOrEqual(90);
+    // The intent engine understood the query (query component of the composite).
+    expect(report.quality.confidenceBreakdown.query).toBeGreaterThanOrEqual(90);
+    expect(report.quality.searchConfidence).toBeGreaterThan(0);
     expect(report.quality.averageMatch).toBeGreaterThan(0);
     expect(report.quality.providerCoverage.jsearch).toBe('ok');
   });

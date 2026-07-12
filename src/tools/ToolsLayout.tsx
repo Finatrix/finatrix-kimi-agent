@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { Link, Outlet, useLocation } from 'react-router';
 import { useAuth } from '../context/AuthContext';
+import { useMobileDrawer } from '../hooks/useMobileDrawer';
 import { TOOLS } from '../lib/tools';
 import {
   SYNC_KEYS,
@@ -17,6 +18,7 @@ import { IconSprite } from './ui/Icon';
 import { CURRENCY_CODES, currencySym } from './lib/format';
 import { onLocalWrite } from './lib/storage';
 import { LocalClock } from './ui/LocalClock';
+import { AccountMenu } from '../components/AccountMenu';
 import { HomeButton } from '../components/HomeButton';
 import { BrandLogo } from '../components/BrandLogo';
 import { Breadcrumb } from '../components/Breadcrumb';
@@ -198,39 +200,9 @@ export default function ToolsLayout() {
   const { user, loading, signOut, configured } = useAuth();
   const [ready, setReady] = useState(false);
   const [sync, setSync] = useState<SyncStatus>(configured ? 'idle' : 'offline');
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useMobileDrawer();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeTool = useActiveTool();
-
-  // Lock body scroll while the mobile drawer is open.
-  useEffect(() => {
-    if (!drawerOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [drawerOpen]);
-
-  // The drawer + mobile bottom nav only exist below the `md` breakpoint (768px).
-  // If the viewport grows to desktop while the drawer is open, the drawer becomes
-  // display:none but its scroll-lock would otherwise persist — leaving the page
-  // frozen with an invisible lock. Close the mobile overlays on any cross-breakpoint
-  // resize so body scroll is always restored. (No effect on real mobile devices.)
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
-    const mq = window.matchMedia('(min-width: 768px)');
-    const onChange = () => {
-      if (mq.matches) {
-        setDrawerOpen(false);
-        setMenuOpen(false);
-      }
-    };
-    onChange(); // reconcile once on mount
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
 
   // Seed localStorage from the cloud (or clear it) before mounting the tools.
   useEffect(() => {
@@ -335,31 +307,15 @@ export default function ToolsLayout() {
                   <span className={`hidden sm:inline font-mono text-[10px] uppercase tracking-[0.06em] ${syncColor[sync]}`}>
                     {syncLabel[sync]}
                   </span>
-                  <button
-                    onClick={() => setMenuOpen((o) => !o)}
-                    className="hidden md:inline font-mono text-[11px] uppercase tracking-[0.08em] text-ink hover:text-accent-text transition-colors"
-                  >
-                    {firstName} ▾
-                  </button>
-                  {menuOpen && (
-                    <div
-                      className="absolute right-0 top-[calc(100%+8px)] min-w-[180px] bg-surface-2 border border-hairline rounded-lg py-1 flex flex-col z-30 shadow-[0_10px_30px_rgba(0,0,0,0.5)]"
-                      onMouseLeave={() => setMenuOpen(false)}
-                    >
-                      <Link to="/profile" onClick={() => setMenuOpen(false)} className="px-4 py-2.5 text-[13px] text-ink hover:bg-hairline-2">
-                        Profile
-                      </Link>
-                      <Link to="/tools/settings" onClick={() => setMenuOpen(false)} className="px-4 py-2.5 text-[13px] text-ink hover:bg-hairline-2">
-                        Settings
-                      </Link>
-                      <Link to="/" onClick={() => setMenuOpen(false)} className="px-4 py-2.5 text-[13px] text-ink hover:bg-hairline-2">
-                        Back to home
-                      </Link>
-                      <button onClick={() => { setMenuOpen(false); void signOut(); }} className="px-4 py-2.5 text-[13px] text-left text-[#E0726B] hover:bg-hairline-2">
-                        Sign out
-                      </button>
-                    </div>
-                  )}
+                  <AccountMenu
+                    name={firstName}
+                    items={[
+                      { label: 'Profile', to: '/profile' },
+                      { label: 'Settings', to: '/tools/settings' },
+                      { label: 'Back to home', to: '/' },
+                      { label: 'Sign out', onClick: () => void signOut(), danger: true },
+                    ]}
+                  />
                 </>
               ) : (
                 <>

@@ -290,6 +290,16 @@
   background: var(--btn-ghost-bg-hover);
   color: var(--btn-ghost-text-hover);
 }
+/* Dropdown / popover entrance — shared by the account menu and bell panel. */
+@keyframes fxMenuIn {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+.fx-menu-pop { animation: fxMenuIn 160ms var(--ease-out, ease) both; transform-origin: top right; }
+@media (prefers-reduced-motion: reduce) {
+  .fx-menu-pop { animation: none !important; }
+}
+
 /* Connector pulse + slow float */
 @keyframes fxConnPulse { 0%, 100% { opacity: 0.22; } 50% { opacity: 0.5; } }
 .fx-conn { animation: fxConnPulse 4.5s ease-in-out infinite; }

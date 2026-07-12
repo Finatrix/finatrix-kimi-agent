@@ -19,7 +19,7 @@ export function ScoreRing({
   const color = scoreColor(score);
   return (
     <div
-      className="score-ring"
+      className={size < 80 ? 'score-ring sm' : 'score-ring'}
       style={{ width: size, height: size }}
       role="img"
       aria-label={`${caption}: ${score == null ? 'not available' : `${score} out of 100`}`}

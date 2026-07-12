@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { track } from '../lib/analytics';
 import Button from './Button';
 
@@ -70,17 +71,16 @@ export default function LoginReminderModal() {
     return () => clearTimeout(t);
   }, [user, loading, configured, pathname]);
 
+  useBodyScrollLock(open);
+
   useEffect(() => {
     if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
     cardRef.current?.querySelector<HTMLElement>('[data-autofocus]')?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') dismiss();
     };
     window.addEventListener('keydown', onKey);
     return () => {
-      document.body.style.overflow = prev;
       window.removeEventListener('keydown', onKey);
     };
   }, [open, dismiss]);

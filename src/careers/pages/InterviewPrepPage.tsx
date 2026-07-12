@@ -9,7 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
 import { ScoreRing } from '../components/ScoreRing';
-import { EmptyState, ErrorCard } from '../components/states';
+import { EmptyState, ErrorCard, PageLoading } from '../components/states';
 import { useCareers } from '../context/CareersContext';
 import { listApplications } from '../services/applications';
 import {
@@ -189,7 +189,7 @@ export default function InterviewPrepPage() {
     }
   };
 
-  if (loading) return <div style={{ minHeight: '50vh' }} aria-busy="true" />;
+  if (loading) return <PageLoading />;
 
   const q = active?.questions[current];
   const feedback = active?.feedback ?? null;

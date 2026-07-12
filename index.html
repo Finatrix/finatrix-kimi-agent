@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#060607" />
+    <!-- Dev + fallback CSP. Production delivers the same policy (plus
+         frame-ancestors) as an HTTP header — see public/_headers. Keep the
+         two byte-identical: differing policies enforce their intersection. -->
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self' 'sha256-8sIkMSAQhH4cmqemj6kE1Bs/6aBQrXGsMGgKxYpye5g='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'"

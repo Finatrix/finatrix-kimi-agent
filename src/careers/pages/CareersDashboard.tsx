@@ -10,7 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
 import { Icon } from '../../tools/ui/Icon';
 import { ScoreRing } from '../components/ScoreRing';
-import { EmptyState, ErrorCard } from '../components/states';
+import { EmptyState, ErrorCard, PageLoading } from '../components/states';
 import { CareerReadiness } from '../components/CareerReadiness';
 import { CAREERS_ROUTES } from '../constants';
 import { useCareers } from '../context/CareersContext';
@@ -90,7 +90,7 @@ export default function CareersDashboard() {
   }, [resumes]);
 
   if (loading) {
-    return <div style={{ minHeight: '50vh' }} aria-busy="true" />;
+    return <PageLoading />;
   }
 
   return (

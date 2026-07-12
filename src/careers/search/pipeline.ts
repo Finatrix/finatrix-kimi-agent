@@ -18,6 +18,8 @@ import type { LocationVerdict } from './locations';
 import { enrichJob, type EnrichedJob } from './normalize';
 import { quickMatchJob, type QuickMatch, type QuickMatchInput } from './quickMatch';
 import { containsTerm } from './taxonomy';
+import { dedupeJobs } from './dedupe';
+import { weightedScore, salaryFit } from './ranking';
 
 export interface ScoredJob {
   job: EnrichedJob;
@@ -38,15 +40,28 @@ export interface SearchQuality {
   providerCoverage: Record<string, string>;
   /** provider id → number of jobs returned (before filtering). */
   providerCounts: Record<string, number>;
+  /** provider id → response time in ms (provider health display). */
+  providerLatency: Record<string, number>;
   /** True when at least one provider ran and not all failed. */
   providersUp: boolean;
   /** Mean Resume Match % of returned jobs (null without a resume). */
   averageMatch: number | null;
-  /** 0–100: how confidently the intent engine understood the query. */
+  /** 0–100 composite: provider coverage + resume + query + classification. */
   searchConfidence: number;
+  /** The four components that make up searchConfidence (each 0–100). */
+  confidenceBreakdown: {
+    providerCoverage: number;
+    resume: number;
+    query: number;
+    classification: number;
+  };
   /** 0–100: share of provider results that survived deterministic filtering,
    * rescaled — low values mean providers returned mostly junk. */
   filterConfidence: number;
+  /** Duplicate postings collapsed across providers/pages. */
+  duplicatesRemoved: number;
+  /** Stage timings in ms (observability; never blocks). */
+  timings: { dedupeMs: number; matchMs: number; rankMs: number; totalMs: number };
 }
 
 export interface SearchReport {
@@ -65,6 +80,7 @@ export type ProviderFetcher = (
   jobs: NormalizedJob[];
   status: Record<string, string>;
   counts?: Record<string, number>;
+  latency?: Record<string, number>;
   providersUp?: boolean;
   page: number;
 }>;
@@ -168,55 +184,118 @@ export async function runSearchPipeline(
   const out = await fetcher(params, intent.expandedTerms);
   if (options.signal?.aborted) throw new DOMException('Search aborted', 'AbortError');
 
-  // 3 · Normalization enrichment + dedupe across pages/providers.
-  const seen = new Set<string>();
-  const enriched: EnrichedJob[] = [];
-  for (const raw of out.jobs) {
-    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-    const dk = `${norm(raw.company)}::${norm(raw.title)}::${norm(raw.location).slice(0, 24)}`;
-    if (seen.has(dk)) continue;
-    seen.add(dk);
-    enriched.push(enrichJob(raw));
-  }
+  const t0 = now();
+
+  // 3 · Multi-signal de-duplication across pages/providers (apply URL, external
+  // id, alias-normalized company + normalized title, near-identical description).
+  const { unique, removed: duplicatesRemoved } = dedupeJobs(out.jobs);
+  const enriched: EnrichedJob[] = unique.map(enrichJob);
+  const dedupeMs = now() - t0;
 
   // 4 · Deterministic filtering (before any AI).
   const { accepted, rejected, verdicts } = filterJobs(enriched, params, intent);
 
   // 5 · Resume matching — every accepted job, no exceptions.
-  // 6 · Ranking + sorting: relevance and match matter equally.
-  const scored: ScoredJob[] = accepted.map((job) => {
+  const t1 = now();
+  const prelim = accepted.map((job) => {
     const verdict = verdicts.get(job) ?? 'unknown';
     const { score, why } = relevanceScore(job, intent, verdict);
     const match = resume ? quickMatchJob(job, resume) : null;
-    if (match?.matchedSkills.length) {
-      why.push(`You bring: ${match.matchedSkills.slice(0, 4).join(', ')}`);
-    }
-    return { job, match, relevance: score, locationVerdict: verdict, why };
+    return { job, verdict, relevance: score, why, match };
   });
-  scored.sort((a, b) => {
-    const av = a.match ? a.relevance * 0.5 + a.match.overall * 0.5 : a.relevance * 0.85;
-    const bv = b.match ? b.relevance * 0.5 + b.match.overall * 0.5 : b.relevance * 0.85;
-    return bv - av;
-  });
+  const matchMs = now() - t1;
 
-  // 7 · Search Quality Score.
+  // 6 · Weighted ranking + explainability + sort.
+  const t2 = now();
+  const scored: ScoredJob[] = prelim.map((p) => {
+    const why = [...p.why];
+    if (p.match?.matchedSkills.length) {
+      why.push(`You bring: ${p.match.matchedSkills.slice(0, 4).join(', ')}`);
+    }
+    const remotePreferred = (params.remoteOnly || params.workMode === 'remote') && p.job.workMode === 'remote';
+    if (remotePreferred) why.push('Remote — as you preferred');
+    const graduateSuitable = params.freshersOnly && (p.job.seniority === 'intern' || p.job.employment === 'intern');
+    if (graduateSuitable) why.push('Graduate / entry-level role');
+    const fit = salaryFit(p.job.salary_min, p.job.salary_max, params.salaryMin, params.salaryMax);
+    if (fit > 0.5) why.push('Salary fits your range');
+    const { score } = weightedScore({
+      relevance: p.relevance,
+      resumeMatch: p.match ? p.match.overall : null,
+      remotePreferred,
+      graduateSuitable,
+      salaryFit: fit,
+      companyIntel: null, // CI score is layered on post-enrichment (search/rerank).
+    });
+    return { job: p.job, match: p.match, relevance: score, locationVerdict: p.verdict, why };
+  });
+  scored.sort((a, b) => b.relevance - a.relevance);
+  const rankMs = now() - t2;
+
+  // 7 · Search Quality Score + composite confidence.
   const rejectedByReason: Partial<Record<RejectReason, number>> = {};
   for (const r of rejected) rejectedByReason[r.reason] = (rejectedByReason[r.reason] ?? 0) + 1;
   const matches = scored.filter((s) => s.match).map((s) => s.match!.overall);
   const survival = enriched.length ? scored.length / enriched.length : 1;
+
+  // Composite search confidence: provider coverage + resume + query + classification.
+  const providerIds = Object.keys(out.status);
+  const okProviders = providerIds.filter((id) => out.status[id] === 'ok').length;
+  const coverageConf = providerIds.length ? Math.round((okProviders / providerIds.length) * 100) : 0;
+  const resumeConf = matches.length ? Math.round(matches.reduce((a, b) => a + b, 0) / matches.length) : 0;
+  const queryConf = intent.targetCategories.size ? 90 : params.query.trim() ? 55 : 0;
+  const classified = scored.filter((s) => s.job.classification.category !== 'other');
+  const classificationConf = classified.length
+    ? Math.round(classified.reduce((a, s) => a + s.job.classification.confidence, 0) / classified.length)
+    : 0;
+  const searchConfidence = Math.round(
+    coverageConf * 0.35 + resumeConf * 0.25 + queryConf * 0.25 + classificationConf * 0.15
+  );
+
   const quality: SearchQuality = {
     returned: scored.length,
     rejected: rejected.length,
     rejectedByReason,
     providerCoverage: out.status,
     providerCounts: out.counts ?? {},
+    providerLatency: out.latency ?? {},
     providersUp: out.providersUp ?? Object.values(out.status).some((s) => s === 'ok'),
-    averageMatch: matches.length ? Math.round(matches.reduce((a, b) => a + b, 0) / matches.length) : null,
-    searchConfidence: intent.targetCategories.size ? 90 : params.query ? 55 : 0,
+    averageMatch: matches.length ? resumeConf : null,
+    searchConfidence,
+    confidenceBreakdown: {
+      providerCoverage: coverageConf, resume: resumeConf, query: queryConf, classification: classificationConf,
+    },
     filterConfidence: Math.round(Math.min(1, survival * 1.25) * 100),
+    duplicatesRemoved,
+    timings: { dedupeMs, matchMs, rankMs, totalMs: now() - t0 },
   };
+
+  // Structured, secret-free observability log.
+  logSearch({
+    query: params.query.slice(0, 60),
+    providers: out.status,
+    jobsBeforeFilter: enriched.length,
+    jobsAfterFilter: scored.length,
+    duplicatesRemoved,
+    timings: quality.timings,
+    searchConfidence,
+  });
 
   const report: SearchReport = { jobs: scored, rejected, quality, intent, page: out.page };
   cache.set(key, { report, at: Date.now() });
   return report;
+}
+
+/** Monotonic clock when available; falls back to Date.now in non-DOM envs. */
+function now(): number {
+  return typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+}
+
+/** Structured search log — never includes tokens, keys, or PII. */
+function logSearch(entry: Record<string, unknown>): void {
+  if (typeof console === 'undefined') return;
+  try {
+    console.info('[careers-search]', JSON.stringify(entry));
+  } catch {
+    /* logging must never throw */
+  }
 }

@@ -15,7 +15,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
-import { EmptyState, ErrorCard } from '../components/states';
+import { EmptyState, ErrorCard, PageLoading } from '../components/states';
 import { useRole } from '../hooks/useRole';
 import { listAllUsage, summarizeUsage } from '../services/aiUsage';
 import { createAnnouncement, listAllAnnouncements, setAnnouncementActive } from '../services/announcements';
@@ -108,7 +108,7 @@ export default function AdminDashboard() {
     void load();
   }, [load]);
 
-  if (roleLoading) return <div style={{ minHeight: '50vh' }} aria-busy="true" />;
+  if (roleLoading) return <PageLoading />;
 
   if (!isAdmin) {
     return (

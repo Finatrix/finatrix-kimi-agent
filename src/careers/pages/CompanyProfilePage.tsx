@@ -12,7 +12,7 @@ import { Link, useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
-import { EmptyState, ErrorCard } from '../components/states';
+import { EmptyState, ErrorCard, PageLoading } from '../components/states';
 import { CAREERS_ROUTES } from '../constants';
 import { getCompanyById, relatedCompanies } from '../services/companyIntelligence';
 import {
@@ -115,7 +115,7 @@ export default function CompanyProfilePage() {
     } catch (e) { notify(toCareersError(e).message, 'error'); }
   };
 
-  if (loading) return <div style={{ minHeight: '50vh' }} aria-busy="true" />;
+  if (loading) return <PageLoading />;
   if (error) return <div className="tool-wrap"><ErrorCard error={error} onRetry={() => void load()} /></div>;
   if (!company) {
     return (

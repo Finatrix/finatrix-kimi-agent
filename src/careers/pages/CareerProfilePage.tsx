@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
-import { EmptyState, ErrorCard } from '../components/states';
+import { EmptyState, ErrorCard, PageLoading } from '../components/states';
 import { EMPLOYMENT_TYPES, INDUSTRY_OPTIONS } from '../constants';
 import { useCareers } from '../context/CareersContext';
 import { updateProfileFields, updateProfileMeta } from '../services/careerProfile';
@@ -134,7 +134,7 @@ export default function CareerProfilePage() {
     }
   };
 
-  if (loading) return <div style={{ minHeight: '50vh' }} aria-busy="true" />;
+  if (loading) return <PageLoading />;
 
   return (
     <div className="fx-page">

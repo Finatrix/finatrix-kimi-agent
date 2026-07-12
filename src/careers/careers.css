@@ -13,6 +13,17 @@
 .fx-tools .score-ring .sr-num { font-size: 26px; font-weight: 700; letter-spacing: -.02em; line-height: 1; }
 .fx-tools .score-ring .sr-cap { font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink3); margin-top: 4px; }
 
+/* Small rings (job cards) tighten the inner type so it never crowds. */
+.fx-tools .score-ring.sm .sr-num { font-size: 15px; font-weight: 700; }
+.fx-tools .score-ring.sm .sr-cap { font-size: 7.5px; letter-spacing: .06em; margin-top: 2px; }
+
+/* ============ LOADING SKELETONS ============ */
+/* Shimmer placeholder — perceived speed while providers/AI respond. The
+   sweep is killed automatically under prefers-reduced-motion (global rule). */
+.fx-tools .skel { position: relative; overflow: hidden; background: var(--fill-05); border-radius: 8px; }
+.fx-tools .skel::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, var(--fill-08), transparent); animation: fxSkelSweep 1.5s var(--ease-out) infinite; }
+@keyframes fxSkelSweep { to { transform: translateX(100%); } }
+
 /* ============ UPLOAD DROPZONE ============ */
 .fx-tools .dropzone { border: 1.5px dashed var(--fill-18); border-radius: var(--r); padding: 42px 24px; text-align: center; cursor: pointer; transition: border-color .2s ease, background .2s ease, transform .2s var(--ease-out); background: var(--fill-02); }
 .fx-tools .dropzone:hover { border-color: rgba(212,175,55,.5); background: rgba(212,175,55,.04); }
@@ -71,6 +82,9 @@
 .fx-tools .fx-modal-back { position: absolute; inset: 0; background: rgba(0,0,0,.62); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 .fx-tools .fx-modal { position: relative; width: 100%; max-width: 480px; max-height: 86dvh; overflow-y: auto; background: var(--card-solid); border: 1px solid var(--hair); border-radius: var(--r); padding: 24px; box-shadow: 0 30px 80px -20px rgba(0,0,0,.8); animation: fxResultCardIn 320ms var(--ease-out) both; }
 .fx-tools .fx-modal.wide { max-width: 860px; }
+/* The panel receives programmatic focus when the dialog opens (a11y); the
+   container itself must not draw the interactive-element focus ring. */
+.fx-tools .fx-modal:focus, .fx-tools .fx-modal:focus-visible { outline: none; }
 .fx-tools .fx-modal h3 { font-size: 18px; font-weight: 600; letter-spacing: -.01em; margin-bottom: 6px; }
 
 /* ============ SETTINGS TOGGLE ============ */
@@ -100,6 +114,7 @@
 .fx-tools .tl-green { background: var(--green); }
 .fx-tools .tl-yellow { background: var(--gold); }
 .fx-tools .tl-red { background: var(--red); }
+.fx-tools .tl-mute { background: var(--ink3); opacity: .5; }
 .fx-tools .match-pct { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
 .fx-tools .cat-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 13px; }
 .fx-tools .cat-row .cat-label { flex: 0 0 148px; color: var(--ink2); }

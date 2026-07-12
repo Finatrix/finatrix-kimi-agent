@@ -9,7 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
 import { Icon } from '../../tools/ui/Icon';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
-import { ConfirmDialog, EmptyState, ErrorCard } from '../components/states';
+import { ConfirmDialog, EmptyState, ErrorCard, ModalShell, PageLoading } from '../components/states';
 import { useCareers } from '../context/CareersContext';
 import {
   addApplicationNote,
@@ -143,9 +143,9 @@ function CalendarView({ events }: { events: CalEvent[] }) {
         <button className="icon-btn" aria-label="Previous" onClick={() => step(-1)}>‹</button>
         <b style={{ flex: 1, textAlign: 'center' }}>{monthLabel}</b>
         <button className="icon-btn" aria-label="Next" onClick={() => step(1)}>›</button>
-        <div className="nav" style={{ padding: 0 }}>
-          <a className={mode === 'month' ? 'on' : ''} style={{ cursor: 'pointer' }} onClick={() => setMode('month')}>Month</a>
-          <a className={mode === 'week' ? 'on' : ''} style={{ cursor: 'pointer' }} onClick={() => setMode('week')}>Week</a>
+        <div className="nav" role="tablist" aria-label="Calendar mode" style={{ padding: 0 }}>
+          <button role="tab" aria-selected={mode === 'month'} className={mode === 'month' ? 'on' : ''} onClick={() => setMode('month')}>Month</button>
+          <button role="tab" aria-selected={mode === 'week'} className={mode === 'week' ? 'on' : ''} onClick={() => setMode('week')}>Week</button>
         </div>
       </div>
       <div className="cal-grid" role="grid" aria-label={`Calendar — ${monthLabel}`}>
@@ -276,9 +276,7 @@ function ApplicationDetail({
   );
 
   return (
-    <div className="fx-modal-wrap" role="dialog" aria-modal="true" aria-label={`Application — ${app.job_title}`}>
-      <div className="fx-modal-back" onClick={onClose} />
-      <div className="fx-modal wide">
+    <ModalShell label={`Application — ${app.job_title}`} onClose={onClose} wide>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
           <h3 style={{ flex: 1, marginBottom: 0 }}>{app.job_title} — {app.company_name}</h3>
           <button className="icon-btn" aria-label="Close" onClick={onClose}>✕</button>
@@ -405,8 +403,7 @@ function ApplicationDetail({
             </div>
           </div>
         </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 }
 
@@ -537,7 +534,7 @@ export default function ApplicationsPage() {
     );
   };
 
-  if (loading) return <div style={{ minHeight: '50vh' }} aria-busy="true" />;
+  if (loading) return <PageLoading />;
 
   return (
     <div className="fx-page">
@@ -657,9 +654,7 @@ export default function ApplicationsPage() {
 
       {/* Manual add modal */}
       {addOpen && (
-        <div className="fx-modal-wrap" role="dialog" aria-modal="true" aria-label="Track an application">
-          <div className="fx-modal-back" onClick={() => setAddOpen(false)} />
-          <div className="fx-modal">
+        <ModalShell label="Track an application" onClose={() => setAddOpen(false)}>
             <h3>Track an application</h3>
             <div className="fg"><label className="fl" htmlFor="add-company">Company *</label>
               <input id="add-company" className="fi" value={addForm.company} onChange={(e) => setAddForm((f) => ({ ...f, company: e.target.value }))} /></div>
@@ -673,8 +668,7 @@ export default function ApplicationsPage() {
               <button className="btn btn-ghost btn-sm" style={{ flex: 1 }} onClick={() => setAddOpen(false)}>Cancel</button>
               <button className="btn btn-sm" style={{ flex: 1 }} onClick={() => void addManual()}>Track</button>
             </div>
-          </div>
-        </div>
+        </ModalShell>
       )}
 
       {detail && (

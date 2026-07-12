@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
-import { EmptyState, ErrorCard } from '../components/states';
+import { EmptyState, ErrorCard, PageLoading } from '../components/states';
 import { useCareers } from '../context/CareersContext';
 import { analyzeOffer, deleteOffer, listOffers, setOfferStatus, upsertOffer } from '../services/offers';
 import type { ResumeVersionRow, ResumeWithVersions } from '../types';
@@ -77,7 +77,7 @@ export default function OffersPage() {
 
   const compared = offers.filter((o) => compareIds.includes(o.id));
 
-  if (loading) return <div style={{ minHeight: '50vh' }} aria-busy="true" />;
+  if (loading) return <PageLoading />;
 
   return (
     <div className="fx-page">
