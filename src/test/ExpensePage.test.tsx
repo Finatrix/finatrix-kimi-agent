@@ -206,6 +206,38 @@ describe('ExpensePage (React) — dashboard wiring', () => {
     expect(localStorage.getItem('fx_expenses')).toBeNull();
   });
 
+  it('confirms deletion from the edit modal, deletes, and restores via undo', () => {
+    renderPage();
+    fireEvent.change(screen.getByLabelText(/^Amount \(₹\)$/), { target: { value: '500' } });
+    fireEvent.click(screen.getByText('Add expense'));
+
+    const txCard = screen.getByText('Transactions').closest('.card') as HTMLElement;
+    fireEvent.click(within(txCard).getByLabelText('Edit Rent'));
+    const dialog = screen.getByRole('dialog');
+
+    // Footer Delete opens the confirmation layer (viewport-fixed since QA
+    // pass 2 — it must exist and be reachable regardless of card scroll).
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    const confirm = screen.getByRole('alertdialog');
+    expect(within(confirm).getByText('Delete this transaction?')).toBeInTheDocument();
+
+    // Cancel keeps the transaction.
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(JSON.parse(localStorage.getItem('fx_expenses') || '[]')).toHaveLength(1);
+
+    // Confirmed delete removes it and closes the modal…
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(JSON.parse(localStorage.getItem('fx_expenses') || '[]')).toHaveLength(0);
+
+    // …and Undo restores it, persisted.
+    fireEvent.click(screen.getByText('Undo'));
+    expect(JSON.parse(localStorage.getItem('fx_expenses') || '[]')).toHaveLength(1);
+    expect(within(txCard).getByLabelText('Edit Rent')).toBeInTheDocument();
+  });
+
   it('closes the edit modal on Escape', () => {
     renderPage();
     fireEvent.change(screen.getByLabelText(/^Amount \(₹\)$/), { target: { value: '500' } });
