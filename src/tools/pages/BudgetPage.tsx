@@ -119,7 +119,7 @@ export default function BudgetPage() {
           activeMonth={month}
           months={months}
           onSwitch={switchMonth}
-          pastNote="Viewing past month — read only view"
+          pastNote="Viewing past month"
           pastColor="var(--gold)"
         />
       </div>

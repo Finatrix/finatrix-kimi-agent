@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { store } from './lib/storage';
 
 /**
  * Cloud sync bridge for the tools.
@@ -51,8 +52,13 @@ function lsRemove(k: string) {
   }
 }
 
+// Writes go through `store` (not raw localStorage) so the same-document
+// `fx:write` event fires and already-mounted consumers — CurrencyProvider,
+// the notifications bell — pick the new values up immediately. Tool pages
+// mount after seeding (ToolsLayout gates on `ready`), but those providers
+// mount before it.
 export function clearSyncedLocal() {
-  SYNC_KEYS.forEach(lsRemove);
+  SYNC_KEYS.forEach((k) => store.remove(k));
 }
 
 export function getLastUid(): string | null {
@@ -74,7 +80,7 @@ export async function loadCloudIntoLocal(userId: string): Promise<SyncStatus> {
   if (error) return 'error';
   const blob = (data?.data || {}) as Record<string, string>;
   SYNC_KEYS.forEach((k) => {
-    if (k in blob && blob[k] != null) lsSet(k, blob[k]);
+    if (k in blob && blob[k] != null) store.set(k, blob[k]);
   });
   return 'saved';
 }

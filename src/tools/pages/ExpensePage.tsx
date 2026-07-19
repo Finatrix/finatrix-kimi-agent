@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Chart from 'chart.js/auto';
 import { useTheme } from '../../context/ThemeContext';
 import { getChartTheme } from '../lib/chartTheme';
@@ -355,8 +356,10 @@ export default function ExpensePage() {
         />
       )}
 
-      {undoStack.length > 0 && (
-        <div className="fx-undo" role="status" aria-live="polite">
+      {/* Portaled like the modal: a fixed toast must never sit under an
+          ancestor that animates transform (it becomes its containing block). */}
+      {undoStack.length > 0 && createPortal(
+        <div className="fx-tools fx-undo" role="status" aria-live="polite">
           <style>{`
             .fx-undo{position:fixed;left:50%;bottom:calc(22px + var(--fx-bottomnav-h,0px) + env(safe-area-inset-bottom));transform:translateX(-50%);
               z-index:320;display:flex;align-items:center;gap:14px;padding:12px 14px 12px 18px;border-radius:14px;
@@ -375,7 +378,8 @@ export default function ExpensePage() {
           <button type="button" className="btn btn-sm" style={{ width: 'auto', padding: '7px 16px', flexShrink: 0 }} onClick={undoDelete}>
             Undo{undoStack.length > 1 ? ` (${undoStack.length})` : ''}
           </button>
-        </div>
+        </div>,
+        document.body
       )}
 
       <ToolFoot>
@@ -502,15 +506,16 @@ function OverviewTab({
         <label className="fl">Category (from Budget Builder)</label>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(96px, 1fr))', gap: 7, marginBottom: 14 }}>
           {flatCats.map((c) => (
-            <div key={c.k} onClick={() => setSel(c.k)} title={SECTION_LABEL[c.section]} style={{
-              padding: '10px 4px', borderRadius: 12, border: `1.5px solid ${selKey === c.k ? 'var(--ink)' : 'var(--hair2)'}`,
-              background: selKey === c.k ? 'var(--hair)' : 'var(--card)', textAlign: 'center', cursor: 'pointer', transition: 'all .15s',
-            }}>
+            <button key={c.k} type="button" onClick={() => setSel(c.k)} title={SECTION_LABEL[c.section]}
+              aria-pressed={selKey === c.k} aria-label={`${c.l} (${SECTION_LABEL[c.section]})`} style={{
+                padding: '10px 4px', borderRadius: 12, border: `1.5px solid ${selKey === c.k ? 'var(--ink)' : 'var(--hair2)'}`,
+                background: selKey === c.k ? 'var(--hair)' : 'var(--card)', textAlign: 'center', cursor: 'pointer', transition: 'all .15s', fontFamily: 'inherit',
+              }}>
               <span style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 22, marginBottom: 2 }}>
                 <Icon name={c.ic} size={18} style={{ color: SECTION_COLOR[c.section] }} />
               </span>
               <span style={{ fontSize: 10, color: 'var(--ink2)', fontWeight: 600, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.l}</span>
-            </div>
+            </button>
           ))}
         </div>
         <div className="fg">

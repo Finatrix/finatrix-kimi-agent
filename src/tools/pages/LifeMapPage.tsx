@@ -173,11 +173,12 @@ function SetupForm({ form, goals, setField, setGoals, onLaunch, launching, sym }
           {LM_GOALS.map((g) => {
             const on = goals.has(g.k);
             return (
-              <div key={g.k} onClick={() => { const n = new Set(goals); if (n.has(g.k)) n.delete(g.k); else n.add(g.k); setGoals(n); }}
-                style={{ padding: '11px 6px', borderRadius: 13, border: `1.5px solid ${on ? 'var(--gold)' : 'var(--hair2)'}`, background: on ? 'var(--gold-bg)' : 'var(--card)', textAlign: 'center', cursor: 'pointer', transition: 'all .15s' }}>
+              <button key={g.k} type="button" aria-pressed={on}
+                onClick={() => { const n = new Set(goals); if (n.has(g.k)) n.delete(g.k); else n.add(g.k); setGoals(n); }}
+                style={{ padding: '11px 6px', borderRadius: 13, border: `1.5px solid ${on ? 'var(--gold)' : 'var(--hair2)'}`, background: on ? 'var(--gold-bg)' : 'var(--card)', textAlign: 'center', cursor: 'pointer', transition: 'all .15s', fontFamily: 'inherit' }}>
                 <span style={{ display: 'flex', justifyContent: 'center', height: 24, alignItems: 'center', color: 'var(--ink2)' }}><Icon name={g.ic} size={19} /></span>
                 <span style={{ fontSize: 10, color: 'var(--ink2)', fontWeight: 600, display: 'block', marginTop: 3 }}>{g.l}</span>
-              </div>
+              </button>
             );
           })}
         </div>
@@ -292,9 +293,9 @@ function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, onAg
               if (!cnt) return null;
               const on = cat === c.id;
               return (
-                <div key={c.id} onClick={() => onCat(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 13px', borderRadius: 980, border: `1px solid ${on ? 'var(--gold)' : 'var(--hair2)'}`, background: on ? 'var(--gold)' : 'var(--card)', color: on ? 'var(--card)' : 'var(--ink2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all .2s' }}>
+                <button key={c.id} type="button" aria-pressed={on} onClick={() => onCat(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 13px', borderRadius: 980, border: `1px solid ${on ? 'var(--gold)' : 'var(--hair2)'}`, background: on ? 'var(--gold)' : 'var(--card)', color: on ? 'var(--card)' : 'var(--ink2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all .2s', fontFamily: 'inherit' }}>
                   {c.i ? c.i : c.ic ? <Icon name={c.ic} size={13} style={{ verticalAlign: '-1px' }} /> : null} {c.n} <span style={{ opacity: 0.7, fontSize: 10 }}>{cnt}</span>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -303,7 +304,7 @@ function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, onAg
               const on = applied.has(d.id);
               const good = d.smart > 0;
               return (
-                <div key={d.id} onClick={() => onToggle(d.id)} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '14px 16px', borderRadius: 14, border: `1.5px solid ${on ? (good ? 'rgba(29,125,70,.3)' : 'rgba(215,0,21,.25)') : 'var(--hair2)'}`, background: on ? (good ? 'rgba(29,125,70,.04)' : 'rgba(215,0,21,.03)') : 'var(--card)', marginBottom: 8, cursor: 'pointer', transition: 'all .2s' }}>
+                <button key={d.id} type="button" aria-pressed={on} onClick={() => onToggle(d.id)} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '14px 16px', borderRadius: 14, border: `1.5px solid ${on ? (good ? 'rgba(29,125,70,.3)' : 'rgba(215,0,21,.25)') : 'var(--hair2)'}`, background: on ? (good ? 'rgba(29,125,70,.04)' : 'rgba(215,0,21,.03)') : 'var(--card)', marginBottom: 8, cursor: 'pointer', transition: 'all .2s', width: '100%', textAlign: 'left', fontFamily: 'inherit', color: 'inherit' }}>
                   <div style={{ width: 40, height: 40, borderRadius: 12, background: d.c, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--ink)' }}><Icon name={d.ic} size={18} /></div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 600 }}>{d.t}</div>
@@ -312,7 +313,7 @@ function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, onAg
                   {d.custom && <div style={{ fontSize: 11, color: 'var(--blue)', flexShrink: 0 }}>✏️</div>}
                   <div style={{ fontSize: 13, fontWeight: 700, color: good ? 'var(--green)' : 'var(--red)', flexShrink: 0 }}>{d.imp}</div>
                   {on && <div style={{ width: 22, height: 22, borderRadius: '50%', background: good ? 'rgba(29,125,70,.12)' : 'rgba(215,0,21,.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, flexShrink: 0 }}>{good ? '✓' : '!'}</div>}
-                </div>
+                </button>
               );
             })}
           </div>
@@ -407,8 +408,8 @@ function SipDialog({ dialog, sh, onCancel, onChange, onConfirm }: {
   const isStart = dialog.d.ck === 'start';
   return (
     <div onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}>
-      <div style={{ background: 'var(--card-solid)', border: '1px solid var(--hair2)', borderRadius: 20, padding: 28, maxWidth: 360, width: '100%', boxShadow: '0 30px 70px rgba(0,0,0,.6)' }}>
-        <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>{isStart ? 'Set your monthly SIP' : 'Step up your SIP'}</div>
+      <div role="dialog" aria-modal="true" aria-labelledby="lm-sip-title" style={{ background: 'var(--card-solid)', border: '1px solid var(--hair2)', borderRadius: 20, padding: 28, maxWidth: 360, width: '100%', boxShadow: '0 30px 70px rgba(0,0,0,.6)' }}>
+        <div id="lm-sip-title" style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>{isStart ? 'Set your monthly SIP' : 'Step up your SIP'}</div>
         <div style={{ fontSize: 13, color: 'var(--ink2)', marginBottom: 18, lineHeight: 1.55 }}>
           {isStart ? 'How much do you want to invest every month?' : `You invest ${sh(dialog.d.ca ?? 0)}/mo. How much extra do you want to add monthly?`}
         </div>
@@ -417,8 +418,8 @@ function SipDialog({ dialog, sh, onCancel, onChange, onConfirm }: {
           onKeyDown={(e) => { if (e.key === 'Enter') onConfirm(); else if (e.key === 'Escape') onCancel(); }}
           style={{ marginBottom: 16 }} />
         <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onCancel} style={{ flex: 1, padding: 13, borderRadius: 980, border: '1px solid var(--hair)', background: 'rgba(255,255,255,.03)', color: 'var(--ink)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
-          <button onClick={onConfirm} style={{ flex: 2, padding: 13, borderRadius: 980, border: 'none', background: 'linear-gradient(180deg,var(--gold-2),var(--gold))', color: '#1a1400', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Confirm</button>
+          <button type="button" onClick={onCancel} style={{ flex: 1, padding: 13, borderRadius: 980, border: '1px solid var(--hair)', background: 'rgba(255,255,255,.03)', color: 'var(--ink)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+          <button type="button" onClick={onConfirm} style={{ flex: 2, padding: 13, borderRadius: 980, border: 'none', background: 'linear-gradient(180deg,var(--gold-2),var(--gold))', color: '#1a1400', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Confirm</button>
         </div>
       </div>
     </div>

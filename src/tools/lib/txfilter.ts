@@ -160,7 +160,8 @@ export function groupByTimeline(items: ExpenseItem[], now: Date): TxGroup[] {
 
   for (const e of items) {
     const d = e.date || '';
-    if (d === todayStr) push('today', 'Today', e);
+    if (d > todayStr) push('future', 'Upcoming', e);
+    else if (d === todayStr) push('today', 'Today', e);
     else if (d === yestStr) push('yesterday', 'Yesterday', e);
     else if (d >= weekStartStr && d < yestStr) push('week', 'Earlier this week', e);
     else {

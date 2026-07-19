@@ -24,13 +24,18 @@ export function prevMonth(ym: string): string {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
 }
 
-/** Next month, or null if it would go past the current month (read-only guard). */
-export function nextMonth(ym: string): string | null {
+/** Next month with no clamp — used by forward-looking views (Calendar). */
+export function nextMonthUnclamped(ym: string): string {
   const parts = ym.split('-');
   const y = parseInt(parts[0], 10);
   const m = parseInt(parts[1], 10);
   const d = new Date(y, m, 1);
-  const next = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+
+/** Next month, or null if it would go past the current month (read-only guard). */
+export function nextMonth(ym: string): string | null {
+  const next = nextMonthUnclamped(ym);
   if (next > currentMonth()) return null;
   return next;
 }

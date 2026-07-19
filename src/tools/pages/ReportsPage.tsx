@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router';
 import { PageHead, ToolFoot, MethodologyNote } from '../ui/common';
 import { Icon } from '../ui/Icon';
 import { ExportMenu } from '../ui/ExportMenu';
@@ -80,8 +81,8 @@ export default function ReportsPage() {
             Set up a budget or log some expenses, and your reports will appear here — ready to export in one tap.
           </p>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <a href="/tools/budget" className="btn btn-sm" style={{ textDecoration: 'none' }}>Build a budget</a>
-            <a href="/tools/expenses" className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}>Track expenses</a>
+            <Link to="/tools/budget" className="btn btn-sm" style={{ textDecoration: 'none' }}>Build a budget</Link>
+            <Link to="/tools/expenses" className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}>Track expenses</Link>
           </div>
         </div>
       ) : (
@@ -117,7 +118,7 @@ export default function ReportsPage() {
                     onPdf={doExport(r.id, 'pdf', r.title)}
                   />
                 ) : (
-                  <a href={r.href} className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}>Set up</a>
+                  <Link to={r.href} className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}>Set up</Link>
                 )}
               </div>
             </div>

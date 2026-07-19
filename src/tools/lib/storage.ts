@@ -21,6 +21,7 @@ const FX_WRITE_EVENT = 'fx:write';
 interface FxStore {
   get(key: string, fallback: string): string;
   set(key: string, value: string): void;
+  remove(key: string): void;
   readonly persistent: boolean;
 }
 
@@ -37,27 +38,42 @@ function createStore(): FxStore {
 
   return {
     get(key: string, fallback: string): string {
+      // A key lands in `mem` only when a write to localStorage failed (or
+      // localStorage is unavailable); that in-session value is newer than
+      // whatever localStorage holds, so it must win.
+      if (key in mem) return mem[key];
       try {
         if (ok) {
           const v = localStorage.getItem(key);
           return v === null ? fallback : v;
         }
       } catch {
-        /* fall through to memory */
+        /* fall through */
       }
-      return key in mem ? mem[key] : fallback;
+      return fallback;
     },
     set(key: string, value: string): void {
       try {
         if (ok) {
           localStorage.setItem(key, value);
+          delete mem[key]; // localStorage is authoritative again
           notifyWrite(key);
           return;
         }
       } catch {
-        /* fall through to memory */
+        /* quota/security error — shadow the value in memory so this session
+           stays consistent even though the write did not persist */
       }
       mem[key] = value;
+      notifyWrite(key);
+    },
+    remove(key: string): void {
+      delete mem[key];
+      try {
+        if (ok) localStorage.removeItem(key);
+      } catch {
+        /* ignore */
+      }
       notifyWrite(key);
     },
     persistent: ok,

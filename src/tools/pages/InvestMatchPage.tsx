@@ -118,10 +118,17 @@ export default function InvestMatchPage() {
             />
           ) : (
             q.opts.map((o) => (
-              <div key={o.v} className={`opt-card ${ans[q.k as keyof ImAnswers] === o.v ? 'sel' : ''}`} onClick={() => pick(q.k, o.v)}>
+              <button
+                key={o.v}
+                type="button"
+                className={`opt-card ${ans[q.k as keyof ImAnswers] === o.v ? 'sel' : ''}`}
+                aria-pressed={ans[q.k as keyof ImAnswers] === o.v}
+                onClick={() => pick(q.k, o.v)}
+                style={{ display: 'block', width: '100%', textAlign: 'left', fontFamily: 'inherit' }}
+              >
                 <div className="ol">{o.l}</div>
                 <div className="od">{o.d}</div>
-              </div>
+              </button>
             ))
           )}
         </div>

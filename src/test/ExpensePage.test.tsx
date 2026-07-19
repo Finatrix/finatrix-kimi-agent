@@ -144,6 +144,68 @@ describe('ExpensePage (React) — dashboard wiring', () => {
     expect(within(txCard).getByRole('button', { name: /Add your first transaction/ })).toBeInTheDocument();
   });
 
+  /* ── Regression: “Transactions → Add” modal submission ──────────────────
+     The add-transaction dialog must always expose a working, visible submit
+     path: open via “+ Add”, validate inline, save on form submission (button
+     click or Enter’s implicit submit), persist, and update the list. */
+
+  it('adds a transaction through the “+ Add” modal and persists it', () => {
+    seedTwo();
+    renderPage();
+    const txCard = screen.getByText('Transactions').closest('.card') as HTMLElement;
+
+    fireEvent.click(within(txCard).getByText('+ Add'));
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText('Add a transaction')).toBeInTheDocument();
+
+    // A visible, correctly-labelled primary submit control exists.
+    const submit = within(dialog).getByRole('button', { name: 'Add transaction' });
+    expect(submit).toHaveAttribute('type', 'submit');
+
+    fireEvent.change(within(dialog).getByLabelText(/^Amount \(₹\)$/), { target: { value: '249.99' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Groceries (Needs)' }));
+    fireEvent.click(submit);
+
+    // Modal closes; the new transaction is in the list and persisted.
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(within(txCard).getByText(/3 in /)).toBeInTheDocument();
+    const stored = JSON.parse(localStorage.getItem('fx_expenses') || '[]');
+    expect(stored).toHaveLength(3);
+    expect(stored[0].amount).toBe(249.99);
+    expect(stored[0].category).toBe('groceries');
+  });
+
+  it('submits the modal form on Enter (implicit form submission)', () => {
+    renderPage();
+    const txCard = screen.getByText('Transactions').closest('.card') as HTMLElement;
+    fireEvent.click(within(txCard).getByRole('button', { name: /Add your first transaction/ }));
+    const dialog = screen.getByRole('dialog');
+
+    const amount = within(dialog).getByLabelText(/^Amount \(₹\)$/);
+    fireEvent.change(amount, { target: { value: '75.5' } });
+    // Enter in a single-line input triggers the form’s submit event natively;
+    // jsdom doesn’t implement implicit submission, so fire it on the form.
+    fireEvent.submit(amount.closest('form') as HTMLFormElement);
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(JSON.parse(localStorage.getItem('fx_expenses') || '[]')[0].amount).toBe(75.5);
+  });
+
+  it('blocks an invalid modal submit with an inline error and saves nothing', () => {
+    renderPage();
+    const txCard = screen.getByText('Transactions').closest('.card') as HTMLElement;
+    fireEvent.click(within(txCard).getByRole('button', { name: /Add your first transaction/ }));
+    const dialog = screen.getByRole('dialog');
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Add transaction' }));
+
+    // Modal stays open, the error is announced, nothing was written.
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(within(dialog).getByRole('alert')).toHaveTextContent('Enter an amount greater than 0.');
+    expect(within(dialog).getByLabelText(/^Amount \(₹\)$/)).toHaveAttribute('aria-invalid', 'true');
+    expect(localStorage.getItem('fx_expenses')).toBeNull();
+  });
+
   it('closes the edit modal on Escape', () => {
     renderPage();
     fireEvent.change(screen.getByLabelText(/^Amount \(₹\)$/), { target: { value: '500' } });

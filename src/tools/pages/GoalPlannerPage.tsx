@@ -59,16 +59,17 @@ export default function GoalPlannerPage() {
           <label className="fl">Quick pick a goal</label>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 9, marginBottom: 18 }}>
             {GP_PRESETS.map((p) => (
-              <div
+              <button
                 key={p[0]}
+                type="button"
                 onClick={() => set({ name: p[0], target: String(p[2]), years: String(p[3]) })}
-                style={{ padding: '13px 6px', borderRadius: 13, border: '1.5px solid var(--hair2)', background: 'var(--card)', textAlign: 'center', cursor: 'pointer', transition: 'all .15s' }}
+                style={{ padding: '13px 6px', borderRadius: 13, border: '1.5px solid var(--hair2)', background: 'var(--card)', textAlign: 'center', cursor: 'pointer', transition: 'all .15s', fontFamily: 'inherit' }}
               >
                 <span style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 26, marginBottom: 4, color: 'var(--ink2)' }}>
                   <Icon name={p[1].replace('ic-', '') as IconName} size={22} />
                 </span>
                 <span style={{ fontSize: 10.5, color: 'var(--ink2)', fontWeight: 600, display: 'block' }}>{p[0]}</span>
-              </div>
+              </button>
             ))}
           </div>
           <div className="fg">

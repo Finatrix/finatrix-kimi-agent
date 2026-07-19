@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import { Icon, type IconName } from './Icon';
 import { SECTION_LABEL, type CatKey } from '../lib/budget';
@@ -189,7 +190,11 @@ export default function TransactionModal({
 
   const err = (k: keyof typeof errors) => submitted && errors[k];
 
-  return (
+  // Portaled to <body> so no ancestor transform/filter (page-enter animations,
+  // scroll reveals) can ever hijack the fixed overlay's containing block. The
+  // .fx-tools wrapper re-establishes the tools' scoped styles and variables.
+  return createPortal(
+    <div className="fx-tools">
     <div
       className="fx-tx-overlay"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -211,6 +216,8 @@ export default function TransactionModal({
         .fx-tx-catbtn[aria-pressed="true"]{border-color:var(--ink);background:var(--hair);}
         .fx-tx-catbtn:active{transform:scale(.96);}
         .fx-tx-err{color:var(--red);font-size:11.5px;margin-top:5px;font-weight:600;}
+        .fx-tx-footer{position:sticky;bottom:0;z-index:2;background:var(--card-solid,var(--card));
+          margin:0 -22px;padding:12px 22px 14px;border-top:1px solid var(--hair2);}
         .fx-tx-iconbtn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;padding:0 14px;
           border-radius:10px;border:1px solid var(--hair2);background:var(--fill-03);color:var(--ink);
           font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s,border-color .15s;}
@@ -363,35 +370,38 @@ export default function TransactionModal({
             </span>
           </label>
 
-          {/* Actions */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
-            {isEdit && (
-              <>
-                <button type="button" className="fx-tx-iconbtn" onClick={() => onDuplicate?.(editing!)}>
-                  <CopyIcon /> Duplicate
-                </button>
-                <button type="button" className="fx-tx-iconbtn fx-tx-danger" onClick={() => setConfirmDel(true)}>
-                  <TrashIcon /> Delete
-                </button>
-              </>
-            )}
-            <div style={{ flex: 1 }} />
-            <button type="button" className="fx-tx-iconbtn" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-sm" style={{ width: 'auto', minWidth: 120 }}>
-              {isEdit ? 'Save changes' : 'Add transaction'}
-            </button>
-          </div>
-          <p className="note" style={{ marginTop: 10, textAlign: 'right' }}>
-            Tip: press <kbd>{navigatorMeta()}</kbd> + <kbd>Enter</kbd> to save, <kbd>Esc</kbd> to close.
-          </p>
-
           {isEdit && (editing?.createdAt || editing?.updatedAt) && (
-            <div className="note" style={{ marginTop: 6, paddingTop: 10, borderTop: '1px solid var(--hair2)', display: 'flex', flexWrap: 'wrap', gap: '2px 14px' }}>
+            <div className="note" style={{ marginBottom: 10, paddingTop: 10, borderTop: '1px solid var(--hair2)', display: 'flex', flexWrap: 'wrap', gap: '2px 14px' }}>
               {editing?.createdAt && <span>Added {fmtStamp(editing.createdAt)}</span>}
               {editing?.editCount ? <span>Edited {editing.editCount}×</span> : null}
               {editing?.updatedAt && editing.updatedAt !== editing.createdAt && <span>Last modified {fmtStamp(editing.updatedAt)}</span>}
             </div>
           )}
+
+          {/* Actions — sticky so the primary action stays visible while the
+              long form scrolls within the card. */}
+          <div className="fx-tx-footer">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              {isEdit && (
+                <>
+                  <button type="button" className="fx-tx-iconbtn" onClick={() => onDuplicate?.(editing!)}>
+                    <CopyIcon /> Duplicate
+                  </button>
+                  <button type="button" className="fx-tx-iconbtn fx-tx-danger" onClick={() => setConfirmDel(true)}>
+                    <TrashIcon /> Delete
+                  </button>
+                </>
+              )}
+              <div style={{ flex: 1 }} />
+              <button type="button" className="fx-tx-iconbtn" onClick={onClose}>Cancel</button>
+              <button type="submit" className="btn btn-sm" style={{ width: 'auto', minWidth: 120 }}>
+                {isEdit ? 'Save changes' : 'Add transaction'}
+              </button>
+            </div>
+            <p className="note" style={{ margin: '8px 0 0', textAlign: 'right' }}>
+              Tip: press <kbd>{navigatorMeta()}</kbd> + <kbd>Enter</kbd> to save, <kbd>Esc</kbd> to close.
+            </p>
+          </div>
         </form>
 
         {/* Delete confirmation (the only confirmation in the flow) */}
@@ -421,6 +431,8 @@ export default function TransactionModal({
         )}
       </div>
     </div>
+    </div>,
+    document.body
   );
 }
 

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router';
 import { PageHead, ToolFoot, MethodologyNote } from '../ui/common';
 import { Icon } from '../ui/Icon';
 import { MonthNav } from '../ui/MonthNav';
@@ -57,7 +58,7 @@ export default function CalendarPage() {
       </PageHead>
 
       <div style={{ marginBottom: 14 }}>
-        <MonthNav activeMonth={selMonth} months={months} onSwitch={setSelMonth} pastNote="Viewing another month" pastColor="var(--gold)" />
+        <MonthNav activeMonth={selMonth} months={months} onSwitch={setSelMonth} pastNote="Viewing another month" pastColor="var(--gold)" allowFuture />
       </div>
 
       {/* Legend + month total */}
@@ -115,8 +116,8 @@ export default function CalendarPage() {
             fill in automatically — no manual entry needed.
           </p>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <a href="/tools/expenses" className="btn btn-sm" style={{ textDecoration: 'none' }}>Log expenses</a>
-            <a href="/tools/goals" className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}>Set a goal</a>
+            <Link to="/tools/expenses" className="btn btn-sm" style={{ textDecoration: 'none' }}>Log expenses</Link>
+            <Link to="/tools/goals" className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}>Set a goal</Link>
           </div>
         </div>
       ) : (
@@ -125,8 +126,8 @@ export default function CalendarPage() {
           <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
             {events.map((e) => (
               <li key={e.id}>
-                <a
-                  href={e.href}
+                <Link
+                  to={e.href}
                   style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--hair2)', textDecoration: 'none', color: 'inherit' }}
                 >
                   <span aria-hidden="true" style={{ width: 40, textAlign: 'center', flexShrink: 0 }}>
@@ -141,7 +142,7 @@ export default function CalendarPage() {
                     <span className="note" style={{ fontSize: 11 }}>{e.detail}</span>
                   </span>
                   {e.amount != null && <span style={{ fontSize: 13, fontWeight: 700, flexShrink: 0 }}>{cfmt(e.amount)}</span>}
-                </a>
+                </Link>
               </li>
             ))}
           </ul>

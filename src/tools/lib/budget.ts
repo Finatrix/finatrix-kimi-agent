@@ -179,6 +179,11 @@ export function computeBudget(input: BudgetInput, cats: SectionedCats = BUILTIN_
     if (wT > wL) tips.push(['warn', 'Wants above 30%', 'Dining, subscriptions and shopping are over the line. Trimming 10% here funds your future.']);
     if (sT > 0 && sT < sL * 0.5) tips.push(['info', 'Savings under 10%', "You're saving less than half the 20% target. Even a ₹2,000 SIP automates the habit."]);
     if (sT >= sL) tips.push(['ok', 'Savings target hit', "You're at or above 20%. Consider a yearly 10% SIP step-up to compound faster."]);
+    // NOTE: these two tips test the ORIGINAL category keys (emi/sip/efund),
+    // which no built-in V4 category uses — so they only fire for legacy data.
+    // This is pinned by the budget parity suite; reviving them for the V4 keys
+    // (loan_invest/stocks/emergency) is a product decision that must update the
+    // parity contract at the same time.
     if ((vals.emi || 0) > income * 0.3) tips.push(['warn', 'EMI danger zone', 'EMIs alone exceed 30% of income. Prioritise clearing high-interest loans before new investments.']);
     if ((vals.sip || 0) > 0 && (vals.efund || 0) === 0) tips.push(['info', 'No emergency fund', 'You invest but have no buffer. Build 3–6 months of expenses in a liquid fund first.']);
     if (spent === 0) tips.push(['info', 'Start above', 'Fill in your expenses to see your live budget breakdown.']);

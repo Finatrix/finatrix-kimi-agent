@@ -1,9 +1,10 @@
-import { currentMonth, monthLabel, prevMonth, nextMonth } from '../lib/month';
+import { currentMonth, monthLabel, prevMonth, nextMonth, nextMonthUnclamped } from '../lib/month';
 
 /**
  * Month navigator shared by Budget Builder and Expense Tracker — a faithful
  * reproduction of bbRenderMonthNav / etRenderMonthNav (prev/next arrows, a
  * "current vs past month" note, and quick-jump chips when >1 month has data).
+ * `allowFuture` lifts the next-arrow clamp for forward-looking views (Calendar).
  */
 export function MonthNav({
   activeMonth,
@@ -11,17 +12,19 @@ export function MonthNav({
   onSwitch,
   pastNote,
   pastColor,
+  allowFuture = false,
 }: {
   activeMonth: string;
   months: string[]; // months to show as chips (already includes current)
   onSwitch: (m: string) => void;
   pastNote: string;
   pastColor: string;
+  allowFuture?: boolean;
 }) {
   const cur = currentMonth();
   const isNow = activeMonth === cur;
   const prev = prevMonth(activeMonth);
-  const next = nextMonth(activeMonth);
+  const next = allowFuture ? nextMonthUnclamped(activeMonth) : nextMonth(activeMonth);
   const chips = months.length > 1 ? months : [];
 
   const arrowStyle: React.CSSProperties = {
@@ -79,11 +82,11 @@ export function MonthNav({
         <button
           type="button"
           onClick={() => next && onSwitch(next)}
-          disabled={isNow}
+          disabled={!next}
           style={{
             ...arrowStyle,
-            opacity: isNow ? 0.3 : 1,
-            cursor: isNow ? 'default' : 'pointer',
+            opacity: next ? 1 : 0.3,
+            cursor: next ? 'pointer' : 'default',
           }}
           title="Next month"
           aria-label="Next month"
