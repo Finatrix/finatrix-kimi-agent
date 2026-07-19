@@ -199,6 +199,11 @@ function MobileTabBar({ activeTool, onMore, moreActive }: { activeTool: string; 
 export default function ToolsLayout() {
   const { user, loading, signOut, configured } = useAuth();
   const [ready, setReady] = useState(false);
+  // Mirrors `ready` for the push scheduler: seeding itself writes synced keys
+  // (clear + cloud load now notify via fx:write so mounted providers refresh),
+  // and a debounced push must NEVER fire mid-seed — after clearSyncedLocal it
+  // would upsert an empty blob over the account's cloud data.
+  const readyRef = useRef(false);
   const [sync, setSync] = useState<SyncStatus>(configured ? 'idle' : 'offline');
   const [drawerOpen, setDrawerOpen] = useMobileDrawer();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -210,6 +215,8 @@ export default function ToolsLayout() {
     let cancelled = false;
     (async () => {
       setReady(false);
+      readyRef.current = false;
+      if (saveTimer.current) clearTimeout(saveTimer.current);
       const curUid = user?.id ?? null;
       const lastUid = getLastUid();
       if (configured && curUid) {
@@ -225,7 +232,10 @@ export default function ToolsLayout() {
       } else if (!cancelled) {
         setSync(configured ? 'idle' : 'offline');
       }
-      if (!cancelled) setReady(true);
+      if (!cancelled) {
+        readyRef.current = true;
+        setReady(true);
+      }
     })();
     return () => {
       cancelled = true;
@@ -241,6 +251,7 @@ export default function ToolsLayout() {
   useEffect(() => {
     if (!configured || !uid) return;
     const schedule = (key: string | null) => {
+      if (!readyRef.current) return; // seeding in progress — its own explicit push handles it
       if (key && !SYNC_KEYS.includes(key)) return;
       setSync('saving');
       if (saveTimer.current) clearTimeout(saveTimer.current);

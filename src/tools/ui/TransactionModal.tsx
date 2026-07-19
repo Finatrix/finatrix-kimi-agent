@@ -404,10 +404,15 @@ export default function TransactionModal({
           </div>
         </form>
 
-        {/* Delete confirmation (the only confirmation in the flow) */}
+        {/* Delete confirmation (the only confirmation in the flow).
+            position:fixed, not absolute — an absolute inset-0 overlay in a
+            scrollable card anchors to the TOP of the scroll content, so it
+            rendered off-screen whenever the card was scrolled down (which is
+            the norm: Delete lives in the sticky footer). The modal is portaled
+            to <body>, so fixed reliably covers the viewport. */}
         {confirmDel && (
           <div
-            style={{ position: 'absolute', inset: 0, borderRadius: 22, background: 'rgba(0,0,0,.5)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+            style={{ position: 'fixed', inset: 0, zIndex: 10, background: 'rgba(0,0,0,.5)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
             role="alertdialog"
             aria-modal="true"
             aria-labelledby="tx-del-title"
