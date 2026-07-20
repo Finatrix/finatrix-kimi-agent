@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
+import { Tabs } from '../../tools/ui/Tabs';
 import { EmptyState, ErrorCard, PageLoading } from '../components/states';
 import { useCareers } from '../context/CareersContext';
 import { listApplications } from '../services/applications';
@@ -117,11 +118,18 @@ export default function TasksPage() {
         </div>
       </div>
 
-      <div className="nav" role="tablist" aria-label="Task filter" style={{ padding: 0, marginBottom: 10 }}>
-        <button role="tab" aria-selected={filter === 'open'} className={filter === 'open' ? 'on' : ''} onClick={() => setFilter('open')}>Open ({tasks.filter((t) => t.status === 'open').length})</button>
-        <button role="tab" aria-selected={filter === 'done'} className={filter === 'done' ? 'on' : ''} onClick={() => setFilter('done')}>Done</button>
-        <button role="tab" aria-selected={filter === 'all'} className={filter === 'all' ? 'on' : ''} onClick={() => setFilter('all')}>All</button>
-      </div>
+      <Tabs
+        variant="nav"
+        label="Task filter"
+        style={{ padding: 0, marginBottom: 10 }}
+        active={filter}
+        onChange={setFilter}
+        items={[
+          { key: 'open', label: `Open (${tasks.filter((t) => t.status === 'open').length})` },
+          { key: 'done', label: 'Done' },
+          { key: 'all', label: 'All' },
+        ]}
+      />
 
       {!visible.length ? (
         <div className="card"><EmptyState icon="check" title="Nothing here">Add your first task above.</EmptyState></div>

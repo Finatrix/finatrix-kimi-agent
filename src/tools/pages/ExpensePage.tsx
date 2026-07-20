@@ -21,6 +21,7 @@ import {
 } from '../lib/budget';
 import TransactionModal from '../ui/TransactionModal';
 import TransactionList, { type ExportKind } from '../ui/TransactionList';
+import { Tabs, type TabItem } from '../ui/Tabs';
 import {
   computeMonthlyTrend, computeCategoryComparison, computePaymentBreakdown,
   computeDailyHeatmap, detectRecurring, computeStreaks, generateInsights,
@@ -39,7 +40,7 @@ const SECTION_COLOR: Record<CatKey, string> = { needs: 'var(--blue)', wants: 'va
 
 type Tab = 'overview' | 'analytics' | 'recurring';
 
-const TAB_ITEMS: Array<{ key: Tab; label: string; icon: IconName }> = [
+const TAB_ITEMS: ReadonlyArray<TabItem<Tab>> = [
   { key: 'overview', label: 'Overview', icon: 'expense' },
   { key: 'analytics', label: 'Analytics', icon: 'trending' },
   { key: 'recurring', label: 'Recurring', icon: 'refresh' },
@@ -288,21 +289,8 @@ export default function ExpensePage() {
         Categories and budgets flow from Budget Builder — log a spend and watch your Needs, Wants and Savings update live. Explore analytics to discover spending patterns.
       </PageHead>
 
-      {/* Tab bar */}
-      <div className="fx-tabs" role="tablist" aria-label="Expense views">
-        {TAB_ITEMS.map((t) => (
-          <button
-            key={t.key}
-            role="tab"
-            aria-selected={tab === t.key}
-            className={`fx-tab${tab === t.key ? ' active' : ''}`}
-            onClick={() => setTab(t.key)}
-          >
-            <Icon name={t.icon} size={15} />
-            {t.label}
-          </button>
-        ))}
-      </div>
+      {/* Tab bar — WAI-ARIA tablist with roving tabindex + arrow-key nav. */}
+      <Tabs items={TAB_ITEMS} active={tab} onChange={setTab} idBase="fx-exp" label="Expense views" />
 
       {/* Month nav + export */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
@@ -312,8 +300,9 @@ export default function ExpensePage() {
         <ExportMenu label="Export" onCsv={() => exportExpenseCsv(buildExport())} onXlsx={() => exportExpenseXlsx(buildExport())} onPdf={() => exportExpensePdf(buildExport())} />
       </div>
 
-      {/* Tab panels */}
-      <div role="tabpanel" aria-label={TAB_ITEMS.find((t) => t.key === tab)?.label}>
+      {/* Tab panels — labelled by their tab; panels hold focusable content so
+          they need no tabindex of their own (APG). */}
+      <div role="tabpanel" id={`fx-exp-panel-${tab}`} aria-labelledby={`fx-exp-tab-${tab}`}>
         {tab === 'overview' && (
           <OverviewTab
             r={r} items={items} monthTx={monthTx} selMonth={selMonth} flatCats={flatCats}

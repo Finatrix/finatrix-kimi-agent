@@ -15,6 +15,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
+import { Tabs } from '../../tools/ui/Tabs';
 import { EmptyState, ErrorCard, PageLoading } from '../components/states';
 import { useRole } from '../hooks/useRole';
 import { listAllUsage, summarizeUsage } from '../services/aiUsage';
@@ -162,22 +163,14 @@ export default function AdminDashboard() {
 
       {loadError && <ErrorCard error={loadError} onRetry={() => void load()} />}
 
-      <div className="nav" role="tablist" aria-label="Admin sections" style={{ padding: 0, marginBottom: 16, flexWrap: 'wrap' }}>
-        {TABS.map((t) => (
-          <a
-            key={t.id}
-            role="tab"
-            aria-selected={tab === t.id}
-            tabIndex={0}
-            className={tab === t.id ? 'on' : ''}
-            style={{ cursor: 'pointer' }}
-            onClick={() => setTab(t.id)}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setTab(t.id); } }}
-          >
-            {t.label}
-          </a>
-        ))}
-      </div>
+      <Tabs
+        variant="nav"
+        label="Admin sections"
+        style={{ padding: 0, marginBottom: 16, flexWrap: 'wrap' }}
+        active={tab}
+        onChange={setTab}
+        items={TABS.map((t) => ({ key: t.id, label: t.label }))}
+      />
 
       {tab === 'overview' && (
         <div className="dash-grid">

@@ -9,6 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
 import { Icon } from '../../tools/ui/Icon';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
+import { Tabs } from '../../tools/ui/Tabs';
 import { ConfirmDialog, EmptyState, ErrorCard, ModalShell, PageLoading } from '../components/states';
 import { useCareers } from '../context/CareersContext';
 import {
@@ -143,10 +144,14 @@ function CalendarView({ events }: { events: CalEvent[] }) {
         <button className="icon-btn" aria-label="Previous" onClick={() => step(-1)}>‹</button>
         <b style={{ flex: 1, textAlign: 'center' }}>{monthLabel}</b>
         <button className="icon-btn" aria-label="Next" onClick={() => step(1)}>›</button>
-        <div className="nav" role="tablist" aria-label="Calendar mode" style={{ padding: 0 }}>
-          <button role="tab" aria-selected={mode === 'month'} className={mode === 'month' ? 'on' : ''} onClick={() => setMode('month')}>Month</button>
-          <button role="tab" aria-selected={mode === 'week'} className={mode === 'week' ? 'on' : ''} onClick={() => setMode('week')}>Week</button>
-        </div>
+        <Tabs
+          variant="nav"
+          label="Calendar mode"
+          style={{ padding: 0 }}
+          active={mode}
+          onChange={setMode}
+          items={[{ key: 'month', label: 'Month' }, { key: 'week', label: 'Week' }]}
+        />
       </div>
       <div className="cal-grid" role="grid" aria-label={`Calendar — ${monthLabel}`}>
         {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => <div className="cal-head" key={d}>{d}</div>)}

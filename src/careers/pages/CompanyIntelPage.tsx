@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
+import { Tabs } from '../../tools/ui/Tabs';
 import { EmptyState, ErrorCard } from '../components/states';
 import { CAREERS_ROUTES } from '../constants';
 import {
@@ -142,22 +143,14 @@ export default function CompanyIntelPage() {
       )}
 
       {/* Facet selector */}
-      <div className="nav" role="tablist" aria-label="Search scope" style={{ flexWrap: 'wrap', marginBottom: 12, padding: '10px 0' }}>
-        {FACETS.map((f) => (
-          <a
-            key={f.id}
-            role="tab"
-            aria-selected={facet === f.id}
-            tabIndex={0}
-            className={facet === f.id ? 'on' : ''}
-            style={{ cursor: 'pointer' }}
-            onClick={() => setFacet(f.id)}
-            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setFacet(f.id)}
-          >
-            {f.label}
-          </a>
-        ))}
-      </div>
+      <Tabs
+        variant="nav"
+        label="Search scope"
+        style={{ flexWrap: 'wrap', marginBottom: 12, padding: '10px 0' }}
+        active={facet}
+        onChange={setFacet}
+        items={FACETS.map((f) => ({ key: f.id, label: f.label }))}
+      />
 
       {/* Query + filters */}
       <div className="lib-toolbar" style={{ flexWrap: 'wrap', gap: 8 }}>

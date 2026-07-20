@@ -10,6 +10,7 @@ import { Link, useLocation } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
+import { Tabs } from '../../tools/ui/Tabs';
 import { CoverLetterModal } from '../components/CoverLetterModal';
 import { JobIntelView } from '../components/JobIntelView';
 import { MatchPanel } from '../components/MatchPanel';
@@ -267,11 +268,18 @@ function JobWorkbench({
           {busy === 'intel' ? 'Analysing this job with AI — actions unlock in a few seconds…' : ''}
         </p>
 
-        <div className="nav" role="tablist" aria-label="Job workbench" style={{ padding: 0, marginBottom: 14 }}>
-          <button role="tab" aria-selected={tab === 'intel'} className={tab === 'intel' ? 'on' : ''} onClick={() => setTab('intel')}>Intelligence</button>
-          <button role="tab" aria-selected={tab === 'match'} className={tab === 'match' ? 'on' : ''} onClick={() => setTab('match')}>Match</button>
-          <button role="tab" aria-selected={tab === 'tailor'} className={tab === 'tailor' ? 'on' : ''} onClick={() => setTab('tailor')}>Tailoring</button>
-        </div>
+        <Tabs
+          variant="nav"
+          label="Job workbench"
+          style={{ padding: 0, marginBottom: 14 }}
+          active={tab}
+          onChange={setTab}
+          items={[
+            { key: 'intel', label: 'Intelligence' },
+            { key: 'match', label: 'Match' },
+            { key: 'tailor', label: 'Tailoring' },
+          ]}
+        />
 
         {tab === 'intel' && (
           busy === 'intel' ? (
@@ -695,11 +703,18 @@ export default function JobsPage() {
             </Link>
           )}
         </div>
-        <div className="nav" role="tablist" aria-label="Jobs view" style={{ padding: 0 }}>
-          <button role="tab" aria-selected={view === 'search'} className={view === 'search' ? 'on' : ''} onClick={() => setView('search')}>Search</button>
-          <button role="tab" aria-selected={view === 'saved'} className={view === 'saved' ? 'on' : ''} onClick={() => setView('saved')}>Saved ({saved.length})</button>
-          <button role="tab" aria-selected={view === 'analyzer'} className={view === 'analyzer' ? 'on' : ''} onClick={() => setView('analyzer')}>JD Analyzer</button>
-        </div>
+        <Tabs
+          variant="nav"
+          label="Jobs view"
+          style={{ padding: 0 }}
+          active={view}
+          onChange={setView}
+          items={[
+            { key: 'search', label: 'Search' },
+            { key: 'saved', label: `Saved (${saved.length})` },
+            { key: 'analyzer', label: 'JD Analyzer' },
+          ]}
+        />
       </div>
 
       {view === 'search' && (

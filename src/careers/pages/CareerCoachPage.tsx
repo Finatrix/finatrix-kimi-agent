@@ -10,6 +10,7 @@ import { Link } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
+import { Tabs } from '../../tools/ui/Tabs';
 import { ScoreRing } from '../components/ScoreRing';
 import { EmptyState, ErrorCard, PageLoading } from '../components/states';
 import { CAREERS_ROUTES } from '../constants';
@@ -223,10 +224,14 @@ export default function CareerCoachPage() {
           <div className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <div className="panel-eyebrow" style={{ marginBottom: 0 }}>{review.headline}</div>
-              <div className="nav" role="tablist" aria-label="Review period" style={{ padding: 0 }}>
-                <button role="tab" aria-selected={reviewPeriod === 'weekly'} className={reviewPeriod === 'weekly' ? 'on' : ''} onClick={() => setReviewPeriod('weekly')}>Weekly</button>
-                <button role="tab" aria-selected={reviewPeriod === 'monthly'} className={reviewPeriod === 'monthly' ? 'on' : ''} onClick={() => setReviewPeriod('monthly')}>Monthly</button>
-              </div>
+              <Tabs
+                variant="nav"
+                label="Review period"
+                style={{ padding: 0 }}
+                active={reviewPeriod}
+                onChange={setReviewPeriod}
+                items={[{ key: 'weekly', label: 'Weekly' }, { key: 'monthly', label: 'Monthly' }]}
+              />
             </div>
             {review.bullets.map((b, i) => <div key={i} className="note">· {b}</div>)}
           </div>
