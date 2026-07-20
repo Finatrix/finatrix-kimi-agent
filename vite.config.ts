@@ -37,5 +37,8 @@ export default defineConfig({
     globals: true,
     setupFiles: "./src/test/setup.ts",
     css: false,
+    // Playwright specs live in ./e2e and use @playwright/test, not vitest —
+    // keep them out of the unit runner (they match the default *.spec glob).
+    exclude: ["node_modules/**", "dist/**", "e2e/**"],
   },
 });

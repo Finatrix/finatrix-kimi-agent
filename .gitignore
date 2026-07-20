@@ -33,3 +33,9 @@ dist-verify
 # Supabase CLI local state
 supabase/.temp/
 .fuse_hidden*
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/.playwright/
