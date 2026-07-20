@@ -18,6 +18,8 @@ interface Props {
   sym: string;
   /** Default category key for a fresh entry. */
   defaultCat: string;
+  /** Most-used category keys (ordered) for the one-tap "Recent" shortcut. */
+  recentCats?: string[];
   onSave: (item: ExpenseItem) => void;
   onClose: () => void;
   onDelete?: (id: string) => void;
@@ -70,7 +72,7 @@ const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:n
  * draft is initialised once from props — no state-sync effect required.
  */
 export default function TransactionModal({
-  editing, cats, sym, defaultCat, onSave, onClose, onDelete, onDuplicate,
+  editing, cats, sym, defaultCat, recentCats = [], onSave, onClose, onDelete, onDuplicate,
 }: Props) {
   const isEdit = !!editing;
   const [draft, setDraft] = useState<Draft>(() => (editing ? draftFromItem(editing) : emptyDraft(defaultCat)));
@@ -188,6 +190,15 @@ export default function TransactionModal({
     return g;
   }, [cats]);
 
+  // Resolve the frequent-category keys to real categories, in rank order. Only
+  // surfaced when there are enough categories that scanning the full grid is
+  // slow — keeps the common case one tap without lengthening short lists.
+  const recent = useMemo(() => {
+    if (cats.length <= 6) return [];
+    const byKey = new Map(cats.map((c) => [c.k, c]));
+    return recentCats.map((k) => byKey.get(k)).filter((c): c is FlatCat => !!c).slice(0, 5);
+  }, [cats, recentCats]);
+
   const err = (k: keyof typeof errors) => submitted && errors[k];
 
   // Portaled to <body> so no ancestor transform/filter (page-enter animations,
@@ -215,6 +226,11 @@ export default function TransactionModal({
         .fx-tx-catbtn:hover{border-color:var(--ink3);}
         .fx-tx-catbtn[aria-pressed="true"]{border-color:var(--ink);background:var(--hair);}
         .fx-tx-catbtn:active{transform:scale(.96);}
+        .fx-tx-recent{display:inline-flex;align-items:center;gap:6px;max-width:150px;padding:7px 12px;border-radius:980px;
+          border:1.5px solid var(--hair2);background:var(--card);color:var(--ink);cursor:pointer;font-size:12px;font-weight:600;
+          font-family:inherit;transition:border-color .15s,background .15s;}
+        .fx-tx-recent:hover{border-color:var(--ink3);}
+        .fx-tx-recent[aria-pressed="true"]{border-color:var(--ink);background:var(--hair);}
         .fx-tx-err{color:var(--red);font-size:11.5px;margin-top:5px;font-weight:600;}
         .fx-tx-footer{position:sticky;bottom:0;z-index:2;background:var(--card-solid,var(--card));
           margin:0 -22px;padding:12px 22px 14px;border-top:1px solid var(--hair2);}
@@ -296,6 +312,26 @@ export default function TransactionModal({
 
           <fieldset style={{ border: 'none', padding: 0, margin: '0 0 12px' }}>
             <legend className="fl" style={{ padding: 0 }}>Category</legend>
+            {recent.length >= 2 && (
+              <div style={{ marginBottom: 10 }}>
+                <div className="note" style={{ fontWeight: 700, marginBottom: 6 }}>Recent</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {recent.map((c) => (
+                    <button
+                      key={`recent-${c.k}`}
+                      type="button"
+                      className="fx-tx-recent"
+                      aria-pressed={draft.category === c.k}
+                      aria-label={`${c.l} (recent)`}
+                      onClick={() => set('category', c.k)}
+                    >
+                      <Icon name={c.ic} size={14} style={{ color: SECTION_COLOR[c.section] }} />
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.l}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {cats.length === 0 ? (
               <div className="note">Add categories in Budget Builder to start tracking.</div>
             ) : (

@@ -25,7 +25,7 @@ import { Tabs, type TabItem } from '../ui/Tabs';
 import {
   computeMonthlyTrend, computeCategoryComparison, computePaymentBreakdown,
   computeDailyHeatmap, detectRecurring, computeStreaks, generateInsights,
-  computeAnalyticsSummary, computeMonthForecast,
+  computeAnalyticsSummary, computeMonthForecast, frequentCategoryKeys,
   type CatMeta, type MonthlyTrend, type SpendingInsight,
 } from '../lib/expenseAnalytics';
 
@@ -88,6 +88,12 @@ export default function ExpensePage() {
     flatCats.forEach((c) => m.set(c.k, c));
     return m;
   }, [flatCats]);
+
+  // Most-used categories, for the one-tap "Recent" shortcut in the add forms.
+  const recentCatKeys = useMemo(
+    () => frequentCategoryKeys(items, new Set(flatCats.map((c) => c.k)), 5),
+    [items, flatCats]
+  );
 
   useEffect(() => {
     const off = onLocalWrite((key) => {
@@ -307,6 +313,7 @@ export default function ExpensePage() {
           <OverviewTab
             r={r} items={items} monthTx={monthTx} selMonth={selMonth} flatCats={flatCats}
             selKey={selKey} sel={sel} setSel={setSel} amount={amount} setAmount={setAmount}
+            recentCatKeys={recentCatKeys}
             date={date} setDate={setDate} note={note} setNote={setNote} justAdded={justAdded}
             cfmt={cfmt} sym={sym} now={now} catMeta={catMeta} monthlyBudget={r.monthlyBudget}
             addExpense={addExpense} openAdd={openAdd} openEdit={openEdit}
@@ -338,6 +345,7 @@ export default function ExpensePage() {
           cats={flatCats}
           sym={sym}
           defaultCat={selKey}
+          recentCats={recentCatKeys}
           onSave={saveTransaction}
           onClose={() => { setModalOpen(false); setEditing(null); }}
           onDelete={deleteTransaction}
@@ -387,6 +395,7 @@ interface OverviewProps {
   r: DashResult; items: ExpenseItem[]; monthTx: ExpenseItem[]; selMonth: string;
   flatCats: Array<{ k: string; l: string; ic: IconName; section: CatKey }>;
   selKey: string; sel: string; setSel: (k: string) => void;
+  recentCatKeys: string[];
   amount: string; setAmount: (v: string) => void;
   date: string; setDate: (v: string) => void;
   note: string; setNote: (v: string) => void;
@@ -403,7 +412,7 @@ interface OverviewProps {
 }
 
 function OverviewTab({
-  r, items, monthTx, selMonth, flatCats, selKey, setSel,
+  r, items, monthTx, selMonth, flatCats, selKey, setSel, recentCatKeys,
   amount, setAmount, date, setDate, note, setNote, justAdded,
   cfmt, sym, now, catMeta, monthlyBudget,
   addExpense, openAdd, openEdit, duplicateTransaction, deleteTransaction,
@@ -416,6 +425,12 @@ function OverviewTab({
   );
 
   const streaks = useMemo(() => computeStreaks(items, now), [items, now]);
+
+  // Resolve the frequent-category keys to real categories for the quick-pick.
+  const recentInline = useMemo(() => {
+    const byKey = new Map(flatCats.map((c) => [c.k, c]));
+    return recentCatKeys.map((k) => byKey.get(k)).filter((c): c is typeof flatCats[number] => !!c);
+  }, [flatCats, recentCatKeys]);
 
   return (
     <>
@@ -493,6 +508,24 @@ function OverviewTab({
           </div>
         </div>
         <label className="fl">Category (from Budget Builder)</label>
+        {flatCats.length > 6 && recentInline.length >= 2 && (
+          <div style={{ marginBottom: 10 }}>
+            <div className="note" style={{ fontWeight: 700, marginBottom: 6 }}>Recent</div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {recentInline.map((c) => (
+                <button key={`et-recent-${c.k}`} type="button" onClick={() => setSel(c.k)}
+                  aria-pressed={selKey === c.k} aria-label={`${c.l} (recent)`} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: 160, padding: '7px 12px', borderRadius: 980,
+                    border: `1.5px solid ${selKey === c.k ? 'var(--ink)' : 'var(--hair2)'}`, background: selKey === c.k ? 'var(--hair)' : 'var(--card)',
+                    color: 'var(--ink)', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit', transition: 'all .15s',
+                  }}>
+                  <Icon name={c.ic} size={14} style={{ color: SECTION_COLOR[c.section] }} />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.l}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(96px, 1fr))', gap: 7, marginBottom: 14 }}>
           {flatCats.map((c) => (
             <button key={c.k} type="button" onClick={() => setSel(c.k)} title={SECTION_LABEL[c.section]}

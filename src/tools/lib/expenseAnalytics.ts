@@ -91,6 +91,33 @@ export interface CatMeta {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
+   Frequent categories — powers the "Recent" quick-pick shortcut in the add
+   forms. Ranks the user's own categories by how often they've been used, with
+   the most-recently-used breaking ties, so the common case is one tap. Pure.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+export function frequentCategoryKeys(
+  items: ExpenseItem[],
+  valid: ReadonlySet<string>,
+  limit = 5,
+): string[] {
+  const count = new Map<string, number>();
+  const lastSeen = new Map<string, string>(); // category → max date string
+  for (const e of items) {
+    if (!valid.has(e.category)) continue; // skip stale/migrated-away keys
+    count.set(e.category, (count.get(e.category) ?? 0) + 1);
+    const d = e.date || '';
+    if (d > (lastSeen.get(e.category) ?? '')) lastSeen.set(e.category, d);
+  }
+  return [...count.keys()]
+    .sort((a, b) =>
+      (count.get(b)! - count.get(a)!) ||
+      (lastSeen.get(b)! > lastSeen.get(a)! ? 1 : lastSeen.get(b)! < lastSeen.get(a)! ? -1 : 0) ||
+      a.localeCompare(b))
+    .slice(0, limit);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
    Monthly trend (up to 12 months)
    ══════════════════════════════════════════════════════════════════════════ */
 

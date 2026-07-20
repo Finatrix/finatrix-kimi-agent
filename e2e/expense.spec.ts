@@ -98,6 +98,37 @@ test('edits a transaction in place, then deletes with confirm + undo', async ({ 
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('fx_expenses') || '[]'))).toHaveLength(1);
 });
 
+test('surfaces a one-tap Recent category shortcut from history', async ({ page }) => {
+  await page.goto('/tools/expenses');
+  // Seed a guest history (raw localStorage: no cloud, no fx:write) so the most-
+  // used categories are unambiguous, then reload to pick it up.
+  await page.evaluate(() => {
+    const m = new Date();
+    const mk = `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, '0')}`;
+    const items = [
+      ...[1, 2, 3, 4].map((d) => ({ id: `g${d}`, amount: 100, category: 'groceries', date: `${mk}-0${d}` })),
+      ...[1, 2].map((d) => ({ id: `e${d}`, amount: 80, category: 'eating_out', date: `${mk}-1${d}` })),
+      { id: 'r1', amount: 5000, category: 'rent', date: `${mk}-05` },
+    ];
+    localStorage.setItem('fx_expenses', JSON.stringify(items));
+  });
+  await page.reload();
+
+  const add = page.getByRole('button', { name: '+ Add' });
+  await add.click();
+  const dialog = page.getByRole('dialog');
+
+  // The Recent row appears with the most-used category first, and tapping it
+  // selects that category (aria-pressed) without scrolling the full grid.
+  const recentGroceries = dialog.getByRole('button', { name: 'Groceries (recent)' });
+  await expect(recentGroceries).toBeVisible();
+  await recentGroceries.click();
+  await expect(recentGroceries).toHaveAttribute('aria-pressed', 'true');
+
+  // The full category picker is still available below.
+  await expect(dialog.getByRole('button', { name: /^Rent \(Needs\)/ })).toBeVisible();
+});
+
 test('add-transaction submit is reachable on a mobile viewport', async ({ page }) => {
   await gotoFresh(page);
   await openAddModal(page);
