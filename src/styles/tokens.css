@@ -165,6 +165,19 @@
   --gold-grad-3: #8A6A1C;
   --gold-grad-4: #6E5514;
 
+  /* ── Status colours — deepened for WCAG-AA as TEXT on paper/white ──────
+     The vivid dark-theme values (#4D9BFF / #34D27A / #E8833D / #FF5A52) are
+     designed against near-black surfaces and drop to 2–3:1 on light paper —
+     failing AA for the many places these are used as coloured text (error
+     messages, budget/KPI figures, status labels, deltas). These deeper hues
+     all clear 4.4–6.6:1 on white and paper while staying the same semantic
+     colour and reading well as bar/tile fills too. Dark theme keeps the vivid
+     originals; Chart.js series use literal hex, so charts are unchanged. */
+  --status-info:    #1D6FE0;
+  --status-success: #0D7038;
+  --status-warn:    #B45816;
+  --status-danger:  #B42318;
+
   /* ── Hairlines — warm black-alpha instead of white-alpha ─────────────── */
   --hairline:   rgba(23, 21, 15, 0.14);
   --hairline-2: rgba(23, 21, 15, 0.08);
