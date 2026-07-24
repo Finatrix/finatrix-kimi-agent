@@ -69,6 +69,27 @@ export async function countPathReferences(userId: string, path: string): Promise
 
 // ─────────────────────────── resume families ───────────────────────────
 
+/**
+ * Pick a family name that no existing family already uses.
+ *
+ * Uploading the same file twice — the normal recovery after a run that failed
+ * part-way — produced two families with byte-identical names, files, dates and
+ * a "v1" apiece. The library then showed a pair of cards nothing on screen
+ * could tell apart, which made rename and delete a coin flip. Suffixing the
+ * default keeps every card identifiable from the moment it is created, and the
+ * user still sees and can edit the name before uploading.
+ */
+export function uniqueResumeName(base: string, existing: readonly string[]): string {
+  const root = base.trim() || 'Resume';
+  const taken = new Set(existing.map((n) => n.trim().toLowerCase()));
+  if (!taken.has(root.toLowerCase())) return root;
+  for (let i = 2; i <= 99; i++) {
+    const candidate = `${root} (${i})`;
+    if (!taken.has(candidate.toLowerCase())) return candidate;
+  }
+  return `${root} (${new Date().toISOString().slice(11, 19)})`;
+}
+
 export async function createResume(
   userId: string,
   fields: { name: string; industry?: string; notes?: string }

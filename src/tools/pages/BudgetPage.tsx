@@ -177,9 +177,9 @@ export default function BudgetPage() {
         </div>
       </div>
 
-      <CategoryCard catKey="needs" label={`Needs · ${r.nPct}%`} color={CAT_COLOR.needs} items={cats.needs} res={r.cats.needs} vals={vals} setVal={setVal} cfmt={cfmt} onAdd={() => addCat('needs')} onRename={renameCat} onRemove={removeCat} />
-      <CategoryCard catKey="wants" label={`Wants · ${r.wPct}%`} color={CAT_COLOR.wants} items={cats.wants} res={r.cats.wants} vals={vals} setVal={setVal} cfmt={cfmt} onAdd={() => addCat('wants')} onRename={renameCat} onRemove={removeCat} />
-      <CategoryCard catKey="save" label={`Savings & investments · ${r.sPct}%`} color={CAT_COLOR.save} items={cats.save} res={r.cats.save} vals={vals} setVal={setVal} cfmt={cfmt} onAdd={() => addCat('save')} onRename={renameCat} onRemove={removeCat} />
+      <CategoryCard catKey="needs" label={`Needs · ${r.nPct}%`} color={CAT_COLOR.needs} items={cats.needs} res={r.cats.needs} vals={vals} setVal={setVal} cfmt={cfmt} sym={sym} onAdd={() => addCat('needs')} onRename={renameCat} onRemove={removeCat} />
+      <CategoryCard catKey="wants" label={`Wants · ${r.wPct}%`} color={CAT_COLOR.wants} items={cats.wants} res={r.cats.wants} vals={vals} setVal={setVal} cfmt={cfmt} sym={sym} onAdd={() => addCat('wants')} onRename={renameCat} onRemove={removeCat} />
+      <CategoryCard catKey="save" label={`Savings & investments · ${r.sPct}%`} color={CAT_COLOR.save} items={cats.save} res={r.cats.save} vals={vals} setVal={setVal} cfmt={cfmt} sym={sym} onAdd={() => addCat('save')} onRename={renameCat} onRemove={removeCat} />
 
       <div
         className="card result-hero-anim"
@@ -237,9 +237,9 @@ function PctInput({ label, color, value, onChange, id }: {
   );
 }
 
-function CategoryCard({ catKey, label, color, items, res, vals, setVal, cfmt, onAdd, onRename, onRemove }: {
+function CategoryCard({ catKey, label, color, items, res, vals, setVal, cfmt, sym, onAdd, onRename, onRemove }: {
   catKey: CatKey; label: string; color: string; items: BudgetCat[]; res: CatResult;
-  vals: BudgetVals; setVal: (k: string, v: string) => void; cfmt: (n: number) => string;
+  vals: BudgetVals; setVal: (k: string, v: string) => void; cfmt: (n: number) => string; sym: string;
   onAdd: () => void; onRename: (section: CatKey, k: string, l: string) => void; onRemove: (section: CatKey, k: string) => void;
 }) {
   const pill =
@@ -264,44 +264,55 @@ function CategoryCard({ catKey, label, color, items, res, vals, setVal, cfmt, on
       </div>
       <div className="hr" />
       <div>
-        {items.map((c) => (
-          <div className="row-line" key={c.k} data-cat={catKey}>
-            <div style={{ fontSize: 18, width: 28, textAlign: 'center' }}>
-              <Icon name={c.ic} size={18} />
-            </div>
-            {c.custom ? (
+        {items.map((c) => {
+          // Every amount field needs its own accessible name: the visible
+          // category label sits in a sibling node (or, for custom rows, in an
+          // editable input), so without this the whole column was announced as
+          // a row of unnamed spinbuttons.
+          const amountId = `bb-amt-${catKey}-${c.k}`;
+          const name = c.l.trim() || 'Untitled category';
+          return (
+            <div className="row-line" key={c.k} data-cat={catKey}>
+              <div style={{ fontSize: 18, width: 28, textAlign: 'center' }} aria-hidden="true">
+                <Icon name={c.ic} size={18} />
+              </div>
+              {c.custom ? (
+                <input
+                  className="fi-sm"
+                  type="text"
+                  aria-label="Category name"
+                  value={c.l}
+                  onChange={(e) => onRename(catKey, c.k, e.target.value)}
+                  style={{ flex: 1, width: 'auto', textAlign: 'left', minWidth: 0 }}
+                />
+              ) : (
+                // A real label, so tapping the category name focuses its amount.
+                <label htmlFor={amountId} style={{ flex: 1, fontSize: 14, cursor: 'pointer' }}>{c.l}</label>
+              )}
               <input
                 className="fi-sm"
-                type="text"
-                aria-label="Category name"
-                value={c.l}
-                onChange={(e) => onRename(catKey, c.k, e.target.value)}
-                style={{ flex: 1, width: 'auto', textAlign: 'left', minWidth: 0 }}
+                type="number" step="any"
+                id={amountId}
+                aria-label={`${name} amount (${sym})`}
+                min={0}
+                inputMode="decimal"
+                placeholder="0"
+                value={vals[c.k] ? String(vals[c.k]) : ''}
+                onChange={(e) => setVal(c.k, e.target.value)}
               />
-            ) : (
-              <div style={{ flex: 1, fontSize: 14 }}>{c.l}</div>
-            )}
-            <input
-              className="fi-sm"
-              type="number" step="any"
-              min={0}
-              inputMode="decimal"
-              placeholder="0"
-              value={vals[c.k] ? String(vals[c.k]) : ''}
-              onChange={(e) => setVal(c.k, e.target.value)}
-            />
-            {c.custom && (
-              <button
-                type="button"
-                aria-label={`Remove ${c.l}`}
-                onClick={() => onRemove(catKey, c.k)}
-                style={{ background: 'none', border: 'none', color: 'var(--ink3)', cursor: 'pointer', fontSize: 15, padding: '4px 6px', borderRadius: 8, flexShrink: 0 }}
-              >
-                ✕
-              </button>
-            )}
-          </div>
-        ))}
+              {c.custom && (
+                <button
+                  type="button"
+                  aria-label={`Remove ${name}`}
+                  onClick={() => onRemove(catKey, c.k)}
+                  style={{ background: 'none', border: 'none', color: 'var(--ink3)', cursor: 'pointer', fontSize: 15, padding: '4px 6px', borderRadius: 8, flexShrink: 0 }}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
       <button
         type="button"

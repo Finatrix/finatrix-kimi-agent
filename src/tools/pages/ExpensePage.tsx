@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import Chart from 'chart.js/auto';
 import { useTheme } from '../../context/ThemeContext';
@@ -70,7 +70,15 @@ export default function ExpensePage() {
   const [date, setDate] = useState(etToday());
   const [note, setNote] = useState('');
   const [justAdded, setJustAdded] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+  const amountRef = useRef<HTMLInputElement>(null);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** Typing clears the rejection, so the error never outlives the problem. */
+  const changeAmount = (v: string) => {
+    setAmount(v);
+    if (addError) setAddError(null);
+  };
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<ExpenseItem | null>(null);
@@ -127,9 +135,24 @@ export default function ExpensePage() {
     saveExpenses(next);
   };
 
+  /**
+   * Submitting with no amount used to return silently — no message, no focus
+   * move, nothing announced — so the form looked broken. Every rejected
+   * submission now names the reason, marks the field invalid and sends focus
+   * back to it (the same contract TransactionModal already honoured).
+   */
   const addExpense = () => {
     const amt = Math.max(0, Number(amount) || 0);
-    if (!amt || !selKey) return;
+    if (!selKey) {
+      setAddError('Add a category in Budget Builder before logging a spend.');
+      return;
+    }
+    if (!amt) {
+      setAddError('Enter an amount greater than 0.');
+      amountRef.current?.focus();
+      return;
+    }
+    setAddError(null);
     const d = date || etToday();
     const nowIso = new Date().toISOString();
     const item: ExpenseItem = { id: genExpenseId(), amount: amt, category: selKey, date: d, createdAt: nowIso, updatedAt: nowIso };
@@ -312,8 +335,9 @@ export default function ExpensePage() {
         {tab === 'overview' && (
           <OverviewTab
             r={r} items={items} monthTx={monthTx} selMonth={selMonth} flatCats={flatCats}
-            selKey={selKey} sel={sel} setSel={setSel} amount={amount} setAmount={setAmount}
+            selKey={selKey} sel={sel} setSel={setSel} amount={amount} setAmount={changeAmount}
             recentCatKeys={recentCatKeys}
+            addError={addError} amountRef={amountRef}
             date={date} setDate={setDate} note={note} setNote={setNote} justAdded={justAdded}
             cfmt={cfmt} sym={sym} now={now} catMeta={catMeta} monthlyBudget={r.monthlyBudget}
             addExpense={addExpense} openAdd={openAdd} openEdit={openEdit}
@@ -397,6 +421,9 @@ interface OverviewProps {
   selKey: string; sel: string; setSel: (k: string) => void;
   recentCatKeys: string[];
   amount: string; setAmount: (v: string) => void;
+  /** Why the last submission was rejected — null when the form is clean. */
+  addError: string | null;
+  amountRef: RefObject<HTMLInputElement | null>;
   date: string; setDate: (v: string) => void;
   note: string; setNote: (v: string) => void;
   justAdded: boolean;
@@ -413,7 +440,7 @@ interface OverviewProps {
 
 function OverviewTab({
   r, items, monthTx, selMonth, flatCats, selKey, setSel, recentCatKeys,
-  amount, setAmount, date, setDate, note, setNote, justAdded,
+  amount, setAmount, addError, amountRef, date, setDate, note, setNote, justAdded,
   cfmt, sym, now, catMeta, monthlyBudget,
   addExpense, openAdd, openEdit, duplicateTransaction, deleteTransaction,
   bulkDelete, bulkDuplicate, bulkCategory, bulkAddTags, exportTransactions,
@@ -494,13 +521,28 @@ function OverviewTab({
         <TrendChart trend={r.trend} cfmt={cfmt} code={code} />
       </div>
 
-      {/* Add expense */}
+      {/* Add expense — a real form, so Enter submits and the browser exposes
+          the field/validation relationships to assistive tech. */}
       <div className="card">
+        <form onSubmit={(e) => { e.preventDefault(); addExpense(); }} noValidate>
         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>Add an expense</div>
         <div className="grid2">
           <div className="fg">
             <label className="fl" htmlFor="et-amount">Amount ({sym})</label>
-            <input className="fi" type="number" step="any" id="et-amount" placeholder="0" min={0} inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            <input
+              ref={amountRef}
+              className="fi"
+              type="number" step="any"
+              id="et-amount"
+              placeholder="0"
+              min={0}
+              inputMode="decimal"
+              required
+              aria-invalid={!!addError}
+              aria-describedby={addError ? 'et-add-err' : undefined}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
           </div>
           <div className="fg">
             <label className="fl" htmlFor="et-date">Date</label>
@@ -544,10 +586,20 @@ function OverviewTab({
           <label className="fl" htmlFor="et-note">Note (optional)</label>
           <input className="fi" type="text" id="et-note" placeholder="What was it for?" maxLength={60} value={note} onChange={(e) => setNote(e.target.value)} />
         </div>
-        <button className="btn" onClick={addExpense} style={justAdded ? { background: 'var(--green)' } : undefined}>
+        {addError && (
+          <div
+            id="et-add-err"
+            role="alert"
+            style={{ color: 'var(--red)', fontSize: 12.5, fontWeight: 600, marginBottom: 10 }}
+          >
+            {addError}
+          </div>
+        )}
+        <button type="submit" className="btn" style={justAdded ? { background: 'var(--green)' } : undefined}>
           {justAdded ? 'Added ✓' : 'Add expense'}
         </button>
         {flatCats.length === 0 && <div className="note" style={{ marginTop: 8 }}>Add categories in Budget Builder to start tracking.</div>}
+        </form>
       </div>
 
       {/* Per-category budget health */}

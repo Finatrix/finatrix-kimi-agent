@@ -13,9 +13,24 @@ import { buildIcs } from '../careers/services/calendar';
 import { dueFollowUps } from '../careers/services/networking';
 import { overdueTasks, upcomingTasks } from '../careers/services/tasks';
 import { computeApplicationStats } from '../careers/services/applications';
-import type { CoachContext } from '../careers/types/jobs';
+import type { ApplicationRow, CoachContext } from '../careers/types/jobs';
 import type { AssessmentRow } from '../careers/types/phase3';
 import type { ResumeWithVersions } from '../careers/types';
+
+/** Minimal application row for the periodic-review digest tests. */
+function reviewApp(over: Partial<ApplicationRow>): ApplicationRow {
+  return {
+    id: Math.random().toString(36).slice(2), user_id: 'u', job_id: null, company_id: null,
+    contact_id: null, resume_version_id: null, cover_letter_id: null,
+    company_name: 'Acme', job_title: 'Analyst', department: '', salary_text: '',
+    employment_type: '', location: '', work_mode: '', visa_sponsorship: '',
+    source: '', job_url: '', stage: 'saved', priority: 'medium', tags: [], notes: '',
+    match_score: null, ats_score: null, applied_at: null, closes_at: null,
+    interview_at: null, offer_expires_at: null, next_action_at: null, archived: false,
+    created_at: '2026-06-01T00:00:00Z', updated_at: '2026-06-01T00:00:00Z',
+    ...over,
+  };
+}
 
 function baseContext(over: Partial<CoachContext> = {}): CoachContext {
   return {
@@ -121,6 +136,47 @@ describe('automation engine (Module 20)', () => {
     expect(monthly.period).toBe('monthly');
     expect(weekly.bullets.length).toBeGreaterThan(0);
     expect(weekly.bullets.join(' ')).toMatch(/no applications tracked/i);
+  });
+
+  /**
+   * Audit regression guard (P3): the digest keyed emptiness off `applied`
+   * (submitted) rather than `total` (tracked), so a user with a saved
+   * application was told "no applications tracked yet" while the Applications
+   * page next door showed "1 tracked · 1 saved".
+   */
+  it('never claims nothing is tracked when something is', () => {
+    const stats = computeApplicationStats([reviewApp({ stage: 'saved' })]);
+    expect(stats.total).toBe(1);
+    expect(stats.applied).toBe(0);
+
+    const text = buildPeriodicReview(stats, 'weekly').bullets.join(' ');
+    expect(text).not.toMatch(/no applications tracked/i);
+    expect(text).toMatch(/1 application tracked/i);
+    expect(text).toMatch(/saved but not submitted/i);
+  });
+
+  it('reports tracked and submitted counts separately once applications are sent', () => {
+    const stats = computeApplicationStats([
+      reviewApp({ stage: 'saved' }),
+      reviewApp({ stage: 'applied', applied_at: '2026-06-02T00:00:00Z' }),
+    ]);
+    const text = buildPeriodicReview(stats, 'monthly').bullets.join(' ');
+    expect(text).toMatch(/2 applications tracked — 1 submitted/);
+    expect(text).toMatch(/1 saved but not submitted/);
+  });
+
+  it('omits a conversion rate while there is nothing to convert', () => {
+    const noInterviews = buildPeriodicReview(
+      computeApplicationStats([reviewApp({ stage: 'applied', applied_at: '2026-06-02T00:00:00Z' })]),
+      'weekly'
+    ).bullets.join(' ');
+    expect(noInterviews).not.toMatch(/of interviews convert/);
+
+    const withInterview = buildPeriodicReview(
+      computeApplicationStats([reviewApp({ stage: 'technical_interview' })]),
+      'weekly'
+    ).bullets.join(' ');
+    expect(withInterview).toMatch(/of interviews convert/);
   });
 });
 

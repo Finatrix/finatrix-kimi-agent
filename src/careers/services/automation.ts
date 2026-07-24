@@ -67,20 +67,52 @@ export interface PeriodicReview {
   bullets: string[];
 }
 
-/** A deterministic progress digest — no AI, always available offline. */
+const plural = (n: number) => (n === 1 ? '' : 's');
+
+/**
+ * A deterministic progress digest — no AI, always available offline.
+ *
+ * `stats.applied` counts applications actually *submitted*; `stats.total`
+ * counts everything tracked, including rows still sitting in saved/preparing.
+ * The digest used to treat the two as the same thing and told users with saved
+ * applications that they had none tracked, directly contradicting the
+ * Applications page next door. Emptiness is now keyed off `total`, and the
+ * saved-but-unsent backlog gets its own honest line.
+ */
 export function buildPeriodicReview(stats: ApplicationStats, period: 'weekly' | 'monthly'): PeriodicReview {
+  const headline = period === 'weekly' ? 'Your week in the job search' : 'Your month in the job search';
+
+  if (!stats.total) {
+    return {
+      period,
+      headline,
+      bullets: ['No applications tracked yet — search Jobs and save one to get started.'],
+    };
+  }
+
   const bullets: string[] = [
-    `${stats.applied} application${stats.applied === 1 ? '' : 's'} in motion, ${stats.interviews} at interview stage.`,
-    `${stats.offers} offer${stats.offers === 1 ? '' : 's'} so far (${stats.offerRate}% of interviews convert).`,
+    `${stats.total} application${plural(stats.total)} tracked — ${stats.applied} submitted, ${stats.interviews} at interview stage.`,
   ];
+
+  const unsent = stats.total - stats.applied;
+  if (unsent > 0) {
+    bullets.push(
+      `${unsent} saved but not submitted yet — sending ${unsent === 1 ? 'it' : 'them'} is the fastest way to move the needle.`
+    );
+  }
+
+  // A conversion rate over zero interviews says nothing; omit it until there is
+  // something to convert.
+  bullets.push(
+    stats.interviews > 0
+      ? `${stats.offers} offer${plural(stats.offers)} so far (${stats.offerRate}% of interviews convert).`
+      : `${stats.offers} offer${plural(stats.offers)} so far.`
+  );
+
   if (stats.avgMatchScore != null) bullets.push(`Average resume match across tracked jobs: ${stats.avgMatchScore}%.`);
   if (stats.interviewRate < 20 && stats.applied >= 5) {
     bullets.push('Interview rate is low relative to applications — consider tailoring your resume more per role.');
   }
-  if (!stats.applied) bullets.push('No applications tracked yet — search Jobs and save one to get started.');
-  return {
-    period,
-    headline: period === 'weekly' ? 'Your week in the job search' : 'Your month in the job search',
-    bullets,
-  };
+
+  return { period, headline, bullets };
 }

@@ -18,7 +18,7 @@ import { CAREERS_ROUTES, INDUSTRY_OPTIONS } from '../constants';
 import { useCareers } from '../context/CareersContext';
 import { validateResumeFile } from '../parser/validate';
 import { runPipeline, retryVersion, type PipelineOutcome } from '../services/pipeline';
-import { getVersion } from '../services/resumes';
+import { getVersion, uniqueResumeName } from '../services/resumes';
 import type { PipelineProgress as Progress } from '../types';
 import { CareersError, toCareersError } from '../utils/errors';
 import { formatBytes } from '../utils/format';
@@ -45,19 +45,25 @@ export default function CareersUpload() {
   const progressRef = useRef<Progress>({ step: 'uploading', pct: null });
 
   const activeResumes = resumes.filter((r) => !r.is_archived);
+  // Every family, archived included — a name clash with an archived resume is
+  // still a clash the moment it is restored.
+  const existingNames = resumes.map((r) => r.name);
 
   const onFile = useCallback(async (f: File) => {
     try {
       await validateResumeFile(f);
       setFile(f);
-      setName(sanitizeFileName(f.name).replace(/\.[a-z0-9]+$/i, ''));
+      // Suffixed if a family already owns this name, so re-uploading after a
+      // failed run never produces two indistinguishable library cards.
+      setName(uniqueResumeName(sanitizeFileName(f.name).replace(/\.[a-z0-9]+$/i, ''), existingNames));
       setPhase('ready');
       setError(null);
     } catch (e) {
       setError(toCareersError(e));
       setPhase('idle');
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumes]);
 
   const start = useCallback(async () => {
     if (!user || !file) return;

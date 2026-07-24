@@ -26,13 +26,35 @@ import {
 import { getResumeFileUrl } from '../services/storage';
 import type { PipelineProgress as Progress, ResumeVersionRow, ResumeWithVersions } from '../types';
 import { toCareersError } from '../utils/errors';
-import { formatBytes, formatDate, scoreColor } from '../utils/format';
+import { formatBytes, formatDate, formatDateTime, scoreColor } from '../utils/format';
 
 type SortKey = 'updated' | 'name' | 'score' | 'ats';
 type FilterKey = 'active' | 'favorites' | 'archived' | 'failed' | 'all';
 
 function currentVersion(r: ResumeWithVersions): ResumeVersionRow | null {
   return r.versions.find((v) => v.id === r.current_version_id) ?? r.versions[0] ?? null;
+}
+
+const STATUS_WORD: Record<string, string> = {
+  complete: 'analysed',
+  failed: 'failed',
+  processing: 'still processing',
+};
+
+/**
+ * One line that identifies a record beyond its name — the file it came from,
+ * its analysis outcome and when it last changed. Two families can share a
+ * name, a file and a date; they cannot share all of this at once.
+ */
+function describeResume(r: ResumeWithVersions): string {
+  const cur = currentVersion(r);
+  const parts = [`“${r.name}”`];
+  if (cur) {
+    parts.push(cur.file_name);
+    parts.push(`v${cur.version_number} · ${STATUS_WORD[cur.status] ?? cur.status}`);
+  }
+  parts.push(formatDateTime(r.updated_at));
+  return parts.join(' · ');
 }
 
 export default function ResumeLibrary() {
@@ -288,9 +310,19 @@ export default function ResumeLibrary() {
                         <div style={{ fontSize: 16, fontWeight: 650, letterSpacing: '-.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {r.name}
                         </div>
+                        {/* Date *and* time: two records created the same day
+                            from the same file were otherwise identical here,
+                            leaving nothing on the card to tell them apart. */}
                         <div style={{ fontSize: 12, color: 'var(--ink2)', marginTop: 3 }}>
-                          {r.industry || 'No industry'} · {r.versions.length} version{r.versions.length === 1 ? '' : 's'} · {formatDate(r.updated_at)}
+                          {r.industry || 'No industry'} · {r.versions.length} version{r.versions.length === 1 ? '' : 's'} · {formatDateTime(r.updated_at)}
                         </div>
+                        {cur && cur.status !== 'complete' && (
+                          <div style={{ fontSize: 12, color: cur.status === 'failed' ? 'var(--red)' : 'var(--ink3)', marginTop: 4, fontWeight: 600 }}>
+                            {cur.status === 'failed'
+                              ? 'Analysis failed — this copy has no scores'
+                              : 'Analysis still running'}
+                          </div>
+                        )}
                       </div>
                       <button
                         className={`icon-btn ${r.is_favorite ? 'gold' : ''}`}
@@ -378,6 +410,7 @@ export default function ResumeLibrary() {
       {renameTarget && (
         <ModalShell label="Rename resume" onClose={() => setRenameTarget(null)}>
             <h3>Rename resume</h3>
+            <p className="note" style={{ margin: '4px 0 0' }}>{describeResume(renameTarget)}</p>
             <input
               className="fi"
               value={renameValue}
@@ -395,10 +428,13 @@ export default function ResumeLibrary() {
         </ModalShell>
       )}
 
+      {/* Names alone are not unique, so the confirmation spells out exactly
+          which record is about to go: its file, when it was last touched and
+          whether it is the analysed copy or the failed one. */}
       <ConfirmDialog
         open={!!deleteTarget}
         title="Delete this resume?"
-        body={`“${deleteTarget?.name ?? ''}” and all ${deleteTarget?.versions.length ?? 0} of its versions, files and analyses will be permanently removed.`}
+        body={deleteTarget ? `${describeResume(deleteTarget)} — this record and all ${deleteTarget.versions.length} of its versions, files and analyses will be permanently removed.` : ''}
         confirmLabel="Delete forever"
         danger
         onConfirm={onDelete}
@@ -652,8 +688,10 @@ function CompareModal({
   const b = options.find((o) => o.version.id === bId);
   const cmp = a && b && a.version.id !== b.version.id ? compareVersions(a.version, b.version) : null;
 
+  // Name + version number alone repeat across same-named families; the analysis
+  // timestamp is what actually distinguishes two otherwise identical options.
   const label = (o: { resume: ResumeWithVersions; version: ResumeVersionRow }) =>
-    `${o.resume.name} · v${o.version.version_number}`;
+    `${o.resume.name} · v${o.version.version_number} · ${formatDateTime(o.version.updated_at)}`;
 
   const deltaEl = (d: number | null) => (
     <span className={`cmp-delta ${d == null || d === 0 ? 'flat' : d > 0 ? 'up' : 'down'}`}>
@@ -669,14 +707,14 @@ function CompareModal({
         </div>
         <div className="grid2" style={{ marginBottom: 18 }}>
           <div className="fg" style={{ marginBottom: 0 }}>
-            <label className="fl">Baseline (A)</label>
-            <select className="fs" value={aId} onChange={(e) => setAId(e.target.value)}>
+            <label className="fl" htmlFor="cmp-a">Baseline (A)</label>
+            <select className="fs" id="cmp-a" value={aId} onChange={(e) => setAId(e.target.value)}>
               {options.map((o) => <option key={o.version.id} value={o.version.id}>{label(o)}</option>)}
             </select>
           </div>
           <div className="fg" style={{ marginBottom: 0 }}>
-            <label className="fl">Candidate (B)</label>
-            <select className="fs" value={bId} onChange={(e) => setBId(e.target.value)}>
+            <label className="fl" htmlFor="cmp-b">Candidate (B)</label>
+            <select className="fs" id="cmp-b" value={bId} onChange={(e) => setBId(e.target.value)}>
               {options.map((o) => <option key={o.version.id} value={o.version.id}>{label(o)}</option>)}
             </select>
           </div>

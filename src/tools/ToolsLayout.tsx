@@ -19,6 +19,7 @@ import { CURRENCY_CODES, currencySym } from './lib/format';
 import { onLocalWrite } from './lib/storage';
 import { LocalClock } from './ui/LocalClock';
 import { AccountMenu } from '../components/AccountMenu';
+import { MobileDrawer } from '../components/MobileDrawer';
 import { HomeButton } from '../components/HomeButton';
 import { BrandLogo } from '../components/BrandLogo';
 import { Breadcrumb } from '../components/Breadcrumb';
@@ -141,6 +142,8 @@ function ToolTabs({ activeTool }: { activeTool: string }) {
    to the hub and the three core money tools, plus a "More" affordance that opens
    the full drawer — so nothing is hidden and there is no horizontal scrolling. */
 const BOTTOM_NAV_TOOLS = ['budget', 'expenses', 'goals'] as const;
+/** Referenced by aria-controls from both triggers that open the drawer. */
+const DRAWER_ID = 'fx-tools-drawer';
 const BOTTOM_NAV_ICONS: Record<string, ReactElement> = {
   dashboard: (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -169,7 +172,7 @@ const BOTTOM_NAV_ICONS: Record<string, ReactElement> = {
   ),
 };
 
-function MobileTabBar({ activeTool, onMore, moreActive }: { activeTool: string; onMore: () => void; moreActive: boolean }) {
+function MobileTabBar({ activeTool, onMore, moreActive, drawerOpen }: { activeTool: string; onMore: () => void; moreActive: boolean; drawerOpen: boolean }) {
   const items = [
     { key: 'dashboard', label: 'Dashboard', href: '/tools/dashboard' },
     ...BOTTOM_NAV_TOOLS.map((id) => {
@@ -188,7 +191,15 @@ function MobileTabBar({ activeTool, onMore, moreActive }: { activeTool: string; 
           </Link>
         );
       })}
-      <button type="button" onClick={onMore} className={`fx-mobnav-item${moreActive ? ' on' : ''}`} aria-haspopup="dialog" aria-label="More tools and menu">
+      <button
+        type="button"
+        onClick={onMore}
+        className={`fx-mobnav-item${moreActive ? ' on' : ''}`}
+        aria-haspopup="dialog"
+        aria-expanded={drawerOpen}
+        aria-controls={DRAWER_ID}
+        aria-label="More tools and menu"
+      >
         {BOTTOM_NAV_ICONS.more}
         <span>More</span>
       </button>
@@ -196,13 +207,46 @@ function MobileTabBar({ activeTool, onMore, moreActive }: { activeTool: string; 
   );
 }
 
+/**
+ * Placeholder for the window between "auth resolved" and "cloud data seeded".
+ * That window used to render an empty box: the global loader vanished and the
+ * shell sat there with nothing under it for seconds, which reads as a broken
+ * page. Shaped like the KPI strip + cards every tool opens with, so content
+ * doesn't jump when it arrives.
+ */
+function ToolSkeleton() {
+  return (
+    <div style={{ minHeight: '50vh', paddingTop: 18 }} role="status" aria-label="Loading your data">
+      <div className="dash-grid" style={{ marginBottom: 16 }} aria-hidden="true">
+        {[0, 1, 2, 3].map((i) => (
+          <div className="card" key={i} style={{ marginBottom: 0, padding: 18 }}>
+            <div className="skel" style={{ width: '58%', height: 22 }} />
+            <div className="skel" style={{ width: '38%', height: 10, marginTop: 10 }} />
+          </div>
+        ))}
+      </div>
+      {[0, 1].map((i) => (
+        <div className="card" key={i} aria-hidden="true">
+          <div className="skel" style={{ width: '32%', height: 14 }} />
+          <div className="skel" style={{ width: '100%', height: 11, marginTop: 14 }} />
+          <div className="skel" style={{ width: '84%', height: 11, marginTop: 8 }} />
+          <div className="skel" style={{ width: '62%', height: 11, marginTop: 8 }} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function ToolsLayout() {
   const { user, loading, signOut, configured } = useAuth();
   const [ready, setReady] = useState(false);
-  // Mirrors `ready` for the push scheduler: seeding itself writes synced keys
-  // (clear + cloud load now notify via fx:write so mounted providers refresh),
-  // and a debounced push must NEVER fire mid-seed — after clearSyncedLocal it
-  // would upsert an empty blob over the account's cloud data.
+  // Guards the push scheduler through the one window where a debounced push is
+  // destructive: clearSyncedLocal() → loadCloudIntoLocal(). Seeding writes
+  // synced keys itself (clear + cloud load notify via fx:write so mounted
+  // providers refresh), and a push fired mid-clear would upsert an empty blob
+  // over the account's cloud data. It flips true the moment the cloud load
+  // lands — localStorage holds real data from then on, so ordinary writes are
+  // free to schedule again even while the seed's own write-back is in flight.
   const readyRef = useRef(false);
   const [sync, setSync] = useState<SyncStatus>(configured ? 'idle' : 'offline');
   const [drawerOpen, setDrawerOpen] = useMobileDrawer();
@@ -222,9 +266,22 @@ export default function ToolsLayout() {
       if (configured && curUid) {
         if (lastUid && lastUid !== curUid) clearSyncedLocal(); // account switch
         const s = await loadCloudIntoLocal(curUid);
-        if (!lastUid || lastUid !== curUid) await pushLocalToCloud(curUid);
+        // A newer seed superseded this one (account switch / sign-out) while
+        // the read was in flight. It owns the flags and the cloud row now —
+        // finishing here would push this account's data over the new one's.
+        if (cancelled) return;
         setLastUid(curUid);
-        if (!cancelled) setSync(s);
+        setSync(s);
+        // First run for this account on this device: merge whatever was on the
+        // device up to the cloud. This is a write-back, not something the UI
+        // reads — awaiting it added a second round-trip to time-to-content, so
+        // it now runs alongside the render instead of in front of it.
+        if (!lastUid || lastUid !== curUid) {
+          readyRef.current = true;
+          void pushLocalToCloud(curUid).then((p) => {
+            if (!cancelled) setSync(p);
+          });
+        }
       } else if (configured && !curUid && lastUid) {
         clearSyncedLocal();
         setLastUid(null);
@@ -293,11 +350,15 @@ export default function ToolsLayout() {
           >
             <div className="flex items-center gap-1.5 sm:gap-2.5">
               <button
+                type="button"
                 onClick={() => setDrawerOpen(true)}
                 aria-label="Open menu"
+                aria-haspopup="dialog"
+                aria-expanded={drawerOpen}
+                aria-controls={DRAWER_ID}
                 className="md:hidden -ml-1 p-2 text-ink hover:text-accent-text transition-colors"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
                   <path d="M3 6h18M3 12h18M3 18h18" />
                 </svg>
               </button>
@@ -354,7 +415,7 @@ export default function ToolsLayout() {
             <div style={{ paddingTop: 14 }}>
               <Breadcrumb current={activeTool === 'dashboard' ? 'Dashboard' : activeTool === 'reports' ? 'Reports' : activeTool === 'calendar' ? 'Calendar' : activeTool === 'settings' ? 'Settings' : (TOOLS.find((t) => t.id === activeTool)?.name ?? 'Tools')} />
             </div>
-            {ready ? <Outlet /> : <div style={{ minHeight: '50vh' }} aria-hidden="true" />}
+            {ready ? <Outlet /> : <ToolSkeleton />}
             {ready && (
               <div style={{ borderTop: '1px solid var(--hair2)', marginTop: 8 }}>
                 <LocalClock />
@@ -363,101 +424,85 @@ export default function ToolsLayout() {
           </div>
 
           {/* Mobile navigation drawer (<768px) */}
-          <div
-            className={`md:hidden fixed inset-0 z-40 transition-opacity duration-300 ${
-              drawerOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
-            }`}
-          >
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setDrawerOpen(false)} />
-            <nav
-              aria-label="Main"
-              className={`absolute top-0 left-0 h-full w-[82%] max-w-[320px] bg-surface-2 border-r border-hairline-2 flex flex-col transition-transform duration-300 ease-out ${
-                drawerOpen ? 'translate-x-0' : '-translate-x-full'
-              }`}
-            >
-              <div className="flex items-center justify-between h-12 px-4 border-b border-hairline-2 shrink-0">
-                <span className="font-mono text-[12px] uppercase tracking-[0.16em] text-ink">FinatriX</span>
-                <button onClick={() => setDrawerOpen(false)} aria-label="Close menu" className="p-2 -mr-2 text-ink-3 hover:text-ink">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                    <path d="M6 6l12 12M18 6L6 18" />
-                  </svg>
+          <MobileDrawer
+            id={DRAWER_ID}
+            open={drawerOpen}
+            onClose={() => setDrawerOpen(false)}
+            label="Main"
+            footer={
+              user ? (
+                <button onClick={() => { setDrawerOpen(false); void signOut(); }} className="w-full text-center font-mono text-[12px] uppercase tracking-[0.08em] text-[#E0726B] border border-hairline hover:border-[#E0726B]/50 rounded-full py-2.5 transition-colors">
+                  Sign out
                 </button>
-              </div>
-              <div className="flex-1 overflow-y-auto py-2">
-                <Link to="/" onClick={() => setDrawerOpen(false)} className="flex items-center gap-3 px-5 py-3 text-[15px] text-ink hover:bg-hairline-2">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M3 11l9-8 9 8" /><path d="M5 10v10h14V10" />
-                  </svg>
-                  Home
+              ) : (
+                <Link to="/login" onClick={() => setDrawerOpen(false)} className="block w-full text-center font-mono text-[12px] uppercase tracking-[0.08em] text-[#0A0A0A] bg-[#D4AF37] hover:bg-[#F1C40F] rounded-full py-2.5 transition-colors">
+                  Sign in
                 </Link>
-                <Link to="/tools/dashboard" onClick={() => setDrawerOpen(false)} className={`flex items-center gap-3 px-5 py-3 text-[15px] hover:bg-hairline-2 ${activeTool === 'dashboard' ? 'text-accent-text' : 'text-ink'}`}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" />
-                  </svg>
-                  Dashboard
-                </Link>
-                <div className="mt-1 mb-1 px-5 text-[10px] uppercase tracking-[0.12em] text-ink-3 font-mono">Tools</div>
-                {TOOLS.map((t) => (
-                  <Link
-                    key={t.id}
-                    to={t.href}
-                    onClick={() => setDrawerOpen(false)}
-                    className={`flex items-center gap-3 px-5 py-2.5 text-[15px] hover:bg-hairline-2 ${
-                      activeTool === t.id ? 'text-accent-text' : 'text-ink'
-                    }`}
-                  >
-                    <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
-                    {t.name}
-                  </Link>
-                ))}
-                <Link
-                  to="/tools/reports"
-                  onClick={() => setDrawerOpen(false)}
-                  className={`flex items-center gap-3 px-5 py-2.5 text-[15px] hover:bg-hairline-2 ${activeTool === 'reports' ? 'text-accent-text' : 'text-ink'}`}
-                >
-                  <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: '#D4AF37' }} />
-                  Reports
-                </Link>
-                <Link
-                  to="/tools/calendar"
-                  onClick={() => setDrawerOpen(false)}
-                  className={`flex items-center gap-3 px-5 py-2.5 text-[15px] hover:bg-hairline-2 ${activeTool === 'calendar' ? 'text-accent-text' : 'text-ink'}`}
-                >
-                  <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: '#D4AF37' }} />
-                  Calendar
-                </Link>
-                <div className="mt-2 mb-1 px-5 text-[10px] uppercase tracking-[0.12em] text-ink-3 font-mono">Careers</div>
-                <Link
-                  to="/careers"
-                  onClick={() => setDrawerOpen(false)}
-                  className="flex items-center gap-3 px-5 py-2.5 text-[15px] text-ink hover:bg-hairline-2"
-                >
-                  <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: '#D4AF37' }} />
-                  FinatriX Careers
-                </Link>
-                <div className="my-2 mx-5 border-t border-hairline-2" />
-                <Link to="/profile" onClick={() => setDrawerOpen(false)} className="block px-5 py-2.5 text-[15px] text-ink hover:bg-hairline-2">Profile</Link>
-                <Link to="/tools/settings" onClick={() => setDrawerOpen(false)} className={`block px-5 py-2.5 text-[15px] hover:bg-hairline-2 ${activeTool === 'settings' ? 'text-accent-text' : 'text-ink'}`}>Settings</Link>
-                <Link to="/privacy" onClick={() => setDrawerOpen(false)} className="block px-5 py-2.5 text-[14px] text-ink-3 hover:bg-hairline-2">Privacy</Link>
-                <Link to="/terms" onClick={() => setDrawerOpen(false)} className="block px-5 py-2.5 text-[14px] text-ink-3 hover:bg-hairline-2">Terms</Link>
-              </div>
-              <div className="border-t border-hairline-2 p-4 shrink-0">
-                {user ? (
-                  <button onClick={() => { setDrawerOpen(false); void signOut(); }} className="w-full text-center font-mono text-[12px] uppercase tracking-[0.08em] text-[#E0726B] border border-hairline hover:border-[#E0726B]/50 rounded-full py-2.5 transition-colors">
-                    Sign out
-                  </button>
-                ) : (
-                  <Link to="/login" onClick={() => setDrawerOpen(false)} className="block w-full text-center font-mono text-[12px] uppercase tracking-[0.08em] text-[#0A0A0A] bg-[#D4AF37] hover:bg-[#F1C40F] rounded-full py-2.5 transition-colors">
-                    Sign in
-                  </Link>
-                )}
-              </div>
-            </nav>
-          </div>
+              )
+            }
+          >
+            <Link to="/" onClick={() => setDrawerOpen(false)} className="flex items-center gap-3 px-5 py-3 text-[15px] text-ink hover:bg-hairline-2">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M3 11l9-8 9 8" /><path d="M5 10v10h14V10" />
+              </svg>
+              Home
+            </Link>
+            <Link to="/tools/dashboard" onClick={() => setDrawerOpen(false)} className={`flex items-center gap-3 px-5 py-3 text-[15px] hover:bg-hairline-2 ${activeTool === 'dashboard' ? 'text-accent-text' : 'text-ink'}`}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" />
+              </svg>
+              Dashboard
+            </Link>
+            <div className="mt-1 mb-1 px-5 text-[10px] uppercase tracking-[0.12em] text-ink-3 font-mono">Tools</div>
+            {TOOLS.map((t) => (
+              <Link
+                key={t.id}
+                to={t.href}
+                onClick={() => setDrawerOpen(false)}
+                className={`flex items-center gap-3 px-5 py-2.5 text-[15px] hover:bg-hairline-2 ${
+                  activeTool === t.id ? 'text-accent-text' : 'text-ink'
+                }`}
+              >
+                <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
+                {t.name}
+              </Link>
+            ))}
+            <Link
+              to="/tools/reports"
+              onClick={() => setDrawerOpen(false)}
+              className={`flex items-center gap-3 px-5 py-2.5 text-[15px] hover:bg-hairline-2 ${activeTool === 'reports' ? 'text-accent-text' : 'text-ink'}`}
+            >
+              <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: '#D4AF37' }} />
+              Reports
+            </Link>
+            <Link
+              to="/tools/calendar"
+              onClick={() => setDrawerOpen(false)}
+              className={`flex items-center gap-3 px-5 py-2.5 text-[15px] hover:bg-hairline-2 ${activeTool === 'calendar' ? 'text-accent-text' : 'text-ink'}`}
+            >
+              <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: '#D4AF37' }} />
+              Calendar
+            </Link>
+            <div className="mt-2 mb-1 px-5 text-[10px] uppercase tracking-[0.12em] text-ink-3 font-mono">Careers</div>
+            <Link
+              to="/careers"
+              onClick={() => setDrawerOpen(false)}
+              className="flex items-center gap-3 px-5 py-2.5 text-[15px] text-ink hover:bg-hairline-2"
+            >
+              <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: '#D4AF37' }} />
+              FinatriX Careers
+            </Link>
+            <div className="my-2 mx-5 border-t border-hairline-2" />
+            <Link to="/profile" onClick={() => setDrawerOpen(false)} className="block px-5 py-2.5 text-[15px] text-ink hover:bg-hairline-2">Profile</Link>
+            <Link to="/tools/settings" onClick={() => setDrawerOpen(false)} className={`block px-5 py-2.5 text-[15px] hover:bg-hairline-2 ${activeTool === 'settings' ? 'text-accent-text' : 'text-ink'}`}>Settings</Link>
+            <Link to="/privacy" onClick={() => setDrawerOpen(false)} className="block px-5 py-2.5 text-[14px] text-ink-3 hover:bg-hairline-2">Privacy</Link>
+            <Link to="/terms" onClick={() => setDrawerOpen(false)} className="block px-5 py-2.5 text-[14px] text-ink-3 hover:bg-hairline-2">Terms</Link>
+          </MobileDrawer>
 
           {/* Mobile bottom navigation (<768px) */}
           <MobileTabBar
             activeTool={activeTool}
+            drawerOpen={drawerOpen}
             onMore={() => setDrawerOpen(true)}
             moreActive={activeTool !== 'dashboard' && !BOTTOM_NAV_TOOLS.includes(activeTool as typeof BOTTOM_NAV_TOOLS[number])}
           />

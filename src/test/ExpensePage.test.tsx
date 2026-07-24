@@ -41,6 +41,57 @@ describe('ExpensePage (React) — dashboard wiring', () => {
     expect(within(txList).getAllByText('₹500').length).toBeGreaterThan(0);
   });
 
+  /**
+   * Audit regression guard (P2): submitting the add form with no amount used
+   * to return silently — nothing shown, nothing announced, focus unmoved — so
+   * the page looked broken. A rejected submission must always say why.
+   */
+  it('rejects an empty amount out loud instead of doing nothing', () => {
+    renderPage();
+    const before = localStorage.getItem('fx_expenses');
+
+    fireEvent.click(screen.getByText('Add expense'));
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent(/amount greater than 0/i);
+
+    // The field is marked invalid, points at the message, and takes focus back.
+    const amount = screen.getByLabelText(/^Amount/);
+    expect(amount).toHaveAttribute('aria-invalid', 'true');
+    expect(amount).toHaveAccessibleDescription(/amount greater than 0/i);
+    expect(amount).toHaveFocus();
+
+    // …and nothing was written.
+    expect(localStorage.getItem('fx_expenses')).toBe(before);
+  });
+
+  it('clears the rejection as soon as the amount is corrected, then saves', () => {
+    renderPage();
+    fireEvent.click(screen.getByText('Add expense'));
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+
+    const amount = screen.getByLabelText(/^Amount/);
+    fireEvent.change(amount, { target: { value: '250' } });
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(amount).toHaveAttribute('aria-invalid', 'false');
+
+    fireEvent.click(screen.getByText('Add expense'));
+    const txList = screen.getByText('Transactions').closest('.card') as HTMLElement;
+    expect(within(txList).getAllByText('₹250').length).toBeGreaterThan(0);
+  });
+
+  it('rejects a zero or negative amount for the same reason', () => {
+    renderPage();
+    fireEvent.change(screen.getByLabelText(/^Amount/), { target: { value: '0' } });
+    fireEvent.click(screen.getByText('Add expense'));
+    expect(screen.getByRole('alert')).toHaveTextContent(/amount greater than 0/i);
+
+    fireEvent.change(screen.getByLabelText(/^Amount/), { target: { value: '-5' } });
+    fireEvent.click(screen.getByText('Add expense'));
+    expect(screen.getByRole('alert')).toHaveTextContent(/amount greater than 0/i);
+    expect(localStorage.getItem('fx_expenses')).toBeNull();
+  });
+
   it("reflects a Budget Builder allocation as this category's budget", () => {
     const now = new Date();
     const m = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');

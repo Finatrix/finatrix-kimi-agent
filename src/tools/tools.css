@@ -117,6 +117,13 @@
 .fx-tools .fx-method-card { background: var(--card); border: 1px solid var(--hair2); border-radius: 14px; padding: 14px 16px; margin-bottom: 16px; }
 .fx-tools .fx-method-card > summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 4px; }
 
+/* ---- Loading skeleton (shared by tools & careers) ---- */
+/* Shimmer placeholder — perceived speed while cloud data or AI responses are
+   in flight. The sweep is killed under prefers-reduced-motion (global rule). */
+.fx-tools .skel { position: relative; overflow: hidden; background: var(--fill-05); border-radius: 8px; }
+.fx-tools .skel::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, var(--fill-08), transparent); animation: fxSkelSweep 1.5s var(--ease-out) infinite; }
+@keyframes fxSkelSweep { to { transform: translateX(100%); } }
+
 /* ---- Notification bell + panel (shared by tools & careers) ---- */
 .fx-tools .bell-wrap { position: relative; }
 .fx-tools .bell-dot { position: absolute; top: -2px; right: -2px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 980px; background: var(--red); color: #fff; font-size: 9.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; }

@@ -101,35 +101,49 @@ export default function InvestMatchPage() {
           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink3)', marginBottom: 8 }}>
             Question {step + 1} of {IM_Q.length}
           </div>
-          <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-.01em', marginBottom: 18 }}>{q.t}</div>
+          {/* The question is the visible label for whatever it precedes —
+              wire it up rather than leaving the input, or the set of option
+              buttons, unnamed. One id serves both branches. */}
+          <div id="im-question" style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-.01em', marginBottom: 18 }}>
+            {q.t}
+          </div>
           {q.type === 'num' ? (
-            <input
-              className="fi"
-              type="number" step="any"
-              id="im-input"
-              value={numDraft}
-              placeholder={q.ph}
-              min={q.min}
-              max={q.max}
-              inputMode="decimal"
-              autoFocus
-              onChange={(e) => setNumDraft(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { if (step < IM_Q.length - 1) goNext(); else build(); } }}
-            />
+            <>
+              <input
+                className="fi"
+                type="number" step="any"
+                id="im-input"
+                value={numDraft}
+                placeholder={q.ph}
+                min={q.min}
+                max={q.max}
+                inputMode="decimal"
+                aria-labelledby="im-question"
+                aria-describedby="im-range"
+                autoFocus
+                onChange={(e) => setNumDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { if (step < IM_Q.length - 1) goNext(); else build(); } }}
+              />
+              <div id="im-range" className="note" style={{ marginTop: 8 }}>
+                {q.max != null ? `Between ${q.min} and ${q.max}.` : `${q.min} or more.`}
+              </div>
+            </>
           ) : (
-            q.opts.map((o) => (
-              <button
-                key={o.v}
-                type="button"
-                className={`opt-card ${ans[q.k as keyof ImAnswers] === o.v ? 'sel' : ''}`}
-                aria-pressed={ans[q.k as keyof ImAnswers] === o.v}
-                onClick={() => pick(q.k, o.v)}
-                style={{ display: 'block', width: '100%', textAlign: 'left', fontFamily: 'inherit' }}
-              >
-                <div className="ol">{o.l}</div>
-                <div className="od">{o.d}</div>
-              </button>
-            ))
+            <div role="group" aria-labelledby="im-question">
+              {q.opts.map((o) => (
+                <button
+                  key={o.v}
+                  type="button"
+                  className={`opt-card ${ans[q.k as keyof ImAnswers] === o.v ? 'sel' : ''}`}
+                  aria-pressed={ans[q.k as keyof ImAnswers] === o.v}
+                  onClick={() => pick(q.k, o.v)}
+                  style={{ display: 'block', width: '100%', textAlign: 'left', fontFamily: 'inherit' }}
+                >
+                  <div className="ol">{o.l}</div>
+                  <div className="od">{o.d}</div>
+                </button>
+              ))}
+            </div>
           )}
         </div>
         <div style={{ display: 'flex', gap: 10 }}>

@@ -65,6 +65,50 @@ test('validates an empty amount inline without saving', async ({ page }) => {
   expect(stored).toBeNull();
 });
 
+/**
+ * The inline "Add an expense" card is a separate form from the modal above,
+ * and it used to swallow an empty submission entirely: no message, no invalid
+ * state, no focus move — the button simply did nothing.
+ */
+test('inline add form refuses an empty amount out loud', async ({ page }) => {
+  await gotoFresh(page);
+  const card = page.locator('.card', { hasText: 'Add an expense' });
+  await card.getByRole('button', { name: 'Add expense' }).click();
+
+  await expect(card.getByRole('alert')).toContainText(/amount greater than 0/i);
+  const amount = card.getByLabel(/^Amount/);
+  await expect(amount).toHaveAttribute('aria-invalid', 'true');
+  await expect(amount).toBeFocused();
+  expect(await page.evaluate(() => localStorage.getItem('fx_expenses'))).toBeNull();
+
+  // Correcting the amount clears the rejection and the entry saves.
+  await amount.fill('320');
+  await expect(card.getByRole('alert')).toHaveCount(0);
+  await card.getByRole('button', { name: 'Add expense' }).click();
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('fx_expenses') || '[]'));
+  expect(stored).toHaveLength(1);
+  expect(stored[0].amount).toBeCloseTo(320);
+});
+
+test('closed mobile drawer is not reachable by keyboard', async ({ page }) => {
+  await gotoFresh(page);
+  const state = await page.evaluate(() => {
+    const shell = document.getElementById('fx-tools-drawer')!;
+    const link = shell.querySelector<HTMLElement>('a[href]')!;
+    link.focus();
+    return {
+      inert: shell.inert,
+      ariaHidden: shell.getAttribute('aria-hidden'),
+      links: shell.querySelectorAll('a[href],button').length,
+      focusTook: document.activeElement === link,
+    };
+  });
+  expect(state.inert).toBe(true);
+  expect(state.ariaHidden).toBe('true');
+  expect(state.links).toBeGreaterThan(10); // still rendered, so it can animate
+  expect(state.focusTook).toBe(false);     // …but the browser refuses focus
+});
+
 test('edits a transaction in place, then deletes with confirm + undo', async ({ page }) => {
   await gotoFresh(page);
   await openAddModal(page);

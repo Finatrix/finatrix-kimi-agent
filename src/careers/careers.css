@@ -17,12 +17,8 @@
 .fx-tools .score-ring.sm .sr-num { font-size: 15px; font-weight: 700; }
 .fx-tools .score-ring.sm .sr-cap { font-size: 7.5px; letter-spacing: .06em; margin-top: 2px; }
 
-/* ============ LOADING SKELETONS ============ */
-/* Shimmer placeholder — perceived speed while providers/AI respond. The
-   sweep is killed automatically under prefers-reduced-motion (global rule). */
-.fx-tools .skel { position: relative; overflow: hidden; background: var(--fill-05); border-radius: 8px; }
-.fx-tools .skel::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, var(--fill-08), transparent); animation: fxSkelSweep 1.5s var(--ease-out) infinite; }
-@keyframes fxSkelSweep { to { transform: translateX(100%); } }
+/* Loading skeleton (.skel) now lives in tools.css — the Tools shell needs it
+   for its own seeding placeholder, and this file already rides on that one. */
 
 /* ============ UPLOAD DROPZONE ============ */
 .fx-tools .dropzone { border: 1.5px dashed var(--fill-18); border-radius: var(--r); padding: 42px 24px; text-align: center; cursor: pointer; transition: border-color .2s ease, background .2s ease, transform .2s var(--ease-out); background: var(--fill-02); }
