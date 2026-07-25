@@ -6,7 +6,7 @@
   // correct HTTP status: 200 for real client routes, 404 for unknown URLs.
   // This replaces the previous SPA fallback, which returned 200 for every
   // unmatched path (a soft-404 that diluted search indexing).
-  "name": "finatrix",
+  "name": "finatrix-co",
   "main": "worker/index.ts",
   "compatibility_date": "2024-11-01",
   "assets": {
