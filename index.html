@@ -1,5 +1,11 @@
 <!doctype html>
-<html lang="en">
+<!-- en-IN, not en: every schema node declares inLanguage "en-IN" and og:locale
+     is "en_IN", so a bare "en" here was the one place the document disagreed
+     with its own metadata about what it is. The regional subtag is also the
+     honest description — the copy is written around ₹, Indian tax slabs and
+     Indian instruments. Screen readers without an Indian English voice fall
+     back to generic English, i.e. exactly today's behaviour. -->
+<html lang="en-IN">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -26,16 +32,35 @@
     <title>FinatriX — Smart Money Tools for India</title>
     <meta
       name="description"
-      content="FinatriX is a free, education-first toolkit for India: Budget Builder, Expense Tracker, InvestMatch, ParkSmart, PeerCompare, Reverse Goal Planner and LifeMap. Educational tools, not financial advice."
+      content="Seven free, education-first money tools for India: budgeting, expenses, investing, benchmarking and a lifelong wealth simulation. Not financial advice."
     />
     <meta name="author" content="FinatriX" />
     <meta name="robots" content="index, follow" />
-    <link rel="canonical" href="https://finatrix.online/" />
+    <link rel="canonical" href="https://finatrix.co/" />
 
-    <!-- Icons -->
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="icon" type="image/png" href="/images/finatrix-logo.png" />
-    <link rel="apple-touch-icon" href="/images/finatrix-logo.png" />
+    <!--
+      Icons — a responsive set, split at 64px.
+
+      Both halves are the same mark. At and above 64px the full artwork ships
+      unchanged, glyphs and all. Below 64px each tile is only ~3 pixels across,
+      so the glyphs cannot resolve and a downscale of the raster returns mush;
+      the small sizes therefore come from favicon.svg, a vector rebuild of the
+      same composition — same tile positions, same colours, same gold core and
+      white node — with the unresolvable per-tile glyphs omitted. Previously
+      every slot pointed at the 1520px PNG and the browser downscaled it.
+
+      `?v=` is a cache-busting token, NOT decoration. These filenames are fixed
+      by convention, so a browser that cached the old icon would otherwise keep
+      showing it — favicons are cached far more aggressively than pages, and
+      /favicon.ico is often re-fetched only on a hard refresh. Bump the token
+      whenever an icon's bytes change. Regenerate with scripts/generate-favicons.py.
+    -->
+    <link rel="icon" href="/favicon.ico?v=3" sizes="32x32" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=3" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=3" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=3" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=3" />
+    <link rel="mask-icon" href="/mask-icon.svg?v=3" color="#F1C40F" />
 
     <!-- PWA -->
     <link rel="manifest" href="/manifest.webmanifest" />
@@ -49,55 +74,114 @@
     <meta property="og:title" content="FinatriX — Smart Money Tools for India" />
     <meta
       property="og:description"
-      content="Seven free, education-first money tools for India — budgeting, investing, benchmarking and a full life-long wealth simulation."
+      content="Seven free, education-first money tools for India: budgeting, expenses, investing, benchmarking and a lifelong wealth simulation. Not financial advice."
     />
-    <meta property="og:url" content="https://finatrix.online/" />
+    <meta property="og:url" content="https://finatrix.co/" />
+    <meta property="og:locale" content="en_IN" />
+    <!-- 1200×630 (1.91:1). The previous wordmark asset was 1206×314, which both
+         Facebook and X centre-crop to an unreadable sliver in a large card. -->
     <meta
       property="og:image"
-      content="https://finatrix.online/images/finatrix-wordmark.jpg"
+      content="https://finatrix.co/images/og-cover.jpg"
     />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="FinatriX — smart money tools for India" />
 
-    <!-- Twitter -->
+    <!-- Twitter.
+         TODO(brand): re-add `twitter:site` / `twitter:creator` once an official
+         X account exists. They previously named @finatrix_, which is not a
+         registered handle (x.com/finatrix_ → HTTP 404), so every large card X
+         rendered carried an attribution line linking to a dead profile — worse
+         for trust than no attribution at all. `twitter:card` and the image tags
+         below are handle-independent and the card still renders in full. -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@finatrix_" />
     <meta name="twitter:title" content="FinatriX — Smart Money Tools for India" />
+    <!-- Identical to og:description on purpose: X falls back to the og: tags
+         when a twitter: equivalent is absent, so a third variant of the same
+         sentence was only ever a third string to keep true. `applySeo` and the
+         edge Worker write the same value into both. -->
     <meta
       name="twitter:description"
-      content="Seven free, education-first money tools for India. Educational tools, not financial advice."
+      content="Seven free, education-first money tools for India: budgeting, expenses, investing, benchmarking and a lifelong wealth simulation. Not financial advice."
     />
     <meta
       name="twitter:image"
-      content="https://finatrix.online/images/finatrix-wordmark.jpg"
+      content="https://finatrix.co/images/og-cover.jpg"
     />
+    <meta name="twitter:image:alt" content="FinatriX — smart money tools for India" />
 
-    <!-- Structured data: Organization (brand signal) + WebApplication -->
+    <!-- Structured data: Organization (brand signal) + WebSite + WebApplication.
+         Every @id is absolute and rooted at the canonical apex, so the brand
+         entity migrates with the domain instead of being re-learned.
+
+         TODO(brand): add a "sameAs" array to the Organization node listing every
+         official social profile, once one exists. It previously claimed
+         https://twitter.com/finatrix_ — a handle that is not registered
+         (HTTP 404). `sameAs` is how a search engine confirms that a brand entity
+         and a social profile are the same organisation; pointing it at a dead
+         URL asks it to verify the brand against nothing, which is a weaker
+         signal than omitting the property. Never list an unverified profile.
+         (No comments below this line: the block is strict JSON.) -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
         "@graph": [
           {
             "@type": "Organization",
-            "@id": "https://finatrix.online/#org",
+            "@id": "https://finatrix.co/#org",
             "name": "FinatriX",
-            "url": "https://finatrix.online/",
-            "logo": "https://finatrix.online/images/finatrix-logo.png",
+            "url": "https://finatrix.co/",
+            "logo": "https://finatrix.co/images/finatrix-logo.png",
+            "image": "https://finatrix.co/images/og-cover.jpg",
             "email": "finatrix.hub@gmail.com",
             "description": "Free, education-first personal-finance tools for India.",
-            "sameAs": ["https://twitter.com/finatrix_"]
+            "contactPoint": {
+              "@type": "ContactPoint",
+              "contactType": "customer support",
+              "email": "finatrix.hub@gmail.com",
+              "availableLanguage": ["en"]
+            }
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://finatrix.co/#website",
+            "name": "FinatriX",
+            "url": "https://finatrix.co/",
+            "inLanguage": "en-IN",
+            "publisher": { "@id": "https://finatrix.co/#org" }
           },
           {
             "@type": "WebApplication",
+            "@id": "https://finatrix.co/#webapp",
             "name": "FinatriX",
             "applicationCategory": "FinanceApplication",
             "operatingSystem": "Web",
-            "url": "https://finatrix.online/",
+            "browserRequirements": "Requires JavaScript",
+            "url": "https://finatrix.co/",
+            "inLanguage": "en-IN",
             "description": "Free, education-first personal-finance tools for India. Educational tools, not financial advice.",
+            "isPartOf": { "@id": "https://finatrix.co/#website" },
             "offers": { "@type": "Offer", "price": "0", "priceCurrency": "INR" },
-            "publisher": { "@id": "https://finatrix.online/#org" }
+            "publisher": { "@id": "https://finatrix.co/#org" }
           }
         ]
       }
     </script>
+
+    <!-- Per-route structured data (BreadcrumbList / WebPage / SoftwareApplication).
+         Ships EMPTY and is filled in per URL: the edge Worker writes it into the
+         served bytes (`withSeoMetadata`), and `applySeo` rewrites it on every
+         client-side navigation. The tag has to exist here rather than be injected,
+         because both writers only ever replace the CONTENTS of head nodes that
+         already exist — that is what keeps the served markup and the hydrated
+         markup structurally identical.
+
+         Type is `application/ld+json`, a data block rather than executable script,
+         so the CSP above governs it without needing a hash. An empty block is
+         ignored by every consumer, which is the correct state for a noindex URL. -->
+    <script type="application/ld+json" id="fx-route-schema"></script>
   </head>
   <body>
     <div id="root"></div>

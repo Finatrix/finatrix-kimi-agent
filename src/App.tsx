@@ -4,6 +4,7 @@ import ErrorBoundary from './components/ErrorBoundary'
 import LoginReminderModal from './components/LoginReminderModal'
 import RouteFallback from './components/RouteFallback'
 import { trackPageView } from './lib/analytics'
+import { applySeo } from './lib/seo'
 
 // Route-level code-splitting: each page (and its heavy deps like the
 // Supabase-backed tools) loads only when its route is visited.
@@ -41,51 +42,22 @@ const Privacy = lazy(() => import('./pages/Privacy'))
 const Terms = lazy(() => import('./pages/Terms'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 
-const DEFAULT_TITLE = 'FinatriX — Smart Money Tools for India'
-
-// Per-route document titles so browser tabs, history and screen readers
-// reflect the current page instead of always showing the landing title.
-// /tools/:toolId is excluded — ToolRoute already sets its own title.
-const ROUTE_TITLES: Record<string, string> = {
-  '/tools': 'Money Tools',
-  '/careers': 'Careers Dashboard',
-  '/careers/dashboard': 'Careers Dashboard',
-  '/careers/upload': 'Upload Resume',
-  '/careers/resumes': 'Resume Library',
-  '/careers/jobs': 'Job Search',
-  '/careers/applications': 'Applications',
-  '/careers/tasks': 'Tasks',
-  '/careers/companies': 'Companies',
-  '/careers/intelligence': 'Company Intelligence',
-  '/careers/intelligence/company': 'Company Intelligence',
-  '/careers/recruiters': 'Recruiters',
-  '/careers/network': 'Network',
-  '/careers/interviews': 'Interview Prep',
-  '/careers/assessments': 'Assessments',
-  '/careers/offers': 'Offers',
-  '/careers/knowledge': 'Knowledge Base',
-  '/careers/coach': 'Career Coach',
-  '/careers/billing': 'Billing',
-  '/careers/admin': 'Admin',
-  '/careers/profile': 'Career Profile',
-  '/careers/settings': 'Careers Settings',
-  '/login': 'Sign In',
-  '/signup': 'Create Account',
-  '/welcome': 'Welcome',
-  '/profile': 'Your Profile',
-  '/privacy': 'Privacy Policy',
-  '/terms': 'Terms of Use',
-}
-
-function DocumentTitle() {
+/**
+ * Applies the route's identity on every client-side navigation: analytics, then
+ * the full head — title, description, canonical, robots, Open Graph, Twitter
+ * card and per-route JSON-LD.
+ *
+ * All of it comes from `seoForPath`, the same pure function the edge Worker uses
+ * to write these values into the served bytes. The per-route title map that used
+ * to live here (and a second, overlapping copy in `ToolRoute.tsx`) now lives
+ * there too — one map instead of three that had to agree by hand.
+ */
+function RouteMetadata() {
   const { pathname } = useLocation()
   useEffect(() => {
     // Privacy-first page view (route template only — never the raw URL).
     trackPageView(pathname)
-    if (/^\/tools\/[^/]+/.test(pathname)) return // ToolRoute manages its own title
-    const path = pathname.replace(/\/+$/, '') || '/'
-    const title = ROUTE_TITLES[path]
-    document.title = title ? `${title} — FinatriX` : DEFAULT_TITLE
+    applySeo(pathname)
   }, [pathname])
   return null
 }
@@ -99,9 +71,15 @@ export default function App() {
       >
         Skip to content
       </a>
-      <DocumentTitle />
+      <RouteMetadata />
       <Suspense fallback={<RouteFallback />}>
-        <div id="main">
+        {/* The single `main` landmark for the whole app (WCAG 1.3.1). This was
+            a plain <div>, which gave screen-reader users no way to jump to the
+            content and made the skip link above a no-op — a <div> cannot
+            receive focus, so activating it moved the caret nowhere. `tabIndex
+            -1` makes it a valid programmatic focus target without adding it to
+            the tab order. */}
+        <main id="main" tabIndex={-1}>
         <Routes>
           <Route path="/" element={<Home />} />
           {/* Legacy route — the landing page now lives at "/". */}
@@ -144,7 +122,7 @@ export default function App() {
           <Route path="/terms" element={<Terms />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
-        </div>
+        </main>
       </Suspense>
       <LoginReminderModal />
     </ErrorBoundary>

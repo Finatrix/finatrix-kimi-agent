@@ -197,7 +197,8 @@ export default function DashboardPage() {
   const snap: DashboardSnapshot = useMemo(() => { void tick; return readDashboard(); }, [tick]);
   const upcoming = useMemo(() => { void tick; return getUpcomingEvents(new Date(), 30).slice(0, 4); }, [tick]);
 
-  useEffect(() => { document.title = 'Dashboard — FinatriX'; }, []);
+  // The document title is set by `applySeo` from the route map in src/lib/seo.ts,
+  // for this page as for every other. A local copy here only ever drifted.
 
   const [prefs, setPrefs] = useState<DashPrefs>(() => getDashPrefs());
   const [customise, setCustomise] = useState(false);

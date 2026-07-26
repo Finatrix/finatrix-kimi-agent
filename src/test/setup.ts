@@ -2,6 +2,16 @@
 // between tests when run with Vitest globals enabled.
 import '@testing-library/jest-dom/vitest';
 
+// jsdom's blank document ships no <title>, but index.html — the shell every
+// route is really served from — always does. `applySeo` deliberately writes
+// THROUGH the existing node instead of assigning `document.title`, so that it
+// can never inject a head tag the shell does not already ship. Without a
+// <title> here that write is a silent no-op, and every component test asserting
+// a route's document title fails for a reason that exists nowhere but jsdom.
+if (typeof document !== 'undefined' && !document.head.querySelector('title')) {
+  document.head.appendChild(document.createElement('title'));
+}
+
 // jsdom implements neither IntersectionObserver (used by scroll-reveal) nor
 // scrollTo. Provide inert shims so components that use them render in tests.
 if (!('IntersectionObserver' in globalThis)) {

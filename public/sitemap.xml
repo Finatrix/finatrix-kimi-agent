@@ -2,63 +2,62 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <!-- Landing -->
   <url>
-    <loc>https://finatrix.online/</loc>
+    <loc>https://finatrix.co/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
 
-  <!-- Tools index -->
-  <url>
-    <loc>https://finatrix.online/tools</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-  </url>
+  <!-- NOTE: /tools is deliberately NOT listed. It renders ToolsIndex, which
+       unconditionally <Navigate>s to /tools/dashboard (a personalised hub that
+       is correctly noindex). A crawler following a sitemap entry to a pure
+       redirect gets "Page with redirect — excluded", so advertising it is worse
+       than omitting it. The seven calculators below are the real surface. -->
 
   <!-- Individual calculators — the primary long-tail acquisition surface -->
   <url>
-    <loc>https://finatrix.online/tools/budget</loc>
+    <loc>https://finatrix.co/tools/budget</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://finatrix.online/tools/expenses</loc>
+    <loc>https://finatrix.co/tools/expenses</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://finatrix.online/tools/investmatch</loc>
+    <loc>https://finatrix.co/tools/investmatch</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://finatrix.online/tools/parksmart</loc>
+    <loc>https://finatrix.co/tools/parksmart</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://finatrix.online/tools/peercompare</loc>
+    <loc>https://finatrix.co/tools/peercompare</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://finatrix.online/tools/goals</loc>
+    <loc>https://finatrix.co/tools/goals</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://finatrix.online/tools/lifemap</loc>
+    <loc>https://finatrix.co/tools/lifemap</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
 
   <!-- Legal -->
   <url>
-    <loc>https://finatrix.online/privacy</loc>
+    <loc>https://finatrix.co/privacy</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://finatrix.online/terms</loc>
+    <loc>https://finatrix.co/terms</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>

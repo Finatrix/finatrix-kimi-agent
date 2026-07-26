@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Breadcrumb } from './Breadcrumb';
 import ThemeToggle from './ThemeToggle';
+import { SUPPORT_EMAIL, SUPPORT_MAILTO } from '../shared/brand';
 
 export default function LegalPage({
   title,
@@ -41,7 +42,10 @@ export default function LegalPage({
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[760px] px-5 sm:px-8 py-10 sm:py-16">
+      {/* Not a <main>: App.tsx owns the single app-wide `main` landmark, and a
+          nested one would give the page two (invalid, and it breaks landmark
+          navigation for screen-reader users). */}
+      <div className="mx-auto w-full max-w-[760px] px-5 sm:px-8 py-10 sm:py-16">
         <Breadcrumb current={title} className="mb-6" />
         <h1 className="text-[28px] sm:text-[36px] font-medium tracking-[-0.02em] text-ink">
           {title}
@@ -53,15 +57,12 @@ export default function LegalPage({
 
         <div className="mt-14 pt-8 border-t border-hairline text-[13px] text-ink-3">
           Questions about this policy? Email{' '}
-          <a
-            href="mailto:finatrix.hub@gmail.com"
-            className="text-accent-text hover:underline"
-          >
-            finatrix.hub@gmail.com
+          <a href={SUPPORT_MAILTO} className="text-accent-text hover:underline">
+            {SUPPORT_EMAIL}
           </a>
           .
         </div>
-      </main>
+      </div>
     </div>
   );
 }

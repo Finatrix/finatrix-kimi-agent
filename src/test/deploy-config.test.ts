@@ -3,16 +3,42 @@
  *
  * These guard launch-critical config that no runtime test would ever touch:
  * the fiantrix.online domain typo that shipped in three files (P1 audit
- * blocker), the Cloudflare security headers, and the SPA fallback without
- * which every deep link 404s in production.
+ * blocker), the retired domains that the finatrix.co migration replaced, the
+ * Cloudflare security headers, and the SPA fallback without which every deep
+ * link 404s in production.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { TOOL_IDS } from '../shared/routes';
+import { CANONICAL_HOST, TOOL_IDS } from '../shared/routes';
+import { seoForPath } from '../lib/seo';
+
+const ORIGIN = `https://${CANONICAL_HOST}`;
+
+/** Domains this app must no longer advertise anywhere public-facing. */
+const RETIRED_DOMAINS = [/fiantrix/i, /finatrix\.online/i, /finatrix\.space/i, /finatrix\.app/i, /workers\.dev/i];
 
 const root = join(__dirname, '..', '..');
 const read = (p: string) => readFileSync(join(root, p), 'utf8');
+
+/**
+ * Read a baseline/progressive JPEG's real pixel dimensions from its SOF marker.
+ * Used to prove `og:image:width`/`height` describe the file that actually
+ * ships — a mismatch is invisible locally and renders as a stretched card.
+ */
+function jpegSize(buf: Buffer): { width: number; height: number } {
+  let i = 2; // skip SOI
+  while (i < buf.length) {
+    if (buf[i] !== 0xff) { i++; continue; }
+    const marker = buf[i + 1];
+    // SOF0/1/2/9/10 carry the frame header; DHT/DAC/RST/SOS do not.
+    if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker)) {
+      return { height: buf.readUInt16BE(i + 5), width: buf.readUInt16BE(i + 7) };
+    }
+    i += 2 + buf.readUInt16BE(i + 2);
+  }
+  throw new Error('no JPEG SOF marker found');
+}
 
 function textFilesUnder(dir: string): string[] {
   const out: string[] = [];
@@ -25,25 +51,109 @@ function textFilesUnder(dir: string): string[] {
 }
 
 describe('deploy configuration', () => {
-  it('contains no occurrence of the fiantrix.online domain typo anywhere public-facing', () => {
+  // Covers both the original `fiantrix` typo and every domain the finatrix.co
+  // migration retired. A single stale reference in any of these files is enough
+  // to split the site's identity across two hosts.
+  it('advertises no retired or misspelled domain anywhere public-facing', () => {
     for (const f of ['index.html', ...textFilesUnder('public')]) {
-      expect(read(f), `${f} contains the fiantrix typo`).not.toMatch(/fiantrix/i);
+      for (const domain of RETIRED_DOMAINS) {
+        expect(read(f), `${f} still references ${domain}`).not.toMatch(domain);
+      }
     }
   });
 
-  it('canonical, sitemap and robots all agree on https://finatrix.online', () => {
-    expect(read('index.html')).toContain('<link rel="canonical" href="https://finatrix.online/" />');
-    expect(read('public/robots.txt')).toContain('Sitemap: https://finatrix.online/sitemap.xml');
-    expect(read('public/sitemap.xml')).toContain('<loc>https://finatrix.online/</loc>');
+  it('the edge Worker, the client and the static assets all agree on one canonical host', () => {
+    expect(read('index.html')).toContain(`<link rel="canonical" href="${ORIGIN}/" />`);
+    expect(read('public/robots.txt')).toContain(`Sitemap: ${ORIGIN}/sitemap.xml`);
+    expect(read('public/sitemap.xml')).toContain(`<loc>${ORIGIN}/</loc>`);
+    expect(read('public/.well-known/security.txt')).toContain(`Canonical: ${ORIGIN}/.well-known/security.txt`);
+    // The Worker var is what activates the 301; a blank one ships a site that
+    // answers on every host at once and is canonical on none.
+    expect(read('wrangler.jsonc')).toContain(`"CANONICAL_HOST": "${CANONICAL_HOST}"`);
+  });
+
+  it('binds the Worker to both the apex and www so www can be redirected, not dropped', () => {
+    const wrangler = read('wrangler.jsonc');
+    expect(wrangler).toContain(`{ "pattern": "${CANONICAL_HOST}", "custom_domain": true }`);
+    expect(wrangler).toContain(`{ "pattern": "www.${CANONICAL_HOST}", "custom_domain": true }`);
+  });
+
+  // `_headers` is only honoured by the Workers static-assets runtime from the
+  // 2025-04-01 compatibility date onward. Below it the security and cache
+  // headers are silently ignored — the file is present and does nothing.
+  it('uses a compatibility date new enough for _headers to be applied', () => {
+    const date = /"compatibility_date":\s*"([\d-]+)"/.exec(read('wrangler.jsonc'))?.[1];
+    expect(date).toBeTruthy();
+    expect(Date.parse(date!)).toBeGreaterThanOrEqual(Date.parse('2025-04-01'));
   });
 
   it('sitemap lists every public calculator route (the acquisition surface)', () => {
     const sitemap = read('public/sitemap.xml');
     for (const t of TOOL_IDS) {
       expect(sitemap, `sitemap is missing /tools/${t}`).toContain(
-        `<loc>https://finatrix.online/tools/${t}</loc>`,
+        `<loc>${ORIGIN}/tools/${t}</loc>`,
       );
     }
+  });
+
+  it('every sitemap URL is absolute, https and on the canonical host', () => {
+    const locs = [...read('public/sitemap.xml').matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+    expect(locs.length).toBeGreaterThan(0);
+    for (const loc of locs) {
+      const url = new URL(loc);
+      expect(url.protocol, loc).toBe('https:');
+      expect(url.host, loc).toBe(CANONICAL_HOST);
+    }
+    expect(new Set(locs).size, 'sitemap contains duplicate URLs').toBe(locs.length);
+  });
+
+  it('ships valid, canonical-origin JSON-LD', () => {
+    const blocks = [...read('index.html').matchAll(
+      /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g,
+    )].map((m) => m[1]);
+    expect(blocks.length).toBeGreaterThan(0);
+
+    for (const block of blocks) {
+      const parsed = JSON.parse(block); // throws → the test fails, which is the point
+      const graph = parsed['@graph'] ?? [parsed];
+      expect(Array.isArray(graph)).toBe(true);
+      for (const node of graph) expect(node['@type'], JSON.stringify(node)).toBeTruthy();
+
+      // Every first-party URL in the graph — @id, url, logo, publisher refs —
+      // must name the canonical origin, or the brand entity stays attached to
+      // the retired domain. Matched on HOSTNAME, so if an off-site profile link
+      // is ever added to `sameAs` it is correctly left alone. (There is none
+      // today — see the TODO above the block; brand.test.ts guards that any
+      // future entry is a real, verified profile rather than a placeholder.)
+      for (const raw of JSON.stringify(parsed).match(/https?:\/\/[^"\\]+/g) ?? []) {
+        if (/finatrix/i.test(new URL(raw).hostname)) expect(raw.startsWith(ORIGIN), raw).toBe(true);
+      }
+    }
+  });
+
+  it('ships a social card at the 1.91:1 size Facebook and X actually render', () => {
+    const html = read('index.html');
+    const og = /<meta[^>]+property="og:image"[^>]+content="([^"]+)"/.exec(html)?.[1];
+    expect(og).toBe(`${ORIGIN}/images/og-cover.jpg`);
+    expect(html).toContain('<meta property="og:image:width" content="1200" />');
+    expect(html).toContain('<meta property="og:image:height" content="630" />');
+    // Declared dimensions must match the file that ships, or crawlers that
+    // trust the tags render a stretched card.
+    const jpeg = readFileSync(join(root, 'public/images/og-cover.jpg'));
+    const { width, height } = jpegSize(jpeg);
+    expect({ width, height }).toEqual({ width: 1200, height: 630 });
+    // A large card needs alt text for the same reason an <img> does.
+    expect(html).toContain('property="og:image:alt"');
+    expect(html).toContain('name="twitter:image:alt"');
+  });
+
+  it('ships a parseable manifest with a stable PWA identity', () => {
+    const manifest = JSON.parse(read('public/manifest.webmanifest'));
+    // Without "id" the install identity is start_url, so changing start_url (or
+    // the origin) silently registers a second, unrelated installed app.
+    expect(manifest.id).toBe('/');
+    expect(manifest.scope).toBe('/');
+    expect(manifest.icons.length).toBeGreaterThan(0);
   });
 
   it('ships the Cloudflare security headers', () => {
@@ -60,6 +170,57 @@ describe('deploy configuration', () => {
     expect(headers).toContain('Cache-Control: public, max-age=31536000, immutable');
   });
 
+  // OAuth here is a full-page redirect (`signInWithOAuth({ redirectTo })`), so
+  // nothing depends on window.opener surviving — which is what makes this safe
+  // to assert rather than merely aspire to.
+  it('isolates the browsing context from cross-origin openers', () => {
+    expect(read('public/_headers')).toContain('Cross-Origin-Opener-Policy: same-origin');
+  });
+
+  // COEP would demand CORP or CORS on every subresource and break the
+  // self-hosted Tesseract OCR worker. Pinned so a future "harden the headers"
+  // pass cannot add it without this failing first and explaining why.
+  it('does not enable COEP, which would break the self-hosted OCR worker', () => {
+    expect(read('public/_headers')).not.toContain('Cross-Origin-Embedder-Policy');
+  });
+
+  it('switches off every powerful browser feature the app does not use', () => {
+    const policy = read('public/_headers')
+      .split('\n')
+      .find((l) => l.includes('Permissions-Policy:')) ?? '';
+    for (const feature of [
+      'camera', 'microphone', 'geolocation', 'payment', 'usb', 'bluetooth',
+      'serial', 'midi', 'display-capture', 'idle-detection',
+    ]) {
+      expect(policy, `${feature} must be disabled`).toContain(`${feature}=()`);
+    }
+  });
+
+  /**
+   * The trap this exists for: `Disallow` and `noindex` look like belt-and-braces
+   * and are actually mutually defeating. A disallowed URL is never fetched, so
+   * the `noindex` it serves is never read — and Google will still index it from
+   * inbound links alone, listing it with no title or snippet. robots.txt
+   * previously carried `Disallow: /profile` while /profile served noindex,
+   * which is exactly that combination.
+   *
+   * Any future `Disallow` must therefore name something that is NOT a noindex
+   * route (a non-route asset path, say). This does not forbid Disallow — it
+   * forbids the specific pairing that silently fails.
+   */
+  it('never disallows a route whose noindex the crawler would then never see', () => {
+    const disallowed = [...read('public/robots.txt').matchAll(/^\s*Disallow:\s*(\S+)/gim)]
+      .map((m) => m[1])
+      .filter((p) => p !== '/'); // a bare "Disallow: /" is a deliberate full block
+
+    for (const path of disallowed) {
+      expect(
+        seoForPath(path).robots,
+        `${path} is Disallow'd but serves noindex — the two cancel out`,
+      ).not.toBe('noindex, nofollow');
+    }
+  });
+
   it('wrangler serves dist through a Worker that returns real 404s for unknown routes', () => {
     const wrangler = read('wrangler.jsonc');
     expect(wrangler).toContain('"directory": "./dist"');
@@ -68,6 +229,19 @@ describe('deploy configuration', () => {
     // The soft-404 SPA fallback must be gone — the Worker owns status codes now.
     expect(wrangler).toContain('"not_found_handling": "none"');
     expect(wrangler).not.toContain('single-page-application');
+  });
+
+  // Without run_worker_first the assets runtime answers document paths before
+  // the Worker, so `/` was served on any host and never redirected. The
+  // fingerprinted asset paths stay excluded so they keep bypassing the Worker.
+  it('runs the Worker before the assets runtime on document paths only', () => {
+    const wrangler = read('wrangler.jsonc');
+    expect(wrangler).toContain('"run_worker_first"');
+    const block = /"run_worker_first":\s*\[([\s\S]*?)\]/.exec(wrangler)?.[1] ?? '';
+    expect(block).toContain('"/*"');
+    for (const excluded of ['/assets/', '/fonts/', '/images/', '/careers-ocr/']) {
+      expect(block, `${excluded} should bypass the Worker`).toContain(`"!${excluded}*"`);
+    }
   });
 
   it('delivers the production CSP header on document responses, in sync with the meta CSP', () => {

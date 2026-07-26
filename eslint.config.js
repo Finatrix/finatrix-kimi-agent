@@ -7,7 +7,10 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
   // supabase/functions is Deno code (its own runtime + globals), not app code.
-  globalIgnores(['dist', 'supabase/functions']),
+  // `.claude` holds agent git worktrees — checkouts of other commits, not this
+  // tree's source; linting them makes the local gate fail on code that is not
+  // being changed here (CI checks out clean, so it never saw them).
+  globalIgnores(['dist', 'dist-verify', '.claude', 'supabase/functions']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

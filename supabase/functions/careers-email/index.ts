@@ -7,37 +7,25 @@
 //
 // Deploy:  supabase functions deploy careers-email
 // Secret:  supabase secrets set RESEND_API_KEY=re_...
-// Optional: EMAIL_FROM="FinatriX Careers <careers@finatrix.app>"
+// Optional: EMAIL_FROM="FinatriX Careers <careers@finatrix.co>"
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { rateLimited } from '../_shared/ratelimit.ts';
+import { corsHeaders } from '../_shared/origins.ts';
 
 const RATE_PER_MINUTE = Number(Deno.env.get('CAREERS_EMAIL_RATE_PER_MINUTE') ?? '5');
 
-// CORS: authenticated mutation endpoint — restricted to the production site
-// (plus local dev), not '*'. Override with CAREERS_ALLOWED_ORIGINS if needed.
-const ALLOWED_ORIGINS = (Deno.env.get('CAREERS_ALLOWED_ORIGINS') ??
-  'https://finatrix.online,https://www.finatrix.online,https://finatrix.finatrix-hub.workers.dev,http://localhost:5173,http://localhost:4173'
-).split(',').map((s) => s.trim()).filter(Boolean);
-
-/** A well-formed http(s) web origin (no path). */
-function isWebOrigin(origin: string): boolean {
-  return /^https?:\/\/[a-z0-9.-]+(:\d+)?$/i.test(origin);
-}
-
+// CORS: see ../_shared/origins.ts for why the allowlist is built from
+// CANONICAL_HOST and CAREERS_ALLOWED_ORIGINS is additive. Bearer-JWT
+// authenticated and cookieless, so reflecting any well-formed web origin is
+// safe (no ambient credentials to ride on) and stops allowlist drift after a
+// domain change from surfacing as a browser "CORS" error.
 function corsFor(req: Request): Record<string, string> {
-  const origin = req.headers.get('Origin') ?? '';
-  // Bearer-JWT authenticated, cookieless endpoint — reflect any well-formed web
-  // origin so domain changes never surface as a browser "CORS" error.
-  const allow = (ALLOWED_ORIGINS.includes(origin) || isWebOrigin(origin)) && origin
-    ? origin
-    : ALLOWED_ORIGINS[0];
-  return {
-    'Access-Control-Allow-Origin': allow,
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    Vary: 'Origin',
-  };
+  return corsHeaders(req, {
+    headers: 'authorization, x-client-info, apikey, content-type',
+    methods: 'POST, OPTIONS',
+    reflectAnyWebOrigin: true,
+  });
 }
 
 function jsonWith(cors: Record<string, string>) {

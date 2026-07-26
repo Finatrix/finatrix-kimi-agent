@@ -16,10 +16,10 @@
   --hair: var(--hairline); --hair2: var(--hairline-2); --dark: var(--surface-base);
   --gold: var(--accent); --gold-2: var(--accent-soft); --gold-bg: var(--accent-bg);
   --blue: var(--status-info); --green: var(--status-success); --orange: var(--status-warn); --purple: var(--data-purple); --teal: var(--data-teal); --red: var(--status-danger);
-  /* Wants allocation colour — a premium amber, deliberately distinct from the
-     brand gold so the three budget bands (Needs/Wants/Savings) never rely on
-     brightness alone to be told apart. Visible on both dark and light. */
-  --wants: #F5A524;
+  /* Wants allocation colour — canonical value now lives in styles/tokens.css
+     so it carries a light-theme variant like every other coloured-text token
+     (the literal amber measured 1.92:1 on light paper as the "Wants %" label). */
+  --wants: var(--data-wants);
   --r: var(--radius-xl); --shadow: var(--shadow-2); --glass-blur: blur(14px) saturate(150%);
   --spring: var(--ease-spring);
   --ease-in-out: cubic-bezier(.42,0,.58,1);

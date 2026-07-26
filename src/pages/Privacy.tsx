@@ -1,5 +1,6 @@
 import { Link } from 'react-router';
 import LegalPage, { H2, P, UL } from '../components/LegalPage';
+import { SUPPORT_EMAIL, SUPPORT_MAILTO } from '../shared/brand';
 
 export default function Privacy() {
   return (
@@ -20,8 +21,8 @@ export default function Privacy() {
         FinatriX is an independent, educational personal-finance toolset operated from
         India. We are not a bank, broker, exchange, or a registered investment or tax
         adviser. You can contact us at{' '}
-        <a href="mailto:finatrix.hub@gmail.com" className="text-[#D4AF37] hover:underline">
-          finatrix.hub@gmail.com
+        <a href={SUPPORT_MAILTO} className="text-[#D4AF37] hover:underline">
+          {SUPPORT_EMAIL}
         </a>
         .
       </P>
@@ -99,8 +100,8 @@ export default function Privacy() {
         Protection Act and the EU/UK GDPR), you may have the right to access, correct,
         export or delete your personal data, and to withdraw consent. To exercise any of
         these — including deleting your account and all associated data — email us at{' '}
-        <a href="mailto:finatrix.hub@gmail.com" className="text-[#D4AF37] hover:underline">
-          finatrix.hub@gmail.com
+        <a href={SUPPORT_MAILTO} className="text-[#D4AF37] hover:underline">
+          {SUPPORT_EMAIL}
         </a>{' '}
         and we will action your request within a reasonable period.
       </P>

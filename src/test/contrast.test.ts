@@ -27,6 +27,38 @@ function ratio(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
+/** RGBA helpers for text that sits on a translucent tint rather than a surface. */
+interface Rgba { r: number; g: number; b: number; a: number }
+
+function hexToRgb(hex: string): Rgba {
+  const c = hex.replace('#', '');
+  return { r: parseInt(c.slice(0, 2), 16), g: parseInt(c.slice(2, 4), 16), b: parseInt(c.slice(4, 6), 16), a: 1 };
+}
+function parseRgba(v: string): Rgba {
+  const n = (v.match(/[\d.]+/g) ?? []).map(Number);
+  return { r: n[0], g: n[1], b: n[2], a: n.length > 3 ? n[3] : 1 };
+}
+/** Source-over alpha compositing of `fg` onto an opaque `bg`. */
+function compositeOver(fg: Rgba, bg: Rgba): Rgba {
+  return {
+    r: fg.r * fg.a + bg.r * (1 - fg.a),
+    g: fg.g * fg.a + bg.g * (1 - fg.a),
+    b: fg.b * fg.a + bg.b * (1 - fg.a),
+    a: 1,
+  };
+}
+function luminanceRgb(c: Rgba): number {
+  const chan = [c.r, c.g, c.b].map((v) => {
+    const x = v / 255;
+    return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * chan[0] + 0.7152 * chan[1] + 0.0722 * chan[2];
+}
+function ratioRgb(a: Rgba, b: Rgba): number {
+  const [hi, lo] = [luminanceRgb(a), luminanceRgb(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
 /** Extract a `--name: #hex;` value from a specific `:root…{ }` block. */
 function tokenIn(block: string, name: string): string {
   const m = block.match(new RegExp(`--${name}\\s*:\\s*(#[0-9A-Fa-f]{6})`));
@@ -88,5 +120,74 @@ describe('design tokens — WCAG AA text contrast', () => {
     for (const [name, fg, bg] of pairs) {
       expect(ratio(fg, bg), `${name} = ${ratio(fg, bg).toFixed(2)}:1`).toBeGreaterThanOrEqual(AA);
     }
+  });
+
+  /**
+   * Every token that is EVER used as a text colour must be asserted here — the
+   * first version of this guard covered ink and the four status colours but not
+   * the data colours, so `--data-teal`, `--data-purple` and the Wants amber sat
+   * at their vivid dark-theme values on light paper (2.06:1, 2.97:1 and 1.92:1)
+   * while the suite stayed green. They are used as text in ParkSmart's
+   * effective-rate figure, the PeerCompare/LifeMap KPI values and the Budget
+   * band labels respectively.
+   */
+  it('light theme: data colours used as text clear AA on paper/white', () => {
+    const white = tokenIn(lightBlock, 'surface-2');
+    const paper = tokenIn(lightBlock, 'surface-base');
+    const canvas = tokenIn(lightBlock, 'surface-1');   // the tools canvas
+    for (const token of ['data-purple', 'data-teal', 'data-wants']) {
+      const fg = tokenIn(lightBlock, token);
+      for (const [bgName, bg] of [['white', white], ['paper', paper], ['canvas', canvas]] as const) {
+        expect(ratio(fg, bg), `${token}/${bgName} = ${ratio(fg, bg).toFixed(2)}:1`)
+          .toBeGreaterThanOrEqual(AA);
+      }
+    }
+  });
+
+  // `--surface-1` is darker than white, so a token can clear AA on white and
+  // still fail on the canvas most tool pages actually render against.
+  it('light theme: status colours clear AA on the tools canvas too', () => {
+    const canvas = tokenIn(lightBlock, 'surface-1');
+    for (const token of ['status-info', 'status-success', 'status-warn', 'status-danger', 'accent-text']) {
+      const fg = tokenIn(lightBlock, token);
+      expect(ratio(fg, canvas), `${token}/canvas = ${ratio(fg, canvas).toFixed(2)}:1`)
+        .toBeGreaterThanOrEqual(AA);
+    }
+  });
+
+  /**
+   * Coloured text very often sits on a translucent tint of its own hue (badges,
+   * pills, chips). The tint darkens the effective background, so a token that
+   * clears AA against the bare canvas can still fail inside its own badge —
+   * ParkSmart's "Best Match" pill measured 4.41:1 that way while every
+   * canvas-based assertion above passed. Composite the tint and check the real
+   * rendered pair.
+   */
+  it('light theme: coloured text clears AA on its own tinted badge', () => {
+    const canvas = hexToRgb(tokenIn(lightBlock, 'surface-1'));
+    // [token, tint actually used behind it in the CSS, where it appears]
+    const cases: Array<[string, string, string]> = [
+      ['data-teal', 'rgba(12,128,121,.12)', 'ParkSmart “Best Match” pill'],
+      ['data-teal', 'rgba(12,128,121,.09)', 'ParkSmart page chip'],
+      ['status-info', 'rgba(77,155,255,.12)', 'careers .badge-blue'],
+      ['status-info', 'rgba(77,155,255,.14)', 'careers .cal-ev'],
+      ['data-purple', 'rgba(110,59,212,.09)', 'PeerCompare / LifeMap chip'],
+      ['accent-text', 'rgba(212,175,55,.14)', 'careers .badge-gold'],
+      ['accent-text', 'rgba(212,175,55,.15)', 'careers .cal-ev.interview'],
+    ];
+    for (const [token, tint, where] of cases) {
+      const fg = hexToRgb(tokenIn(lightBlock, token));
+      const bg = compositeOver(parseRgba(tint), canvas);
+      const r = ratioRgb(fg, bg);
+      expect(r, `${token} on ${tint} (${where}) = ${r.toFixed(2)}:1`).toBeGreaterThanOrEqual(AA);
+    }
+  });
+
+  // The dark theme must keep its vivid originals — the light fix must not have
+  // leaked upward into the default :root block.
+  it('dark theme keeps the vivid data colours', () => {
+    expect(tokenIn(darkBlock, 'data-purple')).toBe('#9B7BFF');
+    expect(tokenIn(darkBlock, 'data-teal')).toBe('#2BC4B0');
+    expect(tokenIn(darkBlock, 'data-wants')).toBe('#F5A524');
   });
 });

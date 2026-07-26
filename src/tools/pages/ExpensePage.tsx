@@ -999,7 +999,18 @@ function TrendChart({ trend, cfmt, code }: { trend: DashResult['trend']; cfmt: (
     ch.update();
   }, [labels, data]);
 
-  return <canvas ref={ref} height={150} />;
+  // A bare <canvas> is an empty element to a screen reader: the chart is the
+  // only place this breakdown is shown, so without a text alternative the
+  // information simply does not exist for a non-visual user (WCAG 1.1.1).
+  // Built from the same `trend` array Chart.js is given, so the two can never
+  // describe different numbers.
+  const summary = useMemo(() => {
+    if (trend.length === 0) return 'Spending trend chart. No spending recorded yet.';
+    const points = trend.map((t) => `${t.label} ${cfmt(t.spent)}`).join(', ');
+    return `Bar chart of spending by period: ${points}.`;
+  }, [trend, cfmt]);
+
+  return <canvas ref={ref} height={150} role="img" aria-label={summary} />;
 }
 
 function Trend12Chart({ trend, cfmt, code, theme }: { trend: MonthlyTrend[]; cfmt: (n: number) => string; code: string; theme: string | undefined }) {
@@ -1053,7 +1064,17 @@ function Trend12Chart({ trend, cfmt, code, theme }: { trend: MonthlyTrend[]; cfm
     ch.update();
   }, [labels, data, avgData]);
 
-  return <canvas ref={ref} height={180} />;
+  // Text alternative for the same reason as TrendChart above. The average line
+  // is called out explicitly because it is a second dataset a sighted user can
+  // read straight off the chart.
+  const summary = useMemo(() => {
+    if (trend.length === 0) return 'Monthly spending chart. No spending recorded yet.';
+    const points = trend.map((t) => `${t.label} ${cfmt(t.spent)}`).join(', ');
+    return `Bar chart of spending across ${trend.length} months, with an average of `
+      + `${cfmt(avgData[0] ?? 0)}: ${points}.`;
+  }, [trend, avgData, cfmt]);
+
+  return <canvas ref={ref} height={180} role="img" aria-label={summary} />;
 }
 
 /* ── Daily heatmap ── */

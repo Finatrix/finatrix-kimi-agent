@@ -14,7 +14,7 @@ Right now the meta tags, `sitemap.xml` and `robots.txt` use
 `https://finatrix-kimi-agent.netlify.app` as a safe default. If you have a custom domain,
 do this so you don't split your ranking signals:
 
-1. Decide your single real domain (e.g. `finatrix.online`). **Double-check the spelling** —
+1. Decide your single real domain (e.g. `finatrix.co`). **Double-check the spelling** —
    the old project notes referenced "fiantrix.online" (fia… vs fina…); make sure the
    registered domain is actually **fina**trix.
 2. Find-and-replace `https://finatrix-kimi-agent.netlify.app` with your real domain in:

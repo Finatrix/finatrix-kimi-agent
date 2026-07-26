@@ -120,7 +120,7 @@ credentials:
      → should return **zero rows**.
    - `select proname, prosecdef, proconfig from pg_proc where pronamespace='public'::regnamespace and proname in ('is_platform_admin','validate_coupon','increment_ai_usage','careers_touch_updated_at','fx_touch_updated_at');`
      → confirms `SECURITY DEFINER` + `search_path=` are live.
-3. **Headers (independent of me):** verify `finatrix.online` on securityheaders.com or `curl -I` once the
+3. **Headers (independent of me):** verify `finatrix.co` on securityheaders.com or `curl -I` once the
    Worker (Phase 1b) is deployed.
 
 I would only request production access if a finding required inspecting **data** (not schema) — e.g.

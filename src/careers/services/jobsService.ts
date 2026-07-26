@@ -11,7 +11,6 @@ import type {
   JobDescriptionRow,
   JobRow,
   JobSearchParams,
-  JobSourceRow,
   NormalizedJob,
   SavedSearchRow,
 } from '../types/jobs';
@@ -106,16 +105,6 @@ export async function searchProviders(params: JobSearchParams, terms: string[] =
     throw new CareersError('unknown', 'The job search returned an unexpected response.');
   }
   return out;
-}
-
-export async function listJobSources(): Promise<JobSourceRow[]> {
-  const { data, error } = await supabase
-    .from('job_sources')
-    .select('*')
-    .eq('enabled', true)
-    .order('sort_order');
-  if (error) throw mapSupabaseError(error, 'Loading job sources');
-  return (data ?? []) as JobSourceRow[];
 }
 
 /** Content fingerprint of a job posting (dedupe + analysis cache key). */

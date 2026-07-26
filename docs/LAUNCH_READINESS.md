@@ -1,7 +1,7 @@
 # FinatriX — Launch Readiness Review (independent)
 
 **Reviewer stance:** external Staff Engineer with authority to **block** release unless the product is
-world-class. **Date:** 11 July 2026. **Target:** public launch on `finatrix.space` (from `finatrix.online`).
+world-class. **Date:** 11 July 2026. **Target:** public launch on `finatrix.co` (from `finatrix.co`).
 **Method:** whole-repository read + running the full local gate (`tsc`, ESLint, Vitest incl. parity).
 Prior audits deliberately ignored; judged fresh against current source.
 
@@ -46,7 +46,7 @@ intact) · changed code lint-clean.
 
 ---
 
-## 3. Launch blockers (must clear before `finatrix.space` go-live)
+## 3. Launch blockers (must clear before `finatrix.co` go-live)
 
 1. **Apply the DB changes to the live database** (SQL Editor, in order): the Phase 2 hardening
    (`schema.sql`, `careers_*_schema.sql`) **and** `analytics_schema.sql`. ⚠️ Until applied,
@@ -83,18 +83,25 @@ intact) · changed code lint-clean.
 
 ---
 
-## 5. Domain migration — `finatrix.online` → `finatrix.space`
+## 5. Domain migration — `finatrix.co` → `finatrix.co`
 
-Find/replace `finatrix.online` → `finatrix.space` in: `index.html` (canonical, `og:url`, JSON-LD),
+Find/replace `finatrix.co` → `finatrix.co` in: `index.html` (canonical, `og:url`, JSON-LD),
 `public/sitemap.xml`, `public/robots.txt`, `public/.well-known/security.txt`, and update
 `src/test/deploy-config.test.ts` to match. Also:
-- **Edge CORS allowlists:** `analytics-collect` already includes `finatrix.space`; add it to
+- **Edge CORS allowlists:** `analytics-collect` already includes `finatrix.co`; add it to
   `careers-ai` and `careers-jobs` `CAREERS_ALLOWED_ORIGINS` (or set the env var).
-- **Supabase Auth:** add `https://finatrix.space` to Site URL + Redirect URLs (Google OAuth + email).
-- **Cloudflare:** bind the `finatrix.space` domain to the Worker; keep `finatrix.online` 301-redirecting
-  to preserve SEO equity; submit the new sitemap in Search Console and set a change-of-address.
-- **OG image + `HTTP-Referer`** in `careers-ai` reference `finatrix.app`/`.online` — align to `.space`.
-- Recommend doing this as one atomic change with the `deploy-config` test updated in the same commit.
+- **Supabase Auth:** add `https://finatrix.co` to Site URL + Redirect URLs (Google OAuth + email).
+**Status: DONE.** `finatrix.co` is the sole canonical host, declared once as `CANONICAL_HOST`
+in `src/shared/routes.ts` and consumed by the Worker, the SEO module, the tests and
+`wrangler.jsonc`. The Worker 301s `www`, both retired domains and any plain-HTTP request to the
+apex in a single hop; `careers-ai`'s `HTTP-Referer`, the edge-function CORS allowlists, the OG
+image, the sitemap, robots and security.txt all name it. See `docs/DEPLOYMENT.md` § Domains.
+
+Remaining operator steps (Cloudflare/Search Console credentials required, not code):
+- Keep the `finatrix.online` / `finatrix.space` zones attached to the Worker until Google has
+  recrawled — detaching them discards the 301 and the link equity with it.
+- Submit the new sitemap in Search Console and file a change-of-address for each old property.
+- Confirm with `npm run verify:production` once DNS and the certificate are live.
 
 ---
 
@@ -119,7 +126,7 @@ preview** (turns a 0%-conversion surface into a funnel), **LifeMap step-wizard +
 
 ## 8. Go / No-Go
 
-**GO for public launch on `finatrix.space` — conditional on P0 (§3).** The codebase itself is ready and
+**GO for public launch on `finatrix.co` — conditional on P0 (§3).** The codebase itself is ready and
 verified; the four blockers are operational (apply SQL, smoke-test the edge, wire analytics, run
 Lighthouse/axe). Clear those and FinatriX launches on a foundation a senior team from any of the named
 companies would respect. The deferred Phase-3 features are how it goes from excellent to category-defining

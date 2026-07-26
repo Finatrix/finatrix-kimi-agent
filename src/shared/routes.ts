@@ -8,6 +8,18 @@
  * be bundled into the edge Worker and imported by Vitest alike.
  */
 
+/**
+ * The one canonical production host. Everything else — `www`, the retired
+ * finatrix.online / finatrix.space domains, and any plain-HTTP request — is
+ * 301'd here by the edge Worker, and this is the origin the client advertises
+ * in `<link rel="canonical">` / `og:url`.
+ *
+ * Single source of truth on purpose: the previous migration kept the host in
+ * the Worker var, the SEO module, the sitemap and four edge functions
+ * independently, and they drifted.
+ */
+export const CANONICAL_HOST = 'finatrix.co';
+
 /** The seven public calculators. Source of truth for the sitemap + edge 404s. */
 export const TOOL_IDS = [
   'budget',
@@ -21,6 +33,19 @@ export const TOOL_IDS = [
 
 export type ToolId = (typeof TOOL_IDS)[number];
 
+/**
+ * Signed-in `/tools/*` pages that are NOT public calculators: the personalised
+ * hub and the three workspace screens (`ToolRoute.tsx`). They render real pages
+ * and are linked from the tools nav, so the edge must answer 200 — but they are
+ * deliberately absent from TOOL_IDS, which stays the indexable/sitemap
+ * allowlist, so `seoForPath` keeps returning `noindex` for every one of them.
+ *
+ * They were previously missing here, so every one of them was served HTTP 404
+ * with the page rendered behind it — a broken status on a link the app's own
+ * navigation offers.
+ */
+const APP_TOOL_ROUTES = ['dashboard', 'reports', 'calendar', 'settings'] as const;
+
 /** Top-level routes that resolve to a real page (mirrors App.tsx). */
 const EXACT_ROUTES = new Set<string>([
   '/',
@@ -29,9 +54,11 @@ const EXACT_ROUTES = new Set<string>([
   '/careers',
   '/login',
   '/signup',
+  '/welcome',
   '/profile',
   '/privacy',
   '/terms',
+  '/dashboard', // redirects to /tools/dashboard
 ]);
 
 /**
@@ -39,15 +66,21 @@ const EXACT_ROUTES = new Set<string>([
  *
  * Used at the edge to decide the HTTP status of the SPA shell. Anything that
  * returns `false` is served as a genuine 404 so search engines and uptime
- * monitors are never fooled by a soft-404.
+ * monitors are never fooled by a soft-404. The inverse matters just as much:
+ * a route the app really renders must never be served 404, or bookmarks,
+ * monitors and link checkers all report a live page as dead.
  */
 export function isKnownRoute(pathname: string): boolean {
   const p = pathname.replace(/\/+$/, '') || '/';
   if (EXACT_ROUTES.has(p)) return true;
 
-  // Individual calculator pages: only the seven real tools are valid.
+  // /tools/<id>: the seven public calculators plus the signed-in app screens.
   const toolMatch = p.match(/^\/tools\/([^/]+)$/);
-  if (toolMatch) return (TOOL_IDS as readonly string[]).includes(toolMatch[1]);
+  if (toolMatch) {
+    const id = toolMatch[1].toLowerCase(); // ToolRoute lower-cases the param
+    return (TOOL_IDS as readonly string[]).includes(id)
+      || (APP_TOOL_ROUTES as readonly string[]).includes(id);
+  }
 
   // Careers is a sign-in-gated app section with many sub-routes; the whole
   // subtree is "known" (the SPA renders auth / not-found within it).
@@ -57,24 +90,41 @@ export function isKnownRoute(pathname: string): boolean {
 }
 
 /**
- * Domain-migration redirect (finatrix.online → finatrix.space).
+ * Canonical-host + HTTPS enforcement, evaluated at the edge.
  *
  * Returns the absolute URL to 301-redirect to, or `null` to serve normally.
- * Gated on `canonicalHost`: when unset the redirect is INERT, so this can ship
- * ahead of the DNS cutover and be activated by setting the Worker's
- * `CANONICAL_HOST` var. Preview (`*.workers.dev`) and localhost are never
- * redirected, so staging and dev keep working.
+ * Two things force a redirect:
+ *
+ *   1. a non-canonical host — `www.finatrix.co`, or either retired domain
+ *      (finatrix.online / finatrix.space) while its DNS still points here;
+ *   2. a plain-HTTP request on the canonical host, so TLS is enforced in the
+ *      application itself and not only by a Cloudflare dashboard toggle that
+ *      no test can see.
+ *
+ * Path and query are always preserved, so link equity and deep links survive
+ * the hop. Exactly ONE redirect ever occurs: http://www.finatrix.co/x goes
+ * straight to https://finatrix.co/x, never via an intermediate.
+ *
+ * Gated on `canonicalHost`: when unset the whole thing is INERT, which is what
+ * lets the code ship ahead of a DNS cutover. Preview (`*.workers.dev`) and
+ * localhost are never touched, so staging and `vite dev` keep working — and
+ * localhost is exempt from the HTTPS rule for the same reason.
  */
 export function canonicalRedirect(
   host: string,
   pathAndQuery: string,
   canonicalHost: string | undefined,
+  protocol: string = 'https:',
 ): string | null {
   if (!canonicalHost) return null; // migration not activated
   const h = (host || '').toLowerCase();
-  if (!h || h === canonicalHost) return null; // already canonical
+  if (!h) return null;
   if (h.endsWith('.workers.dev') || h.startsWith('localhost') || h.startsWith('127.0.0.1')) return null;
-  return `https://${canonicalHost}${pathAndQuery}`;
+
+  const target = `https://${canonicalHost}${pathAndQuery}`;
+  if (h !== canonicalHost.toLowerCase()) return target;      // wrong host
+  if (protocol.replace(/:$/, '') !== 'https') return target;  // right host, no TLS
+  return null;
 }
 
 /**

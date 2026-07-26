@@ -1,6 +1,6 @@
 # FinatriX — Production Release Runbook
 
-Exact, ordered steps to take the verified repository live on **finatrix.space** with **finatrix.online**
+Exact, ordered steps to take the verified repository live on **finatrix.co** with **finatrix.co**
 301-redirecting. These require credentials that live in your Supabase/Cloudflare/GitHub accounts (not in
 the build environment), so they are run by the owner or CI. Everything in the repo is already verified:
 `tsc` clean · **794+ tests pass** · **533 parity assertions green** · changed code lint-clean.
@@ -51,7 +51,7 @@ supabase functions deploy analytics-collect --no-verify-jwt   # public, anonymou
 supabase secrets set OPENROUTER_API_KEY=sk-or-...             # careers-ai
 supabase secrets set ADZUNA_APP_ID=... ADZUNA_APP_KEY=... RAPIDAPI_KEY=... JOOBLE_KEY=...   # careers-jobs (each optional)
 # Optional origin override once on the new domain:
-supabase secrets set CAREERS_ALLOWED_ORIGINS="https://finatrix.space,https://www.finatrix.space"
+supabase secrets set CAREERS_ALLOWED_ORIGINS="https://finatrix.co,https://www.finatrix.co"
 ```
 Verify: `supabase functions logs analytics-collect` after step 5 shows 204s, no errors.
 
@@ -66,32 +66,32 @@ curl -s -o /dev/null -w "%{http_code}\n" https://<worker-url>/nope   # 404 (soft
 Rollback: `npx wrangler rollback` or redeploy the previous commit.
 
 ## 5. Cloudflare — bind domains
-Workers & Pages → your Worker → **Custom Domains** → add `finatrix.space`, `www.finatrix.space`, and keep
-`finatrix.online` bound. DNS: proxied (orange-cloud) records for the apex + www; SSL/TLS = Full (strict).
+Workers & Pages → your Worker → **Custom Domains** → add `finatrix.co`, `www.finatrix.co`, and keep
+`finatrix.co` bound. DNS: proxied (orange-cloud) records for the apex + www; SSL/TLS = Full (strict).
 
 ## 6. Domain cutover (the only user-visible flip)
-Once `https://finatrix.space/healthz` returns 200 on the real domain, set the Worker var and redeploy:
+Once `https://finatrix.co/healthz` returns 200 on the real domain, set the Worker var and redeploy:
 ```
-wrangler.jsonc → "vars": { "CANONICAL_HOST": "finatrix.space" }
+wrangler.jsonc → "vars": { "CANONICAL_HOST": "finatrix.co" }
 npx wrangler deploy
 ```
-This activates the built-in 301: `finatrix.online` + `www.*` → `finatrix.space` (path/query preserved).
+This activates the built-in 301: `finatrix.co` + `www.*` → `finatrix.co` (path/query preserved).
 Then flip the static canonical set for SEO (single commit):
 - `index.html` (canonical, `og:url`, JSON-LD `@id`/`url`), `public/sitemap.xml`, `public/robots.txt`,
-  `public/.well-known/security.txt`, and `src/test/deploy-config.test.ts` → `finatrix.online` ⇒ `finatrix.space`.
-- Supabase Auth → Site URL + Redirect URLs: add `https://finatrix.space` (Google OAuth + email).
-- Google Search Console: verify `finatrix.space`, submit sitemap, set Change of Address from `.online`.
+  `public/.well-known/security.txt`, and `src/test/deploy-config.test.ts` → `finatrix.co` ⇒ `finatrix.co`.
+- Supabase Auth → Site URL + Redirect URLs: add `https://finatrix.co` (Google OAuth + email).
+- Google Search Console: verify `finatrix.co`, submit sitemap, set Change of Address from `.online`.
 
 Rollback: unset `CANONICAL_HOST` (redirect goes inert) and revert the canonical commit.
 
 ## 7. Post-launch verification
 ```bash
-curl -I https://finatrix.space/               # HSTS, X-Frame-Options, nosniff, Referrer/Permissions-Policy
-curl -s -o /dev/null -w "%{http_code}\n" https://finatrix.online/   # 301 → finatrix.space
+curl -I https://finatrix.co/               # HSTS, X-Frame-Options, nosniff, Referrer/Permissions-Policy
+curl -s -o /dev/null -w "%{http_code}\n" https://finatrix.co/   # 301 → finatrix.co
 ```
 - securityheaders.com → A/A+ ; Lighthouse (mobile, throttled) → confirm LCP/CLS/INP; axe → no AA violations.
 - Confirm `analytics_event_counts_daily` is receiving rows (admin) and DNT/GPC visitors send nothing.
-- Point uptime monitor at `https://finatrix.space/healthz`.
+- Point uptime monitor at `https://finatrix.co/healthz`.
 
 ## 8. Monitoring & rollback readiness
 - Alerts per `docs/OBSERVABILITY.md §8`. Health probe: `/healthz`.

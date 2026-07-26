@@ -1,5 +1,6 @@
 import { Link } from 'react-router';
 import LegalPage, { H2, P, UL } from '../components/LegalPage';
+import { SUPPORT_EMAIL, SUPPORT_MAILTO } from '../shared/brand';
 
 export default function Terms() {
   return (
@@ -89,8 +90,8 @@ export default function Terms() {
       <H2>Contact</H2>
       <P>
         Questions about these Terms? Email{' '}
-        <a href="mailto:finatrix.hub@gmail.com" className="text-[#D4AF37] hover:underline">
-          finatrix.hub@gmail.com
+        <a href={SUPPORT_MAILTO} className="text-[#D4AF37] hover:underline">
+          {SUPPORT_EMAIL}
         </a>
         .
       </P>

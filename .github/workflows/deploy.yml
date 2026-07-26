@@ -1,12 +1,22 @@
-# Continuous deployment to Cloudflare Workers (static assets) on main.
+# Continuous deployment on main: Cloudflare Workers (front end) AND the Supabase
+# edge functions.
 #
-# Requires two repository secrets (Settings → Secrets and variables → Actions):
-#   CLOUDFLARE_API_TOKEN   — API token with "Workers Scripts: Edit" permission
-#   CLOUDFLARE_ACCOUNT_ID  — the account id shown by `npx wrangler whoami`
+# The edge-function job exists because deploying them was previously a manual
+# step. It was missed, and the live `careers-jobs` function ran a superseded
+# provider contract for weeks — three providers silently returning nothing in
+# production while every local gate stayed green. Shipping the front end without
+# the functions is not "a partial deploy", it is a drift generator.
 #
-# Until those secrets exist this workflow fails fast at the guard step with a
-# clear message instead of a cryptic wrangler auth error. Manual deploys keep
-# working regardless: `npm run build && npx wrangler deploy`.
+# Repository secrets (Settings → Secrets and variables → Actions):
+#   CLOUDFLARE_API_TOKEN    — API token with "Workers Scripts: Edit"
+#   CLOUDFLARE_ACCOUNT_ID   — the account id shown by `npx wrangler whoami`
+#   SUPABASE_ACCESS_TOKEN   — personal access token (supabase.com/dashboard/account/tokens)
+#   SUPABASE_PROJECT_REF    — the project ref, e.g. from `supabase/.temp/project-ref`
+#
+# Each job fails fast with a clear message when its own secrets are absent, and
+# never blocks the other. Manual deploys keep working regardless:
+#   npm run build && npx wrangler deploy
+#   npx supabase functions deploy careers-jobs careers-ai
 name: Deploy
 
 on:
@@ -36,9 +46,93 @@ jobs:
       - run: npm ci --no-audit --no-fund
       # Deploy only what passed the gates.
       - run: npx tsc -b && npx eslint . --max-warnings 0 && npx vitest run
+      # VITE_* values are INLINED AT BUILD TIME. Building without them does not
+      # fail — it silently produces a bundle with the feature compiled out:
+      # `VITE_ANALYTICS_URL` missing makes `analyticsEnabled()` constant-fold to
+      # `return false`, so the shipped app sends no events, no error reports and
+      # no web vitals while every endpoint looks perfectly healthy. This exact
+      # bundle reached production. The guard below fails the build loudly
+      # instead.
+      - name: Check build-time client config is present
+        run: |
+          missing=
+          for v in VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY VITE_ANALYTICS_URL; do
+            eval "val=\${$v}"
+            [ -z "$val" ] && missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing build-time secrets:$missing — the bundle would ship with those features silently disabled. See docs/DEPLOYMENT.md."
+            exit 1
+          fi
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_ANALYTICS_URL: ${{ secrets.VITE_ANALYTICS_URL }}
+      # VITE_CANONICAL_ORIGIN is deliberately NOT passed. The canonical apex now
+      # lives in exactly one place — CANONICAL_HOST in src/shared/routes.ts —
+      # which the Worker, the SEO module and the tests all read. Threading it
+      # through a repository secret as well meant a stale secret could silently
+      # override correct code and publish canonical tags for a retired domain,
+      # with every gate still green. Forks that need a different origin set it
+      # in their own .env (see .env.example).
       - run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_ANALYTICS_URL: ${{ secrets.VITE_ANALYTICS_URL }}
       - name: Deploy to Cloudflare Workers
         run: npx wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # Proves the deploy is actually live and canonical on the real domain:
+      # HTTPS, HSTS, the www → apex 301, self-canonical tags, robots, sitemap
+      # and honest 404s. A green `wrangler deploy` only says the upload
+      # succeeded — it says nothing about what finatrix.co now serves.
+      - name: Verify production domain
+        run: npm run verify:production
+
+  edge-functions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Supabase credentials are configured
+        run: |
+          if [ -z "${{ secrets.SUPABASE_ACCESS_TOKEN }}" ] || [ -z "${{ secrets.SUPABASE_PROJECT_REF }}" ]; then
+            echo "::error::SUPABASE_ACCESS_TOKEN / SUPABASE_PROJECT_REF are not set — edge functions will NOT be deployed and will drift from main. See docs/DEPLOYMENT.md."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      # The provider suite is the only automated check these functions have.
+      - run: npx tsc -b && npx vitest run supabase/functions
+      - name: Deploy authenticated edge functions
+        run: npx supabase functions deploy careers-jobs careers-ai careers-email --project-ref "$SUPABASE_PROJECT_REF"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      # analytics-collect MUST be --no-verify-jwt. The browser sends its batches
+      # with navigator.sendBeacon, which cannot set an Authorization header, so
+      # with the gateway JWT check on, every beacon is rejected 401 before the
+      # function runs — silently dropping 100% of analytics, error reports and
+      # web vitals. It is safe: the endpoint is anonymous by design and is
+      # bounded by per-IP rate limiting, strict allowlist validation, and a
+      # table no client can read.
+      - name: Deploy public analytics ingest (no JWT gate — see comment)
+        run: npx supabase functions deploy analytics-collect --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      # Proves the deploy actually landed: re-downloads the live source and
+      # diffs it against this commit. A green deploy step that left production
+      # unchanged is exactly the failure mode this whole job exists to prevent.
+      - name: Verify production matches this commit
+        run: npm run verify:deploy
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}

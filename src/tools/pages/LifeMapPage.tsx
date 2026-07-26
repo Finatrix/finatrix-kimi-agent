@@ -398,7 +398,20 @@ function WealthChart({ profile: p, dec, applied, cfmt, code }: { profile: LifePr
     ch.update();
   }, [ages, smart, imp]);
 
-  return <canvas ref={ref} height={185} />;
+  // Text alternative for the projection (WCAG 1.1.1) — without it the entire
+  // point of the page, the gap between the two paths, is unavailable to a
+  // screen-reader user. Summarised at the endpoints rather than dumping ~40
+  // yearly values, which would be read aloud as an unusable wall of numbers;
+  // the figures come from the same `smart`/`imp` series the chart plots.
+  const summary = useMemo(() => {
+    const last = ages.length - 1;
+    if (last < 0) return 'Wealth projection chart. No projection available yet.';
+    return `Line chart projecting net worth from age ${ages[0]} to ${ages[last]}. `
+      + `The smart-decision path ends at ${cfmt(smart[last])}, `
+      + `the impulsive path at ${cfmt(imp[last])}.`;
+  }, [ages, smart, imp, cfmt]);
+
+  return <canvas ref={ref} height={185} role="img" aria-label={summary} />;
 }
 
 function SipDialog({ dialog, sh, onCancel, onChange, onConfirm }: {

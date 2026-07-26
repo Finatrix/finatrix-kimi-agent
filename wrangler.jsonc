@@ -6,18 +6,67 @@
   // correct HTTP status: 200 for real client routes, 404 for unknown URLs.
   // This replaces the previous SPA fallback, which returned 200 for every
   // unmatched path (a soft-404 that diluted search indexing).
-  "name": "finatrix",
+  // MUST be the Worker that `finatrix.co` is actually bound to. There are two
+  // scripts in the account: the original `finatrix` (created 2026-06-29, now
+  // reachable only on its workers.dev preview, since finatrix.online and
+  // finatrix.space no longer resolve) and `finatrix-co`, which is what serves
+  // the live apex. Deploying to `finatrix` would succeed, report success, and
+  // change nothing a visitor can see. `npm run verify:production` is the guard:
+  // it checks the real domain, so a deploy that lands on the wrong script fails
+  // the pipeline instead of passing silently.
+  "name": "finatrix-co",
   "main": "worker/index.ts",
-  "compatibility_date": "2024-11-01",
+  // 2025-04-01 or later is what enables `_headers` / `_redirects` handling in
+  // the Workers static-assets runtime. On the previous 2024-11-01 date the
+  // security and cache-control rules in public/_headers were parsed by nothing
+  // and silently dropped.
+  "compatibility_date": "2025-04-01",
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
-    "not_found_handling": "none"
+    "not_found_handling": "none",
+    // By default the assets runtime answers any request matching a built file
+    // WITHOUT invoking the Worker. That silently exempted the homepage and the
+    // other static document paths from the canonical redirect: `/tools/budget`
+    // on www redirected correctly, while `/` — the URL that matters most —
+    // served the site directly on the wrong host.
+    //
+    // Running the Worker first on document paths fixes that; worker/index.ts
+    // then delegates real files back to the ASSETS binding, so `_headers` still
+    // applies. The fingerprinted, immutable paths stay excluded: they are only
+    // ever fetched by a document that has already been canonicalised, so an
+    // invocation per asset would buy nothing.
+    "run_worker_first": [
+      "/*",
+      "!/assets/*",
+      "!/fonts/*",
+      "!/images/*",
+      "!/careers-ocr/*"
+    ]
   },
-  // Domain migration switch. Leave empty until finatrix.space DNS + SSL are live
-  // and the Worker is bound to BOTH domains; then set to "finatrix.space" to
-  // 301-redirect finatrix.online / www → the canonical apex. Inert while empty.
+
+  // Production hostnames. `custom_domain` has Cloudflare create the DNS record
+  // and issue the certificate for each, so both the apex and www terminate TLS
+  // on this Worker — www exists only so the Worker can 301 it to the apex
+  // instead of leaving it dead. Additive: any legacy domain still attached to
+  // this Worker keeps resolving and is 301'd to the canonical host by
+  // worker/index.ts, which is how link equity transfers before those domains
+  // are finally detached.
+  "routes": [
+    { "pattern": "finatrix.co", "custom_domain": true },
+    { "pattern": "www.finatrix.co", "custom_domain": true }
+  ],
+
+  // The canonical apex. Set to "" to make the redirect inert — the only reason
+  // to do that is a domain whose DNS/SSL is still propagating. When the var is
+  // absent entirely, worker/index.ts falls back to CANONICAL_HOST in
+  // src/shared/routes.ts, so a deploy is never accidentally non-canonical.
   "vars": {
-    "CANONICAL_HOST": ""
+    "CANONICAL_HOST": "finatrix.co"
+  },
+
+  // Workers Logs: without this, a 5xx at the edge leaves no trace anywhere.
+  "observability": {
+    "enabled": true
   }
 }

@@ -8,17 +8,28 @@
 // Deploy:  supabase functions deploy analytics-collect --no-verify-jwt
 //   (public on purpose — there is no user to authenticate; abuse is bounded by
 //    per-IP rate limiting + strict validation + a table clients cannot read.)
+//
+// ⚠️ THE `--no-verify-jwt` FLAG IS LOAD-BEARING, NOT A PREFERENCE.
+// The client ships batches with `navigator.sendBeacon`, which cannot attach an
+// Authorization header. Deployed with the platform default (verify_jwt = true)
+// the gateway answers 401 UNAUTHORIZED_NO_AUTH_HEADER *before* this code runs,
+// and because beacons are fire-and-forget the browser never notices — so 100%
+// of analytics, error reports and web vitals vanish while every dashboard shows
+// a plausible, empty zero. That is exactly what happened in production; a
+// re-deploy without the flag silently re-breaks it. `npm run verify:deploy`
+// probes this endpoint anonymously and fails when the gate is back on.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { rateLimited } from '../_shared/ratelimit.ts';
+import { corsHeaders } from '../_shared/origins.ts';
 
 const RATE_PER_MINUTE = Number(Deno.env.get('ANALYTICS_RATE_PER_MINUTE') ?? '120');
 const MAX_BODY_BYTES = 16_384;
 const MAX_EVENTS = 50;
 
-const ALLOWED_ORIGINS = (Deno.env.get('CAREERS_ALLOWED_ORIGINS') ??
-  'https://finatrix.online,https://www.finatrix.online,https://finatrix.space,https://www.finatrix.space,https://finatrix.finatrix-hub.workers.dev,http://localhost:5173,http://localhost:4173'
-).split(',').map((s) => s.trim()).filter(Boolean);
+// CORS: see ../_shared/origins.ts. This endpoint is UNAUTHENTICATED, so the
+// allowlist stays strict — `reflectAnyWebOrigin: false` — or any site on the
+// internet could post events into FinatriX's analytics table.
 
 // Must mirror the client taxonomy in src/lib/analytics.ts.
 const ALLOWED_EVENTS = new Set([
@@ -33,13 +44,11 @@ const ALLOWED_PROP_KEYS = new Set([
 const MAX_STRING = 64;
 
 function corsFor(req: Request): Record<string, string> {
-  const origin = req.headers.get('Origin') ?? '';
-  return {
-    'Access-Control-Allow-Origin': ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
-    'Access-Control-Allow-Headers': 'content-type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    Vary: 'Origin',
-  };
+  return corsHeaders(req, {
+    headers: 'content-type',
+    methods: 'POST, OPTIONS',
+    reflectAnyWebOrigin: false,
+  });
 }
 
 function sanitizeProps(input: unknown): Record<string, unknown> {

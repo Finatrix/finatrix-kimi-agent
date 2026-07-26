@@ -28,6 +28,7 @@ import {
   setFlagOverride,
 } from '../services/featureFlags2';
 import { listAllOrganizations } from '../services/organizations';
+import { loadProviderOps, type ProviderOpsSummary } from '../services/providerOps';
 import { listAllTickets, setTicketStatus } from '../services/supportTickets';
 import { supabase } from '../../lib/supabase';
 import type { AiUsageSummary } from '../types/phase4';
@@ -42,14 +43,15 @@ import type {
 } from '../types/phase4';
 import type { FeatureFlagRow } from '../types/jobs';
 import { toCareersError, type CareersError } from '../utils/errors';
-import { formatDate, formatDateTime } from '../utils/format';
+import { formatDate, formatDateTime, scoreColor } from '../utils/format';
 
-type Tab = 'overview' | 'subscriptions' | 'ai-usage' | 'flags' | 'organizations' | 'announcements' | 'tickets' | 'audit' | 'not-connected';
+type Tab = 'overview' | 'subscriptions' | 'ai-usage' | 'providers' | 'flags' | 'organizations' | 'announcements' | 'tickets' | 'audit' | 'not-connected';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'subscriptions', label: 'Subscriptions' },
   { id: 'ai-usage', label: 'AI Usage' },
+  { id: 'providers', label: 'Job Providers' },
   { id: 'flags', label: 'Feature Flags' },
   { id: 'organizations', label: 'Organizations' },
   { id: 'announcements', label: 'Announcements' },
@@ -72,6 +74,7 @@ export default function AdminDashboard() {
   const [announcements, setAnnouncements] = useState<AnnouncementRow[]>([]);
   const [tickets, setTickets] = useState<SupportTicketRow[]>([]);
   const [auditRows, setAuditRows] = useState<AuditLogRow[]>([]);
+  const [providerOps, setProviderOps] = useState<ProviderOpsSummary | null>(null);
   const [loadError, setLoadError] = useState<CareersError | null>(null);
 
   const [flagForm, setFlagForm] = useState({ flag: '', scope: 'user' as 'user' | 'org' | 'plan', scopeId: '', killSwitch: false });
@@ -80,7 +83,7 @@ export default function AdminDashboard() {
   const load = useCallback(async () => {
     if (!user || !isAdmin) return;
     try {
-      const [s, usage, gf, ov, o, a, t, al] = await Promise.all([
+      const [s, usage, gf, ov, o, a, t, al, ops] = await Promise.all([
         supabase.from('subscriptions').select('*').then((r) => (r.data ?? []) as SubscriptionRow[]),
         listAllUsage(30),
         listGlobalFlags(),
@@ -89,6 +92,7 @@ export default function AdminDashboard() {
         listAllAnnouncements(),
         listAllTickets(),
         listAuditLog(100),
+        loadProviderOps().catch(() => null),   // provider infra may not be migrated yet
       ]);
       setSubs(s);
       setUsageSummary(summarizeUsage(usage));
@@ -98,6 +102,7 @@ export default function AdminDashboard() {
       setAnnouncements(a);
       setTickets(t);
       setAuditRows(al);
+      setProviderOps(ops);
       setLoadError(null);
     } catch (e) {
       setLoadError(toCareersError(e));
@@ -211,6 +216,108 @@ export default function AdminDashboard() {
               <span className="cat-val">{m.calls}</span>
             </div>
           ))}
+        </div>
+      )}
+
+      {tab === 'providers' && (
+        <div className="card">
+          {!providerOps ? (
+            <EmptyState icon="briefcase" title="Provider telemetry not connected yet">
+              Apply <code>supabase/careers_provider_infrastructure.sql</code> and run a few searches;
+              per-provider health, latency, cost and top search terms will appear here.
+            </EmptyState>
+          ) : (
+            <>
+              <div className="dash-grid" style={{ marginBottom: 16 }}>
+                <div className="metric"><div className="ml">Searches (24h)</div><div className="mv">{providerOps.totalSearches24h}</div></div>
+                <div className="metric" style={{ ['--metric-accent' as string]: 'var(--blue)' }}><div className="ml">Jobs returned (24h)</div><div className="mv">{providerOps.totalJobs24h.toLocaleString()}</div></div>
+                <div className="metric" style={{ ['--metric-accent' as string]: 'var(--green)' }}><div className="ml">Est. API cost (24h)</div><div className="mv">${providerOps.estCost24hUsd.toFixed(4)}</div></div>
+                <div className="metric" style={{ ['--metric-accent' as string]: 'var(--purple)' }}><div className="ml">Cache hit rate (24h)</div><div className="mv">{providerOps.cacheHitRate == null ? '—' : `${Math.round(providerOps.cacheHitRate * 100)}%`}</div></div>
+                <div className="metric"><div className="ml">Top provider</div><div className="mv" style={{ fontSize: 15 }}>{providerOps.mostSuccessfulProvider ?? '—'}</div></div>
+              </div>
+
+              <div className="panel-eyebrow" style={{ marginBottom: 8 }}>Per-provider health (rolling 24h)</div>
+              {providerOps.health.length === 0 ? (
+                <div className="note">No provider calls recorded in the last 24 hours.</div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="cmp" style={{ width: '100%' }}>
+                    <thead>
+                      <tr>
+                        <th scope="col" style={{ textAlign: 'left' }}>Provider</th>
+                        <th scope="col">Calls</th><th scope="col">Success</th><th scope="col">Avg latency</th>
+                        <th scope="col">Jobs</th><th scope="col">Est. cost</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {providerOps.health.map((h) => (
+                        <tr key={h.provider}>
+                          <td style={{ textAlign: 'left' }}>{h.provider}</td>
+                          <td>{h.calls}</td>
+                          <td style={{ color: scoreColor(Math.round(h.successRate * 100)) }}>{Math.round(h.successRate * 100)}%</td>
+                          <td>{h.avgLatencyMs}ms</td>
+                          <td>{h.jobsReturned}</td>
+                          <td>${h.estCostUsd.toFixed(4)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Availability + remaining vendor budget. `jobs remaining` is the
+                  binding constraint for vendors that bill a credit per returned
+                  record — request quota alone reads healthy right up to cutoff. */}
+              <div className="panel-eyebrow" style={{ margin: '16px 0 8px' }}>Availability &amp; quota (rolling 24h)</div>
+              {providerOps.status.length === 0 ? (
+                <div className="note">No provider health events recorded in the last 24 hours.</div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="cmp" style={{ width: '100%' }}>
+                    <thead>
+                      <tr>
+                        <th scope="col" style={{ textAlign: 'left' }}>Provider</th>
+                        <th scope="col">Errors</th><th scope="col">Last failure</th>
+                        <th scope="col">Requests left</th><th scope="col">Job credits left</th>
+                        <th scope="col">Last seen</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {providerOps.status.map((s) => (
+                        <tr key={s.provider}>
+                          <td style={{ textAlign: 'left' }}>{s.provider}</td>
+                          <td style={{ color: scoreColor(Math.round((1 - s.errorRate) * 100)) }}>
+                            {Math.round(s.errorRate * 100)}%
+                          </td>
+                          <td>{s.lastErrorKind ?? '—'}</td>
+                          <td>{s.quotaRemaining == null ? '—' : s.quotaRemaining.toLocaleString()}</td>
+                          <td>{s.jobsRemaining == null ? '—' : s.jobsRemaining.toLocaleString()}</td>
+                          <td>{s.lastSeen ? formatDateTime(s.lastSeen) : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <div className="panel-eyebrow" style={{ margin: '16px 0 8px' }}>Top search terms (24h)</div>
+              {providerOps.topTerms.length === 0 ? (
+                <div className="note">No searches recorded yet.</div>
+              ) : (() => {
+                // Bars are scaled to the busiest term, not to total volume: the
+                // list is a top-N, so a share-of-all denominator would render
+                // every bar as an unreadable sliver once the long tail grows.
+                const peak = Math.max(...providerOps.topTerms.map((t) => t.searches), 1);
+                return providerOps.topTerms.slice(0, 12).map((t) => (
+                  <div className="cat-row" key={t.term}>
+                    <span className="cat-label">{t.term}</span>
+                    <div className="bar"><div className="bar-fill" style={{ width: `${(t.searches / peak) * 100}%`, background: 'var(--gold)' }} /></div>
+                    <span className="cat-val">{t.searches}</span>
+                  </div>
+                ));
+              })()}
+            </>
+          )}
         </div>
       )}
 

@@ -1,0 +1,127 @@
+/**
+ * One source of truth for edge-function CORS.
+ *
+ * WHY THIS FILE EXISTS
+ * --------------------
+ * Every function used to build its own allowlist like this:
+ *
+ *     const ALLOWED_ORIGINS = (Deno.env.get('CAREERS_ALLOWED_ORIGINS') ?? '<defaults>')
+ *
+ * `??` makes the environment variable REPLACE the built-in list rather than
+ * extend it. During the finatrix.online → finatrix.co migration that turned a
+ * forgotten dashboard secret into a production outage: the secret still read
+ * `https://finatrix.online,...`, so the code default naming the new domain was
+ * never evaluated, and `analytics-collect` — the one function that does strict
+ * membership rather than reflecting the caller — answered every request from
+ * https://finatrix.co with `Access-Control-Allow-Origin: https://finatrix.online`.
+ * The browser rejected all of it: 100% of analytics, error reports and web
+ * vitals dropped, and the console filled with CORS errors, while the repository,
+ * the build and every local test stayed green.
+ *
+ * The rule here inverts that failure mode: the canonical origins are ALWAYS
+ * allowed, derived from one constant, and `CAREERS_ALLOWED_ORIGINS` is purely
+ * ADDITIVE — it can grant extra origins but can never revoke the site's own.
+ * A stale secret is now inert instead of fatal. Moving domains again means
+ * editing `CANONICAL_HOST` in one place.
+ */
+
+/**
+ * The canonical production apex. MUST equal `CANONICAL_HOST` in
+ * src/shared/routes.ts — `src/test/edge-cors.test.ts` fails the build if the
+ * two ever drift. It is duplicated rather than imported because Supabase
+ * bundles each function from `supabase/functions/`, so a reach into `src/`
+ * would not survive `supabase functions deploy`.
+ */
+/**
+ * Minimal ambient declaration for the one Deno API this module touches.
+ *
+ * These files run on Deno, but `src/test/edge-cors.test.ts` imports this module
+ * so the drift guard against src/shared/routes.ts is a real assertion rather
+ * than a string comparison. That pulls the file into the app's `tsc -b`
+ * program, which has no Deno types. Declaring only `env.get` keeps the build
+ * honest — full `@types/deno` would be a dependency added for one property.
+ */
+declare const Deno: { env: { get(key: string): string | undefined } };
+
+export const CANONICAL_HOST = 'finatrix.co';
+
+/** The canonical origin. Used as the safe fallback for any request that
+ *  carries no usable `Origin` header, so the header is never sourced from a
+ *  possibly-stale environment variable. */
+export const CANONICAL_ORIGIN = `https://${CANONICAL_HOST}`;
+
+/** Local dev servers: `vite dev` (5173) and `vite preview` (4173). */
+const DEV_ORIGINS = ['http://localhost:5173', 'http://localhost:4173'];
+
+/** Origins that are always allowed, whatever the environment says. */
+const BASE_ORIGINS = [CANONICAL_ORIGIN, `https://www.${CANONICAL_HOST}`, ...DEV_ORIGINS];
+
+/**
+ * The effective allowlist: the built-in origins plus anything named in
+ * `CAREERS_ALLOWED_ORIGINS`. Additive by design — see the note above.
+ */
+export const ALLOWED_ORIGINS: string[] = [
+  ...new Set([
+    ...BASE_ORIGINS,
+    ...(Deno.env.get('CAREERS_ALLOWED_ORIGINS') ?? '')
+      .split(',')
+      .map((s: string) => s.trim())
+      .filter(Boolean),
+  ]),
+];
+
+/** Any localhost / 127.0.0.1 origin, on any port, for local dev. */
+export function isLocalOrigin(origin: string): boolean {
+  return /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+}
+
+/** A well-formed http(s) web origin with no path, e.g. `https://finatrix.co`. */
+export function isWebOrigin(origin: string): boolean {
+  return /^https?:\/\/[a-z0-9.-]+(:\d+)?$/i.test(origin);
+}
+
+export interface CorsOptions {
+  /** Value for `Access-Control-Allow-Headers`. */
+  headers: string;
+  /** Value for `Access-Control-Allow-Methods`. */
+  methods: string;
+  /**
+   * Reflect ANY well-formed web origin, not just allow-listed ones.
+   *
+   * Safe — and correct — for the authenticated `careers-*` endpoints: they are
+   * bearer-token APIs with no cookie auth and no `Allow-Credentials`, so
+   * reflecting an origin grants a third-party site nothing it could not already
+   * do with `fetch` from a server. Turning it on means an allowlist that drifts
+   * behind a domain change degrades to "still works" instead of "browser CORS
+   * error", which is the entire lesson of this migration.
+   *
+   * `analytics-collect` deliberately leaves it OFF: it is an unauthenticated
+   * write endpoint, so a strict allowlist is what stops any site on the
+   * internet from posting events into FinatriX's analytics table.
+   */
+  reflectAnyWebOrigin: boolean;
+}
+
+/**
+ * CORS headers for `req`.
+ *
+ * A request whose `Origin` is allowed (or reflectable) gets that origin echoed
+ * back. Everything else — absent, malformed, or not permitted — gets
+ * `CANONICAL_ORIGIN`, which denies the caller without ever advertising a
+ * retired domain. `Vary: Origin` is always set so shared caches never serve one
+ * origin's response to another.
+ */
+export function corsHeaders(req: Request, opts: CorsOptions): Record<string, string> {
+  const origin = req.headers.get('Origin') ?? '';
+  const permitted = Boolean(origin) && (
+    ALLOWED_ORIGINS.includes(origin)
+    || isLocalOrigin(origin)
+    || (opts.reflectAnyWebOrigin && isWebOrigin(origin))
+  );
+  return {
+    'Access-Control-Allow-Origin': permitted ? origin : CANONICAL_ORIGIN,
+    'Access-Control-Allow-Headers': opts.headers,
+    'Access-Control-Allow-Methods': opts.methods,
+    Vary: 'Origin',
+  };
+}

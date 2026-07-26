@@ -62,16 +62,25 @@ export interface NormalizedJob {
   posted_at: string | null;
   closes_at: string | null;
   industry: string;
-}
-
-export interface JobSourceRow {
-  id: string;
-  name: string;
-  kind: 'api' | 'aggregator' | 'manual';
-  description: string;
-  needs_secret: string;
-  enabled: boolean;
-  sort_order: number;
+  // ── Additive enrichment from the multi-provider search backend. Every field
+  //    is optional so this remains a strict superset of the original contract:
+  //    older code ignores them, newer code (badges, logo) uses them. ──
+  /** Truthful, earned badge keys (see FRESHNESS_BADGES). Never asserts unverified trust. */
+  badges?: string[];
+  /** 0–100 source confidence (provider priority + record completeness). */
+  confidence?: number;
+  /** today | this_week | this_month | older | unknown */
+  freshness?: string;
+  /** Deterministically extracted skills. */
+  skills?: string[];
+  /** '' | entry | mid | senior | lead | exec */
+  experience?: string;
+  /** 0–100 completeness/quality score. */
+  quality?: number;
+  /** 0–1 heuristic remote-friendliness. */
+  remote_probability?: number;
+  /** Safe https company logo, or null. */
+  company_logo?: string | null;
 }
 
 // ─────────────────────────── job rows ───────────────────────────

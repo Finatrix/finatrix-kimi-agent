@@ -44,7 +44,7 @@ Supabase CLI, no Cloudflare/Supabase/GitHub tokens, CF API → 403). Deploy/DNS/
 owner/CI actions. The repo is made one-command-deployable instead.
 
 - **Domain-migration 301 in the Worker** (`worker/index.ts` + `canonicalRedirect()` in `src/shared/routes.ts`):
-  legacy/www hosts → `finatrix.space`, path+query preserved. **Gated on `CANONICAL_HOST`** (unset = inert),
+  legacy/www hosts → `finatrix.co`, path+query preserved. **Gated on `CANONICAL_HOST`** (unset = inert),
   so it ships now and activates at cutover; previews/localhost never redirect. `/healthz` answers first on
   any host. 3 new unit tests (worker-routes → 8). `wrangler.jsonc` gains the `CANONICAL_HOST` var (empty).
 - **`docs/RELEASE.md`** — exact, ordered, copy-pasteable cutover runbook (Supabase SQL apply + verify
@@ -60,7 +60,7 @@ owner/CI actions. The repo is made one-command-deployable instead.
   scorecard, **CONDITIONAL GO** verdict, 4 operational launch blockers (apply DB SQL · smoke-test the
   404 Worker · deploy analytics · run Lighthouse+axe), a prioritized checklist, the `.online → .space`
   migration plan, residual risks, and the deferred Phase-3 product roadmap.
-- **CORS consistency:** added `finatrix.space` (+ www) to the `careers-ai` and `careers-jobs` default
+- **CORS consistency:** added `finatrix.co` (+ www) to the `careers-ai` and `careers-jobs` default
   origin allowlists (analytics-collect already had it) — removes a domain-migration footgun. Additive
   and safe.
 - Corrected an earlier assessment: `/tools` **redirects** to a tool (encoded in `AppRouting.test.tsx`),

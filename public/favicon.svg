@@ -1,7 +1,59 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="FinatriX">
-  <rect width="64" height="64" rx="14" fill="#0A0A0A"/>
-  <rect x="22" y="16" width="8" height="40" fill="#D4AF37"/>
-  <rect x="22" y="16" width="24" height="8" fill="#D4AF37"/>
-  <rect x="22" y="30" width="18" height="8" fill="#D4AF37"/>
-  <circle cx="44" cy="44" r="4" fill="#D4AF37"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="FinatriX">
+  <title>FinatriX</title>
+  <!--
+    The FinatriX mark: nine tiles around the gold core.
+
+    This is a VECTOR reconstruction of public/images/finatrix-logo.png, not a
+    copy of it. Tile positions and colours were measured from the source
+    artwork; the per-tile glyphs (₹, $, the chart, the clock, …) are deliberately
+    omitted, because at the sizes this file is actually used — 16 and 32 CSS
+    pixels in a browser tab — each tile is roughly three pixels across and a
+    glyph inside it cannot resolve. Rasterising the full artwork at 16px yields
+    a coloured smudge; drawing the composition as vector keeps the thing that
+    makes the mark recognisable at a glance: the 3×3 arrangement, the outward
+    offset of the middle tiles, and the gold quadrant core with its white node.
+
+    The full artwork with every glyph intact is still what ships at 180px and
+    above (apple-touch-icon, android-chrome-192, android-chrome-512), where the
+    detail survives. See scripts/generate-favicons.py.
+
+    Geometry is expressed on a 32-unit grid so edges land on whole pixels at
+    both 32×32 and 16×16.
+  -->
+  <rect width="32" height="32" rx="7" fill="#282827"/>
+
+  <!-- Connectors: gold core ↔ the four middle tiles. -->
+  <g stroke="#7D7D7D" stroke-width="1" stroke-linecap="round">
+    <line x1="16" y1="10"   x2="16" y2="11.5"/>
+    <line x1="16" y1="20.5" x2="16" y2="22"/>
+    <line x1="9"  y1="16"   x2="11.5" y2="16"/>
+    <line x1="20.5" y1="16" x2="23" y2="16"/>
+  </g>
+  <g fill="#7D7D7D">
+    <circle cx="16" cy="10.4" r="0.7"/>
+    <circle cx="16" cy="21.6" r="0.7"/>
+    <circle cx="9.4" cy="16" r="0.7"/>
+    <circle cx="22.6" cy="16" r="0.7"/>
+  </g>
+
+  <!-- Corner tiles: ₹, $, piggy bank, gold bars. -->
+  <rect x="4.5"  y="4.5"  width="6" height="6" rx="1.2" fill="#00B894"/>
+  <rect x="21.5" y="4.5"  width="6" height="6" rx="1.2" fill="#0984E3"/>
+  <rect x="4.5"  y="21.5" width="6" height="6" rx="1.2" fill="#FA9C86"/>
+  <rect x="21.5" y="21.5" width="6" height="6" rx="1.2" fill="#B2BEC3"/>
+
+  <!-- Middle tiles: chart, AI, clock, code. Offset outward, as in the logo. -->
+  <rect x="13.25" y="3"     width="5.5" height="7"   rx="1.2" fill="#0CEC90"/>
+  <rect x="13.25" y="22"    width="5.5" height="7"   rx="1.2" fill="#958DF8"/>
+  <rect x="2"     y="13.25" width="7"   height="5.5" rx="1.2" fill="#74DBBE"/>
+  <rect x="23"    y="13.25" width="7"   height="5.5" rx="1.2" fill="#59A7F6"/>
+
+  <!-- The gold core: four quadrants and the white centre node. -->
+  <g>
+    <path d="M11.5 11.5h4.5v4.5h-4.5z" fill="#F1C40F"/>
+    <path d="M16 11.5h4.5v4.5H16z"     fill="#F6CE76"/>
+    <path d="M11.5 16h4.5v4.5h-4.5z"   fill="#F4BA2D"/>
+    <path d="M16 16h4.5v4.5H16z"       fill="#CD9A31"/>
+  </g>
+  <circle cx="16" cy="16" r="1.7" fill="#FFFFFF"/>
 </svg>

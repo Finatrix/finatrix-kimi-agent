@@ -29,6 +29,12 @@ jobs:
       - name: Type-check
         run: npx tsc -b
 
+      # `eslint-plugin-react-hooks` is pinned to ~7.0.x on purpose. 7.1 adds
+      # `set-state-in-effect` / `purity` / `refs`, which flag 38 pre-existing
+      # call sites across 14 careers pages — almost all the ordinary
+      # "load data on mount" effect. They are worth adopting, but doing so is a
+      # deliberate refactor of working screens, not a dependency bump, so it is
+      # scheduled rather than dropped into a release-hardening pass.
       - name: Lint
         run: npx eslint . --max-warnings 0
 
@@ -39,8 +45,16 @@ jobs:
         run: npm run build
 
       # Fails only on critical advisories in production dependencies.
-      # (Known accepted risk at "high": xlsx — registry has no fixed version;
-      # the patched build ships from SheetJS's own CDN. See docs/DEPLOYMENT.md.)
+      # Advisories assessed and accepted below the "critical" bar — re-review
+      # whenever this list changes (`npm audit --omit=dev`):
+      #   • xlsx (high)        — registry has no fixed version; the patched build
+      #     ships from SheetJS's own CDN. See docs/DEPLOYMENT.md.
+      #   • react-router (high, GHSA-qwww-vcr4-c8h2) — RSC-mode CSRF bypass.
+      #     Not reachable: the app uses only <BrowserRouter> + declarative
+      #     <Routes>, no createBrowserRouter/RouterProvider, no route
+      #     actions/loaders, no RSC. Fixed only in 8.3.0, i.e. a major upgrade —
+      #     tracked as planned work, not a pre-launch change.
+      # (dompurify's low advisory was resolved by an in-range bump and is gone.)
       - name: Dependency audit (production, critical only)
         run: npm audit --omit=dev --audit-level=critical
 

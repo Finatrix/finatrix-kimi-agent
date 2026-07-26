@@ -88,7 +88,11 @@ export type ProviderFetcher = (
 // ─────────────────────────── ranking ───────────────────────────
 
 const PROVIDER_CONFIDENCE: Record<string, number> = {
-  jsearch: 10, adzuna: 9, jooble: 7, remotive: 6,
+  // Premium multi-provider set (server ranks authoritatively; this is the
+  // client-side secondary signal, kept in the same priority order).
+  activejobs: 10, linkedin: 9.5, workday: 9, googlejobs: 8.5, glassdoor: 8, jobpostingfeed: 7.5,
+  // Incumbent providers rank just below.
+  jsearch: 7, adzuna: 6.5, jooble: 5, remotive: 4,
 };
 
 export function relevanceScore(

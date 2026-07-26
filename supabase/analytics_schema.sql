@@ -62,8 +62,17 @@ revoke execute on function public.prune_analytics_events(int) from public, anon,
 grant execute on function public.prune_analytics_events(int) to service_role;
 
 -- ── Convenience rollup (admin dashboards) ─────────────────────────────────
--- Daily event counts + distinct sessions. Inherits the table's admin-only RLS.
-create or replace view public.analytics_event_counts_daily as
+-- Daily event counts + distinct sessions.
+--
+-- ⚠️ `security_invoker = true` is REQUIRED and is NOT the Postgres default.
+-- Without it a view runs with the *owner's* rights, and because the owner also
+-- owns `analytics_events`, RLS is bypassed entirely — every signed-in user (and
+-- `anon`, which Supabase grants SELECT on new public objects by default) could
+-- read the whole analytics stream despite the admin-only policy above. With it,
+-- the querying user's own policies apply. (Requires PostgreSQL 15+.)
+-- Belt-and-braces: anon is revoked explicitly below.
+create or replace view public.analytics_event_counts_daily
+  with (security_invoker = true) as
   select
     date_trunc('day', created_at)::date as day,
     event,
@@ -71,3 +80,5 @@ create or replace view public.analytics_event_counts_daily as
     count(distinct session_id)     as sessions
   from public.analytics_events
   group by 1, 2;
+
+revoke all on public.analytics_event_counts_daily from anon;

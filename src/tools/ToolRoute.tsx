@@ -21,19 +21,6 @@ const TOOL_PAGES: Record<string, ComponentType> = {
   settings: lazy(() => import('./pages/SettingsPage')),
 };
 
-const TITLES: Record<string, string> = {
-  budget: 'Budget Builder',
-  expenses: 'Expense Tracker',
-  investmatch: 'InvestMatch',
-  parksmart: 'ParkSmart',
-  peercompare: 'PeerCompare',
-  goals: 'Reverse Goal Planner',
-  lifemap: 'LifeMap',
-  reports: 'Reports',
-  calendar: 'Calendar',
-  settings: 'Settings',
-};
-
 export default function ToolRoute() {
   const { toolId = '' } = useParams();
   const id = toolId.toLowerCase();
@@ -41,7 +28,10 @@ export default function ToolRoute() {
 
   useEffect(() => {
     if (Page) {
-      document.title = `${TITLES[id]} — FinatriX`;
+      // The document title is NOT set here. `applySeo` owns the whole head for
+      // every route, from one map in src/lib/seo.ts — a second copy here meant
+      // two effects racing to write the same node, and the SEO title for the
+      // seven public calculators lost that race on a client-side navigation.
       track('tool_view', { tool: id });
       try {
         store.set('fx_last_tool', id);

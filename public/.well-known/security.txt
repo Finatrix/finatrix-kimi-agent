@@ -1,4 +1,4 @@
 Contact: mailto:finatrix.hub@gmail.com
 Expires: 2027-07-07T00:00:00.000Z
 Preferred-Languages: en
-Canonical: https://finatrix.online/.well-known/security.txt
+Canonical: https://finatrix.co/.well-known/security.txt

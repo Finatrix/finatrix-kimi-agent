@@ -252,7 +252,7 @@ Every AI feature shares one contract: **prompt (fenced untrusted content + injec
 
 **Known fixes already applied** (per the production audit, confirmed live in the working tree): the AI usage-counter race condition (now an atomic Postgres RPC with a fallback path), and the `careers-email` open-relay vulnerability (now recipient-locked to the caller's own verified email).
 
-**Fixed in the 2026-07-07 production pass:** `careers_analytics` select policy restricted to platform admins + `(event, created_at DESC)` index added; CORS on all three edge functions restricted to an origin allowlist (`finatrix.online` + www + localhost dev, overridable via `CAREERS_ALLOWED_ORIGINS`); `increment_ai_usage` RPC EXECUTE revoked from anon/authenticated (service-role-only); the edge function's RPC-result check corrected (the RPC returns a bare int, not `{calls}` — the -1 limit sentinel was previously never detected on the RPC path).
+**Fixed in the 2026-07-07 production pass:** `careers_analytics` select policy restricted to platform admins + `(event, created_at DESC)` index added; CORS on all three edge functions restricted to an origin allowlist (`finatrix.co` + www + localhost dev, overridable via `CAREERS_ALLOWED_ORIGINS`); `increment_ai_usage` RPC EXECUTE revoked from anon/authenticated (service-role-only); the edge function's RPC-result check corrected (the RPC returns a bare int, not `{calls}` — the -1 limit sentinel was previously never detected on the RPC path).
 
 **Remaining known issues:**
 - Rate limiting at the edge layer is now present but per-isolate (best-effort burst protection in `functions/_shared/ratelimit.ts`; the atomic daily quota in Postgres remains the authoritative limit). A globally-consistent limiter would need KV/Redis — deliberately not added pre-beta.
@@ -294,7 +294,7 @@ Every AI feature shares one contract: **prompt (fenced untrusted content + injec
 
 A full audit (`FINATRIX_COMPLETE_AUDIT.md`, dated 2026-07-04) scored overall launch readiness at **82/100**. Category breakdown: Features 88, Architecture 92, Testing 85, Documentation 80, Deployment 75, Security 82, Performance 83, UX/Accessibility 74.
 
-**Critical (launch blocker):** canonical/OG/sitemap URL typo (`fiantrix.online` instead of `finatrix.online`) across `index.html`, `sitemap.xml`, `robots.txt`. **Status: FIXED 2026-07-07** — all occurrences corrected, including `robots.txt` (which the earlier partial fix had missed).
+**Critical (launch blocker):** canonical/OG/sitemap URL typo (`fiantrix.online` instead of `finatrix.co`) across `index.html`, `sitemap.xml`, `robots.txt`. **Status: FIXED 2026-07-07** — all occurrences corrected, including `robots.txt` (which the earlier partial fix had missed).
 
 **High severity — both since fixed** (confirmed present in the current working tree, per external edits observed mid-session): the AI-usage-counter race condition (atomic RPC now in place) and the `careers-email` open relay (recipient now locked to caller's own email).
 

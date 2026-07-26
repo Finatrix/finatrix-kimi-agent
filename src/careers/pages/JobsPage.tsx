@@ -24,7 +24,6 @@ import { analyzeJobText, type JobIntelResult } from '../services/jobIntel';
 import {
   deleteJob,
   jobContentSha,
-  listJobSources,
   listSavedJobs,
   saveJob,
   saveJobDescription,
@@ -48,13 +47,29 @@ import {
   matchBand,
   type JobRow,
   type JobSearchParams,
-  type JobSourceRow,
   type MatchReport,
   type NormalizedJob,
   type TailoringReport,
 } from '../types/jobs';
 import { toCareersError, withRetry, type CareersError } from '../utils/errors';
 import { formatDate, scoreColor } from '../utils/format';
+
+/**
+ * Truthful trust/quality chips shown on each result. Every label maps to an
+ * observable fact the backend computed (a real date, a real score, an
+ * enrichment that actually ran) — see providers/badges.ts. We deliberately do
+ * NOT show a generic "Verified" chip on unverified aggregated listings.
+ */
+const TRUST_BADGES: Record<string, string> = {
+  posted_today: 'Posted today',
+  fresh_this_week: 'Fresh listing',
+  updated_recently: 'Updated recently',
+  salary_listed: 'Salary listed',
+  remote_friendly: 'Remote-friendly',
+  high_confidence: 'High-confidence match',
+  ai_summary: 'AI summary',
+  skills_matched: 'Matches your skills',
+};
 
 // ─────────────────────────── resume version picker ───────────────────────────
 
@@ -411,7 +426,6 @@ export default function JobsPage() {
   const [params, setParams] = useState<JobSearchParams>({ ...DEFAULT_SEARCH_PARAMS });
   const [searching, setSearching] = useState(false);
   const [report, setReport] = useState<SearchReport | null>(null);
-  const [sources, setSources] = useState<JobSourceRow[]>([]);
   const [searchError, setSearchError] = useState<CareersError | null>(null);
   const [threshold, setThreshold] = useState(DEFAULT_MATCH_THRESHOLD);
   const [saved, setSaved] = useState<JobRow[]>([]);
@@ -452,10 +466,6 @@ export default function JobsPage() {
   // Presentation-only ordering of already-ranked results.
   type SortMode = 'best' | 'newest' | 'salary';
   const [sortMode, setSortMode] = useState<SortMode>('best');
-
-  useEffect(() => {
-    void listJobSources().then(setSources, () => setSources([]));
-  }, []);
 
   const loadSaved = useCallback(async () => {
     if (!user) return;
@@ -769,18 +779,8 @@ export default function JobsPage() {
               </button>
             </div>
             <div className="note">
-              Sources:{' '}
-              {sources.filter((s) => s.kind !== 'manual').map((s) => {
-                const st = report?.quality.providerCoverage[s.id];
-                const dot = st === undefined ? 'tl-mute' : st === 'ok' ? 'tl-green' : st === 'error' || st === 'timeout' ? 'tl-red' : 'tl-yellow';
-                return (
-                  <span key={s.id} title={s.description} style={{ marginRight: 12 }}>
-                    <span className={`tl-dot ${dot}`} />
-                    {s.name}{st === 'not-configured' ? ' (needs key — see SETUP.md §6)' : st === 'skipped' ? ' (skipped for this search)' : ''}
-                  </span>
-                );
-              })}
-              {' '}Aggregators surface LinkedIn, Indeed, Naukri, Glassdoor, Foundit and company-site postings with source attribution.
+              Listings are aggregated from a broad set of trusted job sources across the web and refreshed
+              continuously. Each posting shows its original source, and duplicate listings are merged automatically.
             </div>
           </div>
 
@@ -818,11 +818,10 @@ export default function JobsPage() {
           {report && !searching && (() => {
             const q = report.quality;
             const cov = q.providerCoverage;
-            const counts = q.providerCounts;
-            const lat = q.providerLatency ?? {};
-            const label: Record<string, string> = { jsearch: 'JSearch', adzuna: 'Adzuna', jooble: 'Jooble', remotive: 'Remotive' };
+            // Source names are deliberately not shown to users — the experience is
+            // native to FinatriX. Detailed per-source health lives in the internal
+            // admin dashboard. Here we surface only an honest aggregate.
             const ran = Object.values(cov).filter((s) => s === 'ok' || s === 'error' || s === 'timeout').length;
-            const ms = (id: string) => (lat[id] ? ` · ${lat[id]}ms` : '');
             const cb = q.confidenceBreakdown;
             return (
               <div className="card" role="status" style={{ padding: '12px 18px', marginBottom: 10 }}>
@@ -847,16 +846,20 @@ export default function JobsPage() {
                 </div>
                 {Object.keys(cov).length > 0 && (
                   <div className="job-meta" style={{ gap: 14, marginTop: 6 }}>
-                    <span><b style={{ color: 'var(--ink)' }}>{ran}</b> provider{ran === 1 ? '' : 's'} searched</span>
-                    {Object.entries(cov).map(([id, st]) => {
-                      const name = label[id] ?? id;
-                      if (st === 'ok') return <span key={id} style={{ color: 'var(--green)' }}>✓ {name} ({counts[id] ?? 0}){ms(id)}</span>;
-                      if (st === 'timeout') return <span key={id} style={{ color: 'var(--orange)' }}>⚠️ {name} timeout</span>;
-                      if (st === 'error') return <span key={id} style={{ color: 'var(--orange)' }}>⚠️ {name} unavailable</span>;
-                      if (st === 'not-configured') return <span key={id} className="note">○ {name} not configured</span>;
-                      if (st === 'skipped') return <span key={id} className="note">– {name} skipped</span>;
-                      return <span key={id} className="note">{name}: {st}</span>;
-                    })}
+                    <span><b style={{ color: 'var(--ink)' }}>{ran}</b> source{ran === 1 ? '' : 's'} searched</span>
+                    {(() => {
+                      const vals = Object.values(cov);
+                      const live = vals.filter((st) => st === 'ok').length;
+                      const degraded = vals.filter((st) => st === 'timeout' || st === 'error').length;
+                      return (
+                        <>
+                          <span style={{ color: 'var(--green)' }}>✓ {live} live</span>
+                          {degraded > 0 && (
+                            <span style={{ color: 'var(--orange)' }}>· {degraded} temporarily unavailable</span>
+                          )}
+                        </>
+                      );
+                    })()}
                     {q.duplicatesRemoved > 0 && <span className="note">· {q.duplicatesRemoved} duplicate{q.duplicatesRemoved === 1 ? '' : 's'} removed</span>}
                     {q.timings?.totalMs != null && <span className="note">· ranked in {Math.round(q.timings.totalMs)}ms</span>}
                   </div>
@@ -892,6 +895,19 @@ export default function JobsPage() {
                       {job.posted_at && <span>Posted {formatDate(job.posted_at)}</span>}
                       <span className="badge badge-mute">via {job.via}</span>
                     </div>
+                    {/* Truthful, earned trust/quality chips (freshness, salary,
+                        remote, confidence, skill match) — each reflects a real
+                        fact the search backend computed, never a vendor name. */}
+                    {job.badges && job.badges.length > 0 && (
+                      <div className="job-meta" style={{ marginTop: 4 }}>
+                        {job.badges
+                          .filter((b) => TRUST_BADGES[b])
+                          .slice(0, 4)
+                          .map((b) => (
+                            <span key={b} className="badge badge-green">{TRUST_BADGES[b]}</span>
+                          ))}
+                      </div>
+                    )}
                     {intelMap.get(s) && (
                       <div className="job-meta" style={{ marginTop: 4 }}>
                         {intelBadges(intelMap.get(s)!).map((b) => (

@@ -40,6 +40,11 @@
   --status-danger:  #FF5A52;
   --data-purple:    #9B7BFF;
   --data-teal:      #2BC4B0;
+  /* Wants allocation colour — a premium amber, deliberately distinct from the
+     brand gold so the three budget bands (Needs/Wants/Savings) never rely on
+     brightness alone to be told apart. Canonical here (not in tools.css) so it
+     gets a light-theme value like every other coloured-text token. */
+  --data-wants:     #F5A524;
 
   /* ── Hairlines / borders ─────────────────────────────────────────────── */
   --hairline:   rgba(255, 255, 255, 0.12);
@@ -172,11 +177,28 @@
      messages, budget/KPI figures, status labels, deltas). These deeper hues
      all clear 4.4–6.6:1 on white and paper while staying the same semantic
      colour and reading well as bar/tile fills too. Dark theme keeps the vivid
-     originals; Chart.js series use literal hex, so charts are unchanged. */
-  --status-info:    #1D6FE0;
+     originals; Chart.js series use literal hex, so charts are unchanged.
+
+     The DATA colours below were missed by the first deepening pass and stayed
+     at their dark-theme values on light paper, where they measured 2.06:1
+     (teal), 2.97:1 (purple) and 1.92:1 (wants) — all well under AA, and all
+     used as real text: ParkSmart's effective-rate figure, PeerCompare and
+     LifeMap KPI values, and the Budget "Wants %" band label.
+     `--status-info` was marginal at 4.49:1 on the tools canvas — passing as
+     large text but failing for the 10–11px uses in `.cal-ev` and LifeMap — so
+     it is deepened one shade to clear AA at every size. */
+  --status-info:    #1A63C8;
   --status-success: #0D7038;
   --status-warn:    #B45816;
   --status-danger:  #B42318;
+  --data-purple:    #6B46C1;
+  /* Teal is deepened one shade further than the canvas alone would require.
+     It is used as text INSIDE tinted pills (ParkSmart's "Best Match" sits on
+     rgba(12,128,121,.12)), and that tint darkens the background enough to pull
+     a canvas-passing 5.16:1 down to 4.41:1 — under AA. See the tinted-badge
+     case in src/test/contrast.test.ts. */
+  --data-teal:      #0E6B63;
+  --data-wants:     #9A5B04;
 
   /* ── Hairlines — warm black-alpha instead of white-alpha ─────────────── */
   --hairline:   rgba(23, 21, 15, 0.14);

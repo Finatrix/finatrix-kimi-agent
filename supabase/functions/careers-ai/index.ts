@@ -12,6 +12,7 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { rateLimited } from '../_shared/ratelimit.ts';
+import { corsHeaders } from '../_shared/origins.ts';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const RATE_PER_MINUTE = Number(Deno.env.get('CAREERS_AI_RATE_PER_MINUTE') ?? '20');
@@ -29,32 +30,17 @@ const MAX_INPUT_CHARS = 80_000;   // system + user combined
 const MAX_OUTPUT_TOKENS = 8_192;
 const REQUEST_TIMEOUT_MS = 90_000;
 
-// CORS: this is an authenticated mutation endpoint, so the allowed origin is
-// restricted to the production site (plus local dev), not '*'. Override with
-// CAREERS_ALLOWED_ORIGINS="https://a.com,https://b.com" if the origin changes.
-const ALLOWED_ORIGINS = (Deno.env.get('CAREERS_ALLOWED_ORIGINS') ??
-  'https://finatrix.online,https://www.finatrix.online,https://finatrix.space,https://www.finatrix.space,https://finatrix.finatrix-hub.workers.dev,http://localhost:5173,http://localhost:4173'
-).split(',').map((s) => s.trim()).filter(Boolean);
-
-/** A well-formed http(s) web origin (no path). */
-function isWebOrigin(origin: string): boolean {
-  return /^https?:\/\/[a-z0-9.-]+(:\d+)?$/i.test(origin);
-}
-
+// CORS: see ../_shared/origins.ts for why the allowlist is built from
+// CANONICAL_HOST and CAREERS_ALLOWED_ORIGINS is additive. Bearer-JWT
+// authenticated and cookieless, so reflecting any well-formed web origin is
+// safe (no ambient credentials to ride on) and stops allowlist drift after a
+// domain change from surfacing as a browser "CORS" error.
 function corsFor(req: Request): Record<string, string> {
-  const origin = req.headers.get('Origin') ?? '';
-  // Bearer-JWT authenticated, cookieless endpoint — reflecting any well-formed
-  // web origin is safe and prevents per-domain allowlist drift from surfacing as
-  // a browser "CORS" error. Tighten via CAREERS_ALLOWED_ORIGINS if ever needed.
-  const allow = (ALLOWED_ORIGINS.includes(origin) || isWebOrigin(origin)) && origin
-    ? origin
-    : ALLOWED_ORIGINS[0];
-  return {
-    'Access-Control-Allow-Origin': allow,
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    Vary: 'Origin',
-  };
+  return corsHeaders(req, {
+    headers: 'authorization, x-client-info, apikey, content-type',
+    methods: 'POST, OPTIONS',
+    reflectAnyWebOrigin: true,
+  });
 }
 
 function jsonWith(cors: Record<string, string>) {
@@ -92,7 +78,7 @@ async function callModel(
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://finatrix.app',
+        'HTTP-Referer': 'https://finatrix.co',
         'X-Title': 'FinatriX Careers',
       },
       body: JSON.stringify({
@@ -218,18 +204,19 @@ Deno.serve(async (req) => {
   const errors: string[] = [];
   for (const model of chain) {
     try {
-      
-const { content, model: used, usage: tokenUsage } = await callModel(apiKey, model, system, userMsg, maxTokens);
-console.log("================================");
-console.log("MODEL:", used);
-console.log("RAW RESPONSE:");
-console.log(content);
-console.log("================================");     
-
-
-
-
- return json(200, {
+      const { content, model: used, usage: tokenUsage } = await callModel(
+        apiKey, model, system, userMsg, maxTokens,
+      );
+      // Structured, PII-free observability. The completion itself is NEVER
+      // logged: for the `parse` task it is the user's résumé rendered as JSON
+      // (name, email, phone, employers, credential ids), and edge-function logs
+      // have neither the RLS protection nor the retention policy that the
+      // careers tables do. Log only shape and cost.
+      console.info(JSON.stringify({
+        fn: 'careers-ai', task, model: used, ms: Date.now() - started,
+        promptTokens: tokenUsage.promptTokens, completionTokens: tokenUsage.completionTokens,
+      }));
+      return json(200, {
         content,
         model: used,
         task,

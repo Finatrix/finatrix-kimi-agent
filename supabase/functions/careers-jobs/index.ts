@@ -24,47 +24,45 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { rateLimited } from '../_shared/ratelimit.ts';
+import { corsHeaders } from '../_shared/origins.ts';
+// ── Multi-provider architecture (providers/*). The manager owns the entire
+//    search flow; nothing provider-specific lives in this composition root. ──
+import { LegacyProvider } from './providers/LegacyProvider.ts';
+import { ProviderManager } from './providers/ProviderManager.ts';
+import { buildNativeProviders, buildStores, runtimeConfigFromEnv, validateEnv } from './providers/factory.ts';
+import { TieredCache, InMemoryCacheStore } from './providers/ProviderCache.ts';
+import { InMemoryQuotaStore, checkRequestQuota, clientIp } from './providers/RateLimiter.ts';
+import type { DbClient } from './providers/store.ts';
+import type { SearchInput, QuotaStore, HealthStore, MetricsStore } from './providers/types.ts';
 
 const RATE_PER_MINUTE = Number(Deno.env.get('CAREERS_JOBS_RATE_PER_MINUTE') ?? '30');
 
-// CORS: authenticated endpoint — restricted to the production site (plus
-// local dev), not '*'. Override with CAREERS_ALLOWED_ORIGINS if needed.
-const ALLOWED_ORIGINS = (Deno.env.get('CAREERS_ALLOWED_ORIGINS') ??
-  'https://finatrix.online,https://www.finatrix.online,https://finatrix.space,https://www.finatrix.space,https://finatrix.finatrix-hub.workers.dev,http://localhost:5173,http://localhost:4173'
-).split(',').map((s) => s.trim()).filter(Boolean);
-
-/** Any localhost / 127.0.0.1 origin (any port) is allowed for local dev. */
-function isLocalOrigin(origin: string): boolean {
-  return /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
-}
-
-/** A well-formed http(s) web origin (no path), e.g. https://fiantrix.online. */
-function isWebOrigin(origin: string): boolean {
-  return /^https?:\/\/[a-z0-9.-]+(:\d+)?$/i.test(origin);
-}
-
+// CORS: see ../_shared/origins.ts for why the allowlist is built from
+// CANONICAL_HOST and CAREERS_ALLOWED_ORIGINS is additive. Bearer-JWT
+// authenticated and cookieless, so reflecting any well-formed web origin is
+// safe and removes brittle per-domain allowlists as a failure mode.
 function corsFor(req: Request): Record<string, string> {
-  const origin = req.headers.get('Origin') ?? '';
-  // This endpoint authenticates via a Bearer JWT and uses NO cookies, so
-  // reflecting the caller's origin is safe (it cannot enable CSRF — there are no
-  // ambient credentials to ride on) and removes brittle per-domain allowlists as
-  // a failure mode. We reflect any explicitly-allowed origin, any localhost, or
-  // any well-formed http(s) origin; only malformed/empty origins fall back to
-  // the canonical production origin. Tighten via CAREERS_ALLOWED_ORIGINS if you
-  // ever need a strict allowlist again.
-  const reflectable =
-    ALLOWED_ORIGINS.includes(origin) || isLocalOrigin(origin) || isWebOrigin(origin);
-  const allow = reflectable && origin ? origin : ALLOWED_ORIGINS[0];
-  return {
-    'Access-Control-Allow-Origin': allow,
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    Vary: 'Origin',
-  };
+  return corsHeaders(req, {
+    headers: 'authorization, x-client-info, apikey, content-type',
+    methods: 'POST, OPTIONS',
+    reflectAnyWebOrigin: true,
+  });
 }
 
 const PROVIDER_TIMEOUT_MS = 12_000;
 const MAX_RESULTS_PER_PROVIDER = 40;
+// Extra attempts on TRANSIENT failures only (network drop, timeout, upstream
+// 5xx). Config-tunable; 0 disables retries. Never retries 4xx — a 401/400/429
+// is deterministic for this call, and retrying a 429 would burn paid quota.
+const PROVIDER_RETRIES = Math.max(0, Math.min(2, Number(Deno.env.get('CAREERS_PROVIDER_RETRIES') ?? '1')));
+
+// Ops kill-switch: force providers off (maintenance, cost control, a provider
+// incident) without a code change or redeploy — just set the secret. Comma-
+// separated provider ids. Complements the automatic secret-gating below.
+const DISABLED_PROVIDERS = new Set(
+  (Deno.env.get('CAREERS_DISABLED_PROVIDERS') ?? '')
+    .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
+);
 
 function jsonWith(cors: Record<string, string>) {
   return (status: number, body: unknown): Response =>
@@ -73,6 +71,15 @@ function jsonWith(cors: Record<string, string>) {
       headers: { ...cors, 'Content-Type': 'application/json' },
     });
 }
+
+/**
+ * Pre-auth burst gate. `supabase.auth.getUser()` is a network round-trip to the
+ * auth service, and the per-user limiter below cannot run until it succeeds — so
+ * without this an unauthenticated flood costs a GoTrue call and a billed
+ * invocation per request, with nothing bounding it. Keyed on the IP, which is
+ * all we know before authenticating.
+ */
+const UNAUTH_RATE_PER_MINUTE = Number(Deno.env.get('CAREERS_JOBS_UNAUTH_RATE_PER_MINUTE') ?? '60');
 
 // ─────────────────────────── canonical shapes ───────────────────────────
 
@@ -121,15 +128,42 @@ interface Provider {
 
 // ─────────────────────────── helpers ───────────────────────────
 
-async function fetchJson(url: string, init: RequestInit = {}): Promise<unknown> {
+/** Failures worth another attempt: aborts/timeouts, network errors, and 5xx
+ *  upstreams. 4xx (auth, bad request, quota/429) are permanent for this call. */
+function isTransient(err: unknown): boolean {
+  const status = (err as { status?: number })?.status;
+  if (typeof status === 'number') return status >= 500;
+  return /abort|timeout|network|fetch failed|connection/i.test(String(err));
+}
+
+async function fetchOnce(url: string, init: RequestInit): Promise<unknown> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), PROVIDER_TIMEOUT_MS);
   try {
     const res = await fetch(url, { ...init, signal: ctrl.signal });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const e = new Error(`HTTP ${res.status}`) as Error & { status: number };
+      e.status = res.status;   // lets isTransient() distinguish 5xx from 4xx
+      throw e;
+    }
     return await res.json();
   } finally {
     clearTimeout(timer);
+  }
+}
+
+/** Fetch JSON with a per-attempt timeout and bounded retries on transient
+ *  failures. Each attempt gets its own AbortController/timeout. */
+async function fetchJson(url: string, init: RequestInit = {}): Promise<unknown> {
+  let attempt = 0;
+  for (;;) {
+    try {
+      return await fetchOnce(url, init);
+    } catch (e) {
+      if (attempt >= PROVIDER_RETRIES || !isTransient(e)) throw e;
+      attempt++;
+      await new Promise((r) => setTimeout(r, 250 * attempt)); // brief linear backoff
+    }
   }
 }
 
@@ -328,6 +362,107 @@ const jooble: Provider = {
 
 const PROVIDERS: Provider[] = [remotive, adzuna, jsearch, jooble];
 
+// ─────────────────────── unified provider manager ───────────────────────
+//
+// The six native providers (Active Jobs DB, LinkedIn, Workday, Google Jobs,
+// Glassdoor, Job Posting Feed) plus the four incumbents (adzuna/jsearch/jooble/
+// remotive), all behind the single JobProvider interface. Built once per isolate
+// and reused. Incumbents rank below the premium set but are never removed, so
+// functionality only grows. Degrades to in-memory stores if the service-role
+// client is unavailable — search keeps working, just without durable cache/metrics.
+
+/** Incumbent providers rank below the premium set (which occupies 100…50). */
+const LEGACY_PRIORITY: Record<string, number> = { adzuna: 40, jsearch: 38, jooble: 30, remotive: 20 };
+
+let _manager: ProviderManager | null = null;
+let _quota: QuotaStore | null = null;
+let _admin: ReturnType<typeof createClient> | null = null;
+
+function getManager(): { manager: ProviderManager; quota: QuotaStore } {
+  if (_manager && _quota) return { manager: _manager, quota: _quota };
+
+  const env = Deno.env.toObject();
+  const cfg = runtimeConfigFromEnv(env, PROVIDER_TIMEOUT_MS, MAX_RESULTS_PER_PROVIDER, PROVIDER_RETRIES);
+
+  // Env for the incumbents (their own declared secrets only).
+  const legacyEnv: Record<string, string> = {};
+  for (const key of new Set(PROVIDERS.flatMap((p) => p.secrets))) {
+    const v = Deno.env.get(key);
+    if (v) legacyEnv[key] = v;
+  }
+  const legacy = PROVIDERS.map((p) => new LegacyProvider({
+    id: p.id,
+    priority: LEGACY_PRIORITY[p.id] ?? 10,
+    secrets: p.secrets,
+    costPerSearchMicroUsd: 0, // free/low-cost incumbents
+    supports: (input) => p.supports?.(input as unknown as SearchParams) ?? true,
+    isConfigured: () => p.secrets.every((s) => s in legacyEnv),
+    search: (input) => p.search(input as unknown as SearchParams, legacyEnv),
+  }));
+  const native = buildNativeProviders(cfg);
+
+  let cache: TieredCache, health: HealthStore, metrics: MetricsStore, quota: QuotaStore;
+  try {
+    _admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    const stores = buildStores(_admin as unknown as DbClient);
+    ({ cache, health, metrics, quota } = stores);
+  } catch {
+    _admin = null;
+    cache = new TieredCache(new InMemoryCacheStore());
+    health = { load: async () => [], record: async () => {} };
+    metrics = { record: async () => {} };
+    quota = new InMemoryQuotaStore();
+  }
+
+  _manager = new ProviderManager([...native, ...legacy], { cache, health, metrics });
+  _quota = quota;
+
+  // One-time environment report per isolate. Secret NAMES only — never values.
+  // This is the check that makes a misconfiguration loud: a provider key set
+  // under a marketplace label ("Active Jobs DB") instead of its canonical name
+  // is otherwise invisible, and the provider simply returns nothing forever.
+  const report = validateEnv(env, [...native, ...legacy]);
+  const line: Record<string, unknown> = {
+    fn: 'careers-jobs', event: 'startup',
+    configured: report.configuredProviders,
+    unconfigured: report.unconfiguredProviders,
+    missingSecrets: report.missing,
+    durableStores: _admin != null,
+  };
+  if (report.suspectedMisnamed.length) {
+    line.WARNING = 'secrets set under names this function never reads — rename to the canonical form';
+    line.suspectedMisnamed = report.suspectedMisnamed;
+    console.warn(JSON.stringify(line));
+  } else {
+    console.info(JSON.stringify(line));
+  }
+
+  return { manager: _manager, quota };
+}
+
+/** Best-effort: the signed-in user's skills, for the truthful skills-match badge. */
+async function fetchUserSkills(
+  db: ReturnType<typeof createClient>,
+  userId: string,
+): Promise<string[]> {
+  try {
+    const { data } = await db.from('resume_skills').select('name').eq('user_id', userId).limit(100);
+    if (!Array.isArray(data)) return [];
+    return [...new Set((data as { name?: string }[]).map((r) => String(r.name ?? '').toLowerCase()).filter(Boolean))];
+  } catch { return []; }
+}
+
+/** Best-effort: log the search for admin analytics (volume, top terms). */
+function recordSearchHistory(userId: string, input: SearchInput, results: number): void {
+  if (!_admin) return;
+  try {
+    void _admin.from('job_search_history').insert({
+      user_id: userId, query: input.query.slice(0, 200), country: input.country,
+      results, at: new Date().toISOString(),
+    });
+  } catch { /* degrade */ }
+}
+
 // ─────────────────────────── dedupe ───────────────────────────
 
 function dedupeKey(j: NormalizedJob): string {
@@ -376,6 +511,35 @@ async function handle(
   req: Request,
   json: (status: number, body: unknown) => Response
 ): Promise<Response> {
+  // Pre-auth gate: bound the work an UNAUTHENTICATED caller can make us do.
+  // Everything below this line costs a network round-trip to the auth service
+  // plus a billed invocation, and the per-user limiter cannot run until we have
+  // a user — so an anonymous flood would otherwise be unbounded.
+  //
+  // TWO layers, because the cheap one alone is provably not enough: the
+  // in-isolate counter only sees traffic that lands on ITS isolate, and Supabase
+  // Edge spreads even strictly sequential requests across fresh isolates —
+  // measured against production, 140 consecutive anonymous requests never
+  // tripped it. The authoritative gate is therefore the same atomic Postgres
+  // counter the per-user quota uses, which every isolate shares.
+  //
+  // Order matters: the in-memory check runs first so a warm isolate rejects a
+  // repeat offender without touching the database, and the DB call is reached
+  // only by traffic that looks new to this isolate.
+  const ip = clientIp(req.headers);
+  if (ip && rateLimited(`ip:${ip}`, UNAUTH_RATE_PER_MINUTE)) {
+    return json(429, { error: 'Too many requests. Wait a minute and try again.' });
+  }
+  const { manager, quota } = getManager();
+  if (ip) {
+    // Degrades OPEN (hit() returns 0 on any store error) so a database hiccup
+    // can never lock legitimate traffic out of search.
+    const preauth = await quota.hit('ip:preauth', ip, UNAUTH_RATE_PER_MINUTE, 60);
+    if (preauth === -1) {
+      return json(429, { error: 'Too many requests. Wait a minute and try again.' });
+    }
+  }
+
   // Authenticate the caller.
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -412,80 +576,43 @@ async function handle(
   };
   if (!params.query) return json(400, { error: 'Enter a job title or keyword to search.' });
 
-  const env: Record<string, string> = {};
-  for (const key of ['ADZUNA_APP_ID', 'ADZUNA_APP_KEY', 'RAPIDAPI_KEY', 'JOOBLE_KEY']) {
-    const v = Deno.env.get(key);
-    if (v) env[key] = v;
+  // Authoritative multi-dimension quota (per-user + per-IP), layered on top of
+  // the per-isolate burst checks above. Degrades OPEN on a quota-store outage so
+  // a backend hiccup never locks legitimate users out of search.
+  const verdict = await checkRequestQuota(quota, userData.user.id, ip);
+  if (!verdict.allowed) {
+    return json(429, { error: 'You have reached the search limit for now. Please try again shortly.' });
   }
 
-  const requested = Array.isArray(body.providers) && body.providers.length
-    ? PROVIDERS.filter((p) => body.providers!.includes(p.id))
-    : PROVIDERS;
-  const active = requested.filter((p) => p.secrets.every((s) => s in env) && (p.supports?.(params) ?? true));
-  const skipped = requested.filter((p) => (p.supports?.(params) ?? true) === false).map((p) => p.id);
-  const inactive = requested
-    .filter((p) => !p.secrets.every((s) => s in env) && !skipped.includes(p.id))
-    .map((p) => p.id);
+  // SearchParams and SearchInput are field-identical; the input is already
+  // validated + clamped above.
+  const input: SearchInput = { ...params };
 
-  // Each provider runs in parallel with its OWN timeout (PROVIDER_TIMEOUT_MS,
-  // enforced inside fetchJson). We catch per provider so one failure/timeout can
-  // never reject the batch or block the others.
+  // Provider selection: the client's explicit subset (if any) or every provider,
+  // minus the ops kill-switch. Empty subset ⇒ all providers (the default), so the
+  // premium providers participate automatically with no client change.
+  const allIds = manager.providerIds();
+  const base = Array.isArray(body.providers) && body.providers.length ? body.providers : allIds;
+  const requestedProviders = base.filter((id) => !DISABLED_PROVIDERS.has(id));
+
+  const userSkills = await fetchUserSkills(supabase, userData.user.id);
+
   const started = Date.now();
-  const runProvider = async (p: Provider) => {
-    const t = Date.now();
-    try {
-      const jobs = await p.search(params, env);
-      return { id: p.id, jobs, ms: Date.now() - t, error: null as string | null };
-    } catch (e) {
-      return { id: p.id, jobs: [] as NormalizedJob[], ms: Date.now() - t, error: String(e).slice(0, 160) };
-    }
-  };
-  const results = await Promise.all(active.map(runProvider));
+  const res = await manager.search(input, { requestedProviders, userSkills });
 
-  const status: Record<string, string> = {};
-  const counts: Record<string, number> = {};
-  const latency: Record<string, number> = {};
-  const errors: Record<string, string> = {};
-  const seenContent = new Set<string>();
-  const seenUrl = new Set<string>();
-  const jobs: NormalizedJob[] = [];
+  // Reflect the ops kill-switch in the status map (the manager is unaware of it).
+  for (const id of DISABLED_PROVIDERS) if (allIds.includes(id)) res.status[id] = 'disabled';
 
-  for (const r of results) {
-    latency[r.id] = r.ms;
-    if (r.error) {
-      // A timeout (AbortError) is reported distinctly from a hard failure.
-      status[r.id] = /abort|timeout/i.test(r.error) ? 'timeout' : 'error';
-      counts[r.id] = 0;
-      errors[r.id] = r.error;
-      continue;
-    }
-    status[r.id] = 'ok';
-    let kept = 0;
-    for (const job of r.jobs) {
-      if (!job.title || !job.apply_url) continue;
-      const uk = urlKey(job);
-      const ck = dedupeKey(job);
-      if ((uk && seenUrl.has(uk)) || seenContent.has(ck)) continue;
-      if (uk) seenUrl.add(uk);
-      seenContent.add(ck);
-      jobs.push(job);
-      kept++;
-    }
-    counts[r.id] = kept;
-  }
-  for (const id of inactive) { status[id] = 'not-configured'; counts[id] = 0; latency[id] = 0; }
-  for (const id of skipped) { status[id] = 'skipped'; counts[id] = 0; latency[id] = 0; }
+  recordSearchHistory(userData.user.id, input, res.jobs.length);
 
-  // Distinguish "no providers could run" from "providers ran, found nothing".
-  const ran = active.length;
-  const healthy = Object.values(status).filter((s) => s === 'ok').length;
-  const providersUp = ran > 0 && healthy > 0;
-
-  // Structured, secret-free log for observability (latency, counts, failures).
+  // Structured, secret-free observability log (no PII, no provider payloads).
   console.info(JSON.stringify({
-    fn: 'careers-jobs', country: params.country, ran, healthy,
-    status, counts, latency, totalMs: Date.now() - started, returned: jobs.length,
+    fn: 'careers-jobs', country: params.country, ran: res.ran,
+    returned: res.jobs.length, cached: res.cached, totalMs: Date.now() - started,
   }));
 
-  return json(200, { jobs, status, counts, latency, errors, page: params.page, providersUp, ran });
+  return json(200, {
+    jobs: res.jobs, status: res.status, counts: res.counts, latency: res.latency,
+    errors: res.errors, page: res.page, providersUp: res.providersUp, ran: res.ran,
+  });
 }

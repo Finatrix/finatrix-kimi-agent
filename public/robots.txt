@@ -1,5 +1,22 @@
+# FinatriX — crawl policy.
+#
+# Everything is crawlable on purpose. The private surface — the signed-in tools
+# hub, the whole careers workspace, the auth pages and /profile — is kept out of
+# the index by `<meta name="robots" content="noindex, nofollow">`, which the edge
+# Worker writes into the SERVED HTML for those routes (see src/lib/seo.ts), not
+# by a rule in this file.
+#
+# `Disallow` would defeat that, which is why /profile no longer carries one. A
+# disallowed URL is never fetched, so the noindex it serves is never read — and
+# Google will still index such a URL on the strength of inbound links alone,
+# listing it with no title and no snippet. Crawl-blocking and index-blocking are
+# alternatives, never a belt-and-braces pair: to keep a page OUT of the index you
+# have to let the crawler in to be told so.
+#
+# The cost is a handful of crawls of pages that return a noindex shell. For a
+# site of this size that is nothing next to the failure mode it prevents.
+
 User-agent: *
 Allow: /
-Disallow: /profile
 
-Sitemap: https://finatrix.online/sitemap.xml
+Sitemap: https://finatrix.co/sitemap.xml

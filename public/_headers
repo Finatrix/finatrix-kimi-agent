@@ -18,7 +18,20 @@
   X-Frame-Options: SAMEORIGIN
   Referrer-Policy: strict-origin-when-cross-origin
   Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
-  Permissions-Policy: camera=(), microphone=(), geolocation=(), browsing-topics=()
+  # Severs the window.opener relationship with any cross-origin document, so a
+  # page that opens FinatriX (or that FinatriX opens) cannot reach into this
+  # browsing context. Safe here because OAuth runs as a full-page redirect —
+  # `signInWithOAuth({ redirectTo })` in AuthContext.tsx — and never as a popup
+  # that would need its opener back. Do NOT add COEP alongside this: it demands
+  # CORP/CORS on every subresource and would break the self-hosted Tesseract
+  # OCR worker for no gain the app can currently use.
+  Cross-Origin-Opener-Policy: same-origin
+  # Every powerful feature the app does not use is switched off, for this
+  # document and every frame it could ever embed. Verified absent from the
+  # codebase before being listed — an entry here for something the app DOES use
+  # is an outage, not a hardening. `camera` stays disabled despite the resume
+  # OCR flow: Tesseract reads uploaded files, never a live capture.
+  Permissions-Policy: accelerometer=(), autoplay=(), bluetooth=(), browsing-topics=(), camera=(), display-capture=(), encrypted-media=(), geolocation=(), gyroscope=(), hid=(), idle-detection=(), magnetometer=(), microphone=(), midi=(), payment=(), serial=(), usb=(), xr-spatial-tracking=()
 
 /
   Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-8sIkMSAQhH4cmqemj6kE1Bs/6aBQrXGsMGgKxYpye5g='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; frame-ancestors 'self'
@@ -31,3 +44,44 @@
 
 /fonts/*
   Cache-Control: public, max-age=31536000, immutable
+
+# Icons. Their filenames are fixed by convention — /favicon.ico is fetched by
+# path, not by a link tag — so they cannot be content-hashed like /assets/*.
+# `immutable` would therefore strand a stale icon in every existing browser
+# cache until a hard refresh, which is exactly how a rebrand ends up half-shipped.
+#
+# One day of caching with revalidation is the trade: near-zero repeat traffic,
+# and a bad icon is recoverable within 24h without touching anything. The `?v=`
+# token on the <link> tags in index.html and in the manifest is what forces the
+# change through immediately for browsers that already hold a copy — the query
+# string makes it a different cache key. Bump it whenever the bytes change.
+/favicon.ico
+  Cache-Control: public, max-age=86400, must-revalidate
+
+/favicon.svg
+  Cache-Control: public, max-age=86400, must-revalidate
+
+/mask-icon.svg
+  Cache-Control: public, max-age=86400, must-revalidate
+
+/favicon-16x16.png
+  Cache-Control: public, max-age=86400, must-revalidate
+
+/favicon-32x32.png
+  Cache-Control: public, max-age=86400, must-revalidate
+
+/apple-touch-icon.png
+  Cache-Control: public, max-age=86400, must-revalidate
+
+/android-chrome-192x192.png
+  Cache-Control: public, max-age=86400, must-revalidate
+
+/android-chrome-512x512.png
+  Cache-Control: public, max-age=86400, must-revalidate
+
+/android-chrome-maskable-512x512.png
+  Cache-Control: public, max-age=86400, must-revalidate
+
+# The manifest names the icons, so a stale copy pins the old set on Android.
+/manifest.webmanifest
+  Cache-Control: public, max-age=86400, must-revalidate

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <title>FinatriX</title>
+  <!--
+    Safari pinned-tab mask icon.
+
+    Safari discards every colour here and fills the shape with the `color`
+    attribute on <link rel="mask-icon">, so this must be a solid silhouette on a
+    transparent field — no background rect, no fills but black. Colour is what
+    normally distinguishes the nine tiles, so in monochrome the geometry has to
+    carry the mark on its own: the 3x3 grid, the middle tiles offset outward,
+    and the core with its node punched out (fill-rule="evenodd") so the centre
+    still reads as a node rather than a solid block.
+
+    Mirrors the geometry in favicon.svg exactly; update both together.
+  -->
+  <g fill="#000000">
+    <!-- Corner tiles. -->
+    <rect x="4.5"  y="4.5"  width="6" height="6" rx="1.2"/>
+    <rect x="21.5" y="4.5"  width="6" height="6" rx="1.2"/>
+    <rect x="4.5"  y="21.5" width="6" height="6" rx="1.2"/>
+    <rect x="21.5" y="21.5" width="6" height="6" rx="1.2"/>
+
+    <!-- Middle tiles, offset outward as in the logo. -->
+    <rect x="13.25" y="3"     width="5.5" height="7"   rx="1.2"/>
+    <rect x="13.25" y="22"    width="5.5" height="7"   rx="1.2"/>
+    <rect x="2"     y="13.25" width="7"   height="5.5" rx="1.2"/>
+    <rect x="23"    y="13.25" width="7"   height="5.5" rx="1.2"/>
+
+    <!-- The core, with the centre node punched out. -->
+    <path fill-rule="evenodd" d="M11.5 11.5h9v9h-9v-9zM16 14.3a1.7 1.7 0 1 0 0 3.4 1.7 1.7 0 0 0 0-3.4z"/>
+  </g>
+</svg>
