@@ -66,8 +66,34 @@ export const DEFAULT_DESCRIPTION =
 export const DEFAULT_SOCIAL_DESCRIPTION =
   'Seven free, education-first money tools for India — budgeting, investing, benchmarking and a full life-long wealth simulation.';
 
-/** The social share image. Absolute, because OG consumers do not resolve relative URLs. */
-export const OG_IMAGE = `${CANONICAL_ORIGIN}/images/og-cover.jpg`;
+/**
+ * Cache-busting token for the share cards.
+ *
+ * Unfurl caches (Facebook, X, WhatsApp, LinkedIn, Slack) key on the image URL
+ * and hold it for months — a filename whose BYTES changed keeps unfurling the
+ * previous artwork long after the site has moved on, and there is no way to
+ * purge it short of each platform's own debugger. Bump this whenever
+ * `scripts/generate-og-images.py` is re-run with a visual change.
+ */
+export const OG_VERSION = '2';
+
+/**
+ * Share card for a route. Absolute, because no OG consumer resolves a relative
+ * URL — a path-only `og:image` is simply dropped.
+ *
+ * Every page had ONE card before this: the wordmark on a black field, which told
+ * a reader nothing about the link they had actually been sent. The seven
+ * calculators now each get their own, generated from this module's own copy by
+ * `scripts/generate-og-images.py` so the card and the page's description cannot
+ * disagree.
+ */
+function ogImageFor(key: string | null): string {
+  const file = key ? `og/${key}.jpg` : 'og-cover.jpg';
+  return `${CANONICAL_ORIGIN}/images/${file}?v=${OG_VERSION}`;
+}
+
+/** The default/homepage card, also used by every route without one of its own. */
+export const OG_IMAGE = ogImageFor(null);
 
 export interface RouteSeo {
   /** Absolute canonical URL, or null when the page must not be indexed. */
@@ -80,6 +106,10 @@ export interface RouteSeo {
   description: string;
   /** Copy for og:description / twitter:description. Defaults to `description`. */
   socialDescription: string;
+  /** Absolute URL of the og:image / twitter:image for this route. */
+  image: string;
+  /** Alt text for the card — a large image needs it for the same reason an `<img>` does. */
+  imageAlt: string;
 }
 
 /** Normalise a pathname: strip trailing slashes, collapse to '/' when empty. */
@@ -247,6 +277,8 @@ export function seoForPath(pathname: string): RouteSeo {
       title: DEFAULT_TITLE,
       description: DEFAULT_DESCRIPTION,
       socialDescription: DEFAULT_SOCIAL_DESCRIPTION,
+      image: OG_IMAGE,
+      imageAlt: `${SITE_NAME} — smart money tools for India`,
     };
   }
 
@@ -258,6 +290,8 @@ export function seoForPath(pathname: string): RouteSeo {
       title: legal.title,
       description: legal.description,
       socialDescription: legal.description,
+      image: ogImageFor(p.slice(1)),
+      imageAlt: `${legal.title.split('|')[0].trim()} — ${SITE_NAME}`,
     };
   }
 
@@ -274,6 +308,8 @@ export function seoForPath(pathname: string): RouteSeo {
       title: TOOL_SEO[tool].title,
       description: TOOL_SEO[tool].description,
       socialDescription: TOOL_SEO[tool].description,
+      image: ogImageFor(tool),
+      imageAlt: `${TOOL_SEO[tool].name} — ${SITE_NAME}`,
     };
   }
 
@@ -287,6 +323,8 @@ export function seoForPath(pathname: string): RouteSeo {
     title: label ? `${label} — ${SITE_NAME}` : DEFAULT_TITLE,
     description: DEFAULT_DESCRIPTION,
     socialDescription: DEFAULT_SOCIAL_DESCRIPTION,
+    image: OG_IMAGE,
+    imageAlt: `${SITE_NAME} — smart money tools for India`,
   };
 }
 
@@ -343,7 +381,7 @@ function webPage(url: string, seo: RouteSeo, extra: JsonLd = {}): JsonLd {
     inLanguage: 'en-IN',
     isPartOf: { '@id': WEBSITE_ID },
     about: { '@id': ORG_ID },
-    primaryImageOfPage: OG_IMAGE,
+    primaryImageOfPage: seo.image,
     ...extra,
   };
 }
@@ -467,6 +505,13 @@ export function applySeo(pathname: string): void {
   setMeta('meta[property="og:description"]', 'content', seo.socialDescription);
   setMeta('meta[name="twitter:title"]', 'content', seo.title);
   setMeta('meta[name="twitter:description"]', 'content', seo.socialDescription);
+
+  // The card image. Each public page has its own, so a shared calculator link
+  // unfurls as that calculator rather than as an anonymous logo card.
+  setMeta('meta[property="og:image"]', 'content', seo.image);
+  setMeta('meta[property="og:image:alt"]', 'content', seo.imageAlt);
+  setMeta('meta[name="twitter:image"]', 'content', seo.image);
+  setMeta('meta[name="twitter:image:alt"]', 'content', seo.imageAlt);
 
   // A non-indexable page keeps the canonical tag pointing at the site root
   // rather than at itself: `noindex` already removes it from the index, and a

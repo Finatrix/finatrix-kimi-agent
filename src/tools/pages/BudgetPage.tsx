@@ -11,6 +11,7 @@ import {
   computeBudget, mergedCats, loadCustomCats, saveCustomCats, newCustomCatKey,
   type BudgetVals, type BudgetStore, type BudgetCat, type CatResult, type CatKey, type CustomCats,
 } from '../lib/budget';
+import { track } from '../../lib/analytics';
 
 const CAT_COLOR: Record<CatKey, string> = { needs: 'var(--blue)', wants: 'var(--wants)', save: 'var(--green)' };
 
@@ -64,6 +65,26 @@ export default function BudgetPage() {
   };
 
   const r = computeBudget({ incomeRaw: income, needsRaw: needsPct, wantsRaw: wantsPct, saveRaw: savePct, vals }, cats);
+
+  /**
+   * Budget Builder has no submit button — it recomputes on every keystroke — so
+   * "completed" has to be derived from state rather than from an action. The
+   * signal is an income plus at least one allocated category: that is the point
+   * at which the split on screen describes the visitor's own money instead of
+   * the seeded defaults.
+   *
+   * Fired at most once per mount. Without the ref this would emit on every
+   * render of a filled-in budget and drown out every other event in the table.
+   */
+  const completed = useRef(false);
+  useEffect(() => {
+    if (completed.current || !loaded.current) return;
+    const allocated = Object.values(vals).some((v) => Number(v) > 0);
+    if (Number(income) > 0 && allocated) {
+      completed.current = true;
+      track('tool_completed', { tool: 'budget' });
+    }
+  }, [income, vals]);
 
   // ── Custom categories (persisted + cloud-synced via fx_bb_cats) ──
   const updateCustom = (next: CustomCats) => { setCustom(next); saveCustomCats(next); };

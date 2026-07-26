@@ -34,8 +34,7 @@ const MAX_EVENTS = 50;
 // Must mirror the client taxonomy in src/lib/analytics.ts.
 const ALLOWED_EVENTS = new Set([
   'page_view', 'tool_view', 'tool_completed', 'signup_prompt_shown',
-  'signup_prompt_action', 'search_performed', 'careers_view', 'web_vital',
-  'app_error', 'route_not_found',
+  'signup_prompt_action', 'web_vital', 'app_error', 'route_not_found',
 ]);
 const ALLOWED_PROP_KEYS = new Set([
   'tool', 'route', 'action', 'metric', 'rating', 'value', 'bucket',

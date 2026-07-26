@@ -157,7 +157,9 @@ function isHtmlDocument(response: Response): boolean {
 function withSeoMetadata(response: Response, pathname: string): Response {
   if (typeof HTMLRewriter === 'undefined') return response;
 
-  const { canonical, robots, title, description, socialDescription } = seoForPath(pathname);
+  const {
+    canonical, robots, title, description, socialDescription, image, imageAlt,
+  } = seoForPath(pathname);
   // Mirrors applySeo: a non-indexable route points at the site root rather than
   // at itself, because a self-canonical on a noindex page is contradictory.
   const href = canonical ?? `${CANONICAL_ORIGIN}/`;
@@ -186,6 +188,13 @@ function withSeoMetadata(response: Response, pathname: string): Response {
     .on('meta[property="og:description"]', new SetAttribute('content', socialDescription))
     .on('meta[name="twitter:title"]', new SetAttribute('content', title))
     .on('meta[name="twitter:description"]', new SetAttribute('content', socialDescription))
+    // The card image. Link unfurlers read the raw bytes and never execute the
+    // client-side pass, so for THIS tag the Worker is not a belt-and-braces
+    // duplicate of applySeo — it is the only thing that ever runs.
+    .on('meta[property="og:image"]', new SetAttribute('content', image))
+    .on('meta[property="og:image:alt"]', new SetAttribute('content', imageAlt))
+    .on('meta[name="twitter:image"]', new SetAttribute('content', image))
+    .on('meta[name="twitter:image:alt"]', new SetAttribute('content', imageAlt))
     // Per-route structured data. `html: true` because the JSON has already been
     // escaped by `serialiseJsonLd` and must not be entity-encoded a second time
     // — that would leave `&quot;` inside the block and make it unparseable.

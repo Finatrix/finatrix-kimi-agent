@@ -64,17 +64,32 @@ Every event and its allowed props. Adding an event means updating **both** the c
 | `tool_completed` | A calculator produces a meaningful result | `tool` |
 | `signup_prompt_shown` | Guest account modal appears | — |
 | `signup_prompt_action` | User acts on the modal | `action` = signup \| login \| dismiss |
-| `search_performed` | A job search runs | `count` (providers), `ok` |
-| `careers_view` | A Careers page mounts | `route` |
 | `web_vital` | On tab-hide / paint | `metric` (LCP/CLS/INP/TTFB/FCP), `value`, `rating` |
 | `app_error` | Caught exception | `kind` (error type), `where` (route), `bucket` (source) |
 | `route_not_found` | 404 page renders | — |
 
 Allowed prop keys (global): `tool, route, action, metric, rating, value, bucket, kind, where, count, ok, step`.
 
-**Instrumented now:** `page_view`, `tool_view`, `signup_prompt_shown`, `signup_prompt_action`,
-`web_vital`, `app_error`, `route_not_found`. **Defined, ready to wire:** `tool_completed`,
-`search_performed`, `careers_view` (drop a single `track(...)` at the completion/search/mount point).
+**Every event in this table is instrumented.** That is enforced, not asserted: `analytics.test.ts`
+fails if a name in the `AnalyticsEvent` union has no emitter anywhere in `src/`, and separately if the
+edge function's `ALLOWED_EVENTS` would drop one the client can send.
+
+`tool_completed` was previously *declared and allowlisted but never emitted*, so the product's primary
+conversion metric read zero and was indistinguishable from a product nobody finished using. It now
+fires at each calculator's real completion point:
+
+| Tool | Completion |
+|---|---|
+| Budget Builder | an income plus ≥1 allocated category (no submit button exists — derived from state, once per mount) |
+| Expense Tracker | a spend is successfully logged (a tracker has no result screen to reach) |
+| InvestMatch | the allocation renders, *after* the minimum-investment guard |
+| ParkSmart / PeerCompare / Reverse Goal Planner | the result view renders |
+| LifeMap | the simulated profile is built |
+
+`search_performed` and `careers_view` were removed rather than wired. Both were already covered:
+careers routes emit a `page_view` like any other route, and the careers workspace has its own
+opt-out-able pipeline (`src/careers/services/analytics.ts`) for domain events. A declared event that
+nothing sends is not a gap waiting to be filled — it is a zero that looks like a measurement.
 
 ---
 
@@ -88,6 +103,36 @@ Suggested SLOs (p75, field): LCP ≤ 2.5s · INP ≤ 200ms · CLS ≤ 0.1.
 
 ---
 
+## 4a. Delivery guarantees
+
+Beacons are fire-and-forget by design, so a batch that is dropped, duplicated or rejected raises
+nothing anywhere — the only symptom is a dashboard that is wrong by an unknown amount, which reads
+exactly like a quiet week. `src/lib/analytics.ts` therefore guarantees:
+
+| Property | Behaviour |
+|---|---|
+| **Batching** | Up to 25 events per request; flushed at that size, on tab-hide, and every 30s. |
+| **Retry** | The queue is cleared only once the transport *accepts* the batch. `sendBeacon` returning `false`, a network error, or a 5xx puts the events back at the front of the queue, in order. |
+| **No retry loop** | A 4xx is dropped — it would fail identically forever. |
+| **Offline queue** | While `navigator.onLine === false` nothing is sent (every attempt would be a guaranteed failure); an `online` listener drains the queue on reconnect. |
+| **Bounded** | Max 200 retained events; past that the *oldest* are dropped, keeping the most recent picture of the session. |
+| **Deduplication** | Identical event+props within 1s collapse to one — React 19 StrictMode double-invokes effects, so `page_view` and `tool_view` genuinely arrive in pairs. A doubled `page_view` silently halves every rate computed from it. |
+| **Never blocks rendering** | No `await`, no synchronous work on the render path; every failure path is swallowed. |
+| **Silent failure** | No analytics error ever reaches the app or the console. |
+
+**The offline queue is memory-only, deliberately.** Persisting it to `localStorage` — the usual way to
+build one — would put a session identifier and a behavioural trail in durable storage, which is
+exactly the cross-session linkage §1 forbids. Events that cannot be delivered before the tab closes
+are lost, and that is the correct trade: a durable analytics queue is a tracking cookie by another
+name.
+
+**Ordering note.** LCP, CLS and INP only exist at tab-hide — the same moment the queue is flushed. If
+`initAnalytics` registered its listener first, its flush ran *before* the vitals were recorded and a
+closing tab could take them with it. `webVitals.ts` therefore flushes for itself immediately after
+finalising, so correctness does not depend on initialiser order in `main.tsx`.
+
+---
+
 ## 5. Error monitoring
 
 `errorReporting.ts` installs `window.error` + `unhandledrejection` handlers and the React
@@ -95,6 +140,51 @@ Suggested SLOs (p75, field): LCP ≤ 2.5s · INP ≤ 200ms · CLS ≤ 0.1.
 message or stack** (they can contain PII/tokens). Throttled to 20/session. For deeper debugging, a
 future self-hosted error backend with server-side scrubbing can capture more; that boundary is
 deliberate.
+
+### 5a. Third-party error monitoring — integration plan (NOT installed)
+
+No Sentry, and no SDK of any kind, is installed. This is a decision, not an omission, and it should
+stay that way until someone consciously accepts the trade below. What exists today —
+error *type* + route template, throttled to 20/session — answers "what is breaking, and where" but
+not "why". The gap is real; so is the cost of closing it badly.
+
+**Why it is not installed by default**
+
+- The Sentry browser SDK is ~25-30 KB gzipped on top of a landing bundle held to a **185 KB budget**
+  by `vite.config.ts`. It would consume roughly three-quarters of the current headroom.
+- Its default configuration captures messages, stack traces, breadcrumbs (including DOM text and
+  input names) and URLs with query strings. For a *personal-finance* product that is a PII pipeline
+  pointed at a third party — a direct conflict with §1, and a DPDP/GDPR processor relationship that
+  must be disclosed in the Privacy Policy before a single event is sent.
+- It requires a `connect-src` CSP relaxation to `*.ingest.sentry.io`, widening a policy that is
+  currently first-party plus Supabase.
+
+**If it is adopted, this is the shape it must take**
+
+1. **Consent + opt-out parity.** Initialise only when analytics is enabled — same DNT/GPC checks as
+   `analyticsEnabled()`. A user who has opted out of analytics has opted out of this too.
+2. **Lazy, non-blocking.** `await import('@sentry/browser')` inside an idle callback after first
+   paint, never in the critical path. Do not add it to the landing chunk; assert the budget guard
+   still passes.
+3. **Scrub before send, not after.** `beforeSend` must strip `request.url` to the route template
+   (reuse `routeTemplate`), drop `request.query_string`, `user`, `cookies` and every breadcrumb of
+   category `ui.input`. `sendDefaultPii: false`. Deny-list DOM breadcrumbs entirely — a finance app's
+   input values must never leave the tab.
+4. **Bounded.** `sampleRate` ≤ 0.25, `tracesSampleRate: 0`, `replaysSessionSampleRate: 0`. Session
+   Replay stays off: it records the screen of a page showing someone's salary.
+5. **CSP.** Add the ingest origin to `connect-src` in **both** `public/_headers` and the meta CSP in
+   `index.html` — they must stay byte-identical or the browser enforces the intersection.
+6. **Config.** `VITE_SENTRY_DSN`, absent by default so an unconfigured build is inert (same pattern as
+   `VITE_ANALYTICS_URL`); add it to `.env.example` and the deploy workflow's secret list.
+7. **Legal.** Add Sentry to the Privacy Policy's processor list **in the same change** that enables it.
+8. **Verify.** Extend `analytics.test.ts` with a `beforeSend` scrubbing test — feed it an event
+   carrying a query string, a stack frame with a file path and a DOM breadcrumb, and assert none
+   survives. Do not rely on Sentry's own defaults.
+
+**Cheaper alternative worth costing first.** `app_error` already gives error-rate-by-type-and-route.
+Adding a `kind`-scoped alert on the existing pipeline (§8) covers most of "is something broken right
+now" at zero bundle cost and zero new processor. Reach for Sentry when the missing piece is genuinely
+*stack traces*, not alerting.
 
 ---
 

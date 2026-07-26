@@ -39,3 +39,6 @@ supabase/.temp/
 /playwright-report/
 /blob-report/
 /.playwright/
+
+# Wrangler local dev state (created by `wrangler dev`).
+.wrangler/

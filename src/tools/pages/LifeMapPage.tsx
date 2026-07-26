@@ -12,6 +12,7 @@ import {
   calcWealth, calcScore, calcHealth,
   type LifeProfile, type Decision,
 } from '../lib/lifemap';
+import { track } from '../../lib/analytics';
 
 const CAREERS: [string, string][] = [
   ['tech', 'Technology / IT'], ['finance', 'Finance / Banking'], ['health', 'Healthcare / Pharma'],
@@ -66,6 +67,7 @@ export default function LifeMapPage() {
       setCurrentAge(p.age);
       setCat('invest');
       setLaunching(false);
+      track('tool_completed', { tool: 'lifemap' });
     }, 700);
   };
 

@@ -4,6 +4,7 @@ import { Icon } from '../ui/Icon';
 import { fmt } from '../lib/format';
 import { getJSON, setJSON } from '../lib/storage';
 import { PC_CITIES, computePeerCompare, type PeerResult, type Metric } from '../lib/peercompare';
+import { track } from '../../lib/analytics';
 
 const CITY_ENTRIES = Object.entries(PC_CITIES);
 const STATUS_META = {
@@ -54,6 +55,7 @@ export default function PeerComparePage() {
           invest: num(f.invest), debt: num(f.debt), rate: num(f.rate), expenses: num(f.expenses),
         })
       );
+      track('tool_completed', { tool: 'peercompare' });
     }, 600);
   };
 

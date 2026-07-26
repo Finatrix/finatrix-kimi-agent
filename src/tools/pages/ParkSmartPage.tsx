@@ -5,6 +5,7 @@ import { Icon } from '../ui/Icon';
 import { fmt } from '../lib/format';
 import { getJSON, setJSON } from '../lib/storage';
 import { computeParkSmart, PS_DL, type ParkResult } from '../lib/parksmart';
+import { track } from '../../lib/analytics';
 
 const QUICK: [number, string][] = [
   [25000, '₹25K'], [100000, '₹1L'], [500000, '₹5L'], [1000000, '₹10L'], [2500000, '₹25L'],
@@ -32,6 +33,7 @@ export default function ParkSmartPage() {
     }
     // computeParkSmart is synchronous — no artificial delay needed.
     setResult(computeParkSmart(amt, dur, Number(slab) / 100));
+    track('tool_completed', { tool: 'parksmart' });
   };
 
   return (

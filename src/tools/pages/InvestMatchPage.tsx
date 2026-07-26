@@ -7,6 +7,7 @@ import {
   IM_Q, IM_RL, IM_DEFAULTS, computeInvestMatch, clampAnswer,
   type ImAnswers, type ImNumQuestion,
 } from '../lib/investmatch';
+import { track } from '../../lib/analytics';
 
 export default function InvestMatchPage() {
   const { notify } = useToast();
@@ -70,6 +71,9 @@ export default function InvestMatchPage() {
     setTimeout(() => {
       setBuilding(false);
       setShowResult(true);
+      // Fired here rather than at `build()` so a submission rejected by the
+      // minimum-investment guard above is never counted as a completion.
+      track('tool_completed', { tool: 'investmatch' });
     }, 500);
   };
 

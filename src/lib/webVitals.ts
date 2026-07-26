@@ -11,7 +11,7 @@
  * All observers are wrapped defensively: if a browser lacks an entry type (or
  * we're under jsdom in tests), that metric is silently skipped and never throws.
  */
-import { track } from './analytics';
+import { track, flush } from './analytics';
 
 type Rating = 'good' | 'needs-improvement' | 'poor';
 
@@ -92,6 +92,16 @@ export function initWebVitals(): void {
     if (lcp > 0) report('LCP', lcp);
     report('CLS', cls);
     if (inp > 0) report('INP', inp);
+    // Send them in the same turn they are recorded.
+    //
+    // These three metrics only exist at tab-hide, and `initAnalytics` listens
+    // for exactly the same events to flush the queue. Listener order decides
+    // everything: registered first, its flush runs BEFORE this function has
+    // recorded anything, and LCP/CLS/INP — the whole point of the module — sit
+    // in a queue that the closing tab may never get another chance to send.
+    // Flushing here makes correctness independent of which initialiser ran
+    // first in main.tsx.
+    flush();
   };
   document.addEventListener('visibilitychange', finalise);
   window.addEventListener('pagehide', finalise);

@@ -11,7 +11,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { CANONICAL_HOST, TOOL_IDS } from '../shared/routes';
-import { seoForPath } from '../lib/seo';
+import { seoForPath, OG_VERSION } from '../lib/seo';
 
 const ORIGIN = `https://${CANONICAL_HOST}`;
 
@@ -134,7 +134,7 @@ describe('deploy configuration', () => {
   it('ships a social card at the 1.91:1 size Facebook and X actually render', () => {
     const html = read('index.html');
     const og = /<meta[^>]+property="og:image"[^>]+content="([^"]+)"/.exec(html)?.[1];
-    expect(og).toBe(`${ORIGIN}/images/og-cover.jpg`);
+    expect(og).toBe(`${ORIGIN}/images/og-cover.jpg?v=${OG_VERSION}`);
     expect(html).toContain('<meta property="og:image:width" content="1200" />');
     expect(html).toContain('<meta property="og:image:height" content="630" />');
     // Declared dimensions must match the file that ships, or crawlers that
@@ -145,6 +145,27 @@ describe('deploy configuration', () => {
     // A large card needs alt text for the same reason an <img> does.
     expect(html).toContain('property="og:image:alt"');
     expect(html).toContain('name="twitter:image:alt"');
+  });
+
+  // Every public page advertises its own card; each one has to exist, be the
+  // declared size, and be the file the copy was generated from. A missing
+  // og:image is not an error anywhere — the platform just drops the image and
+  // renders a bare text card, which is invisible from inside the repo.
+  it('ships the per-page share card every public route advertises', () => {
+    const seen = new Set<string>();
+    for (const path of ['/', '/privacy', '/terms', ...TOOL_IDS.map((t) => `/tools/${t}`)]) {
+      const { image, imageAlt } = seoForPath(path);
+      expect(image, `${path} image must be absolute`).toMatch(new RegExp(`^${ORIGIN}/images/`));
+      expect(imageAlt, `${path} card needs alt text`).toBeTruthy();
+
+      const file = new URL(image).pathname.replace(/^\//, 'public/');
+      const { width, height } = jpegSize(readFileSync(join(root, file)));
+      expect({ width, height }, file).toEqual({ width: 1200, height: 630 });
+      seen.add(image);
+    }
+    // Distinct cards, not the same one advertised ten times — that was the
+    // state this replaced.
+    expect(seen.size, 'two public pages share a card').toBe(TOOL_IDS.length + 3);
   });
 
   it('ships a parseable manifest with a stable PWA identity', () => {

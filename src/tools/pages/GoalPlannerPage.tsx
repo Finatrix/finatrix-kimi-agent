@@ -5,6 +5,7 @@ import { Icon, type IconName } from '../ui/Icon';
 import { fmt } from '../lib/format';
 import { getJSON, setJSON } from '../lib/storage';
 import { GP_PRESETS, computeGoalPlanner, type GoalResult, type GoalPathResult } from '../lib/goals';
+import { track } from '../../lib/analytics';
 
 type Fields = { name: string; target: string; years: string; existing: string; inflate: boolean };
 const DEFAULTS: Fields = { name: '', target: '5000000', years: '10', existing: '0', inflate: true };
@@ -44,6 +45,8 @@ export default function GoalPlannerPage() {
         name: f.name, targetToday: Number(f.target) || 0, years: Number(f.years) || 0,
         existing: Number(f.existing) || 0, inflate: f.inflate,
       }));
+      // The plan is on screen — this visit reached the tool's actual output.
+      track('tool_completed', { tool: 'goals' });
     }, 550);
   };
 

@@ -28,6 +28,7 @@ import {
   computeAnalyticsSummary, computeMonthForecast, frequentCategoryKeys,
   type CatMeta, type MonthlyTrend, type SpendingInsight,
 } from '../lib/expenseAnalytics';
+import { track } from '../../lib/analytics';
 
 /* ── Design tokens ── */
 const HEALTH_COLOR: Record<CatHealth, string> = {
@@ -158,6 +159,10 @@ export default function ExpensePage() {
     const item: ExpenseItem = { id: genExpenseId(), amount: amt, category: selKey, date: d, createdAt: nowIso, updatedAt: nowIso };
     if (note.trim()) item.note = note.trim();
     commit([item, ...items]);
+    // A logged spend IS the completion for a tracker — there is no result
+    // screen to reach, so counting result views would score this tool zero
+    // forever.
+    track('tool_completed', { tool: 'expenses' });
     setAmount('');
     setNote('');
     const expenseMonth = d.slice(0, 7);

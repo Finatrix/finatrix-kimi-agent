@@ -46,6 +46,35 @@ const manifest = JSON.parse(
 ) as WebAppManifest;
 const manifestIcons: ManifestIcon[] = manifest.icons ?? [];
 
+/**
+ * The dark-theme surface colour, read from the no-flash boot script in
+ * index.html — the one place that decides what the browser chrome is painted
+ * before first paint.
+ */
+const DARK_SURFACE = /\?\s*'#F4F2EC'\s*:\s*'(#[0-9A-Fa-f]{6})'/.exec(html)?.[1] ?? '';
+
+describe('theme colour', () => {
+  // The manifest's theme_color paints the Android status bar and the PWA splash
+  // screen. It said #0A0A0A while the app's actual dark surface is #060607, so
+  // an installed app opened with a status bar and splash in a near-black that
+  // matches nothing on screen, then visibly settled onto the real background.
+  // Two hex values four points apart is precisely the kind of drift no reviewer
+  // catches by eye and no build flags.
+  it('is the same in the manifest as the app paints', () => {
+    expect(DARK_SURFACE, 'could not read the dark surface from index.html').toMatch(/^#[0-9A-Fa-f]{6}$/);
+    const manifestFull = JSON.parse(
+      readFileSync(join(PUBLIC, 'manifest.webmanifest'), 'utf8'),
+    ) as WebAppManifest & { theme_color?: string; background_color?: string };
+    expect(manifestFull.theme_color?.toUpperCase()).toBe(DARK_SURFACE.toUpperCase());
+    expect(manifestFull.background_color?.toUpperCase()).toBe(DARK_SURFACE.toUpperCase());
+  });
+
+  it('matches the static theme-color meta the browser reads first', () => {
+    const meta = /<meta name="theme-color" content="(#[0-9A-Fa-f]{6})"/.exec(html)?.[1];
+    expect(meta?.toUpperCase()).toBe(DARK_SURFACE.toUpperCase());
+  });
+});
+
 /** `/favicon.ico?v=2` → `/favicon.ico` */
 const stripVersion = (href: string) => href.split('?')[0];
 /** `/favicon.ico?v=2` → `2`, or '' when unversioned. */
