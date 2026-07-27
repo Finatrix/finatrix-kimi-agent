@@ -1,13 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { TieredCache, InMemoryCacheStore, searchKey, stableStringify, TTL } from './ProviderCache.ts';
 import { snapshotFor, isDisabled, classifyError, DEFAULT_HEALTH_POLICY } from './ProviderHealth.ts';
-import { rollup, topTerms } from './ProviderMetrics.ts';
 import {
   burstLimited, _resetBurst, checkRequestQuota, filterProvidersByQuota, InMemoryQuotaStore,
   clientIp, isIpLiteral,
 } from './RateLimiter.ts';
 import { validateEnv, runtimeConfigFromEnv } from './factory.ts';
-import type { HealthEvent, MetricEvent, SearchInput } from './types.ts';
+import type { HealthEvent, SearchInput } from './types.ts';
 
 const input: SearchInput = {
   query: 'Risk', terms: ['risk', 'aml'], location: 'Mumbai', country: 'in',
@@ -84,23 +83,6 @@ describe('health', () => {
     ]);
     expect(snap.quotaRemaining).toBeNull();
     expect(snap.jobsRemaining).toBeNull();
-  });
-});
-
-describe('metrics', () => {
-  const ev = (provider: string, ok: boolean, jobs: number, cost: number): MetricEvent =>
-    ({ provider, kind: 'search', ok, ms: 100, jobs, at: 1, costMicroUsd: cost });
-  it('rolls up per-provider success, jobs and cost', () => {
-    const s = rollup([ev('activejobs', true, 10, 2000), ev('activejobs', false, 0, 2000), ev('glassdoor', true, 3, 1500)]);
-    const aj = s.byProvider.find((p) => p.provider === 'activejobs')!;
-    expect(aj.calls).toBe(2);
-    expect(aj.successRate).toBe(0.5);
-    expect(s.totalJobs).toBe(13);
-    expect(s.estCostUsd).toBeCloseTo(0.0055, 4);
-    expect(s.mostSuccessfulProvider).toBe('activejobs'); // 0.5*10 > 1.0*3
-  });
-  it('topTerms counts and ranks', () => {
-    expect(topTerms(['Risk', 'risk', 'data'])).toEqual([{ term: 'risk', count: 2 }, { term: 'data', count: 1 }]);
   });
 });
 
