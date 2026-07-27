@@ -24,6 +24,8 @@
  *   • every favicon and manifest icon resolves, on `/` and on client routes
  *   • Supabase Auth returns users to THIS origin, not a previous domain
  *   • every edge function accepts CORS preflight from THIS origin
+ *   • the deployed JS bundle was built with real Supabase credentials, not the
+ *     placeholder client that silently disables sign-in, sync and analytics
  *
  * The last two exist because the first migration to finatrix.co passed every
  * other check on this list while login was completely broken. Two pieces of
@@ -390,6 +392,43 @@ async function checkEdgeCors() {
     bad.length ? bad.join('\n     ') : `${EDGE_FUNCTIONS.length} functions accept ${ORIGIN}`);
 }
 
+// ── the deployed bundle was actually built with real Supabase credentials ──
+/**
+ * `checkAuthRedirect` and `checkEdgeCors` prove Supabase itself is configured
+ * correctly. Neither proves the DEPLOYED FRONTEND was built with credentials
+ * at all: `src/lib/supabase.ts` falls back to a harmless
+ * `https://placeholder.supabase.co` client so a misconfigured build never
+ * crashes — it just silently disables sign-in, cloud sync and analytics for
+ * every visitor while every other check above stays green, because none of
+ * them load the JS the browser actually runs.
+ *
+ * `VITE_*` vars are inlined by Vite at BUILD time, not read at runtime, so
+ * this cannot be checked from Worker env vars or Supabase settings — the only
+ * way to know is to fetch the bundle actually served and look for the
+ * placeholder host baked into it.
+ */
+async function checkFrontendConfigured() {
+  const home = await req(`${ORIGIN}/`, { redirect: 'follow' });
+  if (!home) { record('frontend Supabase config', false, 'homepage unreachable'); return; }
+  const html = await home.text();
+  const entry = /<script[^>]+src="([^"]*\/assets\/index-[^"]+\.js)"/.exec(html)?.[1];
+  if (!entry) { record('frontend Supabase config', false, 'no entry <script> found on the homepage'); return; }
+
+  const bundleRes = await req(new URL(entry, `${ORIGIN}/`).toString(), { redirect: 'follow' });
+  if (!bundleRes) { record('frontend Supabase config', false, `${entry}: unreachable`); return; }
+  const bundle = await bundleRes.text();
+
+  if (bundle.includes('placeholder.supabase.co')) {
+    record('frontend Supabase config', false,
+      'the deployed bundle ships the placeholder Supabase client — VITE_SUPABASE_URL/'
+      + 'VITE_SUPABASE_ANON_KEY were not set when `npm run build` produced this dist/. '
+      + 'Sign-in, cloud sync and analytics are silently disabled for every visitor. '
+      + 'Rebuild with a populated .env and `npx wrangler deploy` again.');
+    return;
+  }
+  record('frontend Supabase config', true, `${entry} was built with real credentials`);
+}
+
 // ── run ────────────────────────────────────────────────────────────────────
 console.log(`\nFinatriX production verification — ${ORIGIN}\n`);
 
@@ -409,6 +448,7 @@ await checkOgImage();
 await checkIcons();
 await checkAuthRedirect();
 await checkEdgeCors();
+await checkFrontendConfigured();
 
 let failed = 0;
 for (const r of results) {
