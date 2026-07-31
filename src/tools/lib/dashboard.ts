@@ -11,10 +11,9 @@
  */
 import { store, getJSON } from './storage';
 import { currentMonth } from './month';
-import {
-  computeBudget, mergedCats, loadCustomCats, type BudgetStore,
-} from './budget';
-import { loadExpenses, ET_CATS } from './expense';
+import { computeBudget, allCategories, type BudgetStore } from './budget';
+import { loadCatView } from './budgetCats';
+import { loadExpenses, migrateCategory, ET_CATS } from './expense';
 import { computeGoalPlanner } from './goals';
 import { computeInvestMatch, IM_DEFAULTS, IM_RL, type ImAnswers } from './investmatch';
 import { readActivity } from './activity';
@@ -100,6 +99,25 @@ export function readDashboard(): DashboardSnapshot {
   const currency = store.get('fx_currency', 'INR') || 'INR';
   const cm = currentMonth();
 
+  /**
+   * The user's live categories, resolved once for the whole snapshot.
+   *
+   * "Top categories" used to label rows from `ET_CATS` alone — the RETIRED
+   * pre-V4.1 table (`food`, `grocery`, `bills`…). Since the merge, transactions
+   * are stored under Budget Builder's keys (`eating_out`, `groceries`,
+   * `utilities`…), only four of which happen to collide with the old table. Every
+   * other category — and every category the user created themselves — therefore
+   * fell through to the `?? 'Other'` fallback, so the unified dashboard's
+   * flagship card read "Other, Other, Other, Other" for anyone with modern data.
+   *
+   * `ET_CATS` is kept as the fallback because it is still the only source of a
+   * readable name for a genuinely legacy key that no longer maps anywhere.
+   */
+  const catView = loadCatView().active;
+  const flatCats = allCategories(catView);
+  const validCatKeys = new Set(flatCats.map((c) => c.k));
+  const catLabels = new Map(flatCats.map((c) => [c.k, c.l]));
+
   // ── Budget ──────────────────────────────────────────────────────────────
   let income: number | null = null;
   let savingsRatePct: number | null = null;
@@ -112,10 +130,9 @@ export function readDashboard(): DashboardSnapshot {
     const bkey = bstore[cm] ? cm : months[months.length - 1];
     const bdata = bkey ? bstore[bkey] : undefined;
     if (bdata) {
-      const cats = mergedCats(loadCustomCats());
       const r = computeBudget(
         { incomeRaw: bdata.income, needsRaw: bdata.n, wantsRaw: bdata.w, saveRaw: bdata.s, vals: bdata.vals },
-        cats,
+        catView,
       );
       // "Meaningfully used" = they entered spending or changed income off the seed.
       const touched = r.spent > 0 || (num(bdata.income) > 0 && num(bdata.income) !== 50000);
@@ -148,12 +165,22 @@ export function readDashboard(): DashboardSnapshot {
       const prevKey = `${pd.getFullYear()}-${String(pd.getMonth() + 1).padStart(2, '0')}`;
       const prevItems = items.filter((e) => (e.date || '').slice(0, 7) === prevKey);
       if (prevItems.length > 0) prevMonthSpend = prevItems.reduce((s, e) => s + num(e.amount), 0);
+      // Keys are migrated before summing, exactly as computeDashboard does, so a
+      // legacy `food` row and a current `eating_out` row are one slice rather
+      // than two competing ones.
       const byCat: Record<string, number> = {};
-      monthItems.forEach((e) => { byCat[e.category] = (byCat[e.category] || 0) + num(e.amount); });
+      monthItems.forEach((e) => {
+        const k = migrateCategory(e.category, validCatKeys);
+        byCat[k] = (byCat[k] || 0) + num(e.amount);
+      });
       Object.entries(byCat)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 4)
-        .forEach(([key, amount]) => topCategories.push({ key, label: ET_CATS[key]?.l ?? 'Other', amount }));
+        .forEach(([key, amount]) => topCategories.push({
+          key,
+          label: catLabels.get(key) ?? ET_CATS[key]?.l ?? 'Other',
+          amount,
+        }));
       if (income && income > 0 && monthlySpend > 0) {
         const ratio = monthlySpend / income;
         expenseScore = Math.max(0, Math.min(100, Math.round((1 - Math.max(0, ratio - 0.5) / 0.5) * 100)));

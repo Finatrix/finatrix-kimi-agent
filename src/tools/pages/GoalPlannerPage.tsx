@@ -93,8 +93,8 @@ export default function GoalPlannerPage() {
               <input className="fi" type="number" step="any" id="gp-existing" value={f.existing} min={0} inputMode="decimal" onChange={(e) => set({ existing: e.target.value })} />
             </div>
           </div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--ink2)', cursor: 'pointer', marginBottom: 18 }}>
-            <input type="checkbox" id="gp-inflate" checked={f.inflate} onChange={(e) => set({ inflate: e.target.checked })} style={{ width: 18, height: 18, accentColor: 'var(--gold)' }} />
+          <label className="fx-checkrow" style={{ fontSize: 14, color: 'var(--ink2)', marginBottom: 18 }}>
+            <input type="checkbox" className="fx-check" id="gp-inflate" checked={f.inflate} onChange={(e) => set({ inflate: e.target.checked })} />
             Adjust target for 6% inflation (recommended)
           </label>
           <button className={`btn ${loading ? 'btn-loading' : ''}`} disabled={loading} onClick={submit}>

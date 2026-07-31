@@ -183,6 +183,123 @@ describe('design tokens — WCAG AA text contrast', () => {
     }
   });
 
+  /**
+   * The -fill tokens exist so charts stay vivid without dragging text below AA.
+   * They answer to WCAG 1.4.11 (3:1 for a graphical object against its adjacent
+   * surface) rather than 1.4.3, because a bar segment is a shape, not a label.
+   * Guarding the weaker bound is what stops a future "let's make the charts
+   * pop" edit from quietly producing a bar nobody can see on white.
+   */
+  const NON_TEXT = 3;
+  const FILL_TOKENS = [
+    'status-info-fill', 'status-success-fill', 'status-warn-fill',
+    'status-danger-fill', 'data-purple-fill', 'data-teal-fill', 'data-wants-fill',
+  ];
+
+  it('light theme: chart fills clear the 3:1 non-text bound on every surface', () => {
+    const surfaces = {
+      white: tokenIn(lightBlock, 'surface-2'),
+      paper: tokenIn(lightBlock, 'surface-base'),
+      canvas: tokenIn(lightBlock, 'surface-1'),
+    };
+    for (const token of FILL_TOKENS) {
+      const fg = tokenIn(lightBlock, token);
+      for (const [name, bg] of Object.entries(surfaces)) {
+        expect(ratio(fg, bg), `${token}/${name} = ${ratio(fg, bg).toFixed(2)}:1`)
+          .toBeGreaterThanOrEqual(NON_TEXT);
+      }
+    }
+  });
+
+  it('dark theme: chart fills clear the 3:1 non-text bound on card + canvas', () => {
+    for (const token of FILL_TOKENS) {
+      const fg = tokenIn(darkBlock, token);
+      for (const surface of ['surface-1', 'surface-2'] as const) {
+        const bg = tokenIn(darkBlock, surface);
+        expect(ratio(fg, bg), `${token}/${surface} = ${ratio(fg, bg).toFixed(2)}:1`)
+          .toBeGreaterThanOrEqual(NON_TEXT);
+      }
+    }
+  });
+
+  /**
+   * The whole point of the split: a fill must be visibly more saturated than
+   * the AA-deepened text value it was extracted from, otherwise the two tokens
+   * are just a more expensive way to have one. On light, every fill should sit
+   * clearly brighter than its text counterpart.
+   */
+  it('light theme: each fill is brighter than the text token it split from', () => {
+    const pairs: Array<[string, string]> = [
+      ['status-info', 'status-info-fill'],
+      ['status-success', 'status-success-fill'],
+      ['status-warn', 'status-warn-fill'],
+      ['status-danger', 'status-danger-fill'],
+      ['data-purple', 'data-purple-fill'],
+      ['data-teal', 'data-teal-fill'],
+      ['data-wants', 'data-wants-fill'],
+    ];
+    for (const [text, fill] of pairs) {
+      const lt = luminance(tokenIn(lightBlock, text));
+      const lf = luminance(tokenIn(lightBlock, fill));
+      expect(lf, `${fill} (${lf.toFixed(3)}) should out-shine ${text} (${lt.toFixed(3)})`)
+        .toBeGreaterThan(lt);
+    }
+  });
+
+  /**
+   * WCAG 2.2 §1.4.11 Non-text Contrast — the guard the split was made for.
+   *
+   * Splitting each colour into a text token and a `-fill` token is justified in
+   * budgetStatus.ts and sectionColors.ts on the grounds that "a bar segment only
+   * needs the 3:1 WCAG asks of a graphic". Everything above tests the 4.5:1 half
+   * of that claim; the 3:1 half was asserted in prose and by nothing else.
+   *
+   * It is currently true, but only just: the light fills land between 3.01 and
+   * 3.44 against the three surfaces they are drawn on, because they were tuned
+   * to be as vivid as the rule permits. A one-hex nudge for aesthetic reasons
+   * would drop a progress bar below the threshold, and — like every contrast
+   * regression — it would look completely fine to whoever made the change.
+   */
+  it('both themes: every fill clears 3:1 as a graphic on every surface', () => {
+    const AA_GRAPHIC = 3;
+    const fills = [
+      'status-info-fill', 'status-success-fill', 'status-warn-fill',
+      'status-danger-fill', 'data-purple-fill', 'data-teal-fill', 'data-wants-fill',
+    ];
+    for (const [themeName, block] of [['dark', darkBlock], ['light', lightBlock]] as const) {
+      // The three surfaces a bar, donut or swatch is ever drawn on.
+      const surfaces: Array<[string, string]> = [
+        ['page', tokenIn(block, 'surface-base')],
+        ['canvas', tokenIn(block, 'surface-1')],
+        ['card', tokenIn(block, 'surface-2')],
+      ];
+      for (const fill of fills) {
+        const fg = tokenIn(block, fill);
+        for (const [surfaceName, bg] of surfaces) {
+          const r = ratio(fg, bg);
+          expect(r, `${themeName} ${fill} on ${surfaceName} = ${r.toFixed(2)}:1`)
+            .toBeGreaterThanOrEqual(AA_GRAPHIC);
+        }
+      }
+    }
+  });
+
+  /**
+   * The unfunded-category bar is grey on purpose (never black — see
+   * budgetStatus.ts), and grey is the easiest value to drift into invisibility.
+   * It lives in tools.css rather than tokens.css, so it is read from there.
+   */
+  it('both themes: the no-budget bar is still visible as a graphic', () => {
+    const toolsCss = readFileSync(resolve(process.cwd(), 'src/tools/tools.css'), 'utf8');
+    const barNone = [...toolsCss.matchAll(/--bar-none:\s*(#[0-9A-Fa-f]{6})/g)].map((m) => m[1]);
+    expect(barNone.length, 'expected a --bar-none for each theme').toBe(2);
+    const [darkBar, lightBar] = barNone;
+    expect(ratio(darkBar, tokenIn(darkBlock, 'surface-2')), `dark --bar-none = ${darkBar}`)
+      .toBeGreaterThanOrEqual(3);
+    expect(ratio(lightBar, tokenIn(lightBlock, 'surface-2')), `light --bar-none = ${lightBar}`)
+      .toBeGreaterThanOrEqual(3);
+  });
+
   // The dark theme must keep its vivid originals — the light fix must not have
   // leaked upward into the default :root block.
   it('dark theme keeps the vivid data colours', () => {

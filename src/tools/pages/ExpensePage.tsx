@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import Chart from 'chart.js/auto';
 import { useTheme } from '../../context/ThemeContext';
@@ -13,14 +13,20 @@ import { currentMonth, monthLabel } from '../lib/month';
 import { getJSON, onLocalWrite } from '../lib/storage';
 import {
   loadExpenses, saveExpenses, etToday, etMonthsWithData, computeDashboard, genExpenseId,
-  type ExpenseItem, type DashResult, type DashCategory, type CatHealth,
+  isSpendingCategory,
+  type ExpenseItem, type DashResult, type DashCategory, type BudgetWarning,
 } from '../lib/expense';
-import {
-  mergedCats, loadCustomCats, allCategories, SECTION_LABEL,
-  type SectionedCats, type CatKey, type BudgetStore,
-} from '../lib/budget';
+import { allCategories, SECTION_LABEL, type SectionedCats, type CatKey, type BudgetStore } from '../lib/budget';
+import { loadCatView } from '../lib/budgetCats';
+import { budgetFillPct, budgetTone, TONE_COLOR, TONE_FILL, TONE_LABEL } from '../lib/budgetStatus';
+import { SECTION_COLOR, SECTION_FILL } from '../lib/sectionColors';
+import { useOptionalToast } from '../ui/Toast';
+import { AmountInput } from '../ui/AmountInput';
+import { AskAiButton } from '../ui/AskAiButton';
+import { BudgetTimeline } from '../ui/BudgetTimeline';
+import { evaluateFormula } from '../lib/formula';
 import TransactionModal from '../ui/TransactionModal';
-import TransactionList, { type ExportKind } from '../ui/TransactionList';
+import TransactionList, { type ExportKind, type TransactionListHandle } from '../ui/TransactionList';
 import { Tabs, type TabItem } from '../ui/Tabs';
 import {
   computeMonthlyTrend, computeCategoryComparison, computePaymentBreakdown,
@@ -31,15 +37,19 @@ import {
 import { track } from '../../lib/analytics';
 
 /* ── Design tokens ── */
-const HEALTH_COLOR: Record<CatHealth, string> = {
-  within: 'var(--green)', near: 'var(--gold)', over: 'var(--red)', none: 'var(--ink3)',
-};
-const HEALTH_LABEL: Record<CatHealth, string> = {
-  within: 'Within budget', near: 'Near limit', over: 'Over budget', none: 'No budget',
-};
-const SECTION_COLOR: Record<CatKey, string> = { needs: 'var(--blue)', wants: 'var(--wants)', save: 'var(--green)' };
 
 type Tab = 'overview' | 'analytics' | 'recurring';
+
+/**
+ * How long a deleted transaction stays recoverable.
+ *
+ * The row leaves the list — and storage — the moment it is deleted, and Undo
+ * puts the original object back verbatim rather than replaying a soft-delete
+ * flag. That ordering matters: a pending deletion held only in memory is lost
+ * if the tab closes mid-window, which would silently resurrect a transaction
+ * the user believed was gone.
+ */
+const UNDO_WINDOW_MS = 10_000;
 
 const TAB_ITEMS: ReadonlyArray<TabItem<Tab>> = [
   { key: 'overview', label: 'Overview', icon: 'expense' },
@@ -47,8 +57,10 @@ const TAB_ITEMS: ReadonlyArray<TabItem<Tab>> = [
   { key: 'recurring', label: 'Recurring', icon: 'refresh' },
 ];
 
-function readBudgetVals(m: string): Record<string, number> {
-  return getJSON<BudgetStore>('fx_bb_data', {})[m]?.vals || {};
+/** That month's Budget Builder plan — per-category allocations and total income. */
+function readBudgetMonth(store: BudgetStore, m: string): { vals: Record<string, number>; income: number } {
+  const d = store[m];
+  return { vals: d?.vals || {}, income: Math.max(0, Number(d?.income) || 0) };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -59,11 +71,19 @@ export default function ExpensePage() {
   const { cfmt, sym, code } = useCurrency();
   const { theme } = useTheme();
 
+  const { notify } = useOptionalToast();
   const [items, setItems] = useState<ExpenseItem[]>(() => loadExpenses());
   const [selMonth, setSelMonth] = useState(currentMonth());
-  const [cats, setCats] = useState<SectionedCats>(() => mergedCats(loadCustomCats()));
-  const [budgetVals, setBudgetVals] = useState<Record<string, number>>(() => readBudgetVals(currentMonth()));
+  // The user's own arrangement: archived categories are excluded everywhere,
+  // so the picker, the totals and the reports always agree.
+  const [cats, setCats] = useState<SectionedCats>(() => loadCatView().active);
+  // The whole Budget Builder store, not just the selected month: the timeline's
+  // twelve-month view paces against each month's own plan, and re-parsing the
+  // store per month inside a render loop would be twelve JSON.parse calls.
+  const [budgetStore, setBudgetStore] = useState<BudgetStore>(() => getJSON<BudgetStore>('fx_bb_data', {}));
   const [tab, setTab] = useState<Tab>('overview');
+  /** Lets the warnings panel drive the transaction list without owning its filters. */
+  const listApi = useRef<TransactionListHandle | null>(null);
 
   const flatCats = useMemo(() => allCategories(cats), [cats]);
   const [sel, setSel] = useState<string>(() => flatCats[0]?.k ?? '');
@@ -89,6 +109,8 @@ export default function ExpensePage() {
   // can be walked back one by one.
   const [undoStack, setUndoStack] = useState<{ victims: ExpenseItem[]; label: string }[]>([]);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Bumped on every delete/undo to restart the countdown bar. */
+  const [armToken, setArmToken] = useState(0);
 
   const selKey = flatCats.some((c) => c.k === sel) ? sel : (flatCats[0]?.k ?? '');
 
@@ -106,11 +128,26 @@ export default function ExpensePage() {
 
   useEffect(() => {
     const off = onLocalWrite((key) => {
-      if (key === 'fx_bb_cats') setCats(mergedCats(loadCustomCats()));
-      if (key === 'fx_bb_data') setBudgetVals(readBudgetVals(selMonth));
+      if (key === 'fx_bb_cats' || key === 'fx_bb_catprefs') setCats(loadCatView().active);
+      if (key === 'fx_bb_data') setBudgetStore(getJSON<BudgetStore>('fx_bb_data', {}));
     });
     return off;
-  }, [selMonth]);
+  }, []);
+
+  const budget = useMemo(() => readBudgetMonth(budgetStore, selMonth), [budgetStore, selMonth]);
+
+  /**
+   * Total budget for any month, summed the same way `computeDashboard` sums it:
+   * over the user's active categories only, so an archived category's stale
+   * amount can never inflate the timeline's budget line.
+   */
+  const budgetTotalOf = useCallback(
+    (m: string) => {
+      const vals = budgetStore[m]?.vals ?? {};
+      return flatCats.reduce((s, c) => s + Math.max(0, Number(vals[c.k]) || 0), 0);
+    },
+    [budgetStore, flatCats],
+  );
 
   useEffect(() => () => {
     if (flashTimer.current) clearTimeout(flashTimer.current);
@@ -118,7 +155,7 @@ export default function ExpensePage() {
   }, []);
 
   const now = new Date();
-  const r = computeDashboard(selMonth, items, cats, budgetVals, now);
+  const r = computeDashboard(selMonth, items, cats, budget.vals, now, budget.income);
   const months = etMonthsWithData(items, currentMonth());
 
   const monthTx = useMemo(
@@ -126,10 +163,7 @@ export default function ExpensePage() {
     [items, selMonth]
   );
 
-  const switchMonth = (m: string) => {
-    setSelMonth(m);
-    setBudgetVals(readBudgetVals(m));
-  };
+  const switchMonth = (m: string) => setSelMonth(m);
 
   const commit = (next: ExpenseItem[]) => {
     setItems(next);
@@ -143,9 +177,18 @@ export default function ExpensePage() {
    * back to it (the same contract TransactionModal already honoured).
    */
   const addExpense = () => {
-    const amt = Math.max(0, Number(amount) || 0);
+    // The field accepts arithmetic, so the amount is parsed rather than cast.
+    // A rejected formula names its own reason ("Check the brackets…") instead of
+    // silently becoming 0 and reporting "enter an amount greater than 0".
+    const parsed = evaluateFormula(amount);
+    const amt = parsed.ok ? Math.max(0, parsed.value) : 0;
     if (!selKey) {
       setAddError('Add a category in Budget Builder before logging a spend.');
+      return;
+    }
+    if (!parsed.ok && amount.trim()) {
+      setAddError(parsed.error);
+      amountRef.current?.focus();
       return;
     }
     if (!amt) {
@@ -193,10 +236,16 @@ export default function ExpensePage() {
     if (m !== selMonth) switchMonth(m);
   };
 
-  /** Keep the undo window open 15s past the latest delete or undo. */
+  /**
+   * Reopen the undo window for another {@link UNDO_WINDOW_MS} past the latest
+   * delete or undo. `armToken` restarts the countdown bar's CSS animation:
+   * remounting the element is what replays it, and it keeps the visible timer
+   * honest without a per-frame React timer.
+   */
   const armUndoExpiry = () => {
     if (undoTimer.current) clearTimeout(undoTimer.current);
-    undoTimer.current = setTimeout(() => setUndoStack([]), 15000);
+    setArmToken((n) => n + 1);
+    undoTimer.current = setTimeout(() => setUndoStack([]), UNDO_WINDOW_MS);
   };
 
   const pushUndo = (victims: ExpenseItem[], label: string) => {
@@ -283,36 +332,88 @@ export default function ExpensePage() {
     }));
   };
 
-  const exportTransactions = (kind: ExportKind, list: ExpenseItem[], scopeLabel: string) => {
-    if (list.length === 0) return;
-    const label = `${monthLabel(selMonth)} (${scopeLabel})`;
-    const byCat: Record<string, number> = {};
-    list.forEach((t) => { byCat[t.category] = (byCat[t.category] || 0) + t.amount; });
-    const total = list.reduce((s, t) => s + t.amount, 0);
-    const payload: ExpenseExport = {
-      monthLabel: label, currency: code, totalSpent: total, dailyAvg: r.dailyAvg, txCount: list.length, budget: 0,
-      breakdown: Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({
-        label: flatCats.find((c) => c.k === k)?.l ?? k, amount: v, pct: total > 0 ? Math.round((v / total) * 100) : 0,
-      })),
-      transactions: list.map((t) => ({
-        date: t.date, category: flatCats.find((c) => c.k === t.category)?.l ?? t.category, amount: t.amount,
-        note: [t.merchant, t.note].filter(Boolean).join(' — ') || t.notes || '',
-      })),
-    };
+  const catLabel = (k: string) => flatCats.find((c) => c.k === k)?.l ?? k;
+
+  /**
+   * Map transactions to export rows. Always the whole list it is handed, and
+   * merchant stays in its own field — folding it into the note duplicated it in
+   * any view that renders both.
+   */
+  const toExportRows = (list: ExpenseItem[]) => list.map((t) => ({
+    date: t.date,
+    category: catLabel(t.category),
+    amount: t.amount,
+    note: t.note || t.notes || '',
+    ...(t.merchant ? { merchant: t.merchant } : {}),
+    ...(t.paymentMethod ? { paymentMethod: t.paymentMethod } : {}),
+  }));
+
+  const runExport = (kind: ExportKind, payload: ExpenseExport) => {
     if (kind === 'csv') exportExpenseCsv(payload);
     else if (kind === 'xlsx') void exportExpenseXlsx(payload);
     else void exportExpensePdf(payload);
+    notify(`Exporting ${payload.transactions.length} transaction${payload.transactions.length === 1 ? '' : 's'}…`, 'ok');
   };
 
+  /**
+   * Export an arbitrary selection (the list's "Export selected"). Built from
+   * the passed items, not from anything the DOM rendered, so a selection that
+   * spans several virtualised pages still exports in full.
+   */
+  const exportTransactions = (kind: ExportKind, list: ExpenseItem[], scopeLabel: string) => {
+    if (list.length === 0) return;
+    const byCat: Record<string, number> = {};
+    list.forEach((t) => { byCat[t.category] = (byCat[t.category] || 0) + t.amount; });
+    const total = list.reduce((s, t) => s + t.amount, 0);
+    const sectionOf = (k: string) => flatCats.find((c) => c.k === k)?.section ?? null;
+    runExport(kind, {
+      monthLabel: `${monthLabel(selMonth)} (${scopeLabel})`,
+      currency: code,
+      totalSpent: total,
+      dailyAvg: r.dailyAvg,
+      txCount: list.length,
+      budget: 0,
+      daysInMonth: r.daysInMonth,
+      breakdown: Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({
+        label: catLabel(k),
+        amount: v,
+        pct: total > 0 ? Math.round((v / total) * 100) : 0,
+        spending: isSpendingCategory({ k, section: sectionOf(k) }),
+      })),
+      transactions: toExportRows(list),
+    });
+  };
+
+  /**
+   * The month's report. `monthTx` is the complete set of transactions for the
+   * selected month — never `r.recent` (an 8-row preview for the dashboard),
+   * never the filtered/paginated view. Display concerns must not reach a report.
+   */
   const buildExport = (): ExpenseExport => ({
-    monthLabel: monthLabel(selMonth), currency: code, totalSpent: r.monthlySpent, dailyAvg: r.dailyAvg,
-    txCount: r.txCount, budget: r.monthlyBudget,
+    monthLabel: monthLabel(selMonth),
+    currency: code,
+    totalSpent: r.monthlySpent,
+    dailyAvg: r.dailyAvg,
+    txCount: r.txCount,
+    budget: r.monthlyBudget,
+    income: r.income,
+    monthlySavings: r.monthlySavings,
+    netCashFlow: r.netCashFlow,
+    budgetUsedPct: r.budgetUsedPct,
+    daysInMonth: r.daysInMonth,
+    daysRemaining: r.daysRemaining,
+    categoryBudgets: r.categories
+      .filter((c) => c.budget > 0 || c.spent > 0)
+      .map((c) => ({ label: c.l, budget: c.budget, spent: c.spent })),
     breakdown: r.categories.filter((c) => c.spent > 0).sort((a, b) => b.spent - a.spent).map((c) => ({
-      label: c.l, amount: c.spent, pct: r.monthlySpent > 0 ? Math.round((c.spent / r.monthlySpent) * 100) : 0,
+      label: c.l,
+      amount: c.spent,
+      pct: r.monthlySpent > 0 ? Math.round((c.spent / r.monthlySpent) * 100) : 0,
+      spending: isSpendingCategory(c),
     })),
-    transactions: r.recent.map((t) => ({
-      date: t.date, category: flatCats.find((c) => c.k === t.category)?.l ?? t.category, amount: t.amount, note: t.note || '',
-    })),
+    transactions: toExportRows(
+      [...monthTx].sort((a, b) => (b.date || '').localeCompare(a.date || '')),
+    ),
   });
 
   return (
@@ -331,7 +432,12 @@ export default function ExpensePage() {
         <div style={{ flex: 1 }}>
           <MonthNav activeMonth={selMonth} months={months} onSwitch={switchMonth} pastNote="Viewing past month" pastColor="var(--orange)" />
         </div>
-        <ExportMenu label="Export" onCsv={() => exportExpenseCsv(buildExport())} onXlsx={() => exportExpenseXlsx(buildExport())} onPdf={() => exportExpensePdf(buildExport())} />
+        <ExportMenu
+          label="Export"
+          onCsv={() => runExport('csv', buildExport())}
+          onXlsx={() => runExport('xlsx', buildExport())}
+          onPdf={() => runExport('pdf', buildExport())}
+        />
       </div>
 
       {/* Tab panels — labelled by their tab; panels hold focusable content so
@@ -350,6 +456,7 @@ export default function ExpensePage() {
             bulkDelete={bulkDelete} bulkDuplicate={bulkDuplicate} bulkCategory={bulkCategory}
             bulkAddTags={bulkAddTags} exportTransactions={exportTransactions}
             code={code} theme={theme}
+            listApi={listApi}
           />
         )}
         {tab === 'analytics' && (
@@ -357,6 +464,7 @@ export default function ExpensePage() {
             items={items} selMonth={selMonth} catMeta={catMeta}
             cfmt={cfmt} code={code} theme={theme} now={now}
             monthlyBudget={r.monthlyBudget}
+            budgetTotalOf={budgetTotalOf}
           />
         )}
         {tab === 'recurring' && (
@@ -386,24 +494,25 @@ export default function ExpensePage() {
           ancestor that animates transform (it becomes its containing block). */}
       {undoStack.length > 0 && createPortal(
         <div className="fx-tools fx-undo" role="status" aria-live="polite">
-          <style>{`
-            .fx-undo{position:fixed;left:50%;bottom:calc(22px + var(--fx-bottomnav-h,0px) + env(safe-area-inset-bottom));transform:translateX(-50%);
-              z-index:320;display:flex;align-items:center;gap:14px;padding:12px 14px 12px 18px;border-radius:14px;
-              background:var(--card-solid,#1c1c1f);border:1px solid var(--hair2);color:var(--ink);
-              box-shadow:0 20px 50px -18px rgba(0,0,0,.7);font-size:13px;max-width:calc(100vw - 32px);
-              animation:fxUndoIn .28s cubic-bezier(.34,1.3,.5,1) both;}
-            @keyframes fxUndoIn{from{opacity:0;transform:translate(-50%,14px)}to{opacity:1;transform:translate(-50%,0)}}
-            @media (prefers-reduced-motion:reduce){.fx-undo{animation:none;}}
-            .fx-undo kbd{font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:var(--ink3);
-              border:1px solid var(--hair2);border-radius:5px;padding:1px 5px;}
-          `}</style>
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            Deleted “{undoStack[undoStack.length - 1].label}”.
-          </span>
-          <kbd aria-hidden="true">{typeof navigator !== 'undefined' && /Mac/.test(navigator.platform) ? '⌘Z' : 'Ctrl+Z'}</kbd>
-          <button type="button" className="btn btn-sm" style={{ width: 'auto', padding: '7px 16px', flexShrink: 0 }} onClick={undoDelete}>
-            Undo{undoStack.length > 1 ? ` (${undoStack.length})` : ''}
-          </button>
+          <style>{UNDO_STYLES}</style>
+          <div className="fx-undo-body">
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              Deleted “{undoStack[undoStack.length - 1].label}”.
+            </span>
+            <kbd aria-hidden="true">{typeof navigator !== 'undefined' && /Mac/.test(navigator.platform) ? '⌘Z' : 'Ctrl+Z'}</kbd>
+            <button type="button" className="btn btn-sm" style={{ width: 'auto', padding: '7px 16px', flexShrink: 0 }} onClick={undoDelete}>
+              Undo{undoStack.length > 1 ? ` (${undoStack.length})` : ''}
+            </button>
+          </div>
+          {/* How long is left, shown rather than implied. Decorative: the text
+              above already carries the message, and the countdown is restarted
+              by remounting on `armToken`. */}
+          <span
+            key={armToken}
+            className="fx-undo-tick"
+            aria-hidden="true"
+            style={{ animationDuration: `${UNDO_WINDOW_MS}ms` }}
+          />
         </div>,
         document.body
       )}
@@ -441,6 +550,8 @@ interface OverviewProps {
   bulkAddTags: (ids: string[], tags: string[]) => void;
   exportTransactions: (kind: ExportKind, items: ExpenseItem[], scopeLabel: string) => void;
   code: string; theme: string | undefined;
+  /** Imperative handle to the transaction list (used by the warnings panel). */
+  listApi: RefObject<TransactionListHandle | null>;
 }
 
 function OverviewTab({
@@ -449,7 +560,7 @@ function OverviewTab({
   cfmt, sym, now, catMeta, monthlyBudget,
   addExpense, openAdd, openEdit, duplicateTransaction, deleteTransaction,
   bulkDelete, bulkDuplicate, bulkCategory, bulkAddTags, exportTransactions,
-  code,
+  code, listApi,
 }: OverviewProps) {
   const insights = useMemo(
     () => generateInsights(items, selMonth, monthlyBudget, catMeta, now),
@@ -467,12 +578,69 @@ function OverviewTab({
   return (
     <>
       {/* KPI strip */}
-      <div className="dash-grid" style={{ marginBottom: 16 }}>
+      <div className="dash-grid" style={{ marginBottom: 12 }}>
         <Kpi v={cfmt(r.monthlyBudget)} l="Monthly budget" />
         <Kpi v={cfmt(r.monthlySpent)} l="Monthly spent" color="var(--orange)" />
-        <Kpi v={cfmt(r.remaining)} l="Remaining" color={r.remaining >= 0 ? 'var(--green)' : 'var(--red)'} />
-        <Kpi v={r.monthlyBudget > 0 ? `${Math.round(r.healthPct)}%` : '—'} l={HEALTH_LABEL[r.health]} color={HEALTH_COLOR[r.health]} />
+        <Kpi
+          v={cfmt(Math.abs(r.remaining))}
+          l={r.remaining >= 0 ? 'Remaining budget' : 'Over budget by'}
+          color={r.remaining >= 0 ? 'var(--green)' : 'var(--red)'}
+        />
+        <Kpi
+          v={r.monthlyBudget > 0 ? `${Math.round(r.budgetUsedPct)}%` : '—'}
+          l="Budget used"
+          color={TONE_COLOR[r.tone]}
+        />
       </div>
+
+      {/* Month pacing & cash flow */}
+      <div className="card">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+          <span style={{ fontSize: 14, fontWeight: 700 }}>
+            {r.isCurrentMonth ? 'Pacing & cash flow' : 'Month summary'}
+          </span>
+          <AskAiButton focus={{ kind: 'overview' }} />
+        </div>
+        <div className="fx-metrics">
+          <Metric
+            label="Days remaining"
+            value={r.isCurrentMonth ? String(r.daysRemaining) : '0'}
+            note={r.isCurrentMonth ? `of ${r.daysInMonth} days` : 'Month complete'}
+            accent="var(--blue)"
+          />
+          <Metric
+            label="Daily safe spend"
+            value={r.dailySafeSpend != null ? cfmt(r.dailySafeSpend) : '—'}
+            note={r.dailySafeSpend == null
+              ? (r.monthlyBudget > 0 ? 'Month complete' : 'Set a budget to see this')
+              : r.daysRemaining === 0
+                ? 'Left for today — the last day of the month'
+                : 'Per day to stay inside budget'}
+            accent={r.remaining >= 0 ? 'var(--green)' : 'var(--red)'}
+          />
+          <Metric
+            label="Monthly savings"
+            value={cfmt(r.monthlySavings)}
+            note={r.income > 0
+              ? `${Math.round((r.monthlySavings / r.income) * 100)}% of income`
+              : 'Logged to savings categories'}
+            accent="var(--green)"
+          />
+          <Metric
+            label="Net cash flow"
+            value={r.netCashFlow != null ? cfmt(r.netCashFlow) : '—'}
+            note={r.netCashFlow == null
+              ? 'Add income in Budget Builder'
+              : r.netCashFlow >= 0 ? 'Income exceeds spending' : 'Spending exceeds income'}
+            accent={(r.netCashFlow ?? 0) >= 0 ? 'var(--green)' : 'var(--red)'}
+          />
+        </div>
+      </div>
+
+      {/* Budget warnings — categories at or past 80% */}
+      {r.warnings.length > 0 && (
+        <WarningsCard warnings={r.warnings} cfmt={cfmt} onSelect={(k) => listApi.current?.focusCategory(k)} />
+      )}
 
       {/* Streaks */}
       {streaks.length > 0 && items.length > 0 && (
@@ -503,17 +671,26 @@ function OverviewTab({
         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>Needs · Wants · Savings</div>
         <div className="grid3">
           {r.sections.map((s) => {
-            const pct = s.budget > 0 ? Math.min((s.spent / s.budget) * 100, 100) : 0;
-            const over = s.spent > s.budget && s.budget > 0;
+            const tone = budgetTone(s.budget, s.spent);
+            const fill = budgetFillPct(s.budget, s.spent);
             return (
-              <div key={s.section} style={{ background: 'var(--bg)', borderRadius: 14, padding: 14 }}>
+              <div key={s.section} className="well">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                   <span style={{ fontSize: 13, fontWeight: 700, color: SECTION_COLOR[s.section] }}>{s.label}</span>
                   <span className="note">{s.budget > 0 ? `${Math.round((s.spent / s.budget) * 100)}%` : '—'}</span>
                 </div>
                 <div style={{ fontSize: 18, fontWeight: 700 }}>{cfmt(s.spent)}</div>
                 <div className="note" style={{ marginBottom: 8 }}>of {cfmt(s.budget)}</div>
-                <div className="bar"><div className="bar-fill" style={{ width: `${pct}%`, background: over ? 'var(--red)' : SECTION_COLOR[s.section] }} /></div>
+                <div
+                  className="bar"
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(fill)}
+                  aria-valuetext={`${s.label}: ${cfmt(s.spent)} of ${cfmt(s.budget)} — ${TONE_LABEL[tone]}`}
+                >
+                  <div className="bar-fill" style={{ width: `${fill}%`, background: TONE_FILL[tone] }} />
+                </div>
               </div>
             );
           })}
@@ -534,19 +711,17 @@ function OverviewTab({
         <div className="grid2">
           <div className="fg">
             <label className="fl" htmlFor="et-amount">Amount ({sym})</label>
-            <input
-              ref={amountRef}
-              className="fi"
-              type="number" step="any"
+            {/* Accepts arithmetic as well as a number — "120/4" is a valid way
+                to say 30. See ui/AmountInput.tsx. */}
+            <AmountInput
               id="et-amount"
-              placeholder="0"
-              min={0}
-              inputMode="decimal"
+              inputRef={amountRef}
+              sym={sym}
               required
-              aria-invalid={!!addError}
-              aria-describedby={addError ? 'et-add-err' : undefined}
+              invalid={!!addError}
+              errorId={addError ? 'et-add-err' : undefined}
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={setAmount}
             />
           </div>
           <div className="fg">
@@ -621,7 +796,10 @@ function OverviewTab({
 
       {/* Top categories */}
       <div className="card">
-        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>Top categories</div>
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 2 }}>Top spending categories</div>
+        <p className="note" style={{ marginBottom: 10 }}>
+          Real spending only — savings, investments and transfers are excluded.
+        </p>
         {r.topCategories.length === 0 ? (
           <div className="note">No spending logged yet.</div>
         ) : (
@@ -635,7 +813,7 @@ function OverviewTab({
                     <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.l}</span>
                     <span style={{ fontWeight: 700 }}>{cfmt(c.spent)}</span>
                   </div>
-                  <div className="bar" style={{ height: 5 }}><div className="bar-fill" style={{ width: `${(c.spent / max) * 100}%`, background: c.section ? SECTION_COLOR[c.section] : 'var(--ink3)' }} /></div>
+                  <div className="bar bar-sm"><div className="bar-fill" style={{ width: `${(c.spent / max) * 100}%`, background: c.section ? SECTION_FILL[c.section] : 'var(--ink3)' }} /></div>
                 </div>
               </div>
             );
@@ -651,6 +829,7 @@ function OverviewTab({
         cfmt={cfmt}
         monthLabelText={monthLabel(selMonth)}
         now={now}
+        apiRef={listApi}
         onAdd={openAdd}
         onEdit={openEdit}
         onDuplicate={duplicateTransaction}
@@ -670,11 +849,13 @@ function OverviewTab({
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function AnalyticsTab({
-  items, selMonth, catMeta, cfmt, code, theme, now, monthlyBudget,
+  items, selMonth, catMeta, cfmt, code, theme, now, monthlyBudget, budgetTotalOf,
 }: {
   items: ExpenseItem[]; selMonth: string; catMeta: Map<string, CatMeta>;
   cfmt: (n: number) => string; code: string; theme: string | undefined; now: Date;
   monthlyBudget: number;
+  /** Total budget for any month, used by the timeline's 12-month view. */
+  budgetTotalOf: (month: string) => number;
 }) {
   const forecast = useMemo(
     () => computeMonthForecast(items, selMonth, now, monthlyBudget),
@@ -763,16 +944,34 @@ function AnalyticsTab({
         </div>
       )}
 
+      {/* Budget timeline — spending progression against the plan */}
+      <BudgetTimeline
+        items={items}
+        month={selMonth}
+        budgetOf={budgetTotalOf}
+        cfmt={cfmt}
+        code={code}
+        theme={theme}
+        now={now}
+      />
+
       {/* 12-month spending trend */}
       <div className="card">
         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>12-month spending trend</div>
         <Trend12Chart trend={trend12} cfmt={cfmt} code={code} theme={theme} />
       </div>
 
-      {/* Daily spending heatmap */}
+      {/* Daily spending heatmap. The month follows the page's month picker, so
+          current, previous and any custom month all render here. */}
       <div className="card">
-        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Daily spending — {monthLabel(selMonth)}</div>
-        <Heatmap days={heatmap} cfmt={cfmt} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 2 }}>
+          <span style={{ fontSize: 14, fontWeight: 700 }}>Daily spending — {monthLabel(selMonth)}</span>
+          <AskAiButton focus={{ kind: 'heatmap' }} />
+        </div>
+        <p className="note" style={{ marginBottom: 12 }}>
+          Darker means more spent. Select a day for its detail — use the month picker above to look at another month.
+        </p>
+        <Heatmap days={heatmap} cfmt={cfmt} monthText={monthLabel(selMonth)} />
       </div>
 
       {/* Category comparison */}
@@ -926,6 +1125,70 @@ function Kpi({ v, l, color }: { v: string; l: string; color?: string }) {
   return <div className="stat-cell"><div className="v" style={color ? { color } : undefined}>{v}</div><div className="l">{l}</div></div>;
 }
 
+/** A labelled figure with a supporting line — the dashboard's secondary tier. */
+function Metric({ label, value, note, accent }: { label: string; value: string; note: string; accent: string }) {
+  return (
+    <div className="fx-metric" style={{ ['--m-accent' as string]: accent }}>
+      <div className="fx-metric-l">{label}</div>
+      <div className="fx-metric-v">{value}</div>
+      <div className="fx-metric-n">{note}</div>
+    </div>
+  );
+}
+
+/**
+ * Categories that need attention. Each row is a button: pressing it filters the
+ * transaction list to that category and scrolls to it, so "Food is at 92%"
+ * leads straight to the transactions that made it 92%.
+ */
+function WarningsCard({
+  warnings, cfmt, onSelect,
+}: {
+  warnings: BudgetWarning[];
+  cfmt: (n: number) => string;
+  onSelect: (k: string) => void;
+}) {
+  const over = warnings.filter((w) => w.tone === 'over').length;
+  return (
+    <div className="card fx-warn-card">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+        <Icon name="warn" size={16} style={{ color: over > 0 ? 'var(--red)' : 'var(--orange)' }} />
+        <div style={{ fontSize: 14, fontWeight: 700 }}>Budget warnings</div>
+        <span className="fx-warn-count">{warnings.length}</span>
+      </div>
+      <p className="note" style={{ marginBottom: 10 }}>
+        {over > 0
+          ? `${over} ${over === 1 ? 'category is' : 'categories are'} over budget, and others are approaching their limit.`
+          : 'These categories are approaching their limit this month.'}
+      </p>
+      <ul className="fx-warn-list">
+        {warnings.slice(0, 6).map((w) => {
+          const color = TONE_COLOR[w.tone];
+          const pct = Math.round(w.pct);
+          return (
+            <li key={w.k}>
+              <button
+                type="button"
+                className="fx-warn-row"
+                onClick={() => onSelect(w.k)}
+                aria-label={`${w.label}: ${pct}% of budget used, ${cfmt(w.spent)} of ${cfmt(w.budget)}. Show these transactions.`}
+              >
+                <Icon name={w.ic} size={16} style={{ color, flexShrink: 0 }} />
+                <span className="fx-warn-name">{w.label}</span>
+                <span className="fx-warn-bar" aria-hidden="true">
+                  <span style={{ width: `${budgetFillPct(w.budget, w.spent)}%`, background: color }} />
+                </span>
+                <span className="fx-warn-pct" style={{ color }}>{pct}%</span>
+                <span className="fx-warn-tag" style={{ color }}>{TONE_LABEL[w.tone]}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 function InsightCard({ insight }: { insight: SpendingInsight }) {
   const toneColor: Record<string, string> = {
     ok: 'var(--green)', info: 'var(--blue)', warn: 'var(--orange)', tip: 'var(--gold)',
@@ -941,25 +1204,51 @@ function InsightCard({ insight }: { insight: SpendingInsight }) {
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color, marginBottom: 2 }}>{insight.title}</div>
         <div style={{ fontSize: 12, color: 'var(--ink2)', lineHeight: 1.5 }}>{insight.body}</div>
+        {/* An observation is only half an insight — this is the other half.
+            Pulled left so the sparkle lines up with the body text above it. */}
+        <div style={{ marginTop: 6, marginLeft: -10 }}>
+          <AskAiButton
+            focus={{ kind: 'insight', id: insight.id, title: insight.title, body: insight.body }}
+          />
+        </div>
       </div>
     </div>
   );
 }
 
 function CategoryRow({ c, cfmt }: { c: DashCategory; cfmt: (n: number) => string }) {
-  const pct = c.budget > 0 ? Math.min((c.spent / c.budget) * 100, 100) : 0;
+  // One tone drives the pill, the bar and the exported status — see budgetStatus.ts.
+  const color = TONE_COLOR[c.tone];
+  const fill = budgetFillPct(c.budget, c.spent);
   return (
     <div style={{ padding: '9px 0' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 5 }}>
         <Icon name={c.ic} size={16} style={{ color: c.section ? SECTION_COLOR[c.section] : 'var(--ink2)' }} />
         <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{c.l}</span>
-        <span className="pill" style={{ background: `${HEALTH_COLOR[c.health]}22`, color: HEALTH_COLOR[c.health], fontSize: 10 }}>{HEALTH_LABEL[c.health]}</span>
+        {/* Icon-only: a labelled pill on every category row would shout over
+            the figures it sits beside. The accessible name still names it. */}
+        <AskAiButton focus={{ kind: 'category', key: c.k, label: c.l }} iconOnly />
+        <span className="pill" style={{ background: `color-mix(in srgb, ${color} 14%, transparent)`, color, fontSize: 10 }}>
+          {TONE_LABEL[c.tone]}
+        </span>
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: 'var(--ink2)', marginBottom: 4 }}>
         <span>{cfmt(c.spent)} spent</span>
         {c.budget > 0 ? <span>{cfmt(Math.abs(c.remaining))} {c.remaining >= 0 ? 'left' : 'over'} · budget {cfmt(c.budget)}</span> : <span>no budget set</span>}
       </div>
-      <div className="bar" style={{ height: 6 }}><div className="bar-fill" style={{ width: `${pct}%`, background: HEALTH_COLOR[c.health] === 'var(--ink3)' ? 'var(--ink3)' : HEALTH_COLOR[c.health] }} /></div>
+      <div
+        className="bar"
+        style={{ height: 6 }}
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(fill)}
+        aria-valuetext={c.budget > 0
+          ? `${cfmt(c.spent)} of ${cfmt(c.budget)} — ${TONE_LABEL[c.tone]}`
+          : `${cfmt(c.spent)} spent, no budget set`}
+      >
+        <div className="bar-fill" style={{ width: `${fill}%`, background: color }} />
+      </div>
     </div>
   );
 }
@@ -1084,53 +1373,136 @@ function Trend12Chart({ trend, cfmt, code, theme }: { trend: MonthlyTrend[]; cfm
 
 /* ── Daily heatmap ── */
 
-function Heatmap({ days, cfmt }: { days: ReturnType<typeof computeDailyHeatmap>; cfmt: (n: number) => string }) {
+const DOW_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
+
+/**
+ * Intensity ceiling for a day's swatch.
+ *
+ * The day number sits on top of the swatch, and `var(--ink)` is a light colour
+ * in the dark theme. Alpha-compositing the orange above ~0.58 over a dark card
+ * lifts the background enough that light text drops under 4.5:1 — so the scale
+ * stops there rather than trading legibility for saturation. Under 0.58 the
+ * range is still a ~5× ratio, which reads clearly as "darker means more".
+ */
+const HEATMAP_MAX_ALPHA = 0.55;
+const HEATMAP_MIN_ALPHA = 0.12;
+
+/**
+ * Calendar-style spending intensity for the selected month.
+ *
+ * Every day is a real button, so the detail is reachable by keyboard and
+ * announced by a screen reader — a `<div title>` is neither. The detail lands in
+ * a fixed readout under the grid rather than in a floating tooltip: the grid
+ * scrolls horizontally on narrow screens, and anything absolutely positioned
+ * inside a scroll container is clipped the moment it needs to escape upward.
+ * The readout also survives a tap, which a hover tooltip does not.
+ */
+function Heatmap({ days, cfmt, monthText }: {
+  days: ReturnType<typeof computeDailyHeatmap>;
+  cfmt: (n: number) => string;
+  monthText: string;
+}) {
+  const [active, setActive] = useState<string | null>(null);
   const maxAmt = Math.max(...days.map((d) => d.amount), 1);
-  const DOW_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const maxWeek = days.length > 0 ? Math.max(...days.map((d) => d.week)) : 0;
+  const shown = days.find((d) => d.date === active) ?? null;
+  const busiest = days.reduce<typeof days[number] | null>(
+    (best, d) => (d.amount > (best?.amount ?? 0) ? d : best), null);
 
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: `32px repeat(${maxWeek + 1}, 1fr)`, gap: 3, minWidth: 280 }}>
-        {DOW_LABELS.map((d, i) => (
-          <div key={d} style={{ gridColumn: 1, gridRow: i + 1, fontSize: 10, color: 'var(--ink3)', display: 'flex', alignItems: 'center', fontWeight: 600 }}>{d}</div>
-        ))}
-        {days.map((d) => {
-          const intensity = d.amount > 0 ? Math.max(0.15, d.amount / maxAmt) : 0;
-          const dayNum = parseInt(d.date.split('-')[2], 10);
-          return (
-            <div
-              key={d.date}
-              title={`${d.date}: ${cfmt(d.amount)} (${d.txCount} tx)`}
-              aria-label={`${d.date}: ${cfmt(d.amount)}, ${d.txCount} transactions`}
-              style={{
-                gridColumn: d.week + 2,
-                gridRow: d.dow + 1,
-                aspectRatio: '1',
-                borderRadius: 5,
-                background: d.amount > 0
-                  ? `rgba(232, 131, 61, ${intensity})`
-                  : 'var(--fill-04)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 9, color: intensity > 0.5 ? '#fff' : 'var(--ink3)', fontWeight: 600,
-                cursor: 'default', minHeight: 28,
-              }}
-            >
-              {dayNum}
-            </div>
-          );
-        })}
+    <div className="fx-hm">
+      <style>{HEATMAP_STYLES}</style>
+
+      <div className="fx-hm-scroll">
+        <div
+          className="fx-hm-grid"
+          role="group"
+          aria-label={`Daily spending for ${monthText}`}
+          style={{ gridTemplateColumns: `32px repeat(${maxWeek + 1}, 1fr)` }}
+        >
+          {DOW_LABELS.map((d, i) => (
+            <div key={d} className="fx-hm-dow" style={{ gridColumn: 1, gridRow: i + 1 }} aria-hidden="true">{d}</div>
+          ))}
+          {days.map((d) => {
+            const alpha = d.amount > 0
+              ? HEATMAP_MIN_ALPHA + (d.amount / maxAmt) * (HEATMAP_MAX_ALPHA - HEATMAP_MIN_ALPHA)
+              : 0;
+            const dayNum = parseInt(d.date.split('-')[2], 10);
+            return (
+              <button
+                key={d.date}
+                type="button"
+                className={`fx-hm-cell${active === d.date ? ' is-active' : ''}`}
+                style={{
+                  gridColumn: d.week + 2,
+                  gridRow: d.dow + 1,
+                  background: d.amount > 0 ? `rgba(232, 131, 61, ${alpha})` : 'var(--fill-04)',
+                }}
+                title={`${dayNum} ${monthText}: ${cfmt(d.amount)}, ${d.txCount} transaction${d.txCount === 1 ? '' : 's'}`}
+                aria-label={`${dayNum} ${monthText}: ${cfmt(d.amount)}, ${d.txCount} transaction${d.txCount === 1 ? '' : 's'}`}
+                aria-pressed={active === d.date}
+                onMouseEnter={() => setActive(d.date)}
+                onMouseLeave={() => setActive((cur) => (cur === d.date ? null : cur))}
+                onFocus={() => setActive(d.date)}
+                onBlur={() => setActive((cur) => (cur === d.date ? null : cur))}
+                onClick={() => setActive((cur) => (cur === d.date ? null : d.date))}
+              >
+                {dayNum}
+              </button>
+            );
+          })}
+        </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, justifyContent: 'flex-end' }}>
-        <span style={{ fontSize: 10, color: 'var(--ink3)' }}>Less</span>
-        {[0, 0.2, 0.4, 0.6, 0.8, 1].map((v) => (
-          <div key={v} style={{ width: 12, height: 12, borderRadius: 3, background: v === 0 ? 'var(--fill-04)' : `rgba(232,131,61,${v})` }} />
-        ))}
-        <span style={{ fontSize: 10, color: 'var(--ink3)' }}>More</span>
+
+      <div className="fx-hm-foot">
+        {/* The readout is not a live region: it updates on every cell the pointer
+            crosses, and announcing each one would bury the cell the user
+            actually landed on. The button's own label carries that. */}
+        <p className="fx-hm-read">
+          {shown
+            ? <>
+                <b>{parseInt(shown.date.split('-')[2], 10)} {monthText}</b> · {cfmt(shown.amount)}
+                {' · '}{shown.txCount} transaction{shown.txCount === 1 ? '' : 's'}
+              </>
+            : busiest && busiest.amount > 0
+              ? <>Busiest day: <b>{parseInt(busiest.date.split('-')[2], 10)} {monthText}</b> · {cfmt(busiest.amount)}</>
+              : <>No spending logged this month.</>}
+        </p>
+        <div className="fx-hm-legend" aria-hidden="true">
+          <span>Less</span>
+          {[0, 0.25, 0.5, 0.75, 1].map((v) => (
+            <span
+              key={v}
+              className="fx-hm-swatch"
+              style={{
+                background: v === 0
+                  ? 'var(--fill-04)'
+                  : `rgba(232,131,61,${HEATMAP_MIN_ALPHA + v * (HEATMAP_MAX_ALPHA - HEATMAP_MIN_ALPHA)})`,
+              }}
+            />
+          ))}
+          <span>More</span>
+        </div>
       </div>
     </div>
   );
 }
+
+const HEATMAP_STYLES = `
+.fx-tools .fx-hm-scroll{overflow-x:auto;}
+.fx-tools .fx-hm-grid{display:grid;gap:3px;min-width:280px;}
+.fx-tools .fx-hm-dow{font-size:10px;color:var(--ink3);display:flex;align-items:center;font-weight:600;}
+.fx-tools .fx-hm-cell{aspect-ratio:1;min-height:28px;border-radius:5px;border:1px solid transparent;padding:0;
+  display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;font-family:inherit;
+  color:var(--ink);cursor:pointer;transition:border-color .12s,transform .12s;}
+.fx-tools .fx-hm-cell:hover{border-color:var(--hair);}
+.fx-tools .fx-hm-cell.is-active{border-color:var(--gold);}
+.fx-tools .fx-hm-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px;flex-wrap:wrap;}
+.fx-tools .fx-hm-read{font-size:12px;color:var(--ink2);margin:0;min-height:18px;}
+.fx-tools .fx-hm-legend{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--ink3);margin-left:auto;}
+.fx-tools .fx-hm-swatch{width:12px;height:12px;border-radius:3px;display:inline-block;}
+@media (prefers-reduced-motion:reduce){.fx-tools .fx-hm-cell{transition:none;}}
+`;
 
 /* ── Helpers ── */
 
@@ -1140,15 +1512,67 @@ function fmtDate(d: string): string {
   return dt.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
+/* ── Undo toast styles ── */
+
+const UNDO_STYLES = `
+.fx-undo{position:fixed;left:50%;bottom:calc(22px + var(--fx-bottomnav-h,0px) + env(safe-area-inset-bottom));transform:translateX(-50%);
+  z-index:var(--z-undo);border-radius:14px;overflow:hidden;
+  background:var(--card-solid,#1c1c1f);border:1px solid var(--hair2);color:var(--ink);
+  box-shadow:0 20px 50px -18px rgba(0,0,0,.7);font-size:13px;max-width:calc(100vw - 32px);
+  animation:fxUndoIn .28s cubic-bezier(.34,1.3,.5,1) both;}
+.fx-undo-body{display:flex;align-items:center;gap:14px;padding:12px 14px 12px 18px;}
+@keyframes fxUndoIn{from{opacity:0;transform:translate(-50%,14px)}to{opacity:1;transform:translate(-50%,0)}}
+.fx-undo kbd{font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:var(--ink3);
+  border:1px solid var(--hair2);border-radius:5px;padding:1px 5px;}
+.fx-undo-tick{display:block;height:3px;background:var(--gold);transform-origin:left center;
+  animation-name:fxUndoTick;animation-timing-function:linear;animation-fill-mode:forwards;}
+@keyframes fxUndoTick{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+@media (prefers-reduced-motion:reduce){
+  .fx-undo{animation:none;}
+  /* The global reduce rule collapses every animation to ~0ms, which would show
+     the bar as already expired. Hiding it is honest; the toast's own dismissal
+     still tells the user when the window closes. */
+  .fx-undo-tick{display:none;}
+}
+`;
+
 /* ── Tab styles ── */
 
 const TAB_STYLES = `
-.fx-tabs{display:flex;gap:4px;margin-bottom:14px;background:var(--bg);border-radius:14px;padding:4px;border:1px solid var(--hair2);}
+.fx-tabs{display:flex;gap:4px;margin-bottom:14px;background:var(--well);border-radius:14px;padding:4px;border:1px solid var(--well-border);}
 .fx-tab{display:inline-flex;align-items:center;gap:7px;padding:10px 16px;border-radius:11px;border:none;background:transparent;
-  color:var(--ink2);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .18s;flex:1;justify-content:center;}
+  color:var(--ink2);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;flex:1;justify-content:center;
+  transition:background-color var(--ctl-trans),color var(--ctl-trans),box-shadow var(--ctl-trans);}
 .fx-tab:hover{color:var(--ink);background:var(--fill-04);}
 .fx-tab.active{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08);}
 @media (max-width:480px){.fx-tab{padding:9px 10px;font-size:12px;gap:5px;}}
 .fx-streak{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:10px;
-  background:var(--bg);border:1px solid var(--hair2);font-size:12px;font-weight:600;color:var(--ink2);}
+  background:var(--well);border:1px solid var(--well-border);font-size:12px;font-weight:600;color:var(--ink2);}
+
+/* Secondary metric tier — pacing & cash flow */
+.fx-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;}
+.fx-metric{position:relative;background:var(--well);border:1px solid var(--well-border);border-radius:13px;padding:13px 14px 13px 16px;overflow:hidden;}
+.fx-metric::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--m-accent,var(--gold));}
+.fx-metric-l{font-size:11px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:var(--ink3);}
+.fx-metric-v{font-size:20px;font-weight:700;letter-spacing:-.02em;margin-top:5px;color:var(--ink);}
+.fx-metric-n{font-size:11.5px;color:var(--ink2);margin-top:3px;line-height:1.45;}
+
+/* Budget warnings */
+.fx-warn-card{border-color:color-mix(in srgb,var(--orange) 30%,var(--hair2));}
+.fx-warn-count{font-size:11px;font-weight:700;padding:2px 8px;border-radius:980px;
+  background:color-mix(in srgb,var(--orange) 14%,transparent);color:var(--orange);}
+.fx-warn-list{list-style:none;margin:0;padding:0;display:grid;gap:4px;}
+.fx-warn-row{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border-radius:11px;border:1px solid transparent;
+  background:transparent;color:inherit;font-family:inherit;cursor:pointer;text-align:left;transition:background .15s,border-color .15s;}
+.fx-warn-row:hover{background:var(--fill-04);border-color:var(--hair2);}
+.fx-warn-name{flex:1;min-width:0;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fx-warn-bar{flex:0 0 82px;height:6px;border-radius:6px;background:var(--well);overflow:hidden;display:block;}
+.fx-warn-bar > span{display:block;height:100%;border-radius:6px;}
+.fx-warn-pct{font-size:12.5px;font-weight:700;flex-shrink:0;width:38px;text-align:right;}
+.fx-warn-tag{font-size:10.5px;font-weight:700;flex-shrink:0;width:74px;text-align:right;}
+@media(max-width:480px){
+  .fx-warn-bar{display:none;}
+  .fx-warn-tag{display:none;}
+}
+@media (prefers-reduced-motion:reduce){.fx-warn-row{transition:none;}}
 `;

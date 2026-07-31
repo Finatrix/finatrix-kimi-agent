@@ -95,6 +95,23 @@ describe('groupByTimeline', () => {
     const groups = groupByTimeline(tl, now);
     expect(groups[0].items.map((i) => i.id)).toEqual(['x', 'y']);
   });
+
+  /**
+   * Month labels must be decided against the reference date the caller passed,
+   * not the wall clock. Before this, the bare-vs-year-qualified choice read
+   * `new Date()`, so these same inputs produced "June" or "June 2026"
+   * depending on what day the suite happened to run — a test that only failed
+   * on 1 January, and a label that was wrong for any caller supplying its own
+   * clock.
+   */
+  it('qualifies the year against the caller’s reference date, not the wall clock', () => {
+    const tl: ExpenseItem[] = [{ id: '1', amount: 1, category: 'rent', date: '2026-06-10' }];
+    const sameYear = groupByTimeline(tl, new Date('2026-07-15T12:00:00'));
+    const nextYear = groupByTimeline(tl, new Date('2027-01-01T12:00:00'));
+
+    expect(sameYear[0].label).toBe('June');
+    expect(nextYear[0].label).toBe('June 2026');
+  });
 });
 
 describe('filter meta helpers', () => {

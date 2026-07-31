@@ -13,6 +13,9 @@ export function MonthNav({
   pastNote,
   pastColor,
   allowFuture = false,
+  maxMonth,
+  futureNote = 'Planning ahead',
+  futureColor,
 }: {
   activeMonth: string;
   months: string[]; // months to show as chips (already includes current)
@@ -20,100 +23,77 @@ export function MonthNav({
   pastNote: string;
   pastColor: string;
   allowFuture?: boolean;
+  /**
+   * Furthest month reachable with the next arrow (inclusive, "YYYY-MM").
+   * Lets a forward-planning view open exactly one month ahead without
+   * lifting the clamp entirely the way `allowFuture` does.
+   */
+  maxMonth?: string;
+  /** Note shown when the active month is in the future. */
+  futureNote?: string;
+  futureColor?: string;
 }) {
   const cur = currentMonth();
   const isNow = activeMonth === cur;
+  const isFuture = activeMonth > cur;
   const prev = prevMonth(activeMonth);
-  const next = allowFuture ? nextMonthUnclamped(activeMonth) : nextMonth(activeMonth);
+  const nextRaw = nextMonthUnclamped(activeMonth);
+  const next = maxMonth
+    ? (nextRaw <= maxMonth ? nextRaw : null)
+    : allowFuture ? nextRaw : nextMonth(activeMonth);
   const chips = months.length > 1 ? months : [];
 
-  const arrowStyle: React.CSSProperties = {
-    width: 34,
-    height: 34,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'var(--bg)',
-    border: '1px solid var(--hair2)',
-    borderRadius: 8,
-    fontSize: 16,
-    color: 'var(--ink2)',
-    transition: 'all .15s',
-  };
+  // The status line under the month name. Only the colour varies, so it is
+  // resolved once rather than through three near-identical branches of JSX.
+  const status = isFuture
+    ? { text: futureNote, color: futureColor ?? pastColor }
+    : !isNow
+      ? { text: pastNote, color: pastColor }
+      : { text: 'Current month', color: undefined };
 
   return (
-    <div
-      style={{
-        background: 'var(--card)',
-        borderRadius: 14,
-        boxShadow: 'var(--shadow)',
-        padding: '14px 18px',
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: chips.length ? 10 : 0,
-        }}
-      >
+    <div className="fx-mnav">
+      <div className="fx-mnav-top">
         <button
           type="button"
+          className="fx-mnav-arrow"
           onClick={() => onSwitch(prev)}
-          style={{ ...arrowStyle, cursor: 'pointer' }}
-          title="Previous month"
-          aria-label="Previous month"
+          title="Go to previous month"
+          aria-label="Go to previous month"
         >
-          ‹
+          <span aria-hidden="true">‹</span>
         </button>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>
-            {monthLabel(activeMonth)}
+        <div className="fx-mnav-label">
+          <div className="fx-mnav-month">{monthLabel(activeMonth)}</div>
+          <div className="fx-mnav-note" style={status.color ? { color: status.color } : undefined}>
+            {status.text}
           </div>
-          {!isNow ? (
-            <div style={{ fontSize: 11, color: pastColor, fontWeight: 600, marginTop: 2 }}>
-              {pastNote}
-            </div>
-          ) : (
-            <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>Current month</div>
-          )}
         </div>
         <button
           type="button"
+          className="fx-mnav-arrow"
           onClick={() => next && onSwitch(next)}
           disabled={!next}
-          style={{
-            ...arrowStyle,
-            opacity: next ? 1 : 0.3,
-            cursor: next ? 'pointer' : 'default',
-          }}
-          title="Next month"
-          aria-label="Next month"
+          title="Go to next month"
+          aria-label="Go to next month"
         >
-          ›
+          <span aria-hidden="true">›</span>
         </button>
       </div>
       {chips.length > 0 && (
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <div className="fx-mnav-chips">
           {chips.map((m) => {
             const active = m === activeMonth;
             return (
               <button
                 type="button"
                 key={m}
+                className={`fx-mnav-chip${active ? ' on' : ''}`}
+                // The chips are a set of alternatives, one of which is showing
+                // — without this a screen reader hears eight identical buttons
+                // and no indication of which month is on screen.
+                aria-pressed={active}
                 onClick={() => onSwitch(m)}
-                style={{
-                  fontSize: 11,
-                  padding: '3px 10px',
-                  borderRadius: 980,
-                  border: `1px solid ${active ? 'var(--gold)' : 'var(--hair2)'}`,
-                  background: active ? 'var(--gold)' : 'var(--card)',
-                  color: active ? 'var(--card)' : 'var(--ink2)',
-                  cursor: 'pointer',
-                  fontWeight: 600,
-                  transition: 'all .15s',
-                }}
               >
                 {monthLabel(m)}
               </button>

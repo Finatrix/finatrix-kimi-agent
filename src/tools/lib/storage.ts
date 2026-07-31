@@ -20,6 +20,14 @@ const FX_WRITE_EVENT = 'fx:write';
 
 interface FxStore {
   get(key: string, fallback: string): string;
+  /**
+   * The stored value, or `null` when the key is absent. Honours the in-memory
+   * shadow exactly as `get` does. Callers that must distinguish "absent" from
+   * "stored empty string" — cloud sync, which decides what to upload — have to
+   * read through this rather than touching `localStorage` directly, or they
+   * silently miss values that only ever made it into `mem`.
+   */
+  raw(key: string): string | null;
   set(key: string, value: string): void;
   remove(key: string): void;
   readonly persistent: boolean;
@@ -36,21 +44,24 @@ function createStore(): FxStore {
     ok = false;
   }
 
+  // A key lands in `mem` only when a write to localStorage failed (or
+  // localStorage is unavailable); that in-session value is newer than
+  // whatever localStorage holds, so it must win.
+  const raw = (key: string): string | null => {
+    if (key in mem) return mem[key];
+    try {
+      if (ok) return localStorage.getItem(key);
+    } catch {
+      /* fall through */
+    }
+    return null;
+  };
+
   return {
+    raw,
     get(key: string, fallback: string): string {
-      // A key lands in `mem` only when a write to localStorage failed (or
-      // localStorage is unavailable); that in-session value is newer than
-      // whatever localStorage holds, so it must win.
-      if (key in mem) return mem[key];
-      try {
-        if (ok) {
-          const v = localStorage.getItem(key);
-          return v === null ? fallback : v;
-        }
-      } catch {
-        /* fall through */
-      }
-      return fallback;
+      const v = raw(key);
+      return v === null ? fallback : v;
     },
     set(key: string, value: string): void {
       try {

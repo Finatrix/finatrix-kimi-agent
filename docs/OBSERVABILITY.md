@@ -211,6 +211,13 @@ select cron.schedule('prune-analytics', '0 3 * * *', $$ select public.prune_anal
 (or hit an RPC from an external scheduler). Aggregations for long-term trends should be materialised
 before pruning if longer history is ever required.
 
+Billing (Phase 4, Module 2) is one-time-renewal, not auto-charging — nothing demotes an unrenewed paid
+plan back to Free on its own. Schedule `public.expire_subscriptions()` hourly the same way:
+
+```sql
+select cron.schedule('expire-subscriptions', '0 * * * *', $$ select public.expire_subscriptions(); $$);
+```
+
 ---
 
 ## 8. Alerting & incident readiness (recommended thresholds)

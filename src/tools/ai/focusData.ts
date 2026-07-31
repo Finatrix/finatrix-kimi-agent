@@ -24,7 +24,7 @@ import { sanitizeField, sanitizeProse } from '../../lib/sanitize';
 import { allCategories } from '../lib/budget';
 import { computeDailyHeatmap, type CatMeta } from '../lib/expenseAnalytics';
 import { computeTimeline } from '../lib/budgetTimeline';
-import { computeDashboard, isSpendingCategory, type ExpenseItem } from '../lib/expense';
+import { computeDashboard, isSpendingCategory, migrateCategory, type ExpenseItem } from '../lib/expense';
 import { monthLabel, prevMonth } from '../lib/month';
 import { money, type SnapshotInput } from './context';
 import type { AiFocus } from './focus';
@@ -74,7 +74,9 @@ export function buildFocusDetail(focus: AiFocus, input: SnapshotInput): FocusDet
 
 function categoryDetail(key: string, input: SnapshotInput): FocusDetail {
   const { items, cats, budgetStore, month, now } = input;
-  const meta = new Map<string, CatMeta>(allCategories(cats).map((c) => [c.k, c]));
+  const flat = allCategories(cats);
+  const meta = new Map<string, CatMeta>(flat.map((c) => [c.k, c]));
+  const validKeys = new Set(flat.map((c) => c.k));
   const label = sanitizeField(meta.get(key)?.l ?? key, MAX_TEXT);
 
   const monthData = budgetStore[month];
@@ -84,10 +86,16 @@ function categoryDetail(key: string, input: SnapshotInput): FocusDetail {
 
   // One pass, bucketed by month key — the same "sum this category's amounts in
   // this month" the category rows themselves display.
+  //
+  // Membership is decided by `migrateCategory`, the same rule `computeDashboard`
+  // used to build `row` above. Comparing the RAW stored key here meant a
+  // category holding legacy-keyed transactions sent the model a block that
+  // contradicted itself — `spent: 0` beside a `remaining` computed from a real
+  // five-figure spend — and the model can only report what the block says.
   const byMonth = new Map<string, { spent: number; txCount: number }>();
   const catItems: ExpenseItem[] = [];
   for (const e of items) {
-    if (e.category !== key) continue;
+    if (migrateCategory(e.category, validKeys) !== key) continue;
     catItems.push(e);
     const mk = (e.date || '').slice(0, 7);
     const bucket = byMonth.get(mk) ?? { spent: 0, txCount: 0 };
@@ -170,10 +178,15 @@ function transactionDetail(id: string, input: SnapshotInput): FocusDetail {
     };
   }
 
-  const meta = new Map<string, CatMeta>(allCategories(cats).map((c) => [c.k, c]));
-  const label = sanitizeField(meta.get(tx.category)?.l ?? tx.category, MAX_TEXT);
+  const flat = allCategories(cats);
+  const meta = new Map<string, CatMeta>(flat.map((c) => [c.k, c]));
+  const validKeys = new Set(flat.map((c) => c.k));
+  const txKey = migrateCategory(tx.category, validKeys);
+  const label = sanitizeField(meta.get(txKey)?.l ?? tx.category, MAX_TEXT);
 
-  const sameCategory = items.filter((e) => e.category === tx.category);
+  // Peers are resolved the same way, so "is this unusually expensive for this
+  // category" compares against every row the dashboard files under it.
+  const sameCategory = items.filter((e) => migrateCategory(e.category, validKeys) === txKey);
   const categoryAverage = sameCategory.length > 0
     ? sameCategory.reduce((s, e) => s + e.amount, 0) / sameCategory.length
     : 0;

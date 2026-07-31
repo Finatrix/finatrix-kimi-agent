@@ -32,6 +32,25 @@ if (!('IntersectionObserver' in globalThis)) {
 if (typeof window !== 'undefined' && typeof window.scrollTo !== 'function') {
   window.scrollTo = () => {};
 }
+// jsdom implements neither scrollIntoView nor matchMedia. Both are used for
+// progressive enhancement only (bringing a filtered list into view; honouring
+// prefers-reduced-motion), so inert shims keep the default — motion enabled —
+// and let tests exercise the same path a browser takes.
+if (typeof Element !== 'undefined' && typeof Element.prototype.scrollIntoView !== 'function') {
+  Element.prototype.scrollIntoView = () => {};
+}
+if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
+  window.matchMedia = ((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+  })) as typeof window.matchMedia;
+}
 
 // jsdom ships neither WebCrypto's subtle API nor Blob.arrayBuffer, both used
 // by the Careers hashing/validation layer. Bridge to Node's implementations.

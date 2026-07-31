@@ -309,23 +309,52 @@ export default function ToolsLayout() {
   const uid = user?.id;
   useEffect(() => {
     if (!configured || !uid) return;
+    /**
+     * Send a pending write now instead of waiting out the debounce. Called when
+     * the tab is being hidden or torn down and when this effect is cleaned up
+     * (navigating out of /tools, signing out, switching account).
+     *
+     * Previously the cleanup just cleared the timer, so an edit made in the
+     * 700ms before leaving the section was dropped and never reached the cloud
+     * at all — the user saw "Saving…", left, and the change existed only on
+     * that device. `pushLocalToCloud` snapshots the values synchronously before
+     * its first await, so a flush during sign-out still captures the signed-in
+     * user's data ahead of the seeding effect clearing it.
+     */
+    const flush = () => {
+      if (!saveTimer.current) return;
+      clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+      void pushLocalToCloud(uid);
+    };
     const schedule = (key: string | null) => {
       if (!readyRef.current) return; // seeding in progress — its own explicit push handles it
       if (key && !SYNC_KEYS.includes(key)) return;
       setSync('saving');
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(async () => {
+        saveTimer.current = null;
         const s = await pushLocalToCloud(uid);
         setSync(s);
       }, 700);
     };
     const offWrite = onLocalWrite((key) => schedule(key));
     const onStorage = (e: StorageEvent) => schedule(e.key);
+    // `visibilitychange` is the reliable moment on mobile, where `pagehide`
+    // frequently never runs; both are cheap because flush is a no-op unless a
+    // write is actually pending.
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
     window.addEventListener('storage', onStorage);
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('pagehide', flush);
     return () => {
       offWrite();
       window.removeEventListener('storage', onStorage);
-      if (saveTimer.current) clearTimeout(saveTimer.current);
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('pagehide', flush);
+      flush();
     };
   }, [uid, configured]);
 
@@ -371,7 +400,10 @@ export default function ToolsLayout() {
                 </svg>
               </button>
               <HomeButton compact className="hidden sm:inline-flex" />
-              <Link to="/" aria-label="FinatriX home" className="flex items-center gap-2 group">
+              {/* min-h-6 (24px): the mark is 22px and the wordmark shorter, so
+                  this standalone link rendered 2px under the WCAG 2.2 (2.5.8)
+                  target minimum. Growing the box leaves the artwork untouched. */}
+              <Link to="/" aria-label="FinatriX home" className="flex items-center gap-2 group min-h-6">
                 <BrandLogo size={22} className="shrink-0" />
                 <span className="font-mono text-[12px] uppercase tracking-[0.12em] sm:tracking-[0.16em] text-ink group-hover:text-accent-text transition-colors select-none">
                   FinatriX

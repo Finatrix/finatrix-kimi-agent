@@ -5,6 +5,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ymdLocal } from '../../lib/date';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
 import { Icon } from '../../tools/ui/Icon';
@@ -84,6 +85,22 @@ const CAL_EVENT_KIND: Record<CalEvent['kind'], CalendarEvent['kind']> = {
   interview: 'interview', deadline: 'deadline', offer: 'deadline', followup: 'follow_up',
 };
 
+/**
+ * The calendar-date key for a grid cell, read in the viewer's own timezone.
+ *
+ * The grid used `d.toISOString().slice(0, 10)`, which converts to UTC first.
+ * Every cell is built as LOCAL midnight (`new Date(y, m, 1)` + `setDate`), and
+ * local midnight anywhere east of UTC is still the previous day in UTC — so in
+ * IST, FinatriX's primary market, every cell was keyed one day behind the number
+ * printed inside it. Interviews and deadlines rendered on the following day's
+ * square, and because `todayKey` came from the real `new Date()` (whose UTC date
+ * is correct during working hours) the "today" ring landed on tomorrow.
+ *
+ * `ymdLocal` is the shared rule — see src/lib/date.ts for why it must never go
+ * via UTC, and src/test/dateKeys.test.ts for the guard.
+ */
+const calendarKey = ymdLocal;
+
 /** Module 15 — .ics needs a real timestamp; a bare calendar date defaults to 9am local. */
 function toCalendarEvents(events: CalEvent[]): CalendarEvent[] {
   return events.map((e, i) => ({
@@ -129,7 +146,7 @@ function CalendarView({ events }: { events: CalEvent[] }) {
     return list;
   }, [anchor, mode]);
 
-  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayKey = calendarKey(new Date());
   const monthLabel = anchor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   const step = (dir: 1 | -1) => {
     const next = new Date(anchor);
@@ -156,7 +173,7 @@ function CalendarView({ events }: { events: CalEvent[] }) {
       <div className="cal-grid" role="grid" aria-label={`Calendar — ${monthLabel}`}>
         {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => <div className="cal-head" key={d}>{d}</div>)}
         {days.map((d) => {
-          const key = d.toISOString().slice(0, 10);
+          const key = calendarKey(d);
           const dayEvents = byDate.get(key) ?? [];
           const other = mode === 'month' && d.getMonth() !== anchor.getMonth();
           return (

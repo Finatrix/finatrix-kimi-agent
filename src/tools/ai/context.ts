@@ -22,10 +22,11 @@
  * Everything here is pure; `now` is passed in.
  */
 
+import { ymdLocal } from '../../lib/date';
 import { sanitizeField } from '../../lib/sanitize';
 import { allCategories, type BudgetStore, type SectionedCats } from '../lib/budget';
 import {
-  computeDashboard, isSpendingCategory, type ExpenseItem,
+  computeDashboard, isSpendingCategory, migrateCategory, type ExpenseItem,
 } from '../lib/expense';
 import {
   computeMonthlyTrend, detectRecurring, computeMonthForecast,
@@ -135,6 +136,7 @@ export function buildSnapshot({
 }: SnapshotInput): FinanceSnapshot {
   const flat = allCategories(cats);
   const catMeta = new Map<string, CatMeta>(flat.map((c) => [c.k, c]));
+  const validKeys = new Set(flat.map((c) => c.k));
 
   const monthData = budgetStore[month];
   const income = Math.max(0, Number(monthData?.income) || 0);
@@ -171,7 +173,10 @@ export function buildSnapshot({
     .slice(0, MAX_TOP_TX)
     .map((e) => ({
       date: e.date,
-      category: sanitizeField(catMeta.get(e.category)?.l ?? e.category, MAX_TEXT),
+      // Resolved like every other category figure in this snapshot, so the
+      // model is never shown a raw storage key ("food") for a transaction whose
+      // money it can also see totalled under the readable name ("Eating Out").
+      category: sanitizeField(catMeta.get(migrateCategory(e.category, validKeys))?.l ?? e.category, MAX_TEXT),
       amount: money(e.amount),
       // User-authored free text. Sanitized because it is about to be embedded
       // in a prompt, where a crafted merchant name is an injection attempt.
@@ -243,6 +248,4 @@ const TONE_TEXT = {
   over: 'over budget',
 } as const;
 
-function ymd(d: Date): string {
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-}
+const ymd = ymdLocal;

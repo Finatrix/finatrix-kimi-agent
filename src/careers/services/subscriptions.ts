@@ -7,6 +7,7 @@
  */
 
 import { supabase } from '../../lib/supabase';
+import { invokeAuthed } from '../../lib/functions';
 import { logAudit } from './audit';
 import { mapSupabaseError } from '../utils/errors';
 import type {
@@ -115,6 +116,23 @@ export async function applyCoupon(userId: string, subscriptionId: string, code: 
   return data as SubscriptionRow;
 }
 
+export type BillingPeriod = 'monthly' | 'yearly';
+
+/**
+ * Start a one-time-per-period Stripe Checkout for a paid plan. Not an
+ * auto-renewing subscription — see careers-billing-checkout's header comment
+ * for why (RBI e-mandate rules make plain recurring charges unreliable for
+ * Indian cards). Returns the Checkout Session URL to redirect the browser to,
+ * or an error message safe to show the user directly.
+ */
+export async function startCheckout(planId: string, period: BillingPeriod): Promise<{ url: string } | { error: string }> {
+  const { data, error, reason } = await invokeAuthed<{ url?: string; error?: string }>('careers-billing-checkout', { planId, period });
+  if (reason === 'no-session') return { error: 'Sign in to subscribe.' };
+  if (reason === 'not-configured') return { error: 'Payments are not available right now.' };
+  if (error || !data?.url) return { error: data?.error || 'Could not start checkout. Please try again.' };
+  return { url: data.url };
+}
+
 export async function listBillingHistory(userId: string): Promise<BillingHistoryRow[]> {
   const { data, error } = await supabase
     .from('billing_history')
@@ -144,7 +162,18 @@ export async function getUsageCounter(userId: string): Promise<UsageCounterRow> 
   return { user_id: userId, period, ai_calls: 0, storage_bytes: 0, resumes_count: 0, applications_count: 0, updated_at: new Date().toISOString() };
 }
 
-/** Atomically bump one usage counter for the current period (upsert + increment). */
+/**
+ * Bump one usage counter for the current period.
+ *
+ * NOT atomic, despite what this comment used to claim: it is a read followed by
+ * an upsert, so two features metering concurrently both read N and both write
+ * N+1, and one unit of usage goes unrecorded. The under-count is bounded by how
+ * many requests a single user can genuinely overlap, and it only ever errs
+ * toward the user. It is recorded here rather than quietly relied upon —
+ * closing it properly means a Postgres RPC of the `increment_ai_usage` shape
+ * (see the careers-ai edge function, which already meters atomically for the
+ * quota that actually costs money).
+ */
 export async function incrementUsage(userId: string, kind: QuotaKind, by = 1): Promise<void> {
   const current = await getUsageCounter(userId);
   const patch = { ...current, [kind]: (current[kind] as number) + by };

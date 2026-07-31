@@ -499,10 +499,10 @@ function ChartBars({ chart }: { chart: AiChart }) {
 }
 
 const PANEL_STYLES = `
-.fx-ai-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:400;
+.fx-ai-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:var(--z-panel);
   animation:fxAiFade .2s ease both;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);}
 @keyframes fxAiFade{from{opacity:0}to{opacity:1}}
-.fx-ai-card{position:fixed;z-index:401;display:flex;flex-direction:column;
+.fx-ai-card{position:fixed;z-index:calc(var(--z-panel) + 1);display:flex;flex-direction:column;
   background:var(--card-solid,#15151A);border:1px solid var(--hair);color:var(--ink);
   box-shadow:0 30px 80px -24px rgba(0,0,0,.75);animation:fxAiIn .26s cubic-bezier(.34,1.15,.5,1) both;}
 @keyframes fxAiIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
@@ -533,7 +533,7 @@ const PANEL_STYLES = `
 .fx-ai-turn{display:flex;flex-direction:column;gap:8px;max-width:100%;}
 .fx-ai-turn.user{align-items:flex-end;}
 .fx-ai-bubble{max-width:92%;padding:10px 13px;border-radius:14px;font-size:13.5px;line-height:1.6;
-  background:var(--bg);border:1px solid var(--hair2);overflow-wrap:anywhere;}
+  background:var(--well);border:1px solid var(--well-border);overflow-wrap:anywhere;}
 .fx-ai-turn.user .fx-ai-bubble{background:var(--gold-bg);border-color:color-mix(in srgb,var(--gold) 28%,transparent);}
 .fx-ai-bubble.is-bad{border-color:color-mix(in srgb,var(--red) 35%,transparent);color:var(--ink2);}
 .fx-ai-bubble p{margin:0 0 8px;}

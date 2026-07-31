@@ -20,6 +20,8 @@ export const SYNC_KEYS = [
   'fx_budgets',
   'fx_bb_data',
   'fx_bb_cats',
+  'fx_bb_catprefs',
+  'fx_bb_income',
   'fx_lifemap',
   'fx_investmatch',
   'fx_parksmart',
@@ -85,12 +87,21 @@ export async function loadCloudIntoLocal(userId: string): Promise<SyncStatus> {
   return 'saved';
 }
 
-/** Push the current localStorage values up to the user's cloud row. */
+/**
+ * Push the current tool values up to the user's cloud row.
+ *
+ * Reads through `store`, not raw localStorage. When a write could not reach
+ * localStorage — quota exceeded on a large expense list, or Safari private
+ * mode — the storage wrapper keeps the value in its in-memory shadow and the
+ * UI carries on showing it. Reading `localStorage` directly here would upload
+ * the older value (or omit the key entirely, deleting it from the cloud blob),
+ * so the user's most recent edits were silently lost on the next device.
+ */
 export async function pushLocalToCloud(userId: string): Promise<SyncStatus> {
   if (!isSupabaseConfigured) return 'offline';
   const blob: Record<string, string> = {};
   SYNC_KEYS.forEach((k) => {
-    const v = lsGet(k);
+    const v = store.raw(k);
     if (v != null) blob[k] = v;
   });
   const { error } = await supabase.from('tool_data').upsert(

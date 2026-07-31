@@ -9,10 +9,30 @@
  * Every function is pure and unit-testable.
  */
 import type { ExpenseItem } from './expense';
-import { ymdLocal } from './expense';
+import { ymdLocal, migrateCategory } from './expense';
 import type { CatKey } from './budget';
 import type { IconName } from '../ui/Icon';
 import { monthLabel } from './month';
+
+/**
+ * The category key a transaction belongs to, resolved the way the rest of the
+ * app resolves it.
+ *
+ * Every function here already receives `catMeta`, whose KEYS are the user's live
+ * categories — which makes it the migration table too. Grouping on the raw
+ * stored key instead (which is what this module used to do) splits one category
+ * into two buckets for anyone with pre-V4.1 data: a legacy `food` row and a
+ * current `eating_out` row are the same category to `computeDashboard`, but were
+ * two separate rows here, each with a smaller total, and the legacy one labelled
+ * with its raw storage key because `catMeta.get('food')` finds nothing.
+ *
+ * That is not cosmetic in this file. These are the figures behind "your biggest
+ * category", the month-over-month comparison and the generated insights — a
+ * split bucket understates a category and can flip a comparison's direction.
+ */
+function catKeyOf(category: string, catMeta: Map<string, CatMeta>): string {
+  return migrateCategory(category, new Set(catMeta.keys()));
+}
 
 /* ══════════════════════════════════════════════════════════════════════════
    Types
@@ -104,10 +124,13 @@ export function frequentCategoryKeys(
   const count = new Map<string, number>();
   const lastSeen = new Map<string, string>(); // category → max date string
   for (const e of items) {
-    if (!valid.has(e.category)) continue; // skip stale/migrated-away keys
-    count.set(e.category, (count.get(e.category) ?? 0) + 1);
+    // Resolve first, THEN check: the raw check dropped every legacy-keyed row,
+    // so a category the user actually uses most could never reach the quick-pick.
+    const k = migrateCategory(e.category, valid);
+    if (!valid.has(k)) continue; // genuinely stale key, with nowhere to migrate to
+    count.set(k, (count.get(k) ?? 0) + 1);
     const d = e.date || '';
-    if (d > (lastSeen.get(e.category) ?? '')) lastSeen.set(e.category, d);
+    if (d > (lastSeen.get(k) ?? '')) lastSeen.set(k, d);
   }
   return [...count.keys()]
     .sort((a, b) =>
@@ -139,7 +162,10 @@ export function computeMonthlyTrend(
 
     // Top category
     const byCat: Record<string, number> = {};
-    monthItems.forEach((e) => { byCat[e.category] = (byCat[e.category] || 0) + e.amount; });
+    monthItems.forEach((e) => {
+      const k = catKeyOf(e.category, catMeta);
+      byCat[k] = (byCat[k] || 0) + e.amount;
+    });
     const sorted = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
     const topCat = sorted[0] ?? null;
 
@@ -175,8 +201,14 @@ export function computeCategoryComparison(
 
   const curByCat: Record<string, number> = {};
   const prevByCat: Record<string, number> = {};
-  curItems.forEach((e) => { curByCat[e.category] = (curByCat[e.category] || 0) + e.amount; });
-  prevItems.forEach((e) => { prevByCat[e.category] = (prevByCat[e.category] || 0) + e.amount; });
+  curItems.forEach((e) => {
+    const k = catKeyOf(e.category, catMeta);
+    curByCat[k] = (curByCat[k] || 0) + e.amount;
+  });
+  prevItems.forEach((e) => {
+    const k = catKeyOf(e.category, catMeta);
+    prevByCat[k] = (prevByCat[k] || 0) + e.amount;
+  });
 
   const allCats = new Set([...Object.keys(curByCat), ...Object.keys(prevByCat)]);
   const result: CategoryComparison[] = [];
@@ -274,7 +306,9 @@ export function detectRecurring(
 
   items.forEach((e) => {
     // Only consider items explicitly marked recurring OR with merchant+category pattern
-    const key = `${e.category}::${e.merchant?.toLowerCase() || ''}`;
+    // Resolved, so a subscription logged before the merge and after it is ONE
+    // recurring pattern rather than two half-confident ones.
+    const key = `${catKeyOf(e.category, catMeta)}::${e.merchant?.toLowerCase() || ''}`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(e);
   });
@@ -428,14 +462,17 @@ export function generateInsights(
       id: 'large_tx',
       tone: 'info',
       title: 'Big ticket item',
-      body: `Your largest transaction (${maxTx.merchant || maxTx.note || catMeta.get(maxTx.category)?.l || 'Unknown'}) accounts for ${Math.round((maxTx.amount / totalSpent) * 100)}% of this month's spending.`,
+      body: `Your largest transaction (${maxTx.merchant || maxTx.note || catMeta.get(catKeyOf(maxTx.category, catMeta))?.l || 'Unknown'}) accounts for ${Math.round((maxTx.amount / totalSpent) * 100)}% of this month's spending.`,
       icon: 'trending',
     });
   }
 
   // 3. Category concentration
   const byCat: Record<string, number> = {};
-  curItems.forEach((e) => { byCat[e.category] = (byCat[e.category] || 0) + e.amount; });
+  curItems.forEach((e) => {
+    const k = catKeyOf(e.category, catMeta);
+    byCat[k] = (byCat[k] || 0) + e.amount;
+  });
   const catEntries = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
   if (catEntries.length >= 3 && totalSpent > 0) {
     const topPct = (catEntries[0][1] / totalSpent) * 100;
@@ -568,7 +605,10 @@ export function computeAnalyticsSummary(
 
   // Top category
   const byCat: Record<string, number> = {};
-  items.forEach((e) => { byCat[e.category] = (byCat[e.category] || 0) + e.amount; });
+  items.forEach((e) => {
+    const k = catKeyOf(e.category, catMeta);
+    byCat[k] = (byCat[k] || 0) + e.amount;
+  });
   const topCatEntry = Object.entries(byCat).sort((a, b) => b[1] - a[1])[0];
   const topCategory = topCatEntry
     ? { key: topCatEntry[0], label: catMeta.get(topCatEntry[0])?.l ?? topCatEntry[0], total: topCatEntry[1] }

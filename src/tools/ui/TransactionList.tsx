@@ -1,18 +1,37 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Icon } from './Icon';
 import { useAskAi } from './AiAssistant';
 import { focusAriaLabel } from '../ai/focus';
 import type { FlatCat } from './TransactionModal';
-import { PAYMENT_METHODS, type ExpenseItem } from '../lib/expense';
-import { SECTION_LABEL, type CatKey } from '../lib/budget';
+import { PAYMENT_METHODS, migrateCategory, type ExpenseItem } from '../lib/expense';
+import { SECTION_LABEL } from '../lib/budget';
+import { SECTION_COLOR } from '../lib/sectionColors';
+import { store } from '../lib/storage';
 import {
   filterTransactions, sortTransactions, groupByTimeline, emptyFilters, countActiveFilters,
   SORT_OPTIONS, type TxFilters, type SortKey, type CatLabels,
 } from '../lib/txfilter';
 
-const SECTION_COLOR: Record<CatKey, string> = { needs: 'var(--blue)', wants: 'var(--gold)', save: 'var(--green)' };
 
 export type ExportKind = 'csv' | 'xlsx' | 'pdf';
+
+/** How long a row spends animating out before it is actually removed. */
+const REMOVE_MS = 220;
+
+/**
+ * Above this many rows a bulk delete asks first. Small deletes stay instant —
+ * they are one keystroke from being undone — while "I just selected 200 rows"
+ * gets a checkpoint before anything disappears.
+ */
+const CONFIRM_BULK_ABOVE = 3;
+
+function prefersReducedMotion(): boolean {
+  try {
+    return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  } catch {
+    return false;
+  }
+}
 
 interface Props {
   /** The selected month's transactions, in original (insertion) order. */
@@ -32,12 +51,23 @@ interface Props {
   onBulkCategory: (ids: string[], catKey: string) => void;
   onBulkAddTags: (ids: string[], tags: string[]) => void;
   onExport: (kind: ExportKind, items: ExpenseItem[], scopeLabel: string) => void;
+  /**
+   * Lets the page drive the list imperatively — following a budget warning
+   * filters to that category. An imperative handle keeps the filter state owned
+   * by the list (where it belongs) instead of mirroring it into the page.
+   */
+  apiRef?: RefObject<TransactionListHandle | null>;
+}
+
+export interface TransactionListHandle {
+  /** Filter to one category and bring the list into view. */
+  focusCategory: (key: string) => void;
 }
 
 export default function TransactionList({
   items, hasAnyEver, cats, cfmt, monthLabelText, now,
   onAdd, onEdit, onDuplicate, onDelete,
-  onBulkDelete, onBulkDuplicate, onBulkCategory, onBulkAddTags, onExport,
+  onBulkDelete, onBulkDuplicate, onBulkCategory, onBulkAddTags, onExport, apiRef,
 }: Props) {
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState<TxFilters>(emptyFilters());
@@ -45,7 +75,45 @@ export default function TransactionList({
   const [showFilters, setShowFilters] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [bulkPanel, setBulkPanel] = useState<'none' | 'category' | 'tags'>('none');
+  const [bulkPanel, setBulkPanel] = useState<'none' | 'category' | 'tags' | 'confirmDelete'>('none');
+  /** Rows mid-exit. They stay mounted for the animation, then the parent removes them. */
+  const [removing, setRemoving] = useState<Set<string>>(new Set());
+  const removeTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => () => removeTimers.current.forEach(clearTimeout), []);
+
+  /**
+   * Delete with an exit animation: the row shrinks away, then the parent state
+   * changes. Reduced motion (and any environment without matchMedia) deletes
+   * immediately — the animation is decoration, never a gate on the action.
+   */
+  const animateOut = useCallback((ids: string[], commit: () => void) => {
+    if (ids.length === 0) return;
+    if (prefersReducedMotion()) { commit(); return; }
+    setRemoving((prev) => { const n = new Set(prev); ids.forEach((id) => n.add(id)); return n; });
+    removeTimers.current.push(setTimeout(() => {
+      setRemoving((prev) => { const n = new Set(prev); ids.forEach((id) => n.delete(id)); return n; });
+      commit();
+    }, REMOVE_MS));
+  }, []);
+
+  /* Follow a budget warning: filter to that category and bring the list into view. */
+  const focusCategory = useCallback((key: string) => {
+    setFilters({ ...emptyFilters(), categories: [key] });
+    setQuery('');
+    setShowFilters(true);
+    rootRef.current?.scrollIntoView({
+      behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+      block: 'start',
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!apiRef) return;
+    apiRef.current = { focusCategory };
+    return () => { apiRef.current = null; };
+  }, [apiRef, focusCategory]);
 
   const catLabels: CatLabels = useMemo(() => Object.fromEntries(cats.map((c) => [c.k, c.l])), [cats]);
   const catMeta = useMemo(() => new Map(cats.map((c) => [c.k, c])), [cats]);
@@ -77,11 +145,35 @@ export default function TransactionList({
     const set = new Set(items.map((e) => e.paymentMethod).filter(Boolean) as string[]);
     return PAYMENT_METHODS.filter((m) => set.has(m));
   }, [items]);
-  const usedCats = useMemo(() => cats.filter((c) => items.some((e) => e.category === c.k)), [cats, items]);
+  // Resolved through the same migration the filter and the dashboard use, so a
+  // category holding only legacy-keyed rows still offers its filter chip.
+  const usedCats = useMemo(() => {
+    const validKeys = new Set(cats.map((c) => c.k));
+    const present = new Set(items.map((e) => migrateCategory(e.category, validKeys)));
+    return cats.filter((c) => present.has(c.k));
+  }, [cats, items]);
+
+  const deleteSelected = () => {
+    const ids = selectedItems.map((e) => e.id);
+    animateOut(ids, () => onBulkDelete(ids));
+    exitSelect();
+  };
 
   return (
-    <div className="card">
+    <div className="card" ref={rootRef}>
       <style>{TX_STYLES}</style>
+
+      {/* An honest error state: private browsing (or a full quota) means edits
+          live only until the tab closes, and the user deserves to know. */}
+      {!store.persistent && (
+        <div className="tx-warnbar" role="alert">
+          <Icon name="warn" size={15} style={{ color: 'var(--orange)', flexShrink: 0 }} />
+          <span>
+            Storage is unavailable in this browser, so transactions won’t be saved after you close the tab.
+            Export a copy before you leave.
+          </span>
+        </div>
+      )}
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
@@ -112,10 +204,16 @@ export default function TransactionList({
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
             </span>
             <input
-              className="fi" type="search" inputMode="search" placeholder="Search merchant, note, category, tag…"
-              aria-label="Search transactions" value={query} onChange={(e) => setQuery(e.target.value)}
+              className="fi" type="search" inputMode="search"
+              placeholder="Search merchant, category, amount, note, date…"
+              aria-label="Search transactions"
+              aria-describedby="tx-search-hint"
+              value={query} onChange={(e) => setQuery(e.target.value)}
               style={{ paddingLeft: 34, paddingTop: 10, paddingBottom: 10 }}
             />
+            <span id="tx-search-hint" className="sr-only-lbl">
+              Filters as you type across merchant, category, amount, notes, tags, payment method and date.
+            </span>
           </div>
           <label className="fs-wrap">
             <span className="sr-only-lbl">Sort</span>
@@ -208,8 +306,8 @@ export default function TransactionList({
       {/* Bulk toolbar */}
       {selectMode && (
         <div className="tx-bulk" role="toolbar" aria-label="Bulk actions">
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-            <input type="checkbox" checked={allVisibleSelected} onChange={toggleAll} aria-label="Select all shown" style={{ width: 16, height: 16, accentColor: 'var(--gold)' }} />
+          <label className="fx-checkrow" style={{ fontSize: 13, fontWeight: 600 }}>
+            <input type="checkbox" className="fx-check" checked={allVisibleSelected} onChange={toggleAll} aria-label="Select all shown" />
             {selectedCount} selected
           </label>
           <div style={{ flex: 1 }} />
@@ -218,7 +316,28 @@ export default function TransactionList({
             <button type="button" className="tx-bulkbtn" disabled={selectedCount === 0} onClick={() => setBulkPanel(bulkPanel === 'category' ? 'none' : 'category')} aria-expanded={bulkPanel === 'category'}>Category</button>
             <button type="button" className="tx-bulkbtn" disabled={selectedCount === 0} onClick={() => setBulkPanel(bulkPanel === 'tags' ? 'none' : 'tags')} aria-expanded={bulkPanel === 'tags'}>Add tags</button>
             <ExportInline disabled={selectedCount === 0} onExport={(k) => onExport(k, selectedItems, `${selectedCount}-selected`)} />
-            <button type="button" className="tx-bulkbtn danger" disabled={selectedCount === 0} onClick={() => { onBulkDelete(selectedItems.map((e) => e.id)); exitSelect(); }}>Delete</button>
+            <button
+              type="button" className="tx-bulkbtn danger" disabled={selectedCount === 0}
+              onClick={() => (selectedCount > CONFIRM_BULK_ABOVE ? setBulkPanel('confirmDelete') : deleteSelected())}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      )}
+      {selectMode && bulkPanel === 'confirmDelete' && (
+        <div className="tx-subpanel tx-confirm" role="alertdialog" aria-labelledby="tx-bulk-confirm">
+          <div id="tx-bulk-confirm" style={{ fontSize: 13.5, fontWeight: 600 }}>
+            Delete {selectedCount} transactions?
+          </div>
+          <p className="note" style={{ margin: '4px 0 10px' }}>
+            They’ll be removed from {monthLabelText}. You can undo this straight afterwards.
+          </p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" className="tx-bulkbtn danger" onClick={deleteSelected}>
+              Delete {selectedCount}
+            </button>
+            <button type="button" className="tx-bulkbtn" onClick={() => setBulkPanel('none')}>Cancel</button>
           </div>
         </div>
       )}
@@ -242,9 +361,10 @@ export default function TransactionList({
               {g.items.map((e) => (
                 <TxRow
                   key={e.id} e={e} cat={catMeta.get(e.category)} cfmt={cfmt}
-                  selectMode={selectMode} selected={selected.has(e.id)}
+                  selectMode={selectMode} selected={selected.has(e.id)} removing={removing.has(e.id)}
                   onToggle={() => toggle(e.id)} onLongPress={() => startSelect(e.id)}
-                  onEdit={() => onEdit(e)} onDuplicate={() => onDuplicate(e)} onDelete={() => onDelete(e.id)}
+                  onEdit={() => onEdit(e)} onDuplicate={() => onDuplicate(e)}
+                  onDelete={() => animateOut([e.id], () => onDelete(e.id))}
                 />
               ))}
             </div>
@@ -261,10 +381,10 @@ function toggleIn(arr: string[], v: string): string[] {
 
 /* ─────────────────────────── Row ─────────────────────────── */
 function TxRow({
-  e, cat, cfmt, selectMode, selected, onToggle, onLongPress, onEdit, onDuplicate, onDelete,
+  e, cat, cfmt, selectMode, selected, removing, onToggle, onLongPress, onEdit, onDuplicate, onDelete,
 }: {
   e: ExpenseItem; cat: FlatCat | undefined; cfmt: (n: number) => string;
-  selectMode: boolean; selected: boolean; onToggle: () => void; onLongPress: () => void;
+  selectMode: boolean; selected: boolean; removing: boolean; onToggle: () => void; onLongPress: () => void;
   onEdit: () => void; onDuplicate: () => void; onDelete: () => void;
 }) {
   const color = cat ? SECTION_COLOR[cat.section] : 'var(--ink2)';
@@ -311,7 +431,7 @@ function TxRow({
   const reveal = dx < 0 ? 'del' : dx > 0 ? 'edit' : null;
 
   return (
-    <div className="tx-rowwrap">
+    <div className={`tx-rowwrap${removing ? ' is-removing' : ''}`} aria-hidden={removing || undefined}>
       {reveal && (
         <div className={`tx-swipehint ${reveal}`} aria-hidden="true">
           {reveal === 'del' ? 'Delete' : 'Edit'}
@@ -323,8 +443,10 @@ function TxRow({
         onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
       >
         {selectMode && (
-          <input type="checkbox" checked={selected} onChange={onToggle} aria-label={`Select ${primary}`}
-            style={{ width: 17, height: 17, accentColor: 'var(--gold)', flexShrink: 0, cursor: 'pointer' }} />
+          <label className="fx-check-hit">
+            <input type="checkbox" className="fx-check" checked={selected} onChange={onToggle}
+              aria-label={`Select ${primary}`} />
+          </label>
         )}
         <button
           type="button"
@@ -364,13 +486,13 @@ function TxRow({
               </RowAction>
             )}
             <RowAction label={`Edit ${primary}`} onClick={onEdit}>
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
             </RowAction>
             <RowAction label={`Duplicate ${primary}`} onClick={onDuplicate}>
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h10" /></svg>
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h10" /></svg>
             </RowAction>
             <RowAction label={`Delete ${primary}`} danger onClick={onDelete}>
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /></svg>
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /></svg>
             </RowAction>
           </div>
         )}
@@ -504,26 +626,29 @@ function fmtDate(d: string): string {
 }
 
 const TX_STYLES = `
-.fx-tools .tx-filters{background:var(--bg);border:1px solid var(--hair2);border-radius:14px;padding:14px;margin-bottom:10px;}
+.fx-tools .tx-filters{background:var(--well);border:1px solid var(--well-border);border-radius:14px;padding:14px;margin-bottom:10px;}
 .fx-tools .tx-chiprow{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
 .fx-tools .tx-chip{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:980px;border:1px solid var(--hair2);
-  background:var(--card);color:var(--ink2);font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .15s;}
+  background:var(--card);color:var(--ink2);font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;
+  transition:background-color var(--ctl-trans),border-color var(--ctl-trans),color var(--ctl-trans);}
 .fx-tools .tx-chip:hover{border-color:var(--ink3);}
 .fx-tools .tx-chip.on{border-color:var(--ink);background:var(--hair);color:var(--ink);}
 .fx-tools .tx-seg{display:inline-flex;border:1px solid var(--hair2);border-radius:10px;overflow:hidden;margin-top:6px;}
 .fx-tools .tx-seg button{padding:8px 14px;background:var(--card);border:none;border-right:1px solid var(--hair2);color:var(--ink2);
-  font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .15s;}
+  font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;
+  transition:background-color var(--ctl-trans),color var(--ctl-trans);}
 .fx-tools .tx-seg button:last-child{border-right:none;}
 .fx-tools .tx-seg button.on{background:var(--gold);color:#1a1400;}
 .fx-tools .tx-bulk{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--gold-bg,rgba(212,175,55,.1));
   border:1px solid color-mix(in srgb,var(--gold) 45%,transparent);border-radius:12px;padding:9px 12px;margin-bottom:10px;
-  position:sticky;top:8px;z-index:5;backdrop-filter:blur(8px);}
+  position:sticky;top:8px;z-index:var(--z-sticky);backdrop-filter:blur(8px);}
 .fx-tools .tx-bulkbtn{padding:7px 12px;border-radius:9px;border:1px solid var(--hair2);background:var(--card);color:var(--ink);
-  font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .15s;}
+  font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;
+  transition:background-color var(--ctl-trans),border-color var(--ctl-trans),color var(--ctl-trans),opacity var(--ctl-trans);}
 .fx-tools .tx-bulkbtn:hover:not(:disabled){background:var(--fill-06);}
 .fx-tools .tx-bulkbtn:disabled{opacity:.45;cursor:default;}
 .fx-tools .tx-bulkbtn.danger{color:var(--red);border-color:color-mix(in srgb,var(--red) 40%,transparent);}
-.fx-tools .tx-subpanel{background:var(--bg);border:1px solid var(--hair2);border-radius:12px;padding:12px;margin-bottom:10px;}
+.fx-tools .tx-subpanel{background:var(--well);border:1px solid var(--well-border);border-radius:12px;padding:12px;margin-bottom:10px;}
 .fx-tools .tx-menuitem{display:block;width:100%;text-align:left;padding:10px 12px;border-radius:8px;background:transparent;border:none;
   color:var(--ink);font-size:13px;cursor:pointer;font-family:inherit;}
 .fx-tools .tx-menuitem:hover{background:var(--fill-06);}
@@ -532,6 +657,17 @@ const TX_STYLES = `
 .fx-tools .tx-grouphd span{font-weight:600;letter-spacing:0;}
 .fx-tools .tx-rowwrap{position:relative;overflow:hidden;border-bottom:1px solid var(--hair2);}
 .fx-tools .tx-rowwrap:last-child{border-bottom:none;}
+/* Exit animation. The row is already excluded from the accessibility tree by
+   aria-hidden, so this is purely a visual hand-off to the undo toast. */
+.fx-tools .tx-rowwrap.is-removing{animation:fxTxOut 220ms cubic-bezier(.4,0,1,1) forwards;pointer-events:none;}
+@keyframes fxTxOut{
+  0%{opacity:1;transform:none;max-height:80px;}
+  100%{opacity:0;transform:translateX(-24px);max-height:0;border-bottom-color:transparent;}
+}
+.fx-tools .tx-warnbar{display:flex;align-items:flex-start;gap:9px;padding:10px 12px;margin-bottom:12px;border-radius:11px;font-size:12.5px;
+  line-height:1.5;color:var(--ink2);background:color-mix(in srgb,var(--orange) 8%,transparent);
+  border:1px solid color-mix(in srgb,var(--orange) 26%,transparent);}
+.fx-tools .tx-confirm{border-color:color-mix(in srgb,var(--red) 35%,transparent);}
 .fx-tools .tx-swipehint{position:absolute;inset:0;display:flex;align-items:center;padding:0 18px;font-size:12px;font-weight:700;color:#fff;}
 .fx-tools .tx-swipehint.del{justify-content:flex-end;background:var(--red);}
 .fx-tools .tx-swipehint.edit{justify-content:flex-start;background:var(--blue);}
@@ -545,14 +681,15 @@ const TX_STYLES = `
 .fx-tools .tx-line1{display:flex;align-items:center;gap:6px;}
 .fx-tools .tx-primary{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .fx-tools .tx-badge{display:inline-flex;align-items:center;gap:3px;font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:980px;
-  background:var(--bg);color:var(--ink3);flex-shrink:0;text-transform:uppercase;letter-spacing:.03em;}
+  background:var(--well);color:var(--ink3);flex-shrink:0;text-transform:uppercase;letter-spacing:.03em;}
 .fx-tools .tx-line2{display:flex;align-items:center;gap:8px;margin-top:3px;min-width:0;}
 .fx-tools .tx-pill{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:980px;border:1px solid;white-space:nowrap;}
 .fx-tools .tx-meta{font-size:11px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .fx-tools .tx-amt{font-size:14px;font-weight:700;flex-shrink:0;padding-left:8px;}
 .fx-tools .tx-actions{display:flex;align-items:center;gap:2px;flex-shrink:0;}
 .fx-tools .tx-act{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;background:none;border:none;
-  border-radius:8px;cursor:pointer;color:var(--ink3);transition:all .15s;}
+  border-radius:8px;cursor:pointer;color:var(--ink3);
+  transition:background-color var(--ctl-trans),color var(--ctl-trans);}
 .fx-tools .tx-act:hover{background:var(--fill-06);color:var(--ink);}
 .fx-tools .tx-act.danger:hover{color:var(--red);}
 .fx-tools .tx-empty{text-align:center;padding:30px 16px 22px;}
@@ -567,5 +704,6 @@ const TX_STYLES = `
 }
 @media (prefers-reduced-motion:reduce){
   .fx-tools .tx-row{transition:none !important;}
+  .fx-tools .tx-rowwrap.is-removing{animation:none;display:none;}
 }
 `;

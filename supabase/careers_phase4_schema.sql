@@ -82,7 +82,7 @@ create table if not exists public.subscription_plans (
 );
 
 insert into public.subscription_plans (id, name, price_monthly, price_yearly, ai_quota_monthly, storage_mb, resume_limit, application_limit, features, trial_days, sort_order) values
-  ('free',         'Free',         0,     0,      20,   200,  2,  10,  '["Resume Score","ATS Score","Basic Job Search"]'::jsonb, 0,  0),
+  ('free',         'Free',         0,     0,      20,   200,  2,  10,  '["Resume Score","ATS Score"]'::jsonb, 0,  0),
   ('student',      'Student',      199,   1999,   100,  1024, 5,  50,  '["Everything in Free","Career DNA","Interview Prep"]'::jsonb, 14, 1),
   ('professional', 'Professional', 999,   9999,   500,  5120, 15, 200, '["Everything in Student","Resume Tailoring","AI Email Generator","Offer Analysis"]'::jsonb, 14, 2),
   ('premium',      'Premium',      2499,  24999,  2000, 20480, 50, 1000,'["Everything in Professional","Priority AI","Unlimited Cover Letters"]'::jsonb, 14, 3),

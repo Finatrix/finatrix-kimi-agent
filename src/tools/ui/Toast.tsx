@@ -71,3 +71,16 @@ export function useToast(): ToastCtx {
   if (!c) throw new Error('useToast must be used within ToastProvider');
   return c;
 }
+
+const SILENT: ToastCtx = { notify: () => {} };
+
+/**
+ * Toast access for components that are useful on their own — a tool page
+ * rendered in isolation (a test, a future embed) should still work, just
+ * without the confirmations. Provider present → real toasts; absent → silence,
+ * never a crash.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useOptionalToast(): ToastCtx {
+  return useContext(Ctx) ?? SILENT;
+}

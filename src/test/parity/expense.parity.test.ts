@@ -13,6 +13,34 @@ const FIXED = new Date('2026-07-15T10:30:00Z');
 beforeAll(() => { vi.useFakeTimers(); vi.setSystemTime(FIXED); });
 afterAll(() => { vi.useRealTimers(); });
 
+/**
+ * The one place the port deliberately does NOT match the original.
+ *
+ * The original's `etToday()` is `new Date().toISOString().slice(0,10)` — a UTC
+ * date. The port replaced it with a local one (`ymdLocal`, "V4: local time, not
+ * UTC") because the UTC form tells a user in IST that a spend they logged this
+ * evening happened tomorrow, and a user in California that this morning's coffee
+ * was yesterday's. Fixing it was the point.
+ *
+ * Pinning the clock alone therefore does not make this suite deterministic: it
+ * pins an INSTANT, and the two definitions of "today" disagree whenever that
+ * instant falls on different calendar days locally and in UTC. The suite passed
+ * only because 10:30Z happens to be 15 July in the timezones anyone had run it
+ * in; it failed outright in UTC+14 and UTC−11, which is a test reporting on the
+ * machine rather than on the code.
+ *
+ * So the divergence is stated here instead of being left to luck: the original
+ * runs with the port's local-date rule injected, every other figure is still
+ * compared byte-for-byte against the untouched original, and `src/lib/date.ts`
+ * plus `src/test/dateKeys.test.ts` own the correctness of the rule itself.
+ */
+const LOCAL_TODAY_OVERRIDE = `
+  function etToday(){
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+`;
+
 describe('expense parity — ET_CATS table', () => {
   it('matches the original ET_CATS exactly', () => {
     expect(ET_CATS).toEqual(evalOriginalConst(toolsHtml, 'ET_CATS'));
@@ -34,7 +62,7 @@ const runner = new Function(
   ${extractFnSource(toolsHtml, 'esc')}
   ${extractConstSource(toolsHtml, 'ET_CATS')}
   ${extractFnSource(toolsHtml, 'etCurrentMonth')}
-  ${extractFnSource(toolsHtml, 'etToday')}
+  ${LOCAL_TODAY_OVERRIDE}
   ${extractFnSource(toolsHtml, 'etMonthLabel')}
   let etItems = P.items;
   let etSelMonth = P.month;

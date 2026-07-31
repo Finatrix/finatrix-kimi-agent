@@ -61,7 +61,9 @@ const RETIRED = ['finatrix.online', 'finatrix.space', 'workers.dev', 'fiantrix',
 const TIMEOUT_MS = 20_000;
 
 /** Edge functions the browser calls cross-origin; all must accept ORIGIN. */
-const EDGE_FUNCTIONS = ['analytics-collect', 'careers-jobs', 'careers-ai', 'careers-email'];
+// careers-billing-webhook is deliberately excluded: Stripe calls it
+// server-to-server (no browser Origin, no CORS applicable).
+const EDGE_FUNCTIONS = ['analytics-collect', 'careers-jobs', 'careers-ai', 'careers-email', 'careers-billing-checkout'];
 
 /**
  * The Supabase project the deployed site talks to. Read from the environment

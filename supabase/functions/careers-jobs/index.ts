@@ -364,9 +364,10 @@ const PROVIDERS: Provider[] = [remotive, adzuna, jsearch, jooble];
 
 // ─────────────────────── unified provider manager ───────────────────────
 //
-// The six native providers (Active Jobs DB, LinkedIn, Workday, Google Jobs,
-// Glassdoor, Job Posting Feed) plus the four incumbents (adzuna/jsearch/jooble/
-// remotive), all behind the single JobProvider interface. Built once per isolate
+// The native providers (Active Jobs DB, LinkedIn, Workday, Google Jobs, Job
+// Posting Feed — Glassdoor is disabled for launch, see GLASSDOOR_ENABLED in
+// factory.ts) plus the four incumbents (adzuna/jsearch/jooble/remotive), all
+// behind the single JobProvider interface. Built once per isolate
 // and reused. Incumbents rank below the premium set but are never removed, so
 // functionality only grows. Degrades to in-memory stores if the service-role
 // client is unavailable — search keeps working, just without durable cache/metrics.

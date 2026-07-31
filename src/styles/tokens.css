@@ -46,6 +46,30 @@
      gets a light-theme value like every other coloured-text token. */
   --data-wants:     #F5A524;
 
+  /* ── Data-viz FILL colours ────────────────────────────────────────────
+     The seven tokens above are TEXT colours: the light theme deepens each one
+     until it clears WCAG AA as small text, because every one of them is used
+     as text somewhere (KPI figures, band labels, status pills). But they were
+     ALSO doing duty as bar/segment/chart fills — so the light theme's
+     readability fix simultaneously drained the charts, turning the Wants amber
+     into a #9A5B04 brown and the teal into a near-black green.
+
+     Fills have a different, weaker requirement: WCAG 1.4.11 asks 3:1 against
+     the adjacent surface, not 4.5:1. Splitting the roles lets each side hit
+     its own target — text stays AA, fills stay saturated. The dark values are
+     the vivid originals unchanged; the light values keep the same hue and
+     saturation and are darkened only as far as 3:1 against the warm paper
+     surface demands (measured in src/test/contrast.test.ts).
+
+     Rule of thumb: `color:` takes the bare token, `background:` takes -fill. */
+  --status-info-fill:    #4D9BFF;
+  --status-success-fill: #34D27A;
+  --status-warn-fill:    #E8833D;
+  --status-danger-fill:  #FF5A52;
+  --data-purple-fill:    #9B7BFF;
+  --data-teal-fill:      #2BC4B0;
+  --data-wants-fill:     #F5A524;
+
   /* ── Hairlines / borders ─────────────────────────────────────────────── */
   --hairline:   rgba(255, 255, 255, 0.12);
   --hairline-2: rgba(255, 255, 255, 0.07);
@@ -77,6 +101,25 @@
   --dur-med:  420ms;
   --dur-slow: 680ms;
 
+  /* ── Interaction durations ────────────────────────────────────────────
+     One scale for how long a thing takes to respond, sized by how much of
+     the screen it moves:
+       control  150ms  buttons, chips, tabs, icon actions
+       input    200ms  fields — a touch slower, so a focus ring settles
+                       rather than snaps under a caret
+       overlay  250ms  toasts, sheets, menus — far more pixels to move
+     These were previously written inline as .12s / .15s / .18s / .2s /
+     .25s / .28s / .3s / 160ms / 200ms at ~80 call sites, which is how a
+     tab, a chip and a toast all ended up on slightly different clocks.
+     Declared here rather than on .fx-tools because the toast renders
+     outside the tools shell. */
+  --dur-control: 150ms;
+  --dur-input:   200ms;
+  --dur-overlay: 250ms;
+  --trans-control: var(--dur-control) var(--ease-out);
+  --trans-input:   var(--dur-input)   var(--ease-out);
+  --trans-overlay: var(--dur-overlay) var(--ease-out);
+
   /* ── Focus ───────────────────────────────────────────────────────────── */
   --focus-ring-width: 2px;
   /* hsl(...) because index.css's shadcn @layer base redeclares --accent as raw
@@ -88,12 +131,29 @@
   --focus-ring-color: hsl(var(--accent));
   --focus-ring-offset: 2px;
 
-  /* ── Z-index scale ───────────────────────────────────────────────────── */
-  --z-base: 0;
-  --z-header: 50;
-  --z-dropdown: 100;
-  --z-modal: 200;
-  --z-toast: 300;
+  /* ── Z-index scale ─────────────────────────────────────────────────────
+     These now describe the ladder the app ACTUALLY renders. The previous
+     five rungs (header 50 / dropdown 100 / modal 200 / toast 300) were
+     declared and then never used by anything: real dropdowns sit at 40,
+     real modals at 300 and the toast at 1000, and four more layers existed
+     that the scale did not name at all. A scale nobody can adopt without
+     changing stacking order is not a scale — so the numbers below are the
+     live values, renamed rather than re-ordered. Adopting them is therefore
+     a no-op at runtime and the whole point: the next overlay picks a rung
+     instead of inventing 322. */
+  --z-base:      0;
+  --z-raised:    1;    /* in-flow content above the ambient backdrop        */
+  --z-sticky:    5;    /* sticky bars inside a card (bulk actions)          */
+  --z-dropdown: 40;    /* menus anchored to a control (export, row actions) */
+  --z-mobilenav:45;    /* bottom tab bar                                    */
+  --z-toolnav:  50;    /* in-page tool tab bar                              */
+  --z-header:   51;    /* app header — one above the tool nav it overlaps   */
+  --z-popover:  60;    /* notification panel                                */
+  --z-modal:   300;    /* transaction sheet, dialogs                        */
+  --z-fab:     310;    /* floating AI launcher                              */
+  --z-undo:    320;    /* undo bar — must clear the launcher                */
+  --z-panel:   400;    /* AI panel (backdrop 400, surface 401)              */
+  --z-toast:  1000;    /* global toast — above everything by design         */
 }
 
 /* ============================================================================
@@ -205,6 +265,19 @@
      case in src/test/contrast.test.ts. */
   --data-teal:      #0E6B63;
   --data-wants:     #9A5B04;
+
+  /* Fills: same hue and saturation as the dark theme, darkened only as far as
+     3:1 against #F4F2EC (the darkest light surface) requires. Every one stays
+     well clear of the deepened TEXT value above — the Wants fill is #C47C09
+     against #9A5B04 text — which is exactly the vibrancy the single-token
+     scheme was throwing away. */
+  --status-info-fill:    #2E8AFF;
+  --status-success-fill: #239E5A;
+  --status-warn-fill:    #DD6A1A;
+  --status-danger-fill:  #FF473E;
+  --data-purple-fill:    #9573FF;
+  --data-teal-fill:      #229C8C;
+  --data-wants-fill:     #C47C09;
 
   /* ── Hairlines — warm black-alpha instead of white-alpha ─────────────── */
   --hairline:   rgba(23, 21, 15, 0.14);

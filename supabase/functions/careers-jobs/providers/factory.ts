@@ -16,10 +16,21 @@ import {
 } from './store.ts';
 
 /**
- * The six native providers, in priority order (Active Jobs DB → … → Job Posting
+ * Glassdoor is intentionally disabled for launch (licensing/business decision,
+ * not a technical issue) — kept in the codebase for future re-enablement.
+ * Flip this back to `true` once the licensing question is resolved; nothing
+ * else needs to change, the provider still builds fine, it's just excluded
+ * from the active registry below.
+ */
+const GLASSDOOR_ENABLED = false;
+
+/**
+ * The native providers, in priority order (Active Jobs DB → … → Job Posting
  * Feed). A provider with no usable key is still constructed but its
  * buildSearchRequest returns null, so the manager records it as inactive rather
  * than calling it — exactly the "not-configured" behaviour the client expects.
+ * Glassdoor is filtered out entirely (see GLASSDOOR_ENABLED) rather than left
+ * to the missing-key path, so it's excluded even if GLASSDOOR_KEY is set.
  */
 export function buildNativeProviders(cfg: ProviderRuntimeConfig): JobProvider[] {
   return [
@@ -27,7 +38,7 @@ export function buildNativeProviders(cfg: ProviderRuntimeConfig): JobProvider[] 
     new LinkedInProvider(cfg),        // 90
     new WorkdayProvider(cfg),         // 80
     new GoogleJobsProvider(cfg),      // 70
-    new GlassdoorProvider(cfg),       // 60
+    ...(GLASSDOOR_ENABLED ? [new GlassdoorProvider(cfg)] : []),  // 60 — disabled for launch
     new JobPostingFeedProvider(cfg),  // 50
   ];
 }

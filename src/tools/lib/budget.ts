@@ -205,9 +205,43 @@ export function computeBudget(input: BudgetInput, cats: SectionedCats = BUILTIN_
 /* ── Month persistence (fx_bb_data) — shape preserved exactly ── */
 export interface BudgetMonthData {
   vals: BudgetVals;
+  /**
+   * Total take-home income for the month, as a string. Still the field every
+   * other consumer (dashboard, reports, onboarding) reads, and still the value
+   * `computeBudget` receives — multi-source income writes its sum here, so the
+   * shape and every downstream number are unchanged.
+   */
   income: string;
   n: string;
   w: string;
   s: string;
+  /** Per-source income amounts (V5). Absent on months saved before multi-source income. */
+  inc?: Record<string, number>;
 }
 export type BudgetStore = Record<string, BudgetMonthData>;
+
+/** Split defaults, in one place, so "start empty" and a first visit agree. */
+export const DEFAULT_SPLIT = { n: '50', w: '30', s: '20' } as const;
+
+/** A blank month: the recommended split, nothing allocated, no income yet. */
+export function emptyMonthData(): BudgetMonthData {
+  return { vals: {}, income: '', n: DEFAULT_SPLIT.n, w: DEFAULT_SPLIT.w, s: DEFAULT_SPLIT.s, inc: {} };
+}
+
+/**
+ * Deep-copy one month's plan onto another month. Used by "duplicate this /
+ * last month" when planning ahead — the source month is never touched, so
+ * budget history stays intact.
+ */
+export function cloneMonthData(d: BudgetMonthData | undefined): BudgetMonthData {
+  if (!d) return emptyMonthData();
+  return {
+    vals: { ...(d.vals || {}) },
+    income: d.income ?? '',
+    n: d.n ?? DEFAULT_SPLIT.n,
+    w: d.w ?? DEFAULT_SPLIT.w,
+    s: d.s ?? DEFAULT_SPLIT.s,
+    inc: { ...(d.inc || {}) },
+  };
+}
+

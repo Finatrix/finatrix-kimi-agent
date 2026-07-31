@@ -15,11 +15,14 @@ export interface ActivityEntry {
 
 const STORE_KEY = 'fx_activity';
 const TRACKED: Record<string, true> = {
-  fx_bb_data: true, fx_bb_cats: true, fx_expenses: true, fx_goals: true,
+  fx_bb_data: true, fx_bb_cats: true, fx_bb_catprefs: true, fx_bb_income: true,
+  fx_expenses: true, fx_goals: true,
   fx_investmatch: true, fx_parksmart: true, fx_peercompare: true, fx_lifemap: true,
 };
-// Custom budget categories roll up to the Budget tool.
-const NORMALIZE: Record<string, string> = { fx_bb_cats: 'fx_bb_data' };
+// Custom categories, their arrangement and income sources all roll up to Budget.
+const NORMALIZE: Record<string, string> = {
+  fx_bb_cats: 'fx_bb_data', fx_bb_catprefs: 'fx_bb_data', fx_bb_income: 'fx_bb_data',
+};
 
 let started = false;
 

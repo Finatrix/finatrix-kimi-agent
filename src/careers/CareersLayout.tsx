@@ -19,6 +19,7 @@ import { CAREERS_HIDDEN_SECTIONS, CAREERS_NAV, CAREERS_ROUTES } from './constant
 import { NotificationsBell } from './components/NotificationsBell';
 import { CareersProvider } from './context/CareersContext';
 import { CareersGate } from './components/states';
+import { CareersPaywallGate } from './components/CareersPaywallGate';
 import { useRole } from './hooks/useRole';
 import ThemeToggle from '../components/ThemeToggle';
 import '../tools/tools.css';
@@ -150,9 +151,11 @@ export default function CareersLayout() {
             <Breadcrumb current={sectionName(active)} />
           </div>
           <CareersGate>
-            <CareersProvider>
-              <Outlet />
-            </CareersProvider>
+            <CareersPaywallGate>
+              <CareersProvider>
+                <Outlet />
+              </CareersProvider>
+            </CareersPaywallGate>
           </CareersGate>
         </div>
 

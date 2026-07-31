@@ -47,8 +47,10 @@ describe('reports library', () => {
     expect(e!.txCount).toBe(3);
     expect(e!.transactions).toHaveLength(3);
     expect(e!.totalSpent).toBe(24500);
-    // Merchant is folded into the note for context.
-    expect(e!.transactions.some((t) => /Cafe/.test(t.note))).toBe(true);
+    // Merchant travels in its own field so an exporter can lay it out in its
+    // own column without repeating it inside the description.
+    expect(e!.transactions.some((t) => t.merchant === 'Cafe')).toBe(true);
+    expect(e!.transactions.every((t) => !/Cafe —/.test(t.note))).toBe(true);
   });
 
   it('reports availability drives the hub UI', () => {

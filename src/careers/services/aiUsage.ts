@@ -1,58 +1,20 @@
 /**
  * AI Usage Intelligence (Phase 4, Module 5). Every AI task call logs one row
  * — model, tokens, latency, cache hit, success — via `logAiUsage`, which the
- * AI provider layer calls fire-and-forget (never blocks the user-facing
- * result on telemetry). Cost estimates use a simple per-1K-token table;
- * update PRICE_PER_1K_TOKENS as real provider pricing changes.
+ * shared AI transport calls fire-and-forget (never blocks the user-facing
+ * result on telemetry).
+ *
+ * `logAiUsage` and `estimateCost` now live in `src/lib/ai/usage.ts` so the
+ * Money tools' assistant meters against the same table with the same cost
+ * model; they are re-exported here unchanged. The reporting queries below stay
+ * Careers-owned because only the Careers admin dashboard reads them.
  */
 
 import { supabase } from '../../lib/supabase';
 import { mapSupabaseError } from '../utils/errors';
 import type { AiUsageLogRow, AiUsageSummary } from '../types/phase4';
 
-/** USD per 1,000 tokens, blended prompt+completion. Update as pricing changes. */
-const PRICE_PER_1K_TOKENS: Record<string, number> = {
-  'google/gemini-2.5-flash': 0.0002,
-  'anthropic/claude-sonnet-5': 0.006,
-  'openai/gpt-5.5': 0.005,
-  'moonshotai/kimi-k2': 0.0006,
-  'qwen/qwen3-235b-a22b-2507': 0.0004,
-};
-const DEFAULT_PRICE_PER_1K = 0.0005;
-
-export function estimateCost(model: string, totalTokens: number): number {
-  const rate = PRICE_PER_1K_TOKENS[model] ?? DEFAULT_PRICE_PER_1K;
-  return Math.round(((totalTokens / 1000) * rate) * 1_000_000) / 1_000_000;
-}
-
-/** Fire-and-forget usage log — never throws, never blocks the caller. */
-export function logAiUsage(userId: string, fields: {
-  task: string;
-  model: string;
-  promptTokens?: number;
-  completionTokens?: number;
-  latencyMs: number;
-  cacheHit?: boolean;
-  success?: boolean;
-  error?: string;
-}): void {
-  const promptTokens = fields.promptTokens ?? 0;
-  const completionTokens = fields.completionTokens ?? 0;
-  const totalTokens = promptTokens + completionTokens;
-  void supabase.from('ai_usage_log').insert({
-    user_id: userId,
-    task: fields.task.slice(0, 60),
-    model: fields.model.slice(0, 120),
-    prompt_tokens: promptTokens,
-    completion_tokens: completionTokens,
-    total_tokens: totalTokens,
-    latency_ms: Math.max(0, Math.round(fields.latencyMs)),
-    cache_hit: fields.cacheHit ?? false,
-    success: fields.success ?? true,
-    error: (fields.error ?? '').slice(0, 300),
-    cost_estimate: estimateCost(fields.model, totalTokens),
-  }).then(() => undefined, () => undefined);
-}
+export { estimateCost, logAiUsage } from '../../lib/ai/usage';
 
 export async function listMyUsage(userId: string, days = 30): Promise<AiUsageLogRow[]> {
   const since = new Date(Date.now() - days * 86_400_000).toISOString();

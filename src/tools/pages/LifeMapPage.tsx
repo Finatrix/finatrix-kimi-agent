@@ -139,7 +139,7 @@ function SetupForm({ form, goals, setField, setGoals, onLaunch, launching, sym }
         {N('lm-income', `Monthly income (${sym})`, { type: 'number', min: 0, inputMode: 'decimal' })}
         {N('lm-expenses', `Monthly expenses (${sym})`, { type: 'number', min: 0, inputMode: 'decimal' })}
       </div>
-      <div style={{ background: 'var(--bg)', borderRadius: 12, padding: '13px 15px', fontSize: 13, color: 'var(--ink2)', lineHeight: 1.6, marginBottom: 18 }}>
+      <div className="well" style={{ fontSize: 13, color: 'var(--ink2)', lineHeight: 1.6, marginBottom: 18 }}>
         <Icon name="zap" size={14} style={{ display: 'inline', verticalAlign: 'text-bottom', color: 'var(--gold)' }} /> Include all loan EMIs in{' '}
         <b style={{ color: 'var(--ink)' }}>monthly expenses</b>. Savings and investments are entered separately below — don't double-count.
       </div>
@@ -260,7 +260,7 @@ function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, onAg
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="card" style={{ textAlign: 'center', padding: '22px 16px' }}>
             <div style={{ position: 'relative', width: 100, height: 100, margin: '0 auto 12px' }}>
-              <svg width="100" height="100" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
+              <svg aria-hidden="true" width="100" height="100" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
                 <circle cx="50" cy="50" r="40" fill="none" stroke="var(--hair2)" strokeWidth="9" />
                 <circle cx="50" cy="50" r="40" fill="none" stroke="var(--ink)" strokeWidth="9" strokeLinecap="round" strokeDasharray="251.2" strokeDashoffset={251.2 - (score / 100) * 251.2} style={{ transition: 'stroke-dashoffset .8s ease' }} />
               </svg>
@@ -276,8 +276,8 @@ function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, onAg
             {LM_HEALTH_CATS.map((c) => (
               <div key={c.k} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
                 <div style={{ fontSize: 12, color: 'var(--ink2)', width: 86, flexShrink: 0 }}>{c.l}</div>
-                <div style={{ flex: 1, height: 6, background: 'var(--bg)', borderRadius: 6, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', borderRadius: 6, background: c.c, transition: 'width .6s ease', width: `${health[c.k as keyof typeof health]}%` }} />
+                <div className="bar bar-sm" style={{ flex: 1 }}>
+                  <div className="bar-fill" style={{ background: c.c, width: `${health[c.k as keyof typeof health]}%` }} />
                 </div>
                 <div style={{ fontSize: 11, fontWeight: 600, width: 28, textAlign: 'right' }}>{health[c.k as keyof typeof health]}</div>
               </div>

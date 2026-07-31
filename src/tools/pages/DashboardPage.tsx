@@ -488,8 +488,8 @@ export default function DashboardPage() {
               const shown = !prefs.hidden.includes(id);
               return (
                 <li key={id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 10, border: '1px solid var(--hair2)', background: 'var(--fill-03)' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, cursor: 'pointer', fontSize: 13 }}>
-                    <input type="checkbox" checked={shown} onChange={() => applyPrefs(toggleSection(id))} aria-label={`Show ${meta.label}`} />
+                  <label className="fx-checkrow" style={{ flex: 1, fontSize: 13 }}>
+                    <input type="checkbox" className="fx-check" checked={shown} onChange={() => applyPrefs(toggleSection(id))} aria-label={`Show ${meta.label}`} />
                     {meta.label}
                   </label>
                   <div style={{ display: 'flex', gap: 4 }}>
@@ -568,7 +568,7 @@ function DashStyles() {
       .fx-journey { list-style: none; margin: 18px 0 0; padding: 0; display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
       .fx-journey-link { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 7px; padding: 12px 6px; border-radius: 14px; border: 1px solid transparent; text-decoration: none; transition: background .2s ease, border-color .2s ease, transform .2s var(--ease-out); position: relative; }
       .fx-journey-link:hover { background: var(--fill-03); border-color: var(--hair2); transform: translateY(-2px); }
-      .fx-journey-node { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; border: 1.5px solid var(--hair); color: var(--ink3); background: var(--card-solid); transition: all .25s var(--ease-out); }
+      .fx-journey-node { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; border: 1.5px solid var(--hair); color: var(--ink3); background: var(--card-solid); transition: background-color .25s var(--ease-out), border-color .25s var(--ease-out), color .25s var(--ease-out); }
       .fx-journey-num { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
       .fx-journey-label { font-size: 12.5px; font-weight: 600; color: var(--ink); letter-spacing: -.01em; line-height: 1.15; }
       .fx-journey-detail { font-size: 10.5px; color: var(--ink3); line-height: 1.3; }
@@ -577,7 +577,11 @@ function DashStyles() {
       .fx-journey-step.is-now .fx-journey-link { background: var(--gold-bg); border-color: rgba(212,175,55,.3); }
       .fx-journey-step.is-todo .fx-journey-label { color: var(--ink2); }
 
-      .fx-card-cta { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--ink3); text-decoration: none; transition: color .2s ease, gap .2s ease; white-space: nowrap; }
+      /* min-height 24px: these render 17-19px tall from their 11px uppercase
+         type alone, and as standalone links (not inline in a sentence) they
+         owe WCAG 2.2 (2.5.8) a 24px target. The box grows, the type does not,
+         so the visual weight of the card footer is unchanged. */
+      .fx-card-cta { display: inline-flex; align-items: center; gap: 4px; min-height: 24px; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--ink3); text-decoration: none; transition: color var(--ctl-trans), gap var(--ctl-trans); white-space: nowrap; }
       .fx-card-cta:hover { color: var(--accent-text); gap: 7px; }
       .fx-setup-card { border-style: dashed !important; }
       .fx-setup-card:hover { border-color: rgba(212,175,55,.5) !important; }

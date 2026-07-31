@@ -9,8 +9,9 @@
  */
 import { store, getJSON } from './storage';
 import { currentMonth, monthLabel } from './month';
-import { computeBudget, mergedCats, loadCustomCats, allCategories, type BudgetStore } from './budget';
-import { loadExpenses, computeDashboard } from './expense';
+import { computeBudget, allCategories, type BudgetStore } from './budget';
+import { loadCatView, loadIncome, applyIncomeConfig, seedIncomeAmounts } from './budgetCats';
+import { loadExpenses, computeDashboard, isSpendingCategory, migrateCategory } from './expense';
 import {
   exportBudgetCsv, exportBudgetXlsx, exportBudgetPdf, type BudgetExport,
   exportExpenseCsv, exportExpenseXlsx, exportExpensePdf, type ExpenseExport,
@@ -51,16 +52,23 @@ export function buildBudgetExport(month = currentMonth()): BudgetExport | null {
   const bdata = key ? bstore[key] : undefined;
   if (!key || !bdata) return null;
 
-  const cats = mergedCats(loadCustomCats());
+  // The user's own arrangement: archived categories are excluded from the
+  // report exactly as they are excluded from the tool's totals.
+  const cats = loadCatView().active;
   const r = computeBudget(
     { incomeRaw: bdata.income, needsRaw: bdata.n, wantsRaw: bdata.w, saveRaw: bdata.s, vals: bdata.vals },
     cats,
   );
   const vals = bdata.vals || {};
+  const incomeAmounts = seedIncomeAmounts(bdata.inc, bdata.income);
+  const incomeRows = applyIncomeConfig(loadIncome()).active
+    .map((s) => ({ label: s.l, amount: incomeAmounts[s.k] || 0 }))
+    .filter((row) => row.amount > 0);
   return {
     monthLabel: monthLabel(key),
     currency: readCurrency(),
     income: r.income,
+    ...(incomeRows.length ? { incomeRows } : {}),
     needs: { pct: r.nPct, limit: r.nL, actual: r.nT },
     wants: { pct: r.wPct, limit: r.wL, actual: r.wT },
     save: { pct: r.sPct, limit: r.sL, actual: r.sT },
@@ -79,16 +87,25 @@ export function buildExpenseExport(month = currentMonth()): ExpenseExport | null
   const items = loadExpenses();
   if (items.length === 0) return null;
 
-  const cats = mergedCats(loadCustomCats());
+  const cats = loadCatView().active;
   const flat = allCategories(cats);
-  const budgetVals = getJSON<BudgetStore>('fx_bb_data', {})[month]?.vals || {};
-  const r = computeDashboard(month, items, cats, budgetVals, new Date());
+  const bdata = getJSON<BudgetStore>('fx_bb_data', {})[month];
+  const budgetVals = bdata?.vals || {};
+  const income = Math.max(0, Number(bdata?.income) || 0);
+  const r = computeDashboard(month, items, cats, budgetVals, new Date(), income);
   if (r.txCount === 0) return null;
 
   const monthItems = items
     .filter((e) => (e.date || '').slice(0, 7) === month)
     .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  const label = (k: string) => flat.find((c) => c.k === k)?.l ?? k;
+  // The breakdown and category tables below come from `computeDashboard`, which
+  // resolves legacy keys through `migrateCategory`. Labelling the transaction
+  // rows off the RAW key put both spellings in one document: a legacy row read
+  // "food" in the transactions table while its money was totalled under "Eating
+  // Out" three tables above it. Same resolution, one vocabulary per report.
+  const validKeys = new Set(flat.map((c) => c.k));
+  const byKey = new Map(flat.map((c) => [c.k, c.l]));
+  const label = (k: string) => byKey.get(migrateCategory(k, validKeys)) ?? k;
 
   return {
     monthLabel: monthLabel(month),
@@ -97,15 +114,34 @@ export function buildExpenseExport(month = currentMonth()): ExpenseExport | null
     dailyAvg: r.dailyAvg,
     txCount: r.txCount,
     budget: r.monthlyBudget,
+    income: r.income,
+    monthlySavings: r.monthlySavings,
+    netCashFlow: r.netCashFlow,
+    budgetUsedPct: r.budgetUsedPct,
+    daysInMonth: r.daysInMonth,
+    daysRemaining: r.daysRemaining,
+    categoryBudgets: r.categories
+      .filter((c) => c.budget > 0 || c.spent > 0)
+      .map((c) => ({ label: c.l, budget: c.budget, spent: c.spent })),
     breakdown: r.categories
       .filter((c) => c.spent > 0)
       .sort((a, b) => b.spent - a.spent)
-      .map((c) => ({ label: c.l, amount: c.spent, pct: r.monthlySpent > 0 ? Math.round((c.spent / r.monthlySpent) * 100) : 0 })),
+      .map((c) => ({
+        label: c.l,
+        amount: c.spent,
+        pct: r.monthlySpent > 0 ? Math.round((c.spent / r.monthlySpent) * 100) : 0,
+        spending: isSpendingCategory(c),
+      })),
+    // Every transaction in the month — the report is built from the data, not
+    // from whatever the list happened to have rendered. Merchant keeps its own
+    // field; the exporters decide how to present it alongside the note.
     transactions: monthItems.map((t) => ({
       date: t.date,
       category: label(t.category),
       amount: t.amount,
-      note: [t.merchant, t.note].filter(Boolean).join(' — ') || '',
+      note: t.note || t.notes || '',
+      ...(t.merchant ? { merchant: t.merchant } : {}),
+      ...(t.paymentMethod ? { paymentMethod: t.paymentMethod } : {}),
     })),
   };
 }

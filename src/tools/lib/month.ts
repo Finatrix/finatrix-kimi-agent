@@ -3,10 +3,10 @@
  * from the identical bb / et month functions in the original tools-app.html.
  * A "month" is a "YYYY-MM" string.
  */
+import { ymLocal } from '../../lib/date';
 
 export function currentMonth(): string {
-  const d = new Date();
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  return ymLocal(new Date());
 }
 
 export function monthLabel(ym: string): string {
@@ -20,8 +20,7 @@ export function prevMonth(ym: string): string {
   const parts = ym.split('-');
   const y = parseInt(parts[0], 10);
   const m = parseInt(parts[1], 10);
-  const d = new Date(y, m - 2, 1);
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  return ymLocal(new Date(y, m - 2, 1));
 }
 
 /** Next month with no clamp — used by forward-looking views (Calendar). */
@@ -29,8 +28,7 @@ export function nextMonthUnclamped(ym: string): string {
   const parts = ym.split('-');
   const y = parseInt(parts[0], 10);
   const m = parseInt(parts[1], 10);
-  const d = new Date(y, m, 1);
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  return ymLocal(new Date(y, m, 1));
 }
 
 /** Next month, or null if it would go past the current month (read-only guard). */

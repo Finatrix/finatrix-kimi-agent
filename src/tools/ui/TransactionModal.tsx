@@ -3,12 +3,14 @@ import { createPortal } from 'react-dom';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import { Icon, type IconName } from './Icon';
 import { SECTION_LABEL, type CatKey } from '../lib/budget';
+import { SECTION_COLOR } from '../lib/sectionColors';
 import {
   PAYMENT_METHODS, etToday, genExpenseId, type ExpenseItem,
 } from '../lib/expense';
+import { evaluateFormula, formulaAmount } from '../lib/formula';
+import { AmountInput } from './AmountInput';
 import { useAskAi } from './AiAssistant';
 
-const SECTION_COLOR: Record<CatKey, string> = { needs: 'var(--blue)', wants: 'var(--gold)', save: 'var(--green)' };
 
 export interface FlatCat { k: string; l: string; ic: IconName; section: CatKey }
 
@@ -113,8 +115,13 @@ export default function TransactionModal({
 
   const validate = useCallback((d: Draft) => {
     const e: typeof errors = {};
-    const amt = Number(d.amount);
-    if (!d.amount.trim() || !isFinite(amt) || amt <= 0) e.amount = 'Enter an amount greater than 0.';
+    // The amount field accepts arithmetic ("120/4"), so it is parsed rather than
+    // cast; a malformed formula reports its own reason instead of collapsing
+    // into the generic "greater than 0" message.
+    const parsed = evaluateFormula(d.amount);
+    if (!d.amount.trim()) e.amount = 'Enter an amount greater than 0.';
+    else if (!parsed.ok) e.amount = parsed.error;
+    else if (parsed.value <= 0) e.amount = 'Enter an amount greater than 0.';
     if (!d.category) e.category = 'Choose a category.';
     if (!d.date) e.date = 'Pick a date.';
     return e;
@@ -134,7 +141,7 @@ export default function TransactionModal({
     const editCount = editing ? (editing.editCount ?? 0) + 1 : 0;
     return {
       id: editing ? editing.id : genExpenseId(),
-      amount: Math.round(Number(draft.amount) * 100) / 100,
+      amount: formulaAmount(draft.amount),
       category: draft.category,
       date: draft.date,
       ...(draft.note.trim() ? { note: draft.note.trim() } : {}),
@@ -236,7 +243,7 @@ export default function TransactionModal({
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <style>{`
-        .fx-tx-overlay{position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;
+        .fx-tx-overlay{position:fixed;inset:0;z-index:var(--z-modal);display:flex;align-items:center;justify-content:center;
           padding:20px;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
           animation:fxTxFade .2s ease both;}
         .fx-tx-card{position:relative;width:100%;max-width:560px;max-height:min(92vh,860px);overflow-y:auto;
@@ -304,19 +311,16 @@ export default function TransactionModal({
           <div className="grid2">
             <div className="fg" style={{ marginBottom: 10 }}>
               <label className="fl" htmlFor="tx-amount">Amount ({sym})</label>
-              <input
-                ref={amountRef}
-                className="fi"
+              {/* Accepts arithmetic as well as a number, with a live preview of
+                  what will be saved. See ui/AmountInput.tsx. */}
+              <AmountInput
                 id="tx-amount"
-                type="number"
-                step="any"
-                min={0}
-                inputMode="decimal"
-                placeholder="0"
+                inputRef={amountRef}
+                sym={sym}
                 value={draft.amount}
-                onChange={(e) => set('amount', e.target.value)}
-                aria-invalid={!!err('amount')}
-                aria-describedby={err('amount') ? 'tx-amount-err' : undefined}
+                onChange={(v) => set('amount', v)}
+                invalid={!!err('amount')}
+                errorId={err('amount') ? 'tx-amount-err' : undefined}
               />
               {err('amount') && <div className="fx-tx-err" id="tx-amount-err" role="alert">{errors.amount}</div>}
             </div>
@@ -422,9 +426,9 @@ export default function TransactionModal({
               value={draft.notes} onChange={(e) => set('notes', e.target.value)} />
           </div>
 
-          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '6px 0 14px' }}>
-            <input type="checkbox" checked={draft.recurring} onChange={(e) => set('recurring', e.target.checked)}
-              style={{ width: 18, height: 18, accentColor: 'var(--gold)', cursor: 'pointer' }} />
+          <label className="fx-checkrow" style={{ padding: '6px 0 14px' }}>
+            <input type="checkbox" className="fx-check" checked={draft.recurring}
+              onChange={(e) => set('recurring', e.target.checked)} />
             <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600 }}>
               <Icon name="refresh" size={15} style={{ color: 'var(--ink2)' }} />
               Recurring transaction

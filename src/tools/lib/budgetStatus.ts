@@ -38,13 +38,29 @@ export function budgetTone(budget: number, spent: number): BudgetTone {
   return 'safe';
 }
 
-/** CSS custom properties, so both themes resolve correctly with no JS branch. */
+/**
+ * CSS custom properties, so both themes resolve correctly with no JS branch.
+ *
+ * TONE_COLOR is the TEXT value (pill labels, KPI figures) and clears WCAG AA;
+ * TONE_FILL is the same tone as a filled bar and stays vivid, needing only the
+ * 3:1 that WCAG 1.4.11 asks of a graphic. One token cannot do both jobs — the
+ * light theme's AA deepening is exactly what was draining the progress bars.
+ * See styles/tokens.css.
+ */
 export const TONE_COLOR: Record<BudgetTone, string> = {
   none: 'var(--bar-none)',
   safe: 'var(--green)',
   warn: 'var(--orange)',
   complete: 'var(--blue)',
   over: 'var(--red)',
+};
+
+export const TONE_FILL: Record<BudgetTone, string> = {
+  none: 'var(--bar-none)',
+  safe: 'var(--green-fill)',
+  warn: 'var(--orange-fill)',
+  complete: 'var(--blue-fill)',
+  over: 'var(--red-fill)',
 };
 
 /** Short status used in pills, table cells and screen-reader text. */

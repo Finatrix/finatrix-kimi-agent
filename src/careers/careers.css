@@ -35,7 +35,7 @@
 .fx-tools .pipe-step::before { content: ""; position: absolute; left: 13px; top: 28px; bottom: 2px; width: 2px; background: var(--hair2); }
 .fx-tools .pipe-step:last-child::before { display: none; }
 .fx-tools .pipe-step.done::before { background: rgba(52,210,122,.4); }
-.fx-tools .pipe-dot { flex: 0 0 auto; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1.5px solid var(--hair); background: var(--card-solid); color: var(--ink3); font-size: 12px; transition: all .3s var(--ease-out); }
+.fx-tools .pipe-dot { flex: 0 0 auto; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1.5px solid var(--hair); background: var(--card-solid); color: var(--ink3); font-size: 12px; transition: background-color .3s var(--ease-out), border-color .3s var(--ease-out), color .3s var(--ease-out); }
 .fx-tools .pipe-step.done .pipe-dot { border-color: rgba(52,210,122,.5); background: rgba(52,210,122,.12); color: var(--green); }
 .fx-tools .pipe-step.now .pipe-dot { border-color: var(--gold); background: var(--gold-bg); color: var(--accent-text); }
 .fx-tools .pipe-step.fail .pipe-dot { border-color: rgba(255,90,82,.5); background: rgba(255,90,82,.12); color: var(--red); }
@@ -58,7 +58,7 @@
 .fx-tools .badge-blue { background: rgba(77,155,255,.12); color: var(--blue); }
 .fx-tools .badge-mute { background: var(--fill-06); color: var(--ink2); }
 .fx-tools .badge-red { background: rgba(255,90,82,.12); color: var(--red); }
-.fx-tools .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 9px; border: 1px solid var(--hair2); background: var(--fill-03); color: var(--ink2); cursor: pointer; transition: all .18s ease; }
+.fx-tools .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 9px; border: 1px solid var(--hair2); background: var(--fill-03); color: var(--ink2); cursor: pointer; transition: background-color var(--ctl-trans), border-color var(--ctl-trans), color var(--ctl-trans); }
 .fx-tools .icon-btn:hover { color: var(--ink); border-color: var(--hair); background: var(--fill-07); }
 .fx-tools .icon-btn.gold { color: var(--accent-text); border-color: rgba(212,175,55,.35); }
 .fx-tools .icon-btn.danger:hover { color: var(--red); border-color: rgba(255,90,82,.4); }
@@ -179,3 +179,12 @@
 .ci-table th, .ci-table td { padding: 8px 10px; border-bottom: 1px solid var(--hair2); text-align: left; }
 .ci-table th { color: var(--ink2); font-weight: 600; }
 .ci-table tbody tr:last-child td { border-bottom: none; }
+
+/* Careers Pro paywall — subtle lift on the pricing cards, CSS-only (no JS
+   mutation) so it also respects prefers-reduced-motion. */
+.fx-tools .fx-pro-card { transition: transform 160ms var(--ease-out), box-shadow 160ms var(--ease-out); }
+.fx-tools .fx-pro-card:hover { transform: translateY(-3px); box-shadow: 0 16px 40px -20px rgba(212, 175, 55, .35); }
+@media (prefers-reduced-motion: reduce) {
+  .fx-tools .fx-pro-card { transition: none; }
+  .fx-tools .fx-pro-card:hover { transform: none; }
+}

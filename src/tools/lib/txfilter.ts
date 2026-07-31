@@ -4,7 +4,8 @@
  * staying fully unit-testable. None of this touches the calculation engine; it
  * only decides which already-computed transactions are shown and in what order.
  */
-import type { ExpenseItem } from './expense';
+import { ymdLocal } from '../../lib/date';
+import { migrateCategory, type ExpenseItem } from './expense';
 
 export type SortKey = 'newest' | 'oldest' | 'amount_desc' | 'amount_asc' | 'category' | 'merchant';
 
@@ -57,34 +58,101 @@ export function countActiveFilters(f: TxFilters): number {
   return n;
 }
 
-/** Map of category key → display label, used for search + sort. */
+/**
+ * Map of category key → display label, used for search + sort. Its KEYS are also
+ * the authoritative set of live category keys, which is what lets this module
+ * resolve legacy keys the same way the dashboard does — see `resolveKey`.
+ */
 export type CatLabels = Record<string, string>;
 
-function matchesQuery(e: ExpenseItem, q: string, labels: CatLabels): boolean {
+/**
+ * The category key a transaction actually belongs to.
+ *
+ * Expenses logged before the V4.1 Budget/Expense merge stored the retired keys
+ * (`food`, `grocery`, `bills`…). `computeDashboard` and `suggestBudgets` run
+ * every one of them through `migrateCategory`, so the dashboard totals a legacy
+ * `food` row under **Eating Out** — but this module used to compare the RAW
+ * stored key. The two disagreed in the one place a user is most likely to
+ * notice: clicking a budget warning called `focusCategory('eating_out')`, which
+ * filtered on a key no stored row carried, so a category the dashboard had just
+ * reported as over budget drilled through to an empty list. The same mismatch
+ * hid the category's filter chip and made a search for "Eating Out" miss it.
+ *
+ * One resolution rule, shared with the dashboard, is what keeps a total and the
+ * rows behind it describing the same set of transactions.
+ */
+function resolveKey(category: string, validKeys: Set<string>): string {
+  return migrateCategory(category, validKeys);
+}
+
+const MONTHS_LONG = [
+  'january', 'february', 'march', 'april', 'may', 'june',
+  'july', 'august', 'september', 'october', 'november', 'december',
+];
+
+/**
+ * Searchable words for a date, so "jul", "july" and "2026-07-05" all find the
+ * same transaction. Built from the stored ISO string with a fixed month table
+ * rather than `toLocaleDateString`, so search results never depend on the
+ * runtime locale.
+ */
+function dateWords(d: string): string {
+  const [y, m, day] = (d || '').split('-');
+  const mi = Number(m) - 1;
+  const name = mi >= 0 && mi < 12 ? MONTHS_LONG[mi] : '';
+  return [d, name, name.slice(0, 3), day, y].filter(Boolean).join(' ');
+}
+
+/** Strip separators and currency marks so "1,200" and "₹1200" both match 1200. */
+function digitsOnly(s: string): string {
+  return s.replace(/[^0-9.]/g, '');
+}
+
+/**
+ * Free-text match across every field a person might remember a spend by:
+ * merchant, description, notes, category, tags, payment method, date and
+ * amount. Amount and date are matched on a separate digit-normalised haystack
+ * so a typed "1,200" or "₹1200" still lands on a 1200 transaction.
+ */
+function matchesQuery(e: ExpenseItem, q: string, categoryLabel: string): boolean {
   if (!q) return true;
   const needle = q.trim().toLowerCase();
   if (!needle) return true;
+
+  const amount = Number(e.amount) || 0;
   const haystack = [
     e.merchant,
     e.note,
     e.notes,
-    labels[e.category] ?? e.category,
+    categoryLabel,
     ...(e.tags ?? []),
+    e.paymentMethod,
+    dateWords(e.date || ''),
+    String(amount),
+    amount.toLocaleString('en-US'),
   ]
     .filter(Boolean)
     .join(' ')
     .toLowerCase();
-  return haystack.includes(needle);
+  if (haystack.includes(needle)) return true;
+
+  // Numeric fallback: compare digits to digits (amount and the raw date).
+  const needleDigits = digitsOnly(needle);
+  if (!needleDigits) return false;
+  const numeric = `${amount} ${amount.toFixed(2)} ${(e.date || '').replace(/-/g, '')}`;
+  return numeric.includes(needleDigits);
 }
 
 export function filterTransactions(items: ExpenseItem[], f: TxFilters, labels: CatLabels): ExpenseItem[] {
   const catSet = f.categories.length ? new Set(f.categories) : null;
   const paySet = f.paymentMethods.length ? new Set(f.paymentMethods) : null;
+  const validKeys = new Set(Object.keys(labels));
   return items.filter((e) => {
-    if (!matchesQuery(e, f.query, labels)) return false;
+    const key = resolveKey(e.category, validKeys);
+    if (!matchesQuery(e, f.query, labels[key] ?? e.category)) return false;
     if (f.dateFrom && (e.date || '') < f.dateFrom) return false;
     if (f.dateTo && (e.date || '') > f.dateTo) return false;
-    if (catSet && !catSet.has(e.category)) return false;
+    if (catSet && !catSet.has(key)) return false;
     if (paySet && !paySet.has(e.paymentMethod ?? '')) return false;
     if (f.recurring === 'recurring' && !e.recurring) return false;
     if (f.recurring === 'one_off' && e.recurring) return false;
@@ -99,6 +167,10 @@ export function filterTransactions(items: ExpenseItem[], f: TxFilters, labels: C
  * so equal rows keep their incoming order — important for predictable UIs.
  */
 export function sortTransactions(items: ExpenseItem[], key: SortKey, labels: CatLabels): ExpenseItem[] {
+  const validKeys = new Set(Object.keys(labels));
+  // Same resolution as the filter, so "Category (A–Z)" sorts a legacy row under
+  // the heading the rest of the app files it under rather than under its raw key.
+  const catLabel = (e: ExpenseItem) => labels[resolveKey(e.category, validKeys)] ?? e.category;
   const order = new Map(items.map((e, i) => [e.id, i]));
   const tie = (a: ExpenseItem, b: ExpenseItem) => (order.get(a.id)! - order.get(b.id)!);
   const byDateDesc = (a: ExpenseItem, b: ExpenseItem) =>
@@ -114,8 +186,7 @@ export function sortTransactions(items: ExpenseItem[], key: SortKey, labels: Cat
     case 'amount_asc':
       return arr.sort((a, b) => a.amount - b.amount || byDateDesc(a, b));
     case 'category':
-      return arr.sort((a, b) =>
-        (labels[a.category] ?? a.category).localeCompare(labels[b.category] ?? b.category) || byDateDesc(a, b));
+      return arr.sort((a, b) => catLabel(a).localeCompare(catLabel(b)) || byDateDesc(a, b));
     case 'merchant':
       return arr.sort((a, b) =>
         (a.merchant || a.note || '').localeCompare(b.merchant || b.note || '') || byDateDesc(a, b));
@@ -127,10 +198,8 @@ export function sortTransactions(items: ExpenseItem[], key: SortKey, labels: Cat
 /* ── Timeline grouping ── */
 export interface TxGroup { key: string; label: string; items: ExpenseItem[] }
 
-/** Local YYYY-MM-DD for a Date (mirrors expense.ts ymdLocal, kept local to avoid a cycle). */
-function ymd(d: Date): string {
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-}
+/** Local calendar day. See lib/date for why this must never go via UTC. */
+const ymd = ymdLocal;
 
 /**
  * Bucket transactions into human date bands relative to `now`:
@@ -168,18 +237,27 @@ export function groupByTimeline(items: ExpenseItem[], now: Date): TxGroup[] {
       const mk = d.slice(0, 7) || 'unknown';
       const label = mk === curMonth
         ? 'Earlier this month'
-        : monthName(mk);
+        : monthName(mk, now);
       push('m_' + mk, label, e);
     }
   }
   return groups;
 }
 
-function monthName(mk: string): string {
+/**
+ * `now` is the caller's reference date, not the wall clock. groupByTimeline is
+ * given a reference date precisely so its banding is deterministic, but this
+ * helper used to re-read `new Date()` for the same-year test — so the bands and
+ * the year suffix could be decided against two different dates. The two agree
+ * in the app (which passes the real now), but they diverge for any caller that
+ * supplies its own reference, which is the documented contract of this module:
+ * on 1 January a June transaction banded as "last year" by the caller's date
+ * was still labelled bare "June" by the real one.
+ */
+function monthName(mk: string, now: Date): string {
   const [yr, mo] = mk.split('-').map(Number);
   if (!yr || !mo) return 'Earlier';
   const d = new Date(yr, mo - 1, 1);
-  const now = new Date();
   const sameYear = d.getFullYear() === now.getFullYear();
   return d.toLocaleDateString(undefined, sameYear ? { month: 'long' } : { month: 'long', year: 'numeric' });
 }

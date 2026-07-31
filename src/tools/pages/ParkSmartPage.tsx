@@ -130,7 +130,7 @@ function ParkResultView({ result, amount, dur, onReset }: { result: ParkResult; 
       {ranked.map((o, i) => (
         <div key={o.n} className="card result-card-anim" style={{ padding: '18px 20px', ...(i === 0 ? { border: '1.5px solid rgba(12,128,121,.35)', boxShadow: 'var(--shadow)' } : {}) }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ width: 26, height: 26, borderRadius: 8, background: i === 0 ? 'var(--teal)' : 'var(--bg)', color: i === 0 ? 'var(--card)' : 'var(--ink2)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
+            <span className={`fx-rank${i === 0 ? ' is-top' : ''}`}>{i + 1}</span>
             <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24 }}><Icon name={o.ic} size={18} style={{ color: 'var(--teal)' }} /></span>
             <span style={{ flex: 1, fontSize: 14, fontWeight: 600 }}>{o.n}</span>
             <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--green)' }}>{fmt(o.net)}</span>
@@ -141,7 +141,7 @@ function ParkResultView({ result, amount, dur, onReset }: { result: ParkResult; 
             <span className={`pill ${o.liquid ? 'pill-ok' : 'pill-bad'}`} style={{ fontSize: 10 }}>{o.liquid ? 'Liquid' : 'Locked'}</span>
             <span>Risk: {o.risk}</span>
           </div>
-          <div className="bar" style={{ height: 6, margin: '9px 0 0 36px' }}>
+          <div className="bar bar-sm" style={{ margin: '9px 0 0 36px' }}>
             <div className="bar-fill" style={{ width: `${((o.net / maxNet) * 100).toFixed(0)}%`, background: i === 0 ? 'var(--teal)' : 'var(--hair)' }} />
           </div>
         </div>

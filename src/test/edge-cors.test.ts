@@ -105,23 +105,35 @@ describe('edge CORS: single source of truth', () => {
 });
 
 describe('edge CORS: no function rebuilds its own allowlist', () => {
-  const functionEntries = readdirSync(FUNCTIONS_DIR, { withFileTypes: true })
+  const allEntries = readdirSync(FUNCTIONS_DIR, { withFileTypes: true })
     .filter((d) => d.isDirectory() && !d.name.startsWith('_'))
-    .map((d) => join(FUNCTIONS_DIR, d.name, 'index.ts'))
-    .filter(existsSync);
+    .map((d) => ({ name: d.name, entry: join(FUNCTIONS_DIR, d.name, 'index.ts') }))
+    .filter((d) => existsSync(d.entry));
 
   it('finds the deployed functions', () => {
-    expect(functionEntries.length).toBeGreaterThanOrEqual(4);
+    expect(allEntries.length).toBeGreaterThanOrEqual(4);
   });
 
-  it.each(functionEntries)('%s reads the shared origins module', (entry) => {
+  // No retired domain may appear in ANY shipped edge source — this applies
+  // even to server-to-server functions that skip CORS entirely (below),
+  // since a stray domain string is a drift bug regardless of caller.
+  it.each(allEntries)('$name: no retired domain in shipped source', ({ entry }) => {
+    const src = readFileSync(entry, 'utf8');
+    for (const retired of ['finatrix.online', 'finatrix.space', 'netlify.app']) {
+      expect(src).not.toContain(retired);
+    }
+  });
+
+  // Webhooks (careers-billing-webhook) are called server-to-server by the
+  // provider (Stripe) — no browser Origin header, no preflight, so CORS is
+  // not applicable and there is no allowlist to drift. Everything else is a
+  // browser-facing endpoint and must go through the shared origins module.
+  const browserFacing = allEntries.filter((d) => !d.name.endsWith('-webhook'));
+
+  it.each(browserFacing)('$name: reads the shared origins module', ({ entry }) => {
     const src = readFileSync(entry, 'utf8');
     expect(src).toContain("_shared/origins.ts");
     // The precise shape of the bug: env var `??` inline defaults.
     expect(src).not.toMatch(/Deno\.env\.get\(['"]CAREERS_ALLOWED_ORIGINS['"]\)\s*\?\?/);
-    // No retired domain may appear in shipped edge source.
-    for (const retired of ['finatrix.online', 'finatrix.space', 'netlify.app']) {
-      expect(src).not.toContain(retired);
-    }
   });
 });

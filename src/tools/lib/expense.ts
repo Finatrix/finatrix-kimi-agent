@@ -4,6 +4,7 @@
  * is pure (takes `now` explicitly) so it can be parity-checked against the
  * original render run in jsdom.
  */
+import { ymdLocal, ymLocal } from '../../lib/date';
 import { getJSON, setJSON } from './storage';
 import type { IconName } from '../ui/Icon';
 import { allCategories, type SectionedCats, type CatKey } from './budget';
@@ -137,10 +138,8 @@ export function saveExpenses(items: ExpenseItem[]): void {
   setJSON('fx_expenses', items);
 }
 
-/** Local YYYY-MM-DD (V4: local time, not UTC). */
-export function ymdLocal(d: Date): string {
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-}
+/** Local YYYY-MM-DD (V4: local time, not UTC). Re-exported from lib/date. */
+export { ymdLocal };
 export function etToday(): string {
   return ymdLocal(new Date());
 }
@@ -185,7 +184,7 @@ export interface ExpenseResult {
 }
 
 export function curMonthOf(now: Date): string {
-  return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  return ymLocal(now);
 }
 
 export function computeExpense(
@@ -261,7 +260,9 @@ export const EXPENSE_CAT_MIGRATION: Record<string, string> = {
   invest_et: 'stocks', fun: 'entertainment', care: 'personal_care', charity: 'gifts',
 };
 
-export function migrateCategory(k: string, validKeys: Set<string>): string {
+// `ReadonlySet` because this only ever reads: callers should not have to hand
+// over a mutable set (or copy one) to ask what a key resolves to.
+export function migrateCategory(k: string, validKeys: ReadonlySet<string>): string {
   if (validKeys.has(k)) return k;
   const mapped = EXPENSE_CAT_MIGRATION[k];
   return mapped && validKeys.has(mapped) ? mapped : k;
@@ -466,7 +467,7 @@ export function computeDashboard(
   const trend: TrendPoint[] = [];
   for (let i = 5; i >= 0; i--) {
     const d = new Date(sy, sm - 1 - i, 1);
-    const mk = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    const mk = ymLocal(d);
     const spent = items.filter((e) => (e.date || '').slice(0, 7) === mk).reduce((s, e) => s + e.amount, 0);
     trend.push({ month: mk, label: monthLabel(mk).split(' ')[0].slice(0, 3), spent });
   }

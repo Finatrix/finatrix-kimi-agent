@@ -30,10 +30,53 @@
      so it carries a light-theme variant like every other coloured-text token
      (the literal amber measured 1.92:1 on light paper as the "Wants %" label). */
   --wants: var(--data-wants);
+  /* Fill counterparts. Same short names the tools sheet already uses, with a
+     -fill suffix: `color:` takes the bare token (AA as text), `background:`
+     takes -fill (vibrant, 3:1 as a graphic). See styles/tokens.css. */
+  --blue-fill: var(--status-info-fill); --green-fill: var(--status-success-fill);
+  --orange-fill: var(--status-warn-fill); --red-fill: var(--status-danger-fill);
+  --purple-fill: var(--data-purple-fill); --teal-fill: var(--data-teal-fill);
+  --wants-fill: var(--data-wants-fill);
   --r: var(--radius-xl); --shadow: var(--shadow-2); --glass-blur: blur(14px) saturate(150%);
   --spring: var(--ease-spring);
   --ease-in-out: cubic-bezier(.42,0,.58,1);
   --duration-fast: var(--dur-fast); --duration-med: var(--dur-med); --duration-slow: var(--dur-slow);
+
+  /* ── Control geometry ──────────────────────────────────────────────────
+     One ladder for every interactive element in tools + careers. Before
+     this existed the page rendered eight different control heights (26, 28,
+     34, 34.8, 39.5, 41, 46, 49) and five different radii, all hand-typed at
+     the call site, so nothing lined up and every new control invented its
+     own numbers. The four rungs below are the clusters those values were
+     already forming — naming them is what stops them drifting again.
+
+       xs  in-row actions (Hide / Archive / move arrows)
+       sm  compact controls (add buttons, month chips, inline Ask AI)
+       md  standard controls (buttons, inputs, segments, month arrows)
+       lg  prominent controls (the floating AI launcher)  */
+  --ctl-h-xs: 28px; --ctl-h-sm: 34px; --ctl-h-md: 40px; --ctl-h-lg: 46px;
+  --ctl-r-xs: 8px;  --ctl-r-sm: 10px; --ctl-r-md: 12px; --ctl-r-lg: 14px;
+  --ctl-pill: var(--radius-pill);
+  --ctl-bw: 1px;
+  /* Canonical interaction durations (styles/tokens.css). Local names kept so
+     the large tools + careers sheets need not change. */
+  --ctl-trans: var(--trans-control);
+  /* The soft gold halo on a focused / active field. Was written out four
+     different ways; `.fi:focus` had it and `.fi-sm:focus` silently did not. */
+  --ring-gold: 0 0 0 3px color-mix(in srgb, var(--gold) 20%, transparent);
+
+  /* ── Inset "well" surface ──────────────────────────────────────────────
+     The recessed fill inside a card: summary bands, progress tracks, muted
+     pills, badges. This used to borrow --bg (the page CANVAS colour), which
+     only works in dark: there the canvas is #0A0A0A and the card is a
+     translucent #151518, so a canvas-coloured fill reads as a well punched
+     through the card. On light the canvas is #FAF8F3 and the card is 72%
+     white over it, leaving a 4/255 difference — the summary band was
+     effectively invisible, which is why light mode looked flat next to dark.
+     An ALPHA fill composites against whatever surface it lands on, so one
+     declaration produces the same perceived depth in both themes. */
+  --well: rgba(0,0,0,.42);
+  --well-border: var(--hair2);
 
   /* Themeable surface fills (dark defaults). White-alpha on obsidian; the
      [data-theme="light"] block below flips these to warm black-alpha so every
@@ -45,6 +88,22 @@
   --fill-08: rgba(255,255,255,.08); --fill-13: rgba(255,255,255,.13);
   --fill-18: rgba(255,255,255,.18);
   --grid-line: rgba(255,255,255,.6); --nav-solid: rgba(6,6,7,.72); --vignette: rgba(0,0,0,.45);
+
+  /* Ambient hero lighting + floating-launcher elevation (dark defaults; the
+     light block above flips both). Named here so the two themes differ in
+     one place instead of via scattered opacity overrides. */
+  --amb-glow: radial-gradient(circle,#E6C766 0%,#9c7a26 40%,transparent 70%);
+  --amb-glow-opacity: .16;
+  --amb-grid-opacity: .04;
+  --fab-shadow: 0 10px 28px -10px rgba(212,175,55,.6);
+  --fab-shadow-hover: 0 14px 34px -12px rgba(212,175,55,.7);
+  --fab-border: #B8962E;
+
+  /* Progress-bar fill for a category with NO budget set. Deliberately a neutral
+     grey, never black: black reads as "empty/broken", grey reads as "not
+     configured". Medium grey on the dark surface; the light-theme block below
+     swaps in a darker grey so it keeps the same weight on paper. */
+  --bar-none: #6E6E73;
 
   position: relative;
   min-height: 100%;
@@ -68,19 +127,45 @@
   --fill-18: rgba(23,21,15,.22);
   --grid-line: rgba(23,21,15,.5);
   --nav-solid: rgba(247,245,240,.82);
-  --vignette: rgba(23,21,15,.05);
+  /* Lifted from .05: paired with the wider vignette geometry below, this is
+     what gives light mode the same sense of depth behind the hero that dark
+     already had. Still low enough to read as lighting, not as a border. */
+  --vignette: rgba(23,21,15,.10);
+  --bar-none: #55555A;
+  /* Warm-black alpha, so a well on white paper is as legible a step down as
+     the black-alpha well is on obsidian. See the --well note above. */
+  --well: rgba(23,21,15,.055);
+
+  /* Elevation medium flips with the theme. A gold glow is luminous against
+     obsidian and simply absent against cream — which is the whole reason the
+     light-theme launcher and cards read flat. On paper the elevation has to
+     be carried by a warm neutral shadow instead, exactly as tokens.css
+     already does for --shadow-2. Geometry, fill and radius are untouched, so
+     it stays the same component in both themes. */
+  --fab-shadow: 0 10px 24px -10px rgba(23,21,15,.30), 0 2px 6px -2px rgba(23,21,15,.14);
+  --fab-shadow-hover: 0 16px 34px -12px rgba(23,21,15,.34), 0 3px 8px -3px rgba(23,21,15,.16);
+  /* One shade deeper than the dark-theme edge so the gold fill still has a
+     defined rim against warm paper rather than bleeding into it. */
+  --fab-border: #A8871F;
+
+  /* Ambient hero lighting. The old rule simply dimmed the dark-theme glow to
+     .10, which on cream paper is nothing at all — hence "light mode feels
+     flat". Gold at low alpha loses far more contrast against paper than
+     against obsidian, so matching the PERCEIVED intensity needs both a
+     deeper gradient and a higher alpha, not a lower one. */
+  --amb-glow: radial-gradient(circle,#E3C173 0%,#C9A23C 42%,transparent 72%);
+  --amb-glow-opacity: .34;
+  --amb-grid-opacity: .05;
 }
-/* Gold ambient glow is softened on paper so it reads as a whisper, not a smudge. */
-[data-theme="light"] .fx-tools .fx-amb-glow { opacity: .10; }
 
 /* ============ AMBIENT BACKDROP ============ */
-.fx-tools .fx-amb { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
-.fx-tools .fx-amb-glow { position: absolute; left: 50%; top: -14%; height: 64vh; width: 64vh; transform: translateX(-50%); border-radius: 50%; filter: blur(120px); opacity: .16; background: radial-gradient(circle,#E6C766 0%,#9c7a26 40%,transparent 70%); }
-.fx-tools .fx-amb-grid { position: absolute; inset: 0; opacity: .04; background-image: linear-gradient(var(--grid-line) 1px,transparent 1px),linear-gradient(90deg,var(--grid-line) 1px,transparent 1px); background-size: 52px 52px; -webkit-mask-image: radial-gradient(circle at 50% 18%,#000 0%,transparent 68%); mask-image: radial-gradient(circle at 50% 18%,#000 0%,transparent 68%); }
+.fx-tools .fx-amb { position: fixed; inset: 0; z-index: var(--z-base); pointer-events: none; overflow: hidden; }
+.fx-tools .fx-amb-glow { position: absolute; left: 50%; top: -14%; height: 64vh; width: 64vh; transform: translateX(-50%); border-radius: 50%; filter: blur(120px); opacity: var(--amb-glow-opacity); background: var(--amb-glow); }
+.fx-tools .fx-amb-grid { position: absolute; inset: 0; opacity: var(--amb-grid-opacity); background-image: linear-gradient(var(--grid-line) 1px,transparent 1px),linear-gradient(90deg,var(--grid-line) 1px,transparent 1px); background-size: 52px 52px; -webkit-mask-image: radial-gradient(circle at 50% 18%,#000 0%,transparent 68%); mask-image: radial-gradient(circle at 50% 18%,#000 0%,transparent 68%); }
 .fx-tools .fx-amb-vig { position: absolute; inset: 0; background: radial-gradient(120% 80% at 50% 0%,transparent 58%,var(--vignette) 100%); }
 
 /* ============ TOOL NAV (in-page tab bar) ============ */
-.fx-tools .nav-wrap { position: sticky; top: 0; z-index: 50; background: var(--nav-solid); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-bottom: 1px solid var(--hair); }
+.fx-tools .nav-wrap { position: sticky; top: 0; z-index: var(--z-toolnav); background: var(--nav-solid); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-bottom: 1px solid var(--hair); }
 .fx-tools .nav { max-width: 1024px; margin: 0 auto; display: flex; gap: 2px; overflow-x: auto; padding: 10px 16px; scrollbar-width: none; }
 .fx-tools .nav::-webkit-scrollbar { display: none; }
 .fx-tools .nav a, .fx-tools .nav button { display: inline-flex; align-items: center; flex-shrink: 0; font-size: 13px; font-weight: 500; color: color-mix(in srgb, var(--ink) 72%, transparent); text-decoration: none; padding: 7px 14px; border-radius: 980px; transition: color .2s var(--ease-out), background .2s var(--ease-out); white-space: nowrap; letter-spacing: -.01em; background: none; border: none; font-family: inherit; cursor: pointer; }
@@ -104,7 +189,7 @@
 /* ---- Mobile bottom navigation (<768px) ---- */
 .fx-tools { --fx-bottomnav-h: 0px; }
 @media(max-width:767px){ .fx-tools { --fx-bottomnav-h: 60px; } }
-.fx-mobnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 45; display: grid; grid-template-columns: repeat(5, 1fr); align-items: stretch; gap: 2px; padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); background: var(--nav-solid); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-top: 1px solid var(--hair); }
+.fx-mobnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-mobilenav); display: grid; grid-template-columns: repeat(5, 1fr); align-items: stretch; gap: 2px; padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); background: var(--nav-solid); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-top: 1px solid var(--hair); }
 .fx-mobnav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 48px; padding: 6px 2px; border: none; background: none; border-radius: 12px; font-family: inherit; font-size: 10.5px; font-weight: 600; letter-spacing: -.01em; color: color-mix(in srgb, var(--ink) 62%, transparent); text-decoration: none; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: color .2s var(--ease-out), background .2s var(--ease-out); }
 .fx-mobnav-item svg { opacity: .9; }
 .fx-mobnav-item:active { background: var(--fill-06); }
@@ -137,19 +222,26 @@
 /* ---- Notification bell + panel (shared by tools & careers) ---- */
 .fx-tools .bell-wrap { position: relative; }
 .fx-tools .bell-dot { position: absolute; top: -2px; right: -2px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 980px; background: var(--red); color: #fff; font-size: 9.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
-.fx-tools .bell-panel { position: absolute; right: 0; top: calc(100% + 10px); width: min(92vw, 360px); max-height: 420px; overflow-y: auto; background: var(--card-solid); border: 1px solid var(--hair); border-radius: 14px; box-shadow: 0 24px 60px -18px rgba(0,0,0,.75); z-index: 60; animation: fxMenuIn 160ms var(--ease-out) both; transform-origin: top right; }
+.fx-tools .bell-panel { position: absolute; right: 0; top: calc(100% + 10px); width: min(92vw, 360px); max-height: 420px; overflow-y: auto; background: var(--card-solid); border: 1px solid var(--hair); border-radius: 14px; box-shadow: 0 24px 60px -18px rgba(0,0,0,.75); z-index: var(--z-popover); animation: fxMenuIn 160ms var(--ease-out) both; transform-origin: top right; }
 .fx-tools .bell-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--hair2); position: sticky; top: 0; background: var(--card-solid); }
 .fx-tools .bell-item { padding: 12px 14px; border-bottom: 1px solid var(--hair2); font-size: 13px; }
 .fx-tools .bell-item:last-child { border-bottom: none; }
 .fx-tools .bell-item.unread { background: rgba(212,175,55,.05); }
 
-.fx-tools .wrap { max-width: 1024px; margin: 0 auto; padding: 0 16px calc(64px + var(--fx-bottomnav-h) + env(safe-area-inset-bottom)); position: relative; z-index: 1; }
+.fx-tools .wrap { max-width: 1024px; margin: 0 auto; padding: 0 16px calc(64px + var(--fx-bottomnav-h) + env(safe-area-inset-bottom)); position: relative; z-index: var(--z-raised); }
 
 /* ============ TYPE ============ */
 .fx-tools .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent-text); margin-bottom: 8px; }
-.fx-tools .page-head { text-align: center; padding: 48px 8px 28px; max-width: 640px; margin: 0 auto; }
-.fx-tools .page-head h1 { font-size: clamp(28px,4.5vw,40px); font-weight: 700; letter-spacing: -.02em; }
-.fx-tools .page-head p { font-size: 15px; color: var(--ink2); margin-top: 10px; line-height: 1.55; }
+/* Vertical rhythm note: the head used to open with 48px of padding above a
+   headline that inherited a 1.5 body line-height — a 40px display type set on
+   60px leading, so a two-line title alone burned 120px and the first budgeting
+   control sat 574px down the page. Display type wants tight leading; 1.08 is
+   what makes a large headline read as one deliberate object instead of two
+   loose rows, and it recovers ~60px above the fold without touching the
+   generous whitespace that gives the page its calm. */
+.fx-tools .page-head { text-align: center; padding: 32px 8px 22px; max-width: 640px; margin: 0 auto; }
+.fx-tools .page-head h1 { font-size: clamp(28px,4.5vw,40px); font-weight: 700; letter-spacing: -.02em; line-height: 1.08; text-wrap: balance; }
+.fx-tools .page-head p { font-size: 15px; color: var(--ink2); margin-top: 12px; line-height: 1.55; text-wrap: pretty; }
 .fx-tools .tool-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 980px; margin-bottom: 14px; }
 
 /* ============ CARDS & FORMS ============ */
@@ -161,36 +253,232 @@
 @media(max-width:520px){ .fx-tools .grid2 { grid-template-columns: 1fr; } .fx-tools .grid3 { grid-template-columns: 1fr; } }
 @media(max-width:640px){ .fx-tools .grid2 { grid-template-columns: 1fr !important; } }
 
+/* ---- Inset tile (shared primitive) ----
+   The recessed panel inside a card: the Needs/Wants/Savings band on Expenses,
+   PeerCompare's stat boxes, LifeMap's guidance note. All three hand-wrote the
+   same three declarations as inline style objects against var(--bg) — which is
+   the page CANVAS, so on light paper they composited to a 4/255 difference and
+   effectively vanished (see the --well note above). One class, one surface.
+   `--pad-inset` names the 14px step the tools sheet already uses for every
+   recessed surface (.tx-filters, .fx-method-card), so it stops being a number
+   that each call site re-guesses. */
+.fx-tools { --pad-inset: 14px; }
+.fx-tools .well { background: var(--well); border: var(--ctl-bw) solid var(--well-border); border-radius: var(--ctl-r-lg); padding: var(--pad-inset); }
+
+/* ---- Checkbox (shared primitive) ----
+   Checkboxes rendered at four different sizes across the module — 16px (bulk
+   "select all"), 17px (row select), 18px (goal inflation) and the browser
+   default (dashboard section toggles) — each re-declaring the gold accent
+   inline. One size, one accent, declared once.
+
+   `.fx-check-hit` is the TARGET, not the box. The row-selection checkbox was a
+   bare input with no wrapping label, so its entire pointer target was the
+   17x17 box itself — under the WCAG 2.2 (2.5.8) 24px minimum, on the control
+   that gets tapped most on a phone. Wrapping it in a label both forwards the
+   click and gives it a 24px target without inflating the visual box, which is
+   how the module's other three checkboxes already get theirs. */
+.fx-tools .fx-check { width: 18px; height: 18px; accent-color: var(--gold); cursor: pointer; flex-shrink: 0; margin: 0; }
+.fx-tools .fx-check-hit { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; min-height: 24px; flex-shrink: 0; cursor: pointer; }
+/* A checkbox with a visible label. Four call sites wrote this same flex row
+   inline with gaps of 8 or 10px; the label IS the pointer target, so the 24px
+   minimum belongs here — the goal-planner row measured 21px tall, which made
+   the whole "adjust for inflation" control a 2.5.8 failure despite the
+   checkbox itself being fine. */
+.fx-tools .fx-checkrow { display: flex; align-items: center; gap: 10px; min-height: 24px; cursor: pointer; }
+
+/* ---- Rank badge (shared primitive) ----
+   ParkSmart's numbered result markers. The winner's label was painted
+   var(--card) on teal — a TRANSLUCENT surface colour used as text, so it
+   composited against the fill instead of contrasting with it (rgba(255,255,255,.72)
+   on #0E6B63 in light theme). --ink-inverse is the solid ink every other
+   filled surface in the system uses. */
+.fx-tools .fx-rank { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; flex-shrink: 0; border-radius: var(--ctl-r-xs); background: var(--well); color: var(--ink2); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fx-tools .fx-rank.is-top { background: var(--teal); color: #fff; }
+
 .fx-tools a:focus-visible, .fx-tools button:focus-visible, .fx-tools input:focus-visible, .fx-tools select:focus-visible, .fx-tools textarea:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
 .fx-tools .fg { margin-bottom: 16px; }
 .fx-tools .fl { display: block; font-size: 12px; color: var(--ink2); margin-bottom: 7px; font-weight: 600; }
-.fx-tools .fi, .fx-tools .fs { width: 100%; padding: 13px 15px; background: var(--fill-04); border: 1px solid var(--fill-13); border-radius: 12px; color: var(--ink); font-size: 16px; font-family: inherit; outline: none; transition: all .2s; -webkit-appearance: none; }
-.fx-tools .fi::placeholder, .fx-tools .fs::placeholder { color: var(--ink3); }
-.fx-tools .fi:focus, .fx-tools .fs:focus { border-color: var(--gold); background: var(--fill-06); box-shadow: 0 0 0 3px rgba(212,175,55,.14), 0 6px 18px -6px rgba(0,0,0,.5); transform: translateY(-1px); }
-.fx-tools .fs { cursor: pointer; background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239A9A94' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 15px center; padding-right: 38px; }
-.fx-tools .fi-sm { width: 110px; padding: 9px 12px; background: var(--fill-04); border: 1px solid var(--fill-13); border-radius: 10px; color: var(--ink); font-size: 14px; font-family: inherit; outline: none; text-align: right; transition: border .2s; }
-.fx-tools .fi-sm:focus { border-color: var(--gold); background: var(--fill-06); }
 
-.fx-tools .btn { display: inline-block; width: 100%; padding: 14px; border: 1px solid #B8962E; border-radius: 980px; font-size: 15px; font-weight: 600; letter-spacing: .01em; cursor: pointer; font-family: inherit; transition: transform 150ms var(--ease-out), box-shadow 150ms var(--ease-out), background-color 200ms ease; text-align: center; background: #D4AF37; color: #1a1400; box-shadow: 0 4px 14px -6px rgba(212,175,55,.45); -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+/* ═══════════════ FIELDS — ONE implementation, two rungs ═══════════════
+   `.fi` (lg rung, 16px) and `.fi-sm` (md rung, 14px) had drifted into two
+   separate components that merely looked related: different rest background
+   (fill-04 vs fill-02), different rest border (fill-13 vs fill-08), different
+   transition duration (200 vs 150ms), hover on one and not the other, spin
+   buttons hidden on one and not the other, tabular figures on one and not the
+   other, and a 1px focus lift on one that the other deliberately cancelled.
+   `.bb-pct` — a `.fi` that wanted `.fi-sm`'s treatment — had to undo seven of
+   those declarations by hand, which is the clearest evidence the split was
+   accidental rather than designed.
+
+   Everything that should NOT vary between the two now lives in the shared base
+   below; the rung classes carry only what genuinely differs (height, font
+   size, width, alignment). The rest weight follows the lighter `.fi-sm`
+   direction — weight belongs on focus, not at rest, so a column of fields
+   stops reading as grey chips glued onto the card.
+
+   Motion: fields use the 200ms input duration (controls use 150ms). */
+.fx-tools { --input-trans: var(--trans-input); }
+
+.fx-tools .fi, .fx-tools .fi-sm, .fx-tools .fs {
+  color: var(--ink); font-family: inherit; outline: none;
+  background-color: var(--fill-02);
+  border: var(--ctl-bw) solid var(--fill-08);
+  /* Figures line up in a column and stop shifting under the caret while
+     typing. Harmless for the text and search fields that share this base —
+     it only affects digit advance widths. */
+  font-variant-numeric: tabular-nums;
+  -webkit-appearance: none; appearance: none; -moz-appearance: textfield;
+  transition: border-color var(--input-trans), background-color var(--input-trans), box-shadow var(--input-trans);
+}
+/* Spin buttons are hidden on EVERY numeric field, not just the small one —
+   `.fi` is used with type="number" too (the percentage inputs), where Chrome
+   and Safari were painting spinners over a centred figure. Presentational
+   only: ↑/↓ still step the value, so keyboard behaviour is unchanged. */
+.fx-tools .fi::-webkit-outer-spin-button, .fx-tools .fi::-webkit-inner-spin-button,
+.fx-tools .fi-sm::-webkit-outer-spin-button, .fx-tools .fi-sm::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.fx-tools .fi::placeholder, .fx-tools .fi-sm::placeholder, .fx-tools .fs::placeholder { color: var(--ink3); }
+
+/* background-COLOR, not the `background` shorthand: `.fs` paints its dropdown
+   chevron as a background-image, and the shorthand silently resets it — which
+   is how a select could lose its arrow the moment you hovered it. */
+.fx-tools .fi:hover:not(:focus):not(:disabled):not([readonly]),
+.fx-tools .fi-sm:hover:not(:focus):not(:disabled):not([readonly]),
+.fx-tools .fs:hover:not(:focus):not(:disabled) { border-color: var(--fill-13); background-color: var(--fill-04); }
+
+/* One focus treatment. `.fi` used to add a translateY(-1px) lift and a drop
+   shadow that `.fi-sm` and `.bb-pct` both cancelled — at field size the hop
+   reads as a jitter, and it moved the caret by a pixel mid-keystroke. */
+.fx-tools .fi:focus, .fx-tools .fi-sm:focus, .fx-tools .fs:focus {
+  border-color: var(--gold); background-color: var(--fill-06); box-shadow: var(--ring-gold);
+}
+
+/* Validation. Neither field had ANY visual for aria-invalid, so a rejected
+   amount was announced to screen readers and to nobody else — the message
+   appeared below while the field itself looked untouched. */
+.fx-tools .fi[aria-invalid="true"], .fx-tools .fi-sm[aria-invalid="true"], .fx-tools .fs[aria-invalid="true"] {
+  border-color: color-mix(in srgb, var(--red) 55%, transparent);
+}
+.fx-tools .fi[aria-invalid="true"]:focus, .fx-tools .fi-sm[aria-invalid="true"]:focus, .fx-tools .fs[aria-invalid="true"]:focus {
+  border-color: var(--red); box-shadow: 0 0 0 3px color-mix(in srgb, var(--red) 20%, transparent);
+}
+
+/* Disabled and read-only were undefined on both fields, so a disabled input
+   was indistinguishable from an editable one. Read-only keeps full contrast
+   (the value still matters and stays selectable); disabled dims. */
+.fx-tools .fi:disabled, .fx-tools .fi-sm:disabled, .fx-tools .fs:disabled {
+  opacity: .5; cursor: not-allowed; background-color: var(--fill-02);
+}
+.fx-tools .fi[readonly], .fx-tools .fi-sm[readonly] {
+  background-color: var(--well); border-color: var(--well-border); cursor: default;
+}
+
+/* ── Rung: lg (full-width form fields) ── */
+.fx-tools .fi, .fx-tools .fs { width: 100%; min-height: var(--ctl-h-lg); padding: 13px 15px; border-radius: var(--ctl-r-md); font-size: 16px; }
+.fx-tools .fs { cursor: pointer; background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239A9A94' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 15px center; padding-right: 38px; }
+
+/* ── Rung: md (in-row money fields) ──
+   --ctl-r-sm rather than the lg rung's --ctl-r-md is deliberate: on the md
+   rung this sits beside .bb-pct and the row action buttons, and two 40px
+   controls with a 2px radius difference read as a mistake, not a distinction. */
+.fx-tools .fi-sm { width: 110px; height: var(--ctl-h-md); padding: 0 12px; border-radius: var(--ctl-r-sm); font-size: 14px; text-align: right; }
+/* iOS Safari zooms the viewport whenever a focused field is under 16px. The
+   money field is the one users tap most on mobile, so it was zooming the page
+   on nearly every entry and leaving it zoomed. Bumping to 16px on small
+   screens only keeps the desktop density and stops the zoom. */
+@media (max-width: 767px) { .fx-tools .fi-sm { font-size: 16px; } }
+
+/* Live result of a formula typed into an amount field (see ui/AmountInput.tsx).
+   Monospaced so the evaluated figure reads as a computed value rather than as
+   more prose, and tabular-nums so it does not jitter while the user types. */
+.fx-tools .fx-amt-hint { margin-top: 6px; font-size: 12px; font-weight: 600; color: var(--green);
+  font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.fx-tools .fx-amt-hint.is-bad { color: var(--red); font-family: inherit; font-variant-numeric: normal; }
+
+/* inline-flex (was inline-block) so a button's height is driven by its rung
+   rather than by whatever line-height its font size happens to inherit — the
+   reason Export/Organise measured 39.5px while every other control measured a
+   round number. Centring is now explicit instead of incidental. */
+.fx-tools .btn { display: inline-flex; align-items: center; justify-content: center; width: 100%; padding: 14px; border: var(--ctl-bw) solid #B8962E; border-radius: var(--ctl-pill); font-size: 15px; font-weight: 600; letter-spacing: .01em; cursor: pointer; font-family: inherit; transition: transform var(--ctl-trans), box-shadow var(--ctl-trans), background-color 200ms ease; text-align: center; background: #D4AF37; color: #1a1400; box-shadow: 0 4px 14px -6px rgba(212,175,55,.45); -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 .fx-tools .btn:hover { transform: translateY(-2px); background: #E0BC4B; box-shadow: 0 8px 22px -8px rgba(212,175,55,.6); }
 .fx-tools .btn:active { transform: scale(.97) translateY(1px); background: #C9A431; }
 .fx-tools .btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .fx-tools .btn:disabled { cursor: default; opacity: .5; transform: none; box-shadow: none; }
 .fx-tools .btn-ghost { background: var(--fill-03); color: var(--ink); border: 1px solid var(--hair); box-shadow: none; }
 .fx-tools .btn-ghost:hover { background: var(--fill-06); border-color: rgba(212,175,55,.5); filter: none; }
-.fx-tools .btn-sm { width: auto; padding: 9px 18px; font-size: 13px; }
+.fx-tools .btn-sm { width: auto; min-height: var(--ctl-h-md); padding: 0 18px; font-size: 13px; }
 .fx-tools .btn-loading { animation: fxBtnPulse 1.2s ease-in-out infinite; pointer-events: none; opacity: .75; }
 @keyframes fxBtnPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(0,0,0,.1); } 50% { box-shadow: 0 0 0 8px rgba(0,0,0,0); } }
 @media (hover: none) { .fx-tools .btn:active { transform: scale(.97); background: #C9A431; } }
 @media (prefers-reduced-motion: reduce) { .fx-tools .btn-loading { animation: none; } }
 
+/* ---- Segmented control ----
+   "This month / Next month", the suggestions lookback (3m/6m/12m) and the
+   timeline detail switch. It lived in BudgetPage's inline <style> while three
+   separate components rendered it, so any page that mounted one of those
+   components without BudgetPage would have painted it unstyled — and the
+   Budget page carried CSS that was not its own. Promoted here, on the rungs.
+
+   It was also the last square-cornered control on a page where the tool nav,
+   every .btn, the tool chip and the Ask AI pill are all fully rounded; the
+   pill geometry below is what makes it read as the same family as the tool
+   nav it visually rhymes with (a row of tabs, active one gold). */
+.fx-tools .fx-seg { display: inline-flex; align-items: center; gap: 2px; padding: 3px; border: var(--ctl-bw) solid var(--hair2); border-radius: var(--ctl-pill); background: var(--card); }
+.fx-tools .fx-seg button { display: inline-flex; align-items: center; justify-content: center; min-height: calc(var(--ctl-h-md) - 8px); padding: 0 14px; background: transparent; border: none; border-radius: var(--ctl-pill); color: var(--ink2); font-size: 12.5px; font-weight: 600; font-family: inherit; letter-spacing: -.01em; cursor: pointer; white-space: nowrap; transition: background-color var(--ctl-trans), color var(--ctl-trans); -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.fx-tools .fx-seg button:hover { background: var(--fill-06); color: var(--ink); }
+.fx-tools .fx-seg button.on { background: linear-gradient(180deg,#E6C766,#D4AF37); color: #1a1400; box-shadow: 0 4px 12px -4px rgba(212,175,55,.45); }
+.fx-tools .fx-seg button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* ---- Card header row ---- title/description left, controls right. Shared by
+   the income, category and suggestions cards; promoted here for the same
+   reason as .fx-seg above. */
+.fx-tools .bb-cardhd { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+/* Card titles were being written inline at 14px/700, 15px/600 and 16px/700 for
+   what are all the same rank of heading. Two steps: the default for a card,
+   and `is-section` for the three budget bands, which are a level up and take
+   their colour from the band. */
+.fx-tools .bb-cardtitle { font-size: 15px; font-weight: 700; letter-spacing: -.01em; color: var(--ink); }
+.fx-tools .bb-cardtitle.is-section { font-size: 16px; }
+
+/* ---- Month navigator (Budget, Expenses, Reports, Calendar) ----
+   Was a block of inline style objects with no :hover, :active or disabled
+   styling at all — the prev/next arrows were the only controls on the page
+   that gave no feedback on pointer-down. As classes they pick up the shared
+   rungs, and the states below are the same ones every other control uses. */
+.fx-tools .fx-mnav { background: var(--card); border: var(--ctl-bw) solid var(--hair2); border-radius: var(--ctl-r-lg); box-shadow: var(--shadow); padding: 12px 14px; backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); }
+.fx-tools .fx-mnav-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.fx-tools .fx-mnav-arrow { display: inline-flex; align-items: center; justify-content: center; width: var(--ctl-h-md); height: var(--ctl-h-md); flex-shrink: 0; background: var(--well); border: var(--ctl-bw) solid var(--hair2); border-radius: var(--ctl-r-sm); color: var(--ink2); font-size: 18px; line-height: 1; font-family: inherit; cursor: pointer; transition: background-color var(--ctl-trans), border-color var(--ctl-trans), color var(--ctl-trans), transform var(--ctl-trans); -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.fx-tools .fx-mnav-arrow:hover:not(:disabled) { background: var(--fill-06); border-color: var(--hair); color: var(--ink); }
+.fx-tools .fx-mnav-arrow:active:not(:disabled) { transform: scale(.94); }
+.fx-tools .fx-mnav-arrow:disabled { opacity: .35; cursor: default; }
+.fx-tools .fx-mnav-label { text-align: center; min-width: 0; }
+.fx-tools .fx-mnav-month { font-size: 15px; font-weight: 700; letter-spacing: -.01em; color: var(--ink); }
+.fx-tools .fx-mnav-note { font-size: 11px; font-weight: 600; margin-top: 2px; color: var(--ink3); }
+.fx-tools .fx-mnav-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+/* xs rung: the chips were 22px tall, under the WCAG 2.2 (2.5.8) 24px minimum. */
+.fx-tools .fx-mnav-chip { display: inline-flex; align-items: center; min-height: var(--ctl-h-xs); padding: 0 12px; border: var(--ctl-bw) solid var(--hair2); border-radius: var(--ctl-pill); background: var(--well); color: var(--ink2); font-size: 11.5px; font-weight: 600; font-family: inherit; white-space: nowrap; cursor: pointer; transition: background-color var(--ctl-trans), border-color var(--ctl-trans), color var(--ctl-trans), transform var(--ctl-trans); -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.fx-tools .fx-mnav-chip:hover:not(.on) { background: var(--fill-06); border-color: var(--hair); color: var(--ink); }
+.fx-tools .fx-mnav-chip:active { transform: scale(.96); }
+/* The active chip previously painted its label var(--card) on gold. On light
+   that is 72%-white text on #D4AF37 — about 1.9:1, a hard WCAG AA failure —
+   and on dark it was a translucent near-black that read muddy. #1a1400 is the
+   ink every other gold surface in the system already uses (~8.9:1). */
+.fx-tools .fx-mnav-chip.on { background: linear-gradient(180deg,#E6C766,#D4AF37); border-color: #B8962E; color: #1a1400; box-shadow: 0 4px 12px -4px rgba(212,175,55,.45); }
+@media (prefers-reduced-motion: reduce) {
+  .fx-tools .fx-mnav-arrow:active:not(:disabled), .fx-tools .fx-mnav-chip:active { transform: none; }
+}
+
 .fx-tools .pill { display: inline-block; font-size: 11px; font-weight: 600; padding: 4px 11px; border-radius: 980px; }
 .fx-tools .pill-ok { background: rgba(29,125,70,.1); color: var(--green); }
 .fx-tools .pill-bad { background: rgba(215,0,21,.08); color: var(--red); }
-.fx-tools .pill-mute { background: var(--bg); color: var(--ink3); }
+.fx-tools .pill-mute { background: var(--well); color: var(--ink3); }
 
-.fx-tools .bar { height: 8px; background: var(--bg); border-radius: 8px; overflow: hidden; position: relative; }
+/* Progress track. Two rungs — 8px default, 6px compact — which replace the
+   8 / 6 / 5px mix three pages were producing with inline `height` overrides on
+   this very class. A track that is a different height on every page is the
+   clearest possible tell that a component has no owner. */
+.fx-tools .bar { height: var(--bar-h, 8px); background: var(--well); border-radius: 8px; overflow: hidden; position: relative; }
+.fx-tools .bar-sm { --bar-h: 6px; }
 .fx-tools .bar-fill { height: 100%; border-radius: 8px; transition: width 800ms cubic-bezier(.4,0,.2,1); }
 .fx-tools .hr { height: 1px; background: var(--hair2); margin: 18px 0; }
 /* NOTE: no `.fx-tools .hidden` override here. This stylesheet loads after the
@@ -218,8 +506,13 @@
 .fx-tools .tip-ok { background: rgba(29,125,70,.06); border: 1px solid rgba(29,125,70,.14); }
 .fx-tools .tip-warn { background: rgba(194,65,12,.05); border: 1px solid rgba(194,65,12,.14); }
 .fx-tools .tip-info { background: var(--gold-bg); border: 1px solid rgba(176,138,54,.2); }
-.fx-tools .opt-card { padding: 16px; border: 1.5px solid var(--hair2); border-radius: 14px; cursor: pointer; margin-bottom: 9px; transition: all .2s; background: var(--card); }
-.fx-tools .opt-card:hover { border-color: var(--ink3); }
+/* 1.5px was the only non-1px border in the system; on the ladder it matches
+   every other bordered surface. `transition: all` replaced with the properties
+   that actually change. */
+.fx-tools .opt-card { padding: 16px; border: var(--ctl-bw) solid var(--hair2); border-radius: var(--ctl-r-lg); cursor: pointer; margin-bottom: 9px; transition: border-color var(--ctl-trans), background-color var(--ctl-trans), transform var(--ctl-trans); background: var(--card); }
+.fx-tools .opt-card:hover { border-color: var(--ink3); background: var(--fill-04); }
+.fx-tools .opt-card:active { transform: scale(.995); }
+@media (prefers-reduced-motion: reduce) { .fx-tools .opt-card:active { transform: none; } }
 .fx-tools .opt-card.sel { border-color: var(--gold); background: var(--gold-bg); }
 .fx-tools .opt-card .ol { font-size: 15px; font-weight: 600; }
 .fx-tools .opt-card .od { font-size: 12px; color: var(--ink2); margin-top: 2px; }
@@ -268,8 +561,8 @@
 .fx-tools .fx-page { animation: fxPageEnter var(--duration-med) var(--ease-out) backwards; }
 
 /* ============ TOAST ============ */
-.fx-toast-wrap { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 1000; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
-.fx-toast { display: flex; align-items: center; gap: 10px; max-width: min(92vw,420px); background: rgba(20,20,23,.92); border: 1px solid rgba(255,255,255,.12); border-radius: 14px; padding: 12px 16px; color: #F5F5F0; font-size: 13.5px; line-height: 1.45; box-shadow: 0 18px 50px -12px rgba(0,0,0,.7); backdrop-filter: blur(16px) saturate(160%); -webkit-backdrop-filter: blur(16px) saturate(160%); transform: translateY(12px); opacity: 0; transition: opacity .28s cubic-bezier(.4,0,.2,1), transform .28s cubic-bezier(.4,0,.2,1); font-family: 'Geist', system-ui, sans-serif; }
+.fx-toast-wrap { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: var(--z-toast); display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+.fx-toast { display: flex; align-items: center; gap: 10px; max-width: min(92vw,420px); background: rgba(20,20,23,.92); border: 1px solid rgba(255,255,255,.12); border-radius: 14px; padding: 12px 16px; color: #F5F5F0; font-size: 13.5px; line-height: 1.45; box-shadow: 0 18px 50px -12px rgba(0,0,0,.7); backdrop-filter: blur(16px) saturate(160%); -webkit-backdrop-filter: blur(16px) saturate(160%); transform: translateY(12px); opacity: 0; transition: opacity var(--trans-overlay), transform var(--trans-overlay); font-family: 'Geist', system-ui, sans-serif; }
 .fx-toast.show { transform: none; opacity: 1; }
 .fx-toast .ti { flex: 0 0 auto; width: 22px; height: 22px; border-radius: 7px; display: flex; align-items: center; justify-content: center; background: rgba(212,175,55,.18); color: #D4AF37; font-weight: 700; font-size: 13px; font-style: normal; }
 .fx-toast.err .ti { background: rgba(255,90,82,.16); color: #FF5A52; }
@@ -282,13 +575,15 @@
    once per row. The sparkle stays gold at rest so the affordance reads as AI
    without the button having to shout; the label warms up on hover.
    The global .fx-tools button:focus-visible ring already covers it. */
-.fx-tools .fx-askai { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; border-radius: 980px; border: 1px solid transparent; background: transparent; color: var(--ink3); font-family: inherit; font-weight: 600; line-height: 1; cursor: pointer; transition: background .15s ease, color .15s ease, border-color .15s ease, transform .15s ease; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
-.fx-tools .fx-askai svg { color: var(--gold); opacity: .8; flex-shrink: 0; transition: opacity .15s ease; }
-/* 28px clears the WCAG 2.2 (2.5.8) 24px minimum target with room to spare. */
-.fx-tools .fx-askai-sm { min-height: 28px; padding: 5px 10px; font-size: 11.5px; }
-.fx-tools .fx-askai-md { min-height: 34px; padding: 7px 13px; font-size: 12.5px; color: var(--ink2); border-color: var(--hair2); background: var(--card); }
-.fx-tools .fx-askai.is-icon { padding: 0; justify-content: center; width: 28px; }
-.fx-tools .fx-askai-md.is-icon { width: 34px; }
+.fx-tools .fx-askai { display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex-shrink: 0; border-radius: var(--ctl-pill); border: var(--ctl-bw) solid transparent; background: transparent; color: var(--ink3); font-family: inherit; font-weight: 600; line-height: 1; cursor: pointer; transition: background-color var(--ctl-trans), color var(--ctl-trans), border-color var(--ctl-trans), transform var(--ctl-trans); -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.fx-tools .fx-askai svg { color: var(--gold); opacity: .8; flex-shrink: 0; transition: opacity var(--ctl-trans); }
+/* xs (28px) clears the WCAG 2.2 (2.5.8) 24px minimum target with room to spare. */
+.fx-tools .fx-askai-sm { min-height: var(--ctl-h-xs); padding: 0 10px; font-size: 11.5px; }
+/* md sits on the same rung as .btn-sm so the Ask AI pill, Export budget and
+   Organise are one height wherever they appear together. */
+.fx-tools .fx-askai-md { min-height: var(--ctl-h-md); padding: 0 15px; font-size: 12.5px; color: var(--ink2); border-color: var(--hair2); background: var(--card); }
+.fx-tools .fx-askai.is-icon { padding: 0; width: var(--ctl-h-xs); }
+.fx-tools .fx-askai-md.is-icon { width: var(--ctl-h-md); }
 .fx-tools .fx-askai:hover { background: var(--gold-bg); color: var(--gold); border-color: color-mix(in srgb, var(--gold) 28%, transparent); }
 .fx-tools .fx-askai:hover svg { opacity: 1; }
 .fx-tools .fx-askai:active { transform: scale(.96); }

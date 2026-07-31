@@ -117,7 +117,7 @@ function PeerResultView({ result, onReset }: { result: PeerResult; onReset: () =
     <div>
       <div className="card result-hero-anim" style={{ textAlign: 'center', padding: '34px 24px' }}>
         <div style={{ position: 'relative', width: 140, height: 140, margin: '0 auto 14px' }}>
-          <svg width="140" height="140" style={{ transform: 'rotate(-90deg)' }}>
+          <svg aria-hidden="true" width="140" height="140" style={{ transform: 'rotate(-90deg)' }}>
             <circle cx="70" cy="70" r="56" fill="none" stroke="var(--hair2)" strokeWidth="9" />
             <circle cx="70" cy="70" r="56" fill="none" stroke={scHex} strokeWidth="9" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={off} style={{ transition: 'stroke-dashoffset 1s ease' }} />
           </svg>
@@ -181,7 +181,7 @@ function MetricCard({ m, cityLabel }: { m: Metric; cityLabel: string }) {
 
 function StatBox({ v, l, color }: { v: string; l: string; color: string }) {
   return (
-    <div style={{ padding: 14, background: 'var(--bg)', borderRadius: 14 }}>
+    <div className="well">
       <div style={{ fontSize: 21, fontWeight: 700, color }}>{v}</div>
       <div className="note">{l}</div>
     </div>

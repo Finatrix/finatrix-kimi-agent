@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { render, screen, fireEvent, cleanup, within, waitFor } from '@testing-library/react';
 import { CurrencyProvider } from '../tools/CurrencyContext';
 import ExpensePage from '../tools/pages/ExpensePage';
 
@@ -23,7 +23,7 @@ describe('ExpensePage (React) — dashboard wiring', () => {
     expect(screen.getByText(/Export ▾/)).toBeInTheDocument();
     expect(screen.getByText('Monthly budget')).toBeInTheDocument();
     expect(screen.getByText('Monthly spent')).toBeInTheDocument();
-    expect(screen.getByText('Remaining')).toBeInTheDocument();
+    expect(screen.getByText('Remaining budget')).toBeInTheDocument();
     // Needs / Wants / Savings summary block from Budget Builder sections.
     expect(screen.getByText('Needs · Wants · Savings')).toBeInTheDocument();
   });
@@ -34,7 +34,7 @@ describe('ExpensePage (React) — dashboard wiring', () => {
     fireEvent.click(screen.getByText('Add expense'));
 
     // Default category is the first budget category (Rent). Spent rolls up.
-    const top = screen.getByText('Top categories').closest('.card') as HTMLElement;
+    const top = screen.getByText('Top spending categories').closest('.card') as HTMLElement;
     expect(within(top).getByText('Rent')).toBeInTheDocument();
     // The transactions list shows it too.
     const txList = screen.getByText('Transactions').closest('.card') as HTMLElement;
@@ -126,7 +126,7 @@ describe('ExpensePage (React) — dashboard wiring', () => {
     expect(within(spentCell).getByText('₹750')).toBeInTheDocument();
   });
 
-  it('deletes a transaction and can undo it', () => {
+  it('deletes a transaction (after its exit animation) and can undo it', async () => {
     renderPage();
     fireEvent.change(screen.getByLabelText(/^Amount \(₹\)$/), { target: { value: '500' } });
     fireEvent.click(screen.getByText('Add expense'));
@@ -134,8 +134,9 @@ describe('ExpensePage (React) — dashboard wiring', () => {
     const txCard = screen.getByText('Transactions').closest('.card') as HTMLElement;
     fireEvent.click(within(txCard).getByLabelText('Delete Rent'));
 
-    // Row is gone, undo affordance appears.
-    expect(within(txCard).queryByLabelText('Delete Rent')).toBeNull();
+    // The row animates out first, and is hidden from assistive tech immediately
+    // so a screen reader never announces a row that is on its way out.
+    await waitFor(() => expect(within(txCard).queryByLabelText('Delete Rent')).toBeNull());
     const undo = screen.getByText('Undo');
     fireEvent.click(undo);
 
@@ -164,7 +165,7 @@ describe('ExpensePage (React) — dashboard wiring', () => {
     expect(within(txCard).getByText('BigBasket')).toBeInTheDocument();
   });
 
-  it('multi-selects and bulk-deletes with undo', () => {
+  it('multi-selects and bulk-deletes with undo', async () => {
     seedTwo();
     renderPage();
     const txCard = screen.getByText('Transactions').closest('.card') as HTMLElement;
@@ -174,18 +175,32 @@ describe('ExpensePage (React) — dashboard wiring', () => {
     fireEvent.click(within(txCard).getByText('Delete'));
 
     // Both gone; undo restores them.
-    expect(within(txCard).queryByText('Blue Bottle')).toBeNull();
+    await waitFor(() => expect(within(txCard).queryByText('Blue Bottle')).toBeNull());
     fireEvent.click(screen.getByText('Undo'));
     expect(within(txCard).getByText('Blue Bottle')).toBeInTheDocument();
     expect(within(txCard).getByText('BigBasket')).toBeInTheDocument();
   });
 
+  /**
+   * Unlike its neighbours this assertion is about WHERE the seeded dates fall
+   * relative to today, so it is the one test in the suite that cannot read the
+   * real clock: seedTwo() writes the 5th and 6th, which are "Earlier this
+   * month" for most of the month but "Upcoming" on the 1st–4th. Pinning to the
+   * 20th puts them behind both today and the start of the current week, which
+   * is what the "Earlier this month" band actually means. Fake timers are
+   * scoped to this test — the suite's other cases await real-timer waitFor.
+   */
   it('groups transactions into a timeline', () => {
-    seedTwo();
-    renderPage();
-    const txCard = screen.getByText('Transactions').closest('.card') as HTMLElement;
-    // Seeded dates are the 5th/6th, i.e. earlier in the current month.
-    expect(within(txCard).getByText('Earlier this month')).toBeInTheDocument();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date('2026-07-20T09:00:00'));
+    try {
+      seedTwo();
+      renderPage();
+      const txCard = screen.getByText('Transactions').closest('.card') as HTMLElement;
+      expect(within(txCard).getByText('Earlier this month')).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('shows a first-run empty state with a CTA', () => {

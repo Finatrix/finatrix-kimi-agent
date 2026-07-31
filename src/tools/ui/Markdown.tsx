@@ -116,8 +116,17 @@ function parseBlocks(src: string): Block[] {
       parts.push(lines[i].trim());
       i++;
     }
-    if (parts.length) blocks.push({ t: 'para', text: parts.join(' ') });
-    else i++; // a line that starts a block but matched nothing above
+    if (parts.length) {
+      blocks.push({ t: 'para', text: parts.join(' ') });
+    } else {
+      // A line that looks like the start of a block but matched no branch —
+      // in practice a table row whose divider row is missing (a partial or
+      // malformed table). Dropping it violated this file's contract that an
+      // unsupported construct "should look inelegant, never invisible": the
+      // row simply vanished from the answer. Render it as literal text.
+      blocks.push({ t: 'para', text: line.trim() });
+      i++;
+    }
   }
 
   return blocks;

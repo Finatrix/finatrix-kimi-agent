@@ -35,6 +35,7 @@ const MAX_EVENTS = 50;
 const ALLOWED_EVENTS = new Set([
   'page_view', 'tool_view', 'tool_completed', 'signup_prompt_shown',
   'signup_prompt_action', 'web_vital', 'app_error', 'route_not_found',
+  'careers_paywall_view', 'careers_checkout_clicked', 'careers_paywall_closed', 'subscription_success',
 ]);
 const ALLOWED_PROP_KEYS = new Set([
   'tool', 'route', 'action', 'metric', 'rating', 'value', 'bucket',

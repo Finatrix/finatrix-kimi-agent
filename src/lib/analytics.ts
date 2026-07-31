@@ -37,7 +37,13 @@ export type AnalyticsEvent =
   // to be filled — it is a metric that reads zero and looks like a real one.
   | 'web_vital'
   | 'app_error'
-  | 'route_not_found';
+  | 'route_not_found'
+  // Careers paywall (CareersPaywallGate / CareersProPaywall) — the entry
+  // gate shown to signed-in users without a paid Careers plan.
+  | 'careers_paywall_view'
+  | 'careers_checkout_clicked'
+  | 'careers_paywall_closed'
+  | 'subscription_success';
 
 /** Prop keys that may be sent. Anything else is dropped before it leaves the tab. */
 const ALLOWED_PROP_KEYS = new Set([
