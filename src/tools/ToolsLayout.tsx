@@ -25,6 +25,7 @@ import { BrandLogo } from '../components/BrandLogo';
 import { Breadcrumb } from '../components/Breadcrumb';
 import ThemeToggle from '../components/ThemeToggle';
 import { NotificationsBell } from './ui/NotificationsBell';
+import { AiProvider, AiLauncher } from './ui/AiAssistant';
 import './tools.css';
 
 const syncLabel: Record<SyncStatus, string> = {
@@ -335,6 +336,12 @@ export default function ToolsLayout() {
   return (
     <CurrencyProvider>
       <ToastProvider>
+        {/* FinatriX AI wraps the whole shell because any screen inside it can
+            open the assistant pointed at what the user is looking at — a
+            category, a transaction, a chart. `enabled` is held back until the
+            cloud seed lands, so the assistant can never read a half-empty store
+            and report figures the page is not showing. */}
+        <AiProvider enabled={ready}>
         <div className="fx-tools" style={{ minHeight: '100dvh' }}>
           <div className="fx-amb" aria-hidden="true">
             <div className="fx-amb-glow" />
@@ -499,6 +506,12 @@ export default function ToolsLayout() {
             <Link to="/terms" onClick={() => setDrawerOpen(false)} className="block px-5 py-2.5 text-[14px] text-ink-3 hover:bg-hairline-2">Terms</Link>
           </MobileDrawer>
 
+          {/* The floating trigger. Sits at the end of the shell so it paints
+              above the page without a stacking hack; the panel itself is
+              rendered by AiProvider above, as a lazy chunk fetched on first
+              open. */}
+          {ready && <AiLauncher />}
+
           {/* Mobile bottom navigation (<768px) */}
           <MobileTabBar
             activeTool={activeTool}
@@ -507,6 +520,7 @@ export default function ToolsLayout() {
             moreActive={activeTool !== 'dashboard' && !BOTTOM_NAV_TOOLS.includes(activeTool as typeof BOTTOM_NAV_TOOLS[number])}
           />
         </div>
+        </AiProvider>
       </ToastProvider>
     </CurrencyProvider>
   );

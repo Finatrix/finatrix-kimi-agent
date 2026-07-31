@@ -311,7 +311,7 @@ function OnbStyles() {
       .fx-onb-hint { display: block; font-size: 12.5px; color: var(--ink-3); margin-top: 9px; font-weight: 400; letter-spacing: 0; }
 
       .fx-onb-amount { display: flex; align-items: center; gap: 4px; border: 1px solid var(--hairline); background: var(--tile-bg); border-radius: 16px; padding: 4px 8px 4px 16px; transition: border-color .2s ease, box-shadow .2s ease; }
-      .fx-onb-amount:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(212,175,55,.14); }
+      .fx-onb-amount:focus-within { border-color: hsl(var(--accent)); box-shadow: 0 0 0 3px rgba(212,175,55,.14); }
       .fx-onb-amount.sm { border-radius: 12px; padding: 2px 6px 2px 12px; }
       .fx-onb-sym { font-size: 22px; font-weight: 600; color: var(--ink-3); }
       .fx-onb-amount.sm .fx-onb-sym { font-size: 16px; }
@@ -319,14 +319,14 @@ function OnbStyles() {
       .fx-onb-amount.sm input { font-size: 18px; padding: 9px 4px; }
       .fx-onb-amount select { border: 0; background: var(--surface-2); color: var(--ink-2); font-size: 13px; font-weight: 600; border-radius: 12px; padding: 8px 8px; cursor: pointer; font-family: inherit; }
       .fx-onb-text { width: 100%; border: 1px solid var(--hairline); background: var(--tile-bg); border-radius: 14px; padding: 14px 16px; color: var(--ink); font-size: 16px; font-family: inherit; outline: none; transition: border-color .2s ease, box-shadow .2s ease; }
-      .fx-onb-text:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(212,175,55,.14); }
+      .fx-onb-text:focus { border-color: hsl(var(--accent)); box-shadow: 0 0 0 3px rgba(212,175,55,.14); }
       .fx-onb-row { display: flex; gap: 12px; }
       .fx-onb-row .fx-onb-field { flex: 1; }
 
       .fx-onb-choices { display: flex; flex-direction: column; gap: 10px; }
       .fx-onb-choice { text-align: left; border: 1px solid var(--hairline); background: var(--tile-bg); border-radius: 16px; padding: 16px 18px; cursor: pointer; transition: border-color .2s ease, background .2s ease, transform .2s var(--ease-out); display: flex; flex-direction: column; gap: 3px; }
       .fx-onb-choice:hover { border-color: var(--btn-ghost-border-hover); transform: translateY(-1px); }
-      .fx-onb-choice.is-sel { border-color: var(--accent); background: var(--accent-bg); box-shadow: 0 0 0 3px rgba(212,175,55,.12); }
+      .fx-onb-choice.is-sel { border-color: hsl(var(--accent)); background: var(--accent-bg); box-shadow: 0 0 0 3px rgba(212,175,55,.12); }
       .fx-onb-choice-l { font-size: 15.5px; font-weight: 650; color: var(--ink); }
       .fx-onb-choice-d { font-size: 13px; color: var(--ink-2); }
 

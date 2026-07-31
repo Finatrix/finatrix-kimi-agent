@@ -12,7 +12,8 @@ export type BadgeTone = 'neutral' | 'gold' | 'success' | 'info' | 'warn' | 'dang
 
 const TONE_STYLE: Record<BadgeTone, { color: string; bg: string }> = {
   neutral: { color: 'var(--ink-2)', bg: 'rgba(255,255,255,0.06)' },
-  gold: { color: 'var(--accent)', bg: 'var(--accent-bg)' },
+  // hsl(...): --accent is raw HSL channels for Tailwind — see styles/tokens.css.
+  gold: { color: 'hsl(var(--accent))', bg: 'var(--accent-bg)' },
   success: { color: 'var(--status-success)', bg: 'rgba(52,210,122,0.12)' },
   info: { color: 'var(--status-info)', bg: 'rgba(77,155,255,0.12)' },
   warn: { color: 'var(--status-warn)', bg: 'rgba(232,131,61,0.12)' },

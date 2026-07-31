@@ -7,6 +7,7 @@
 import { getJSON, setJSON } from './storage';
 import type { IconName } from '../ui/Icon';
 import { allCategories, type SectionedCats, type CatKey } from './budget';
+import { budgetTone, isWarningTone, type BudgetTone } from './budgetStatus';
 import { monthLabel } from './month';
 
 export interface ExpenseCat {
@@ -278,6 +279,37 @@ export interface DashCategory {
   remaining: number;
   pct: number; // spent / budget * 100 (0 when no budget)
   health: CatHealth;
+  /** Presentation tone (grey / green / orange / blue / red) — see budgetStatus.ts. */
+  tone: BudgetTone;
+}
+
+/**
+ * Category keys that represent moving money rather than spending it. Savings
+ * categories are already excluded by section; these cover legacy and
+ * uncategorised keys that never had a section, so "Top spending categories"
+ * only ever ranks real consumption.
+ */
+const INTERNAL_MOVEMENT_KEYS = new Set([
+  'transfers', 'transfer', 'internal', 'internal_transfer', 'savings', 'saving',
+  'income', 'salary', 'invest_et', 'investment', 'investments',
+]);
+
+/** True when a category is real spending (not savings, income or a transfer). */
+export function isSpendingCategory(c: { k: string; section: CatKey | null }): boolean {
+  if (c.section === 'save') return false;
+  return !INTERNAL_MOVEMENT_KEYS.has(c.k);
+}
+
+/** A category that needs attention this month — powers the dashboard warnings. */
+export interface BudgetWarning {
+  k: string;
+  label: string;
+  ic: IconName;
+  section: CatKey | null;
+  budget: number;
+  spent: number;
+  pct: number;
+  tone: BudgetTone;
 }
 export interface SectionSummary {
   section: CatKey;
@@ -304,6 +336,28 @@ export interface DashResult {
   topCategories: DashCategory[];
   recent: ExpenseItem[];
   trend: TrendPoint[];
+  /* ── Month pacing & cash-flow summary (V5 dashboard cards) ── */
+  /** Presentation tone for the whole month's budget. */
+  tone: BudgetTone;
+  daysInMonth: number;
+  daysElapsed: number;
+  /** Days left in the month; 0 for a month that has already ended. */
+  daysRemaining: number;
+  /** Share of the monthly budget consumed (0 when no budget is set). */
+  budgetUsedPct: number;
+  /**
+   * What's left to spend per remaining day to finish inside the budget. Null
+   * when there is no budget, or when the month is over and pacing is moot.
+   */
+  dailySafeSpend: number | null;
+  /** Take-home income for the month, from Budget Builder (0 when unknown). */
+  income: number;
+  /** Money routed into the Savings section this month. */
+  monthlySavings: number;
+  /** Income − everything logged. Null when income is unknown. */
+  netCashFlow: number | null;
+  /** Categories at or past 80% of their budget, most urgent first. */
+  warnings: BudgetWarning[];
 }
 
 function healthOf(budget: number, spent: number): CatHealth {
@@ -326,7 +380,9 @@ export function computeDashboard(
   items: ExpenseItem[],
   cats: SectionedCats,
   budgetVals: Record<string, number>,
-  now: Date
+  now: Date,
+  /** Take-home income for the month (Budget Builder). Optional — 0 means "unknown". */
+  income = 0,
 ): DashResult {
   const curMonth = curMonthOf(now);
   const isCurrentMonth = month === curMonth;
@@ -360,6 +416,7 @@ export function computeDashboard(
       remaining: budget - spent,
       pct: budget > 0 ? (spent / budget) * 100 : 0,
       health: healthOf(budget, spent),
+      tone: budgetTone(budget, spent),
     };
   });
 
@@ -382,8 +439,28 @@ export function computeDashboard(
   const daysElapsed = isCurrentMonth ? now.getDate() : daysInMonth;
   const dailyAvg = daysElapsed > 0 ? monthlySpent / daysElapsed : 0;
 
-  const topCategories = categories.filter((c) => c.spent > 0).sort((a, b) => b.spent - a.spent).slice(0, 5);
+  // Top spending excludes savings, income and internal movements: moving money
+  // into an emergency fund is not "where your money went".
+  const topCategories = categories
+    .filter((c) => c.spent > 0 && isSpendingCategory(c))
+    .sort((a, b) => b.spent - a.spent)
+    .slice(0, 5);
   const recent = monthItems.slice(0, 8);
+
+  const daysRemaining = isCurrentMonth ? Math.max(0, daysInMonth - now.getDate()) : 0;
+  const budgetUsedPct = monthlyBudget > 0 ? (monthlySpent / monthlyBudget) * 100 : 0;
+  // Pacing only means something while the month is still running.
+  const dailySafeSpend =
+    monthlyBudget > 0 && isCurrentMonth ? Math.max(0, remaining) / Math.max(1, daysRemaining) : null;
+  const monthlySavings = sections.find((s) => s.section === 'save')?.spent ?? 0;
+
+  const warnings: BudgetWarning[] = categories
+    .filter((c) => c.budget > 0 && isWarningTone(c.tone))
+    .sort((a, b) => b.pct - a.pct)
+    .map((c) => ({
+      k: c.k, label: c.l, ic: c.ic, section: c.section,
+      budget: c.budget, spent: c.spent, pct: c.pct, tone: c.tone,
+    }));
 
   // 6-month trend ending at `month`.
   const trend: TrendPoint[] = [];
@@ -408,5 +485,15 @@ export function computeDashboard(
     topCategories,
     recent,
     trend,
+    tone: budgetTone(monthlyBudget, monthlySpent),
+    daysInMonth,
+    daysElapsed,
+    daysRemaining,
+    budgetUsedPct,
+    dailySafeSpend,
+    income,
+    monthlySavings,
+    netCashFlow: income > 0 ? income - monthlySpent : null,
+    warnings,
   };
 }

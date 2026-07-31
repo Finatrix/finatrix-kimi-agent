@@ -12,7 +12,7 @@ export type IconName =
   | 'emi' | 'other' | 'pharma' | 'dining' | 'pet' | 'charity' | 'sip' | 'shield'
   | 'home' | 'car' | 'award' | 'warn' | 'check' | 'trending' | 'briefcase'
   | 'map' | 'clock' | 'dollar' | 'lock' | 'bank' | 'pie' | 'sun' | 'users'
-  | 'zap' | 'arrow-up' | 'refresh' | 'layers' | 'compass';
+  | 'zap' | 'arrow-up' | 'refresh' | 'layers' | 'compass' | 'sparkle';
 
 export function Icon({
   name,
@@ -171,6 +171,13 @@ export function IconSprite() {
         </symbol>
         <symbol id="ic-zap" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
           <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+        </symbol>
+        {/* The FinatriX AI mark. In the sprite rather than inline because every
+            "Ask FinatriX AI" button on a page of transactions renders one, and
+            thirty copies of the path is DOM weight a <use> reference is not. */}
+        <symbol id="ic-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z" />
+          <path d="M18 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" />
         </symbol>
         <symbol id="ic-arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
           <line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" />

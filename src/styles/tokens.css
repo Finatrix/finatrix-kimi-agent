@@ -79,7 +79,13 @@
 
   /* ── Focus ───────────────────────────────────────────────────────────── */
   --focus-ring-width: 2px;
-  --focus-ring-color: var(--accent);
+  /* hsl(...) because index.css's shadcn @layer base redeclares --accent as raw
+     HSL channels for Tailwind. Bare var(--accent) made this token invalid, and
+     an invalid custom property does NOT trigger the `var(x, fallback)` fallback
+     at the use site — it invalidates the whole declaration — so every
+     :focus-visible outline in the app was being dropped and inherited
+     currentColor instead of gold. WCAG 2.4.11. */
+  --focus-ring-color: hsl(var(--accent));
   --focus-ring-offset: 2px;
 
   /* ── Z-index scale ───────────────────────────────────────────────────── */

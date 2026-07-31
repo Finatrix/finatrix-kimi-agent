@@ -14,7 +14,17 @@
   --bg: var(--surface-1); --card: rgba(21,21,24,.64); --card-solid: var(--surface-2);
   --ink2: var(--ink-2); --ink3: var(--ink-3);
   --hair: var(--hairline); --hair2: var(--hairline-2); --dark: var(--surface-base);
-  --gold: var(--accent); --gold-2: var(--accent-soft); --gold-bg: var(--accent-bg);
+  /* --accent is the ONE canonical token that is not a colour: index.css's
+     shadcn @layer base block redeclares it as raw HSL channels ("43 65% 52%")
+     so Tailwind can build `hsl(var(--accent) / <alpha>)` for text-accent and
+     friends — 47 usages across the marketing shell depend on that. Aliasing it
+     straight into --gold therefore handed every one of the ~150 `var(--gold)`
+     colour slots below an invalid value, which browsers drop silently: the AI
+     launcher's gold fill, for one, had been computing to transparent.
+     Wrapping once here is what keeps --gold a colour, as its name promises,
+     without disturbing the channel form Tailwind needs. --accent-soft and
+     --accent-bg are real colours already and pass through untouched. */
+  --gold: hsl(var(--accent)); --gold-2: var(--accent-soft); --gold-bg: var(--accent-bg);
   --blue: var(--status-info); --green: var(--status-success); --orange: var(--status-warn); --purple: var(--data-purple); --teal: var(--data-teal); --red: var(--status-danger);
   /* Wants allocation colour — canonical value now lives in styles/tokens.css
      so it carries a light-theme variant like every other coloured-text token
@@ -264,6 +274,26 @@
 .fx-toast .ti { flex: 0 0 auto; width: 22px; height: 22px; border-radius: 7px; display: flex; align-items: center; justify-content: center; background: rgba(212,175,55,.18); color: #D4AF37; font-weight: 700; font-size: 13px; font-style: normal; }
 .fx-toast.err .ti { background: rgba(255,90,82,.16); color: #FF5A52; }
 .fx-toast.ok .ti { background: rgba(52,210,122,.16); color: #34D27A; }
+
+/* ============ ASK FINATRIX AI ============
+   The contextual assistant trigger (see ui/AskAiButton.tsx). Lives here rather
+   than in a component <style> block because a month of transactions renders
+   dozens of these, and a per-instance style element would duplicate the rules
+   once per row. The sparkle stays gold at rest so the affordance reads as AI
+   without the button having to shout; the label warms up on hover.
+   The global .fx-tools button:focus-visible ring already covers it. */
+.fx-tools .fx-askai { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; border-radius: 980px; border: 1px solid transparent; background: transparent; color: var(--ink3); font-family: inherit; font-weight: 600; line-height: 1; cursor: pointer; transition: background .15s ease, color .15s ease, border-color .15s ease, transform .15s ease; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.fx-tools .fx-askai svg { color: var(--gold); opacity: .8; flex-shrink: 0; transition: opacity .15s ease; }
+/* 28px clears the WCAG 2.2 (2.5.8) 24px minimum target with room to spare. */
+.fx-tools .fx-askai-sm { min-height: 28px; padding: 5px 10px; font-size: 11.5px; }
+.fx-tools .fx-askai-md { min-height: 34px; padding: 7px 13px; font-size: 12.5px; color: var(--ink2); border-color: var(--hair2); background: var(--card); }
+.fx-tools .fx-askai.is-icon { padding: 0; justify-content: center; width: 28px; }
+.fx-tools .fx-askai-md.is-icon { width: 34px; }
+.fx-tools .fx-askai:hover { background: var(--gold-bg); color: var(--gold); border-color: color-mix(in srgb, var(--gold) 28%, transparent); }
+.fx-tools .fx-askai:hover svg { opacity: 1; }
+.fx-tools .fx-askai:active { transform: scale(.96); }
+@media print { .fx-tools .fx-askai { display: none; } }
+@media (prefers-reduced-motion: reduce) { .fx-tools .fx-askai { transition: none; } .fx-tools .fx-askai:active { transform: none; } }
 
 /* ============ LIFEMAP RESPONSIVE ============ */
 @media(max-width:860px){ .fx-tools .lm-chart-row { grid-template-columns: 1fr !important; } .fx-tools .lm-dec-uni-row { grid-template-columns: 1fr !important; } }

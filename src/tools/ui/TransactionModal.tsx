@@ -6,6 +6,7 @@ import { SECTION_LABEL, type CatKey } from '../lib/budget';
 import {
   PAYMENT_METHODS, etToday, genExpenseId, type ExpenseItem,
 } from '../lib/expense';
+import { useAskAi } from './AiAssistant';
 
 const SECTION_COLOR: Record<CatKey, string> = { needs: 'var(--blue)', wants: 'var(--gold)', save: 'var(--green)' };
 
@@ -85,6 +86,30 @@ export default function TransactionModal({
   const lastFocused = useRef<HTMLElement | null>(null);
   const titleId = useId();
   const descId = useId();
+
+  // The mobile route to "ask about this transaction": below 560px the row's
+  // action group is hidden and tapping a row opens this modal, so without an
+  // entry here the feature would be desktop-only.
+  const ai = useAskAi();
+  const askAi = editing && ai?.enabled
+    ? () => {
+        // Close first. Two stacked modals trap focus in the wrong one, and the
+        // assistant reads the stored transaction — not this unsaved draft — so
+        // leaving the form open would show figures the answer is not about.
+        onClose();
+        ai.open({
+          kind: 'transaction',
+          id: editing.id,
+          // Same fallback chain the row itself uses, so the subject line reads
+          // the same whichever way the user got here — and a row with neither
+          // merchant nor note is named by its category rather than "this
+          // transaction".
+          label: editing.merchant || editing.note
+            || cats.find((c) => c.k === editing.category)?.l
+            || 'this transaction',
+        });
+      }
+    : null;
 
   const validate = useCallback((d: Draft) => {
     const e: typeof errors = {};
@@ -420,6 +445,11 @@ export default function TransactionModal({
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               {isEdit && (
                 <>
+                  {askAi && (
+                    <button type="button" className="fx-tx-iconbtn" onClick={askAi}>
+                      <Icon name="sparkle" size={14} style={{ color: 'var(--gold)' }} /> Ask AI
+                    </button>
+                  )}
                   <button type="button" className="fx-tx-iconbtn" onClick={() => onDuplicate?.(editing!)}>
                     <CopyIcon /> Duplicate
                   </button>

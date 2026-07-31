@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Icon } from './Icon';
+import { useAskAi } from './AiAssistant';
+import { focusAriaLabel } from '../ai/focus';
 import type { FlatCat } from './TransactionModal';
 import { PAYMENT_METHODS, type ExpenseItem } from '../lib/expense';
 import { SECTION_LABEL, type CatKey } from '../lib/budget';
@@ -269,6 +271,13 @@ function TxRow({
   const primary = e.merchant || e.note || cat?.l || 'Uncategorised';
   const initial = (e.merchant || cat?.l || '?').trim().charAt(0).toUpperCase();
 
+  // Null outside the tools shell, and disabled until the cloud seed lands — in
+  // either case the row simply has one fewer action rather than a dead button.
+  const ai = useAskAi();
+  const aiFocus = ai?.enabled
+    ? ({ kind: 'transaction', id: e.id, label: primary } as const)
+    : null;
+
   // Touch gesture handling: swipe left = delete, right = edit, long-press = select.
   const [dx, setDx] = useState(0);
   const start = useRef<{ x: number; y: number; t: number } | null>(null);
@@ -343,6 +352,17 @@ function TxRow({
         </button>
         {!selectMode && (
           <div className="tx-actions">
+            {/* Styled as a sibling of Edit and Delete rather than as an
+                AskAiButton: this is a tight uniform icon group, and a pill with
+                its own border would break the row. The gold sparkle still marks
+                it as AI, and the accessible name comes from the same helper
+                every other AI trigger uses. This group is hidden below 560px —
+                the modal carries the mobile entry point. */}
+            {aiFocus && (
+              <RowAction label={focusAriaLabel(aiFocus)} onClick={() => ai?.open(aiFocus)}>
+                <Icon name="sparkle" size={15} style={{ color: 'var(--gold)' }} />
+              </RowAction>
+            )}
             <RowAction label={`Edit ${primary}`} onClick={onEdit}>
               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
             </RowAction>
