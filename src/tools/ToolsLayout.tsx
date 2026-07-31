@@ -23,6 +23,7 @@ import { MobileDrawer } from '../components/MobileDrawer';
 import { HomeButton } from '../components/HomeButton';
 import { BrandLogo } from '../components/BrandLogo';
 import { Breadcrumb } from '../components/Breadcrumb';
+import { BackButton } from '../components/BackButton';
 import ThemeToggle from '../components/ThemeToggle';
 import { NotificationsBell } from './ui/NotificationsBell';
 import { AiProvider, AiLauncher } from './ui/AiAssistant';
@@ -419,8 +420,11 @@ export default function ToolsLayout() {
 
           {/* Tool content */}
           <div className="wrap">
-            <div style={{ paddingTop: 14 }}>
+            {/* Orientation left, escape hatch right — Back only renders below
+                the top level, so it never appears as a dead control. */}
+            <div style={{ paddingTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
               <Breadcrumb current={activeTool === 'dashboard' ? 'Dashboard' : activeTool === 'reports' ? 'Reports' : activeTool === 'calendar' ? 'Calendar' : activeTool === 'settings' ? 'Settings' : (TOOLS.find((t) => t.id === activeTool)?.name ?? 'Tools')} />
+              <BackButton />
             </div>
             {ready ? <Outlet /> : <ToolSkeleton />}
             {ready && (

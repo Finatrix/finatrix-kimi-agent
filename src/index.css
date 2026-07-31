@@ -290,6 +290,38 @@
   background: var(--btn-ghost-bg-hover);
   color: var(--btn-ghost-text-hover);
 }
+/* Back navigation — top-right escape hatch on nested pages. Styled globally
+   (not inside the tools layer) so any shell can drop <BackButton/> in. */
+.fx-backbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 6px 13px 6px 10px;
+  border-radius: 980px;
+  border: 1px solid var(--hairline);
+  background: transparent;
+  color: var(--ink-2);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.2s var(--fx-ease), color 0.2s var(--fx-ease), background 0.2s var(--fx-ease);
+  -webkit-tap-highlight-color: transparent;
+}
+.fx-backbtn:hover {
+  border-color: hsl(var(--accent));
+  color: var(--ink);
+  background: var(--accent-bg);
+}
+.fx-backbtn:focus-visible { outline: 2px solid hsl(var(--accent)); outline-offset: 2px; }
+.fx-backbtn:active { transform: scale(0.97); }
+@media (prefers-reduced-motion: reduce) {
+  .fx-backbtn { transition: none; }
+  .fx-backbtn:active { transform: none; }
+}
+
 /* Dropdown / popover entrance — shared by the account menu and bell panel. */
 @keyframes fxMenuIn {
   from { opacity: 0; transform: translateY(-4px) scale(0.98); }
