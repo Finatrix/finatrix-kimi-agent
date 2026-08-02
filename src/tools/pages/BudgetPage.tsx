@@ -343,6 +343,7 @@ export default function BudgetPage() {
             onClick={() => switchMonth(nextM)}>Next month</button>
         </div>
         <ExportMenu
+          source="budget"
           label="Export budget"
           onCsv={() => exportBudgetCsv(buildExport())}
           onXlsx={() => exportBudgetXlsx(buildExport())}
@@ -720,9 +721,14 @@ function CategoryCard({
         <span>{cfmt(res.total)} used</span>
         <span>limit {cfmt(res.limit)}</span>
       </div>
+      {/* `aria-valuetext` says what the value IS; `aria-label` says what the
+          bar is FOR. A progressbar with only the former is announced as a bare
+          figure with no subject — "₹0 of ₹25,000, On track" with nothing
+          saying which group that describes. WCAG 4.1.2, and caught by axe. */}
       <div
         className="bar"
         role="progressbar"
+        aria-label={`${label} budget`}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(fill)}

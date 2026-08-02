@@ -187,6 +187,40 @@
 :root {
   --fx-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
+/* ── Inline prose link ──────────────────────────────────────────────────────
+   A link inside a paragraph, as opposed to one in a nav bar or a card.
+
+   Underlined by DEFAULT, not on hover. Two WCAG failures were found here by
+   axe-core, both on pages that had shipped:
+
+   1. `link-in-text-block` (1.4.1 Use of Color). A link distinguished from the
+      surrounding sentence only by colour is invisible to anyone who cannot
+      perceive that difference — including, in practice, most people reading a
+      legal page on a phone in daylight. A non-colour cue is required unless the
+      link clears 3:1 against the body text around it, which gold does not.
+
+   2. `color-contrast` (1.4.3). These links were `text-[#D4AF37]`, a hardcoded
+      hex rather than the `--accent-text` token, so they did not follow the
+      theme: on the light theme's warm-paper background #D4AF37 measures
+      1.88:1 against 4.5:1 required. Every inline link on the Privacy and Terms
+      pages was effectively unreadable in light mode. `--accent-text` deepens to
+      #7E5E14 there (5.36:1) precisely so this does not happen.
+
+   The underline sits below the baseline with a slightly muted stroke so a
+   paragraph with several links still reads as prose rather than as a list of
+   links; hover promotes it to full strength. */
+.fx-prose-link {
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  text-decoration-color: color-mix(in srgb, var(--accent-text) 45%, transparent);
+  transition: text-decoration-color 0.15s var(--ease-standard, ease);
+}
+.fx-prose-link:hover {
+  text-decoration-color: var(--accent-text);
+}
+
 /* Gradient gold text (headlines, the X) */
 .fx-gold-text {
   background: linear-gradient(180deg, var(--gold-grad-1) 0%, var(--gold-grad-2) 38%, var(--gold-grad-3) 72%, var(--gold-grad-4) 100%);

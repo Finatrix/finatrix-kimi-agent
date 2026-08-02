@@ -13,7 +13,7 @@ function BrandCluster() {
       <Link to="/" className="flex items-center gap-2 group" aria-label="FinatriX home">
         <BrandLogo size={26} className="shrink-0" />
         <span className="font-semibold tracking-[-0.01em] text-[15px] text-ink">
-          Finatri<span className="text-[#D4AF37]">X</span>
+          Finatri<span className="text-accent-text">X</span>
         </span>
       </Link>
     </div>

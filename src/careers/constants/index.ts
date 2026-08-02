@@ -4,7 +4,14 @@
 export const CAREERS_COLOR = '#D4AF37';
 
 export const CAREERS_ROUTES = {
+  /**
+   * The PUBLIC Careers landing page — marketing, indexable, no auth. It is not
+   * an entry point into the workspace: in-app navigation must use `dashboard`
+   * below. (`root` used to render the dashboard behind the auth gate, which is
+   * why the whole paid product was invisible to anyone who had not bought it.)
+   */
   root: '/careers',
+  /** The workspace entry point. Every in-app link to "Careers" belongs here. */
   dashboard: '/careers/dashboard',
   upload: '/careers/upload',
   resumes: '/careers/resumes',

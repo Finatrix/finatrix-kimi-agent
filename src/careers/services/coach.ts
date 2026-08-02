@@ -6,6 +6,7 @@
  */
 
 import { supabase } from '../../lib/supabase';
+import { ymdLocal } from '../../lib/date';
 import { assistantAnswerWithAI, coachReportWithAI } from '../ai/tasks-jobs';
 import type { CareerProfileRow, ResumeVersionRow, ResumeWithVersions } from '../types';
 import type {
@@ -90,9 +91,10 @@ export async function getCoachReport(
 ): Promise<CoachReport> {
   const health = computeCareerHealth(context);
   // Cache key includes the calendar date: the coach refreshes at most daily
-  // for unchanged data.
+  // for unchanged data. Local day, so the refresh lands on the user's own
+  // midnight rather than 05:30 for everyone in IST.
   const sha = await sha256OfText(
-    `${new Date().toISOString().slice(0, 10)}::${focus}::${JSON.stringify(context)}`
+    `${ymdLocal(new Date())}::${focus}::${JSON.stringify(context)}`
   );
   let ai = await getCachedAnalysis<CoachAiPart>(userId, sha, 'coach').catch(() => null);
   if (!ai) {

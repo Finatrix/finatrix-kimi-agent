@@ -30,6 +30,20 @@
  */
 
 import { CANONICAL_HOST, TOOL_IDS, type ToolId } from '../shared/routes';
+import { publicPageFor, type PublicPage } from '../shared/publicPages';
+import { TOOL_FAQ } from '../shared/toolFaq';
+import { readingMinutes, wordCount } from '../content/readingTime';
+import type { TopicContent } from '../content/types';
+import {
+  AUTHOR,
+  LEARN_ROOT,
+  TOPICS,
+  articleFor,
+  articlesInTopic,
+  topicFor,
+  type Article,
+  type Topic,
+} from '../shared/content';
 
 /**
  * The origin to advertise in canonical/OG URLs. NEVER `location.origin`: the app
@@ -75,7 +89,7 @@ export const DEFAULT_SOCIAL_DESCRIPTION =
  * purge it short of each platform's own debugger. Bump this whenever
  * `scripts/generate-og-images.py` is re-run with a visual change.
  */
-export const OG_VERSION = '2';
+export const OG_VERSION = '3';
 
 /**
  * Share card for a route. Absolute, because no OG consumer resolves a relative
@@ -210,7 +224,9 @@ const PRIVATE_TITLES: Record<string, string> = {
   '/tools/calendar': 'Calendar',
   '/tools/settings': 'Settings',
   '/dashboard': 'Dashboard',
-  '/careers': 'Careers Dashboard',
+  // '/careers' is NOT here any more: it is now the public, indexable Careers
+  // landing page (see src/shared/publicPages.ts) rather than an alias for the
+  // signed-in dashboard, which lives at '/careers/dashboard'.
   '/careers/dashboard': 'Careers Dashboard',
   '/careers/upload': 'Upload Resume',
   '/careers/resumes': 'Resume Library',
@@ -237,19 +253,49 @@ const PRIVATE_TITLES: Record<string, string> = {
   '/profile': 'Your Profile',
 };
 
-/** Copy for the two indexable legal pages. */
-const LEGAL_SEO: Record<string, { title: string; description: string }> = {
-  '/privacy': {
-    title: 'Privacy Policy | FinatriX',
-    description:
-      'How FinatriX handles your data: what is stored locally in your browser, what syncs to your account, what is never collected, and how to delete it all.',
-  },
-  '/terms': {
-    title: 'Terms of Use | FinatriX',
-    description:
-      'The terms covering your use of FinatriX, including the educational nature of every calculator on the site. FinatriX does not provide financial advice.',
-  },
-};
+/* ------------------------------------------------------------------------- *
+ * Knowledge layer
+ * ------------------------------------------------------------------------- */
+
+/**
+ * The `/learn` hub's own copy. Held here rather than in `content.ts` for the
+ * same reason the tool copy is: `content.ts` describes topics and articles, and
+ * the hub is neither.
+ */
+const LEARN_HUB = {
+  title: 'Learn — Money and Career Guides for India | FinatriX',
+  description:
+    'Guides to budgeting, saving, investing and careers in India — with every formula printed and every assumption stated, so you can check the numbers yourself.',
+  name: 'Learn',
+} as const;
+
+/**
+ * Resolve a `/learn/*` path to what it is.
+ *
+ * One parse, used by both `seoForPath` and `structuredDataForPath`, so the head
+ * and the JSON-LD can never describe different pages for the same URL.
+ */
+type LearnRoute =
+  | { kind: 'hub' }
+  | { kind: 'topic'; topic: Topic }
+  | { kind: 'article'; topic: Topic; article: Article };
+
+function learnRouteFor(path: string): LearnRoute | null {
+  if (path === LEARN_ROOT) return { kind: 'hub' };
+  const parts = path.split('/').filter(Boolean);
+  if (parts[0] !== 'learn') return null;
+
+  if (parts.length === 2) {
+    const topic = topicFor(parts[1]);
+    return topic ? { kind: 'topic', topic } : null;
+  }
+  if (parts.length === 3) {
+    const topic = topicFor(parts[1]);
+    const article = articleFor(parts[1], parts[2]);
+    return topic && article ? { kind: 'article', topic, article } : null;
+  }
+  return null;
+}
 
 /** The tool id for a `/tools/<id>` path, when it is one of the seven public ones. */
 function publicToolId(path: string): ToolId | null {
@@ -282,16 +328,53 @@ export function seoForPath(pathname: string): RouteSeo {
     };
   }
 
-  const legal = LEGAL_SEO[p];
-  if (legal) {
+  // The registered public surface: pricing, careers marketing, help, trust and
+  // the legal pages. One entry per URL in `src/shared/publicPages.ts` supplies
+  // the copy here, the visible page copy, the sitemap row and the edge Worker's
+  // 200 — so a page cannot be indexable in one of those and absent from another.
+  const page = publicPageFor(p);
+  if (page) {
     return {
       canonical: `${CANONICAL_ORIGIN}${p}`,
       robots: 'index, follow',
-      title: legal.title,
-      description: legal.description,
-      socialDescription: legal.description,
-      image: ogImageFor(p.slice(1)),
-      imageAlt: `${legal.title.split('|')[0].trim()} — ${SITE_NAME}`,
+      title: page.title,
+      description: page.description,
+      socialDescription: page.description,
+      image: ogImageFor(page.ogKey ?? null),
+      imageAlt: `${page.name} — ${SITE_NAME}`,
+    };
+  }
+
+  // The knowledge layer. Every one of these URLs is indexable and self-
+  // canonical; anything under /learn that does NOT resolve here falls through
+  // to the noindex default below and is served 404 by the edge, so a mistyped
+  // slug can never become a soft 404 competing with the real article.
+  const learn = learnRouteFor(p);
+  if (learn) {
+    const copy =
+      learn.kind === 'hub'
+        ? { title: LEARN_HUB.title, description: LEARN_HUB.description, name: LEARN_HUB.name }
+        : learn.kind === 'topic'
+          ? { title: learn.topic.title, description: learn.topic.description, name: learn.topic.name }
+          : {
+              title: learn.article.title,
+              description: learn.article.description,
+              name: learn.article.heading,
+            };
+    return {
+      canonical: `${CANONICAL_ORIGIN}${p}`,
+      robots: 'index, follow',
+      title: copy.title,
+      description: copy.description,
+      socialDescription: copy.description,
+      // One card per TOPIC, inherited by its articles. Not one per article:
+      // sixty-odd near-identical JPEGs is real weight in the repository for a
+      // marginal gain, and a card naming the topic and its description is an
+      // accurate description of any article inside it. `seo.test.ts` asserts
+      // every key here resolves to a file that actually exists — a missing one
+      // unfurls as a blank card, which is worse than the generic cover.
+      image: ogImageFor(learn.kind === 'hub' ? 'learn' : `learn-${learn.topic.slug}`),
+      imageAlt: `${copy.name} — ${SITE_NAME}`,
     };
   }
 
@@ -344,29 +427,94 @@ export function seoForPath(pathname: string): RouteSeo {
  * for the signed-in careers workspace it would leak the app's internal structure
  * into a machine-readable format for no benefit.
  *
- * Deliberately NOT included: `FAQPage`. Google requires FAQ markup to describe
- * question-and-answer content that is actually VISIBLE on the page, and none of
- * these pages carries one — emitting it anyway invites a structured-data manual
- * action. It becomes correct the day a real FAQ section ships on the tool pages.
- * Equally absent: `aggregateRating`, which needs real reviews to be honest.
+ * `FAQPage` IS now emitted — but only where the page really renders the
+ * questions. Google requires FAQ markup to describe question-and-answer content
+ * visible on the page, and emitting it otherwise invites a structured-data
+ * manual action. That rule is enforced structurally rather than by review: the
+ * markup is generated from the same array the component maps over — `TOOL_FAQ`
+ * for the seven calculators, `PublicPage.faq` for the marketing pages — so
+ * markup without a visible FAQ is not a mistake anyone can make here.
+ *
+ * Still deliberately absent: `aggregateRating`, which needs real reviews to be
+ * honest, and `JobPosting`, which describes a vacancy an employer is offering.
+ * FinatriX Careers is a tool for searching other people's vacancies and is not
+ * itself hiring, so marking any of its pages as a JobPosting would be a false
+ * claim to a search engine about an open role that does not exist.
  */
 export type JsonLd = Record<string, unknown>;
 
 const ORG_ID = `${CANONICAL_ORIGIN}/#org`;
 const WEBSITE_ID = `${CANONICAL_ORIGIN}/#website`;
 
-/** `BreadcrumbList` for a page one level below the root. */
-function breadcrumb(name: string, url: string): JsonLd {
+/**
+ * `BreadcrumbList` for a page, given the trail of ancestor crumbs between Home
+ * and it. `trail` is ordered outermost-first and excludes both Home (always
+ * prepended) and the page itself (always appended).
+ */
+function breadcrumb(
+  name: string,
+  url: string,
+  trail: ReadonlyArray<{ name: string; path: string }> = [],
+): JsonLd {
+  const items: JsonLd[] = [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: `${CANONICAL_ORIGIN}/` },
+  ];
+  for (const crumb of trail) {
+    items.push({
+      '@type': 'ListItem',
+      position: items.length + 1,
+      name: crumb.name,
+      item: `${CANONICAL_ORIGIN}${crumb.path}`,
+    });
+  }
+  // The last crumb intentionally carries no `item`: it IS the current page,
+  // and a self-link is the one thing Google's breadcrumb guidance calls out
+  // as unnecessary.
+  items.push({ '@type': 'ListItem', position: items.length + 1, name });
   return {
     '@type': 'BreadcrumbList',
     '@id': `${url}#breadcrumb`,
-    itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Home', item: `${CANONICAL_ORIGIN}/` },
-      // The last crumb intentionally carries no `item`: it IS the current page,
-      // and a self-link is the one thing Google's breadcrumb guidance calls out
-      // as unnecessary.
-      { '@type': 'ListItem', position: 2, name },
-    ],
+    itemListElement: items,
+  };
+}
+
+/**
+ * The ancestor chain of a registered page, outermost first.
+ *
+ * Walks `parent` links rather than splitting the path, because the two are not
+ * the same thing: `/careers/compare/indeed` sits under `/careers/compare`, but
+ * `/careers/features` sits under `/careers`, and only the registry knows which.
+ * Bounded by the registry's own depth — a cycle would otherwise hang the edge
+ * Worker, so the loop is capped rather than trusted.
+ */
+export function ancestorsOf(page: PublicPage): Array<{ name: string; path: string }> {
+  const trail: Array<{ name: string; path: string }> = [];
+  let cursor = page.parent ? publicPageFor(page.parent) : null;
+  for (let depth = 0; cursor && depth < 8; depth += 1) {
+    trail.unshift({ name: cursor.name, path: cursor.path });
+    cursor = cursor.parent ? publicPageFor(cursor.parent) : null;
+  }
+  return trail;
+}
+
+/**
+ * `FAQPage` for a page that really renders the questions.
+ *
+ * Emitted ONLY from `page.faq`, which is the same array the component maps over
+ * — Google's guidance requires the marked-up Q&A to be visible on the page, and
+ * a manual action for FAQ markup that describes nothing is a far worse outcome
+ * than no rich result. Tying both to one array is what makes that structural
+ * rather than a review checklist item.
+ */
+function faqPage(url: string, faq: ReadonlyArray<{ q: string; a: string }>): JsonLd {
+  return {
+    '@type': 'FAQPage',
+    '@id': `${url}#faq`,
+    mainEntity: faq.map((entry) => ({
+      '@type': 'Question',
+      name: entry.q,
+      acceptedAnswer: { '@type': 'Answer', text: entry.a },
+    })),
   };
 }
 
@@ -386,7 +534,191 @@ function webPage(url: string, seo: RouteSeo, extra: JsonLd = {}): JsonLd {
   };
 }
 
-export function structuredDataForPath(pathname: string): JsonLd | null {
+/** The shared author node. Referenced by `@id` from every article rather than restated. */
+const AUTHOR_ID = `${CANONICAL_ORIGIN}${AUTHOR.url}#author`;
+
+function authorNode(): JsonLd {
+  return {
+    '@type': 'Organization',
+    '@id': AUTHOR_ID,
+    name: AUTHOR.name,
+    url: `${CANONICAL_ORIGIN}${AUTHOR.url}`,
+    description: AUTHOR.description,
+    parentOrganization: { '@id': ORG_ID },
+  };
+}
+
+/**
+ * JSON-LD for a knowledge-layer URL.
+ *
+ * Three shapes, and the differences between them are claims about the page, not
+ * decoration:
+ *
+ *   • the hub gets a `CollectionPage` with an `ItemList` of its topics, which is
+ *     what it is — a page whose content is an organised set of other pages;
+ *   • a topic hub gets `CollectionPage` + `FAQPage`, because it renders both a
+ *     list of guides and a visible FAQ;
+ *   • an article gets `Article`, and deliberately NOT `HowTo` even where `kind`
+ *     is `howto`. A valid `HowTo` node has to enumerate the actual steps, and
+ *     those live in the body module this file must not import — emitting one
+ *     with the steps omitted or invented would describe a procedure the page
+ *     does not contain, which is exactly the kind of claim that earns a
+ *     structured-data manual action.
+ *
+ * `FAQPage` is emitted from the same array the component renders, exactly as it
+ * is for the marketing pages — see the note on `faqPage`.
+ *
+ * `copy` is the topic's lazily-loaded editorial chunk, and everything that
+ * depends on it is conditional for a reason worth stating: those nodes describe
+ * content that is only on the page once that chunk has arrived. Emitting an
+ * `abstract`, a `FAQPage` or a `DefinedTermSet` without it would be markup
+ * describing prose the document does not yet contain — the exact failure the
+ * "must be visible on the page" rule exists to prevent. The edge Worker always
+ * has the copy (it is a server bundle, so it imports every topic eagerly), so
+ * the SERVED bytes always carry the complete graph; the browser upgrades to it
+ * when the chunk resolves.
+ */
+function learnGraph(
+  url: string,
+  seo: RouteSeo,
+  learn: LearnRoute,
+  copy?: TopicContent | null,
+): JsonLd {
+  const graph: JsonLd[] = [];
+
+  if (learn.kind === 'hub') {
+    graph.push(
+      webPage(url, seo, { '@type': 'CollectionPage', breadcrumb: { '@id': `${url}#breadcrumb` } }),
+      breadcrumb(LEARN_HUB.name, url),
+      {
+        '@type': 'ItemList',
+        '@id': `${url}#topics`,
+        itemListElement: TOPICS.map((t, i) => ({
+          '@type': 'ListItem',
+          position: i + 1,
+          name: t.name,
+          url: `${CANONICAL_ORIGIN}${LEARN_ROOT}/${t.slug}`,
+        })),
+      },
+    );
+    return { '@context': 'https://schema.org', '@graph': graph };
+  }
+
+  if (learn.kind === 'topic') {
+    const { topic } = learn;
+    const articles = articlesInTopic(topic.slug);
+    graph.push(
+      webPage(url, seo, {
+        '@type': 'CollectionPage',
+        breadcrumb: { '@id': `${url}#breadcrumb` },
+        dateModified: topic.updated,
+      }),
+      breadcrumb(topic.name, url, [{ name: LEARN_HUB.name, path: LEARN_ROOT }]),
+      {
+        '@type': 'ItemList',
+        '@id': `${url}#guides`,
+        itemListElement: articles.map((a, i) => ({
+          '@type': 'ListItem',
+          position: i + 1,
+          name: a.heading,
+          url: `${CANONICAL_ORIGIN}${LEARN_ROOT}/${a.topic}/${a.slug}`,
+        })),
+      },
+    );
+    if (copy) {
+      graph.push(
+        faqPage(url, copy.topic.faq),
+        // `DefinedTermSet` is what the visible vocabulary block actually is, and
+        // it is the node an answer engine reads to learn which entity this topic
+        // is about. Emitted only because those definitions are on the page.
+        {
+          '@type': 'DefinedTermSet',
+          '@id': `${url}#terms`,
+          name: `${topic.name} terms`,
+          hasDefinedTerm: copy.topic.definitions.map((d) => ({
+            '@type': 'DefinedTerm',
+            name: d.term,
+            description: d.definition,
+            inDefinedTermSet: { '@id': `${url}#terms` },
+          })),
+        },
+      );
+    }
+    return { '@context': 'https://schema.org', '@graph': graph };
+  }
+
+  const { topic, article } = learn;
+  const articleCopy = copy?.articles[article.slug];
+  graph.push(
+    webPage(url, seo, {
+      breadcrumb: { '@id': `${url}#breadcrumb` },
+      dateModified: article.updated,
+    }),
+    // `article.crumb`, not `article.heading` — the same short label the visible
+    // trail renders. Breadcrumb markup has to describe the breadcrumb the page
+    // shows, and the two previously disagreed.
+    breadcrumb(article.crumb, url, [
+      { name: LEARN_HUB.name, path: LEARN_ROOT },
+      { name: topic.name, path: `${LEARN_ROOT}/${topic.slug}` },
+    ]),
+    authorNode(),
+    {
+      '@type': 'Article',
+      '@id': `${url}#article`,
+      headline: article.heading,
+      description: article.description,
+      // The visible "In short" block. Publishing it as `abstract` is what lets
+      // an answer engine quote the conclusion rather than reconstruct one.
+      ...(articleCopy
+        ? {
+            abstract: articleCopy.summary,
+            // Both derived from the body by the same function the visible
+            // "N min read" stamp uses, so the markup cannot promise a shorter
+            // read than the page delivers. ISO 8601 duration, as schema.org
+            // requires.
+            wordCount: wordCount(articleCopy),
+            timeRequired: `PT${readingMinutes(articleCopy)}M`,
+          }
+        : {}),
+      url,
+      inLanguage: 'en-IN',
+      datePublished: article.published,
+      dateModified: article.updated,
+      author: { '@id': AUTHOR_ID },
+      publisher: { '@id': ORG_ID },
+      isPartOf: { '@id': WEBSITE_ID },
+      mainEntityOfPage: { '@id': `${url}#webpage` },
+      about: { '@type': 'Thing', name: topic.name },
+      articleSection: topic.name,
+      image: seo.image,
+    },
+  );
+
+  if (articleCopy?.faq?.length) graph.push(faqPage(url, articleCopy.faq));
+
+  return { '@context': 'https://schema.org', '@graph': graph };
+}
+
+/**
+ * Per-page JSON-LD.
+ *
+ * `copy` is only ever consulted for a `/learn/*` URL, and only to add the nodes
+ * that describe lazily-loaded prose — see `learnGraph`. Callers:
+ *
+ *   • `worker/index.ts` passes it from `src/content/all.ts`, a static aggregate
+ *     that exists solely for the edge. The Worker is a server bundle, so the
+ *     size of that import costs a visitor nothing, and it is what guarantees the
+ *     complete graph is in the raw bytes for the consumers that never run
+ *     JavaScript — link unfurlers, Bing, and most AI answer engines.
+ *   • `applySeo` passes nothing on a navigation, then the topic and article
+ *     pages call `applyContentSchema` with their own loaded chunk. The graph is
+ *     therefore always valid and never stale: complete on arrival, briefly
+ *     narrower on a client-side navigation, complete again a moment later.
+ */
+export function structuredDataForPath(
+  pathname: string,
+  copy?: TopicContent | null,
+): JsonLd | null {
   const p = normalisePath(pathname);
   const seo = seoForPath(p);
   if (seo.robots !== 'index, follow' || !seo.canonical) return null;
@@ -404,6 +736,9 @@ export function structuredDataForPath(pathname: string): JsonLd | null {
     };
   }
 
+  const learn = learnRouteFor(p);
+  if (learn) return learnGraph(url, seo, learn, copy);
+
   const tool = publicToolId(p);
   if (tool) {
     const meta = TOOL_SEO[tool];
@@ -412,6 +747,10 @@ export function structuredDataForPath(pathname: string): JsonLd | null {
       '@graph': [
         webPage(url, seo, { breadcrumb: { '@id': `${url}#breadcrumb` } }),
         breadcrumb(meta.name, url),
+        // The tool page renders these same questions below the calculator
+        // (`ToolEducation`), which is what makes the markup legitimate — see
+        // the note on `faqPage`.
+        faqPage(url, TOOL_FAQ[tool]),
         {
           '@type': 'SoftwareApplication',
           '@id': `${url}#app`,
@@ -432,15 +771,28 @@ export function structuredDataForPath(pathname: string): JsonLd | null {
     };
   }
 
-  // The legal pages.
-  const name = p === '/privacy' ? 'Privacy Policy' : 'Terms of Use';
-  return {
-    '@context': 'https://schema.org',
-    '@graph': [
-      webPage(url, seo, { breadcrumb: { '@id': `${url}#breadcrumb` } }),
-      breadcrumb(name, url),
-    ],
-  };
+  // Every other indexable URL is a registered public page. `seoForPath` already
+  // returned `index, follow` for it, so the lookup cannot miss — but a `null`
+  // here would be a silent empty data block rather than a crash, which is worse
+  // than being explicit about the invariant.
+  const page = publicPageFor(p);
+  if (!page) return null;
+
+  const graph: JsonLd[] = [
+    webPage(url, seo, {
+      breadcrumb: { '@id': `${url}#breadcrumb` },
+      // `dateModified` is what lets a search engine — and an AI answer engine
+      // citing the page — say how current the answer is. It comes from the same
+      // field that renders the visible "last reviewed" stamp, so the machine-
+      // readable date and the human-readable one cannot disagree.
+      dateModified: page.updated,
+    }),
+    breadcrumb(page.name, url, ancestorsOf(page)),
+  ];
+
+  if (page.faq?.length) graph.push(faqPage(url, page.faq));
+
+  return { '@context': 'https://schema.org', '@graph': graph };
 }
 
 /**
@@ -524,4 +876,20 @@ export function applySeo(pathname: string): void {
   // node stays put and the next navigation has somewhere to write.
   const schema = document.getElementById(ROUTE_SCHEMA_ID);
   if (schema) schema.textContent = serialiseJsonLd(structuredDataForPath(pathname));
+}
+
+/**
+ * Rewrite the JSON-LD block for a knowledge-layer URL once its editorial chunk
+ * has loaded, adding the nodes that describe copy which is only now on the page.
+ *
+ * Called by the topic and article pages, not by the router: they are the only
+ * things that hold the chunk, and tying the upgrade to the component that
+ * renders the prose is what keeps the markup and the visible content from ever
+ * describing different pages. A no-op when the path is not indexable.
+ */
+export function applyContentSchema(pathname: string, copy: TopicContent | null): void {
+  if (typeof document === 'undefined') return;
+  const schema = document.getElementById(ROUTE_SCHEMA_ID);
+  if (!schema) return;
+  schema.textContent = serialiseJsonLd(structuredDataForPath(pathname, copy));
 }

@@ -22,6 +22,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import worker from '../../worker/index';
 import { CANONICAL_HOST, TOOL_IDS } from '../shared/routes';
+import { PUBLIC_PAGES, PUBLIC_PAGE_PATHS } from '../shared/publicPages';
 import {
   CANONICAL_ORIGIN,
   DEFAULT_SOCIAL_DESCRIPTION,
@@ -108,6 +109,8 @@ const valueFor = (applied: Applied[], selector: string) =>
 const CANONICAL_SEL = 'link[rel="canonical"]';
 const OG_URL_SEL = 'meta[property="og:url"]';
 const ROBOTS_SEL = 'meta[name="robots"]';
+const TITLE_SELECTOR = 'title';
+const DESCRIPTION_SEL = 'meta[name="description"]';
 
 describe('worker: server-side canonical + og:url', () => {
   // The core requirement: correct metadata in the INITIAL HTML, with no
@@ -123,12 +126,56 @@ describe('worker: server-side canonical + og:url', () => {
     }
   });
 
-  it('self-canonicalises the legal pages', async () => {
-    for (const p of ['/privacy', '/terms']) {
+  // Every registered public page, derived from the registry rather than listed,
+  // so a new marketing or trust page is held to this automatically. These are
+  // the URLs an anonymous visitor and a crawler arrive on; if the Worker does
+  // not rewrite them, they are served the HOMEPAGE's canonical, title and
+  // description in their raw bytes — which is the exact bug this file exists
+  // for, reintroduced on twelve new pages at once.
+  it('self-canonicalises every public page, including the new marketing surface', async () => {
+    for (const p of PUBLIC_PAGE_PATHS) {
       const applied = withRewriterStub();
       await get(p);
       expect(valueFor(applied, CANONICAL_SEL), p).toBe(`${CANONICAL_ORIGIN}${p}`);
       expect(valueFor(applied, OG_URL_SEL), p).toBe(`${CANONICAL_ORIGIN}${p}`);
+      expect(valueFor(applied, ROBOTS_SEL), p).toBe('index, follow');
+    }
+  });
+
+  it('gives every public page its own title and description in the served bytes', async () => {
+    const titles = new Set<string>();
+    for (const p of PUBLIC_PAGE_PATHS) {
+      const applied = withRewriterStub();
+      await get(p);
+      const seo = seoForPath(p);
+      expect(valueFor(applied, TITLE_SELECTOR), p).toBe(seo.title);
+      expect(valueFor(applied, DESCRIPTION_SEL), p).toBe(seo.description);
+      titles.add(seo.title);
+    }
+    expect(titles.size, 'two public pages share a title').toBe(PUBLIC_PAGE_PATHS.length);
+  });
+
+  // FAQ rich results only exist if the markup is in the bytes a crawler reads.
+  // The client rewrites this too, but a crawler that does not execute
+  // JavaScript never sees that — for this tag the Worker is the only writer
+  // that matters.
+  it('writes FAQPage structured data into the bytes for pages that render one', async () => {
+    const withFaq = PUBLIC_PAGES.filter((p) => p.faq?.length);
+    expect(withFaq.length, 'no page declares an FAQ — has the registry changed?')
+      .toBeGreaterThan(3);
+
+    for (const page of withFaq) {
+      const applied = withRewriterStub();
+      await get(page.path);
+      const raw = valueFor(applied, `script#${ROUTE_SCHEMA_ID}`)!;
+      const graph = JSON.parse(raw)['@graph'] as Array<Record<string, unknown>>;
+      const faq = graph.find((n) => n['@type'] === 'FAQPage');
+      expect(faq, `${page.path} must serve FAQPage markup`).toBeTruthy();
+      expect((faq!.mainEntity as unknown[]).length, page.path).toBe(page.faq!.length);
+      // The answers themselves must be present, not just the question shells —
+      // an FAQPage node with empty answers is markup that describes nothing.
+      const first = (faq!.mainEntity as Array<Record<string, Record<string, string>>>)[0];
+      expect(first.acceptedAnswer.text).toBe(page.faq![0].a);
     }
   });
 
@@ -306,5 +353,56 @@ describe('worker: rewriting does not damage the response', () => {
     const res = await get('/tools/budget');
     expect(res.status).toBe(200);
     expect(await res.text()).toBe(SHELL_BODY);
+  });
+});
+
+/**
+ * The knowledge layer's editorial copy is lazily loaded, so `FAQPage`, the
+ * `DefinedTermSet` and the article `abstract` are only in the graph when the
+ * copy chunk is present. In the browser the page supplies it after its chunk
+ * lands; at the edge the Worker must resolve it BEFORE writing the bytes.
+ *
+ * This is the assertion that makes the split safe. If the Worker ever stopped
+ * awaiting the copy, every guide would still serve a valid page with a correct
+ * canonical and title — and would silently lose its FAQ rich result and its
+ * abstract for every consumer that does not execute JavaScript, which is most
+ * of the ones that matter for a content site.
+ */
+describe('worker: the served bytes carry the lazily-loaded schema', () => {
+  const graphFor = (applied: Applied[]) => {
+    const raw = valueFor(applied, `script#${ROUTE_SCHEMA_ID}`);
+    expect(raw, 'no JSON-LD written').toBeTruthy();
+    // `serialiseJsonLd` escapes `<` so the block cannot terminate itself.
+    return JSON.parse(raw!.replace(/\\u003c/g, '<'))['@graph'] as Array<Record<string, unknown>>;
+  };
+
+  it('emits FAQPage and DefinedTermSet on a topic hub', async () => {
+    const applied = withRewriterStub();
+    await get('/learn/budgeting');
+    const types = graphFor(applied).map((n) => n['@type']);
+    expect(types).toContain('FAQPage');
+    expect(types).toContain('DefinedTermSet');
+  });
+
+  it('emits the abstract, word count and reading time on an article', async () => {
+    const applied = withRewriterStub();
+    await get('/learn/budgeting/50-30-20-rule');
+    const article = graphFor(applied).find((n) => n['@type'] === 'Article')!;
+    expect(article, 'no Article node').toBeTruthy();
+    expect(String(article.abstract).length, 'abstract missing from served bytes')
+      .toBeGreaterThan(200);
+    expect(article.wordCount, 'wordCount missing').toBeGreaterThan(500);
+    expect(article.timeRequired, 'timeRequired missing').toMatch(/^PT\d+M$/);
+  });
+
+  it('resolves no copy chunk for the hub, which needs none', async () => {
+    const applied = withRewriterStub();
+    await get('/learn');
+    const types = graphFor(applied).map((n) => n['@type']);
+    expect(types).toContain('CollectionPage');
+    expect(types).toContain('ItemList');
+    // The hub renders no FAQ and no vocabulary, so it must claim neither.
+    expect(types).not.toContain('FAQPage');
+    expect(types).not.toContain('DefinedTermSet');
   });
 });

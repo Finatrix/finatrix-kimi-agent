@@ -8,6 +8,9 @@
  * be bundled into the edge Worker and imported by Vitest alike.
  */
 
+import { LEARN_ROOT, isContentPath } from './content';
+import { PUBLIC_PAGE_PATHS } from './publicPages';
+
 /**
  * The one canonical production host. Everything else — `www`, the retired
  * finatrix.online / finatrix.space domains, and any plain-HTTP request — is
@@ -46,19 +49,24 @@ export type ToolId = (typeof TOOL_IDS)[number];
  */
 const APP_TOOL_ROUTES = ['dashboard', 'reports', 'calendar', 'settings'] as const;
 
-/** Top-level routes that resolve to a real page (mirrors App.tsx). */
+/**
+ * Top-level routes that resolve to a real page (mirrors App.tsx).
+ *
+ * The public marketing/trust/legal surface is folded in from `publicPages.ts`
+ * rather than restated: those URLs are indexable and sit in sitemap.xml, so
+ * serving any of them a 404 from the edge would be the most damaging possible
+ * version of this list being out of date.
+ */
 const EXACT_ROUTES = new Set<string>([
   '/',
   '/home',
   '/tools',
-  '/careers',
   '/login',
   '/signup',
   '/welcome',
   '/profile',
-  '/privacy',
-  '/terms',
   '/dashboard', // redirects to /tools/dashboard
+  ...PUBLIC_PAGE_PATHS,
 ]);
 
 /**
@@ -85,6 +93,15 @@ export function isKnownRoute(pathname: string): boolean {
   // Careers is a sign-in-gated app section with many sub-routes; the whole
   // subtree is "known" (the SPA renders auth / not-found within it).
   if (p === '/careers' || p.startsWith('/careers/')) return true;
+
+  // The knowledge layer is an EXACT allowlist, unlike /careers above, and the
+  // difference is deliberate. Careers renders a real app behind a gate for any
+  // sub-path, so 200 is honest there. `/learn/*` is a finite set of published
+  // URLs: anything outside it — a mistyped slug, a link to a guide that was
+  // never written, a crawler probing for a pattern — has no page behind it and
+  // must answer 404, or every typo becomes a soft 404 competing with the real
+  // article for the same query.
+  if (isContentPath(p)) return true;
 
   return false;
 }
@@ -138,5 +155,14 @@ export function routeTemplate(pathname: string): string {
   if (EXACT_ROUTES.has(p)) return p;
   if (/^\/tools\/[^/]+$/.test(p)) return '/tools/:tool';
   if (/^\/careers\/[^/]+$/.test(p)) return '/careers/:section';
+  // `/learn` is not in EXACT_ROUTES on purpose: `content.ts` is the single
+  // owner of which knowledge-layer URLs exist, and restating the root here
+  // would give it a second one.
+  if (p === LEARN_ROOT) return LEARN_ROOT;
+  // Two templates, not one: a topic hub and an article behave differently
+  // enough — entry point versus destination — that collapsing them would hide
+  // the only thing the knowledge layer's analytics need to answer.
+  if (/^\/learn\/[^/]+$/.test(p)) return '/learn/:topic';
+  if (/^\/learn\/[^/]+\/[^/]+$/.test(p)) return '/learn/:topic/:slug';
   return '/*';
 }

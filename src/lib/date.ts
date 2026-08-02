@@ -29,3 +29,25 @@ export function ymdLocal(d: Date): string {
 export function ymLocal(d: Date): string {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
 }
+
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+/**
+ * `2026-08-01` → `1 August 2026`, for the "last reviewed" stamp on public pages.
+ *
+ * Formatted from the string's own parts rather than by parsing it into a `Date`
+ * and formatting that: these values are bare calendar days for the same reason
+ * as everything else in this file, and `new Date('2026-08-01')` parses as UTC
+ * midnight, which renders as 31 July for anyone west of Greenwich. It is also
+ * deliberately not `toLocaleDateString`, so the visible date always matches the
+ * `datetime` attribute and the `dateModified` in the page's JSON-LD regardless
+ * of the reader's locale.
+ */
+export function formatReviewDate(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d || m < 1 || m > 12) return iso;
+  return `${d} ${MONTH_NAMES[m - 1]} ${y}`;
+}

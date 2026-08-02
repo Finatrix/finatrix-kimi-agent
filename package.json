@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "sitemap": "node scripts/generate-sitemap.mjs",
     "verify:deploy": "node scripts/verify-deployment.mjs",
     "verify:production": "node scripts/verify-production.mjs"
   },
@@ -32,6 +33,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@eslint/js": "^9.39.1",
     "@playwright/test": "^1.61.1",
     "@testing-library/jest-dom": "^6.6.3",

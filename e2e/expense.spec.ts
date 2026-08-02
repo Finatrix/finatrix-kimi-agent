@@ -137,6 +137,27 @@ test('edits a transaction in place, then deletes with confirm + undo', async ({ 
   await expect(page.getByRole('dialog')).toHaveCount(0);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('fx_expenses') || '[]'))).toHaveLength(0);
 
+  // The undo bar must be ON SCREEN, not merely in the DOM.
+  //
+  // It was neither. The bar is portaled to <body> and carries `.fx-tools` to
+  // pick up the tools' design tokens — which also brought `min-height: 100%`,
+  // and on a `position: fixed` element a percentage height resolves against the
+  // VIEWPORT. So a 44px toast was laid out 839px tall with its button at the
+  // top of that box, i.e. above the top of the screen: present, "visible" to
+  // the accessibility tree, and unclickable. Deleting a transaction on a phone
+  // had no working undo. Asserting the geometry rather than just the click
+  // names the failure instead of reporting a timeout.
+  const bar = page.locator('.fx-undo');
+  const geometry = await bar.evaluate((el) => ({
+    height: el.getBoundingClientRect().height,
+    viewport: window.innerHeight,
+  }));
+  expect(
+    geometry.height,
+    `undo bar is ${geometry.height}px tall in a ${geometry.viewport}px viewport`,
+  ).toBeLessThan(geometry.viewport / 2);
+  await expect(bar.getByRole('button', { name: /^Undo/ })).toBeInViewport();
+
   // Undo restores it.
   await page.getByRole('button', { name: /^Undo/ }).click();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('fx_expenses') || '[]'))).toHaveLength(1);

@@ -201,7 +201,7 @@ export default function LandingHero() {
       </div>
 
       {/* scroll cue */}
-      <a href="#showcase" aria-label="Scroll to features" className="fx-scroll-cue absolute bottom-7 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2 text-ink-3 hover:text-[#D4AF37] transition-colors">
+      <a href="#showcase" aria-label="Scroll to features" className="fx-scroll-cue absolute bottom-7 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2 text-ink-3 hover:text-accent-text transition-colors">
         <span className="font-mono text-[9px] uppercase tracking-[0.14em]">Scroll</span>
         <span className="h-7 w-[1px] bg-gradient-to-b from-[#D4AF37] to-transparent" />
       </a>

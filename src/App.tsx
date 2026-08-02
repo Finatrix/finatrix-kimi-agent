@@ -42,6 +42,42 @@ const Privacy = lazy(() => import('./pages/Privacy'))
 const Terms = lazy(() => import('./pages/Terms'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 
+// Public marketing + trust surface. Every one of these is registered in
+// src/shared/publicPages.ts, which is what makes it indexable, gives it a
+// canonical URL and puts it in sitemap.xml; adding a route here without an
+// entry there fails `publicPages.test.ts` rather than shipping an orphan page.
+const Pricing = lazy(() => import('./pages/marketing/Pricing'))
+const About = lazy(() => import('./pages/marketing/About'))
+const Faq = lazy(() => import('./pages/marketing/Faq'))
+const Help = lazy(() => import('./pages/marketing/Help'))
+const Support = lazy(() => import('./pages/marketing/Support'))
+const Contact = lazy(() => import('./pages/marketing/Contact'))
+const Security = lazy(() => import('./pages/marketing/Security'))
+const Refunds = lazy(() => import('./pages/marketing/Refunds'))
+const EditorialStandards = lazy(() => import('./pages/marketing/EditorialStandards'))
+const CompareAlternative = lazy(() => import('./pages/marketing/Compare'))
+const CompareIndex = lazy(() =>
+  import('./pages/marketing/Compare').then((m) => ({ default: m.CompareIndex })),
+)
+const CompanyPage = lazy(() => import('./pages/marketing/Companies'))
+const CompaniesIndex = lazy(() =>
+  import('./pages/marketing/Companies').then((m) => ({ default: m.CompaniesIndex })),
+)
+const CareersLanding = lazy(() => import('./pages/careers/CareersLanding'))
+const CareersFeatures = lazy(() => import('./pages/careers/CareersFeatures'))
+const CareersCompare = lazy(() => import('./pages/careers/CareersCompare'))
+const CareersCompareIndex = lazy(() =>
+  import('./pages/careers/CareersCompare').then((m) => ({ default: m.CareersCompareIndex })),
+)
+
+// The knowledge layer. Every URL it serves is registered in
+// src/shared/content.ts, which is what makes it indexable, gives it a canonical
+// and puts it in sitemap.xml — and what makes the edge Worker answer 404 for any
+// /learn URL that is NOT registered, rather than rendering a soft 404.
+const LearnHub = lazy(() => import('./learn/LearnHub'))
+const TopicPage = lazy(() => import('./learn/TopicPage'))
+const ArticlePage = lazy(() => import('./learn/ArticlePage'))
+
 /**
  * Applies the route's identity on every client-side navigation: analytics, then
  * the full head — title, description, canonical, robots, Open Graph, Twitter
@@ -91,8 +127,57 @@ export default function App() {
           </Route>
           {/* Clean top-level alias for the hub. */}
           <Route path="/dashboard" element={<Navigate to="/tools/dashboard" replace />} />
+
+          {/* ── Public marketing + trust surface ──────────────────────────
+              These render the landing chrome, are indexable, and are the only
+              way an anonymous visitor can evaluate or price the paid product. */}
+          <Route path="/pricing" element={<Pricing />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/faq" element={<Faq />} />
+          <Route path="/help" element={<Help />} />
+          <Route path="/support" element={<Support />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/security" element={<Security />} />
+          <Route path="/refunds" element={<Refunds />} />
+          <Route path="/editorial-standards" element={<EditorialStandards />} />
+
+          {/* The money-tool comparison surface. Distinct from /careers/compare,
+              which compares job platforms — see the note in publicPages.ts. */}
+          <Route path="/compare" element={<CompareIndex />} />
+          <Route path="/compare/:alternative" element={<CompareAlternative />} />
+
+          {/* Company intelligence. At the root rather than under /careers,
+              because /careers/companies is already a gated app section. */}
+          <Route path="/companies" element={<CompaniesIndex />} />
+          <Route path="/companies/:company" element={<CompanyPage />} />
+
+          {/* ── The knowledge layer ───────────────────────────────────────
+              A hub, a page per topic, and a page per article. The two
+              parameterised routes render the real NotFound page for a slug
+              that is not registered, so the rendered page agrees with the 404
+              the edge already returns for it. */}
+          <Route path="/learn" element={<LearnHub />} />
+          <Route path="/learn/:topic" element={<TopicPage />} />
+          <Route path="/learn/:topic/:slug" element={<ArticlePage />} />
+
+          {/* `/careers` is the PUBLIC landing page, not the app. It used to
+              render the signed-in dashboard behind an auth gate and a paywall,
+              which made the entire paid product invisible to anyone who had not
+              already bought it. The workspace lives at /careers/dashboard —
+              where it was already reachable — and these three marketing routes
+              sit alongside the gated subtree below.
+
+              They are declared BEFORE the CareersLayout route and as siblings,
+              not children, so they never enter the auth/paywall gates. React
+              Router ranks by specificity rather than order, and the layout has
+              no matching child for any of these paths, so there is no ambiguity
+              to resolve — `careers.publicRoutes.test.tsx` pins that behaviour. */}
+          <Route path="/careers" element={<CareersLanding />} />
+          <Route path="/careers/features" element={<CareersFeatures />} />
+          <Route path="/careers/compare" element={<CareersCompareIndex />} />
+          <Route path="/careers/compare/:rival" element={<CareersCompare />} />
+
           <Route path="/careers" element={<CareersLayout />}>
-            <Route index element={<CareersDashboard />} />
             <Route path="dashboard" element={<CareersDashboard />} />
             <Route path="upload" element={<CareersUpload />} />
             <Route path="resumes" element={<ResumeLibrary />} />

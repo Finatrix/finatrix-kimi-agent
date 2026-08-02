@@ -25,6 +25,7 @@ import { BrandLogo } from '../components/BrandLogo';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { BackButton } from '../components/BackButton';
 import ThemeToggle from '../components/ThemeToggle';
+import { CAREERS_ROUTES } from '../careers/constants';
 import { NotificationsBell } from './ui/NotificationsBell';
 import { AiProvider, AiLauncher } from './ui/AiAssistant';
 import './tools.css';
@@ -131,7 +132,10 @@ function ToolTabs({ activeTool }: { activeTool: string }) {
         >
           Calendar
         </Link>
-        <Link to="/careers" data-route="careers">
+        {/* In-app navigation goes to the WORKSPACE, not the public landing page
+            at /careers — this bar is only ever seen inside the signed-in tools
+            shell, where "Careers" means the section, not the pitch. */}
+        <Link to={CAREERS_ROUTES.dashboard} data-route="careers">
           Careers
         </Link>
       </nav>
@@ -528,7 +532,7 @@ export default function ToolsLayout() {
             </Link>
             <div className="mt-2 mb-1 px-5 text-[10px] uppercase tracking-[0.12em] text-ink-3 font-mono">Careers</div>
             <Link
-              to="/careers"
+              to={CAREERS_ROUTES.dashboard}
               onClick={() => setDrawerOpen(false)}
               className="flex items-center gap-3 px-5 py-2.5 text-[15px] text-ink hover:bg-hairline-2"
             >

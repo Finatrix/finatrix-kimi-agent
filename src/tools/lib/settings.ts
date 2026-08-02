@@ -5,6 +5,7 @@
  * backup is shaped so a future cloud-sync/import can consume it unchanged.
  */
 import { SYNC_KEYS } from '../cloudSync';
+import { ymdLocal } from '../../lib/date';
 import { downloadBlob } from './exporters';
 import { clearNotificationState } from './notifications';
 
@@ -57,7 +58,8 @@ export function exportBackup(now = new Date()): boolean {
     exportedAt: now.toISOString(),
     data: payload,
   };
-  const stamp = now.toISOString().slice(0, 10);
+  // Local, not UTC: the filename should name the day the user pressed Export.
+  const stamp = ymdLocal(now);
   downloadBlob(`finatrix-backup-${stamp}.json`, new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' }));
   return true;
 }

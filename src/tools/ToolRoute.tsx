@@ -2,6 +2,15 @@ import { lazy, Suspense, useEffect, type ComponentType } from 'react';
 import { Navigate, useParams } from 'react-router';
 import { store } from './lib/storage';
 import { track } from '../lib/analytics';
+import { TOOL_IDS, type ToolId } from '../shared/routes';
+
+/**
+ * The educational footer (methodology, FAQ, related tools) shown under the seven
+ * PUBLIC calculators. Lazy for the same reason the tools themselves are: it is
+ * below the fold on a route that has not rendered yet, and none of its content
+ * belongs on the landing path.
+ */
+const ToolEducation = lazy(() => import('./ui/ToolEducation'));
 
 /**
  * Registry mapping each tool id to its native React page. All seven tools are
@@ -44,9 +53,16 @@ export default function ToolRoute() {
   // Unknown tool → send back to the tools index (which picks a valid tool).
   if (!Page) return <Navigate to="/tools" replace />;
 
+  // Only the seven indexable calculators get the educational footer. `/tools/
+  // reports`, `/tools/calendar` and `/tools/settings` are signed-in workspace
+  // screens: they are `noindex`, have no organic role, and have no methodology
+  // to explain — a "how this is calculated" block under Settings would be noise.
+  const isPublicTool = (TOOL_IDS as readonly string[]).includes(id);
+
   return (
     <Suspense fallback={<div style={{ minHeight: '50vh' }} aria-hidden="true" />}>
       <Page />
+      {isPublicTool && <ToolEducation toolId={id as ToolId} />}
     </Suspense>
   );
 }

@@ -433,6 +433,7 @@ export default function ExpensePage() {
           <MonthNav activeMonth={selMonth} months={months} onSwitch={switchMonth} pastNote="Viewing past month" pastColor="var(--orange)" />
         </div>
         <ExportMenu
+          source="expenses"
           label="Export"
           onCsv={() => runExport('csv', buildExport())}
           onXlsx={() => runExport('xlsx', buildExport())}
@@ -493,7 +494,7 @@ export default function ExpensePage() {
       {/* Portaled like the modal: a fixed toast must never sit under an
           ancestor that animates transform (it becomes its containing block). */}
       {undoStack.length > 0 && createPortal(
-        <div className="fx-tools fx-undo" role="status" aria-live="polite">
+        <div className="fx-tools fx-scope fx-undo" role="status" aria-live="polite">
           <style>{UNDO_STYLES}</style>
           <div className="fx-undo-body">
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -681,9 +682,13 @@ function OverviewTab({
                 </div>
                 <div style={{ fontSize: 18, fontWeight: 700 }}>{cfmt(s.spent)}</div>
                 <div className="note" style={{ marginBottom: 8 }}>of {cfmt(s.budget)}</div>
+                {/* `aria-valuetext` says what the value is; `aria-label` says
+                    what the bar is for. Without the label a screen reader
+                    announces three unattributed figures in a row. */}
                 <div
                   className="bar"
                   role="progressbar"
+                  aria-label={`${s.label} spending against budget`}
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-valuenow={Math.round(fill)}
@@ -1240,6 +1245,7 @@ function CategoryRow({ c, cfmt }: { c: DashCategory; cfmt: (n: number) => string
         className="bar"
         style={{ height: 6 }}
         role="progressbar"
+        aria-label={`${c.l} spending against budget`}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(fill)}

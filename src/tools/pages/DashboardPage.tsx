@@ -521,7 +521,10 @@ export default function DashboardPage() {
       )}
 
       {/* ── Ecosystem cross-link ── */}
-      <Link to="/careers" className="fx-dash-careers">
+      {/* The signed-in dashboard links into the WORKSPACE. `/careers` is now the
+          public landing page — the right destination from the marketing site,
+          the wrong one from inside the app. */}
+      <Link to="/careers/dashboard" className="fx-dash-careers">
         <span className="fx-dash-careers-ic" aria-hidden="true">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 12h18" /></svg>
         </span>

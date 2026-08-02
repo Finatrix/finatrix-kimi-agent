@@ -53,6 +53,7 @@ IMAGES = ROOT / "public" / "images"
 OG_DIR = IMAGES / "og"
 GEIST = ROOT / "public" / "fonts" / "Geist-Variable.woff2"
 SEO_TS = ROOT / "src" / "lib" / "seo.ts"
+CONTENT_TS = ROOT / "src" / "shared" / "content.ts"
 
 W, H = 1200, 630
 SS = 2  # supersampling factor — everything is drawn at 2x and downsampled
@@ -222,10 +223,43 @@ def parse_seo() -> tuple[dict[str, dict[str, str]], str, str]:
     return tools, (home_desc.group(1) if home_desc else ""), legal
 
 
+def parse_topics() -> list[dict[str, str]]:
+    """Read the knowledge-layer topics out of src/shared/content.ts.
+
+    Same reasoning as parse_seo: the card must not be able to describe a topic
+    differently from the topic's own meta description, so the copy is read
+    rather than re-typed. One card per TOPIC rather than per article — an
+    article inherits its topic's card, which is accurate (the card names the
+    topic and its description) and keeps sixty-odd near-identical JPEGs out of
+    the repository.
+    """
+    src = CONTENT_TS.read_text()
+    block = re.search(r"export const TOPICS: readonly Topic\[\] = \[(.*?)\n\];", src, re.S)
+    if not block:
+        sys.exit("could not locate TOPICS in src/shared/content.ts")
+
+    topics: list[dict[str, str]] = []
+    for entry in re.finditer(
+        r"slug: '([^']+)',\s*\n\s*cluster: '([^']+)',\s*\n\s*name: '([^']*)',"
+        r".*?description:\s*\n?\s*'(.*?)',\s*\n\s*heading:",
+        block.group(1), re.S,
+    ):
+        topics.append({
+            "slug": entry.group(1),
+            "cluster": entry.group(2),
+            "name": entry.group(3),
+            "description": entry.group(4),
+        })
+    return topics
+
+
 def main() -> None:
     tools, home_desc, legal = parse_seo()
     if not tools:
         sys.exit("parsed no tools out of seo.ts — refusing to write empty cards")
+    topics = parse_topics()
+    if not topics:
+        sys.exit("parsed no topics out of content.ts — refusing to write empty cards")
 
     print("Generating share cards…")
 
@@ -240,7 +274,44 @@ def main() -> None:
         name = title.split("|")[0].strip()
         save(card("Legal", name, "How FinatriX works, in plain language."), OG_DIR / f"{path}.jpg")
 
-    print(f"\nDone — {2 + len(tools) + len(legal)} cards. Bump OG_VERSION in src/lib/seo.ts.")
+    # The knowledge layer: one card for the hub, one per topic. Articles inherit
+    # their topic's card — see parse_topics.
+    save(
+        card(
+            "Learn",
+            "Money and career guides",
+            "Every formula printed, every assumption stated, so you can check the numbers yourself.",
+        ),
+        OG_DIR / "learn.jpg",
+    )
+    for topic in topics:
+        eyebrow = "Money" if topic["cluster"] == "money" else "Careers"
+        save(
+            card(eyebrow, topic["name"], topic["description"]),
+            OG_DIR / f"learn-{topic['slug']}.jpg",
+        )
+
+    # The two comparison and intelligence hubs. Their child pages inherit these,
+    # which is accurate — the card names the surface, not the individual page.
+    save(
+        card(
+            "Compare",
+            "FinatriX vs the alternatives",
+            "How the free calculators compare with budgeting apps and spreadsheets — on price, privacy and purpose.",
+        ),
+        OG_DIR / "compare.jpg",
+    )
+    save(
+        card(
+            "Companies",
+            "Company guides",
+            "How major banks and professional-services firms are organised, and what shape their hiring takes.",
+        ),
+        OG_DIR / "companies.jpg",
+    )
+
+    total = 2 + len(tools) + len(legal) + 1 + len(topics) + 2
+    print(f"\nDone — {total} cards. Bump OG_VERSION in src/lib/seo.ts.")
 
 
 if __name__ == "__main__":

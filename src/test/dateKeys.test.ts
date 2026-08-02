@@ -10,6 +10,8 @@
  * which is exactly why these cases pin the failing zones explicitly.
  */
 import { describe, it, expect } from 'vitest';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { ymdLocal, ymLocal } from '../lib/date';
 
 /** Timezones on both sides of UTC, plus the half-hour offset that is our market. */
@@ -82,5 +84,63 @@ describe('ymLocal', () => {
     // The case that breaks under a UTC conversion in any UTC− zone: local
     // midnight on the 1st is still the previous month in UTC−.
     expect(ymLocal(new Date(2026, 7, 1, 0, 0, 0))).toBe('2026-08');
+  });
+});
+
+/**
+ * Testing the helpers only proves the helpers work. The bug this file exists for
+ * is a CALL SITE that never reaches them — which is how `usage_counters` came to
+ * be keyed by the UTC month, billing the first 5h30m of every month in IST
+ * against the month that had just ended. So the rule is enforced over the source
+ * itself: no client code may derive a calendar key by slicing an ISO string.
+ *
+ * There is exactly one legitimate exception, and it is required to be
+ * self-documenting: a value whose UTC-ness is a contract with the server that
+ * writes it. Adding to this list should feel like a decision, not a convenience.
+ */
+const UTC_BY_CONTRACT = new Set([
+  // careers_ai_usage.day is written by the careers-ai edge function in UTC;
+  // the reader must match the writer or it reports 0 against a spent quota.
+  'src/careers/services/analytics.ts',
+]);
+
+function sourceFiles(dir: string, out: string[] = []): string[] {
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) {
+      if (entry === 'test' || entry === 'node_modules') continue;
+      sourceFiles(full, out);
+    } else if (/\.tsx?$/.test(entry)) {
+      out.push(full);
+    }
+  }
+  return out;
+}
+
+describe('calendar keys across the client source', () => {
+  it('never slices an ISO string into a date key', () => {
+    const offenders: string[] = [];
+    for (const file of sourceFiles('src')) {
+      const rel = file.replace(/\\/g, '/');
+      if (UTC_BY_CONTRACT.has(rel)) continue;
+      const src = readFileSync(file, 'utf8');
+      for (const [i, line] of src.split('\n').entries()) {
+        // Ignore prose: several files explain this bug in their comments.
+        const code = line.replace(/^\s*(\/\/|\*|\/\*).*$/, '');
+        if (/toISOString\(\)\s*\.slice\(\s*0\s*,\s*(7|10)\s*\)/.test(code)) {
+          offenders.push(`${rel}:${i + 1}`);
+        }
+      }
+    }
+    expect(offenders, 'use ymdLocal/ymLocal from src/lib/date.ts').toEqual([]);
+  });
+
+  it('keeps the documented UTC exception honest', () => {
+    // If the exception ever stops containing the pattern, the entry is stale
+    // and should be deleted rather than left as a standing licence.
+    for (const rel of UTC_BY_CONTRACT) {
+      const src = readFileSync(rel, 'utf8');
+      expect(/toISOString\(\)\s*\.slice\(\s*0\s*,\s*(7|10)\s*\)/.test(src), rel).toBe(true);
+    }
   });
 });

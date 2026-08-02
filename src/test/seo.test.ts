@@ -11,7 +11,56 @@ import {
   structuredDataForPath,
   serialiseJsonLd,
 } from '../lib/seo';
+import { existsSync } from 'node:fs';
 import { CANONICAL_HOST, TOOL_IDS } from '../shared/routes';
+import { PUBLIC_PAGE_PATHS } from '../shared/publicPages';
+import { CONTENT_PATHS } from '../shared/content';
+
+/**
+ * Every indexable URL on the site, for the assertions that must hold across all
+ * of them rather than across one registry's worth.
+ */
+const ALL_INDEXABLE = ['/', ...TOOL_IDS.map((id) => `/tools/${id}`), ...PUBLIC_PAGE_PATHS, ...CONTENT_PATHS];
+
+describe('share cards', () => {
+  /**
+   * The rule `ogImageFor` states in a comment and nothing enforced until now:
+   * never point at a file that does not exist. A 404 og:image unfurls as a
+   * BLANK card in WhatsApp, Slack and LinkedIn — strictly worse than the
+   * generic cover — and it is invisible in every other test, because the
+   * metadata is perfectly well-formed. The only way to catch it is to look on
+   * disk.
+   */
+  it('resolves every referenced og:image to a file that exists', () => {
+    const root = join(__dirname, '..', '..', 'public');
+    const missing: string[] = [];
+    for (const path of ALL_INDEXABLE) {
+      const url = seoForPath(path).image;
+      const file = join(root, new URL(url).pathname);
+      if (!existsSync(file)) missing.push(`${path} → ${new URL(url).pathname}`);
+    }
+    expect(missing, `og:image files missing from public/:\n${missing.join('\n')}`).toEqual([]);
+  });
+
+  it('gives every indexable page a versioned, absolute card with alt text', () => {
+    for (const path of ALL_INDEXABLE) {
+      const { image, imageAlt } = seoForPath(path);
+      expect(image, path).toMatch(new RegExp(`^${CANONICAL_ORIGIN}/images/.*\\?v=\\d+$`));
+      // A large share image needs alt text for the same reason an <img> does.
+      expect(imageAlt.length, `${path} imageAlt`).toBeGreaterThan(3);
+    }
+  });
+
+  /**
+   * A knowledge-layer URL must not fall back to the generic cover: the whole
+   * point of the per-topic cards is that a shared guide unfurls as that guide.
+   */
+  it('gives every knowledge-layer URL its own topic card', () => {
+    for (const path of CONTENT_PATHS) {
+      expect(seoForPath(path).image, path).toMatch(/\/images\/og\/learn(-[a-z0-9-]+)?\.jpg/);
+    }
+  });
+});
 
 describe('seoForPath', () => {
   // The regression this exists for: every SPA route was served index.html with a
@@ -56,7 +105,9 @@ describe('seoForPath', () => {
   // simply existing.
   it('marks private and non-public routes noindex', () => {
     for (const p of [
-      '/careers', '/careers/jobs', '/careers/admin', '/profile',
+      // '/careers' itself is NOT here: it is now the public marketing landing
+      // page. The signed-in workspace moved to '/careers/dashboard', which is.
+      '/careers/dashboard', '/careers/jobs', '/careers/admin', '/profile',
       '/login', '/signup', '/welcome', '/tools/dashboard', '/tools/not-a-tool',
       '/definitely-not-a-route',
     ]) {
@@ -113,8 +164,17 @@ describe('seoForPath', () => {
 
   // Every indexable page needs its own title and description, or they compete
   // for one identical snippet and no unfurl describes what was shared.
+  //
+  // The list is DERIVED from the registry rather than written out, so a new
+  // public page is held to the same standard automatically. Writing it by hand
+  // was fine when there were ten URLs; at twenty-four, the page most likely to
+  // be missed is the one nobody remembered to add here.
   it('gives every indexable page a distinct, well-formed title and description', () => {
-    const paths = ['/', '/privacy', '/terms', ...TOOL_IDS.map((t) => `/tools/${t}`)];
+    const paths = [
+      '/',
+      ...TOOL_IDS.map((t) => `/tools/${t}`),
+      ...PUBLIC_PAGE_PATHS,
+    ];
     const titles = new Set<string>();
     const descriptions = new Set<string>();
 

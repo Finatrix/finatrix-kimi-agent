@@ -41,13 +41,13 @@ export default function Profile() {
         title="Your profile"
         subtitle="Sign in to view your account and synced data."
         footer={
-          <Link to="/login" className="text-accent-text hover:underline">
+          <Link to="/login" className="fx-prose-link">
             Go to sign in
           </Link>
         }
       >
         <Notice kind="info">You're browsing as a guest. Tools work, but data stays on this device only.</Notice>
-        <Link to="/tools" className="text-accent-text hover:underline text-[14px]">
+        <Link to="/tools" className="fx-prose-link text-[14px]">
           ← Back to tools
         </Link>
       </AuthShell>
@@ -69,7 +69,7 @@ export default function Profile() {
       title="Your profile"
       subtitle="Manage your account. Your tool data is securely saved here and synced everywhere you sign in."
       footer={
-        <Link to="/tools" className="text-accent-text hover:underline">
+        <Link to="/tools" className="fx-prose-link">
           ← Back to tools
         </Link>
       }

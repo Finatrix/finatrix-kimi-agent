@@ -114,6 +114,24 @@
 }
 .fx-tools *, .fx-tools *::before, .fx-tools *::after { box-sizing: border-box; }
 
+/* ---- Portaled token scope ----
+   An overlay rendered through createPortal lands on <body>, outside the tools
+   shell, so it carries `.fx-tools` to pick up the token block above. It is not
+   the shell, and must not also inherit the shell's own LAYOUT.
+
+   `min-height: 100%` is the one that bites. On a `position: fixed` element a
+   percentage height resolves against the viewport, not the parent — so the
+   44px undo toast was laid out 100vh tall, with its "Undo" button at the top of
+   that box and therefore above the top of the screen. It rendered, it was
+   "visible" to the accessibility tree, and it could not be clicked: on a 839px
+   mobile viewport the button sat at y = -55. Deleting a transaction on a phone
+   had no working undo.
+
+   Only the layout is reset — tokens, colours and typography still inherit,
+   which is the entire reason `.fx-tools` is on these elements. Pair this class
+   with `.fx-tools` on every portaled root. */
+.fx-tools.fx-scope { min-height: 0; }
+
 /* ═══════════ LIGHT THEME — tools + careers (Apple-calm on warm paper) ═══════════
    Identical layout, spacing, motion and hierarchy; only the surface/fill/ambient
    values flip. Ink, hairlines, gold accent and data colours already theme through
@@ -489,7 +507,19 @@
 .fx-tools .note { font-size: 12px; color: var(--ink3); line-height: 1.7; }
 .fx-tools .foot { text-align: center; padding: 34px 0 0; font-size: 12px; color: var(--ink3); }
 .fx-tools .foot b { color: var(--accent-text); }
-.fx-tools .foot a { color: var(--accent-text); text-decoration: none; }
+/* Underlined, not `text-decoration: none`. These sit inside a sentence, and a
+   link distinguished from the text around it only by colour fails WCAG 1.4.1 —
+   gold-on-muted measures 1.06:1 against the surrounding copy, where 3:1 is the
+   threshold for colour alone to be sufficient. Caught by axe-core; the same fix
+   as `.fx-prose-link` in index.css, which this deliberately mirrors. */
+.fx-tools .foot a {
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  text-decoration-color: color-mix(in srgb, var(--accent-text) 45%, transparent);
+}
+.fx-tools .foot a:hover { text-decoration-color: var(--accent-text); }
 
 .fx-tools .stat-cell { background: var(--card); border: 1px solid var(--hair2); border-radius: 16px; padding: 20px 14px; text-align: center; box-shadow: var(--shadow); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); transition: transform .25s ease, box-shadow .25s ease; }
 .fx-tools .stat-cell:hover { transform: translateY(-3px); box-shadow: 0 8px 28px rgba(0,0,0,.09); }

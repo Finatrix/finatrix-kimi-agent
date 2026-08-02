@@ -14,11 +14,15 @@ function renderAt(path: string) {
   );
 }
 
-// Every Careers route renders through the real App (lazy chunks included)
-// without crashing. The Careers tab bar labels are stable regardless of
-// auth/backend state, so they make reliable smoke assertions.
+// Every Careers WORKSPACE route renders through the real App (lazy chunks
+// included) without crashing. The Careers tab bar labels are stable regardless
+// of auth/backend state, so they make reliable smoke assertions.
+//
+// `/careers` is deliberately absent: it is no longer the workspace. It renders
+// the public marketing landing page, which is covered by
+// `careersPublic.test.tsx` — and the whole point of that change is that it does
+// NOT render a tab bar or hit an auth gate.
 const CASES: [string, string | RegExp][] = [
-  ['/careers', 'Resume Library'],
   ['/careers/dashboard', 'Resume Library'],
   ['/careers/upload', 'Career Coach'],
   ['/careers/resumes', 'Career Coach'],
@@ -40,7 +44,7 @@ describe('Careers routes render', () => {
   }
 
   it('shows the auth/setup gate instead of crashing when signed out', async () => {
-    renderAt('/careers');
+    renderAt('/careers/dashboard');
     // Whichever applies in this environment: either the sign-in gate or the
     // backend-not-configured card — both are premium gate states, not errors.
     const gate = await screen.findByText(/Sign in to use Careers|Backend not configured/);

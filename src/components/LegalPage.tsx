@@ -3,16 +3,35 @@ import { Link } from 'react-router';
 import { Breadcrumb } from './Breadcrumb';
 import ThemeToggle from './ThemeToggle';
 import { SUPPORT_EMAIL, SUPPORT_MAILTO } from '../shared/brand';
+import { publicPageFor } from '../shared/publicPages';
+import { formatReviewDate } from '../lib/date';
+import LandingFooter from '../sections/LandingFooter';
 
+/**
+ * Shared chrome for the two legal pages.
+ *
+ * The heading and the "last updated" date are read from the public-page
+ * registry rather than passed in as props. They used to be hand-written here and
+ * had already drifted: the page's H1 said "Terms & Conditions" while its
+ * `<title>` said "Terms of Use", and the visible date was a string only this
+ * file knew about — so nothing could check it against the `dateModified` in the
+ * page's own structured data.
+ */
 export default function LegalPage({
-  title,
-  updated,
+  path,
   children,
 }: {
-  title: string;
-  updated: string;
+  /** Registry path — must be a `kind: 'legal'` entry in `publicPages.ts`. */
+  path: string;
   children: ReactNode;
 }) {
+  const page = publicPageFor(path);
+  if (!page) {
+    throw new Error(`LegalPage: "${path}" is not in PUBLIC_PAGES.`);
+  }
+  const title = page.name;
+  const updated = formatReviewDate(page.updated);
+
   return (
     <div className="min-h-screen bg-surface-base text-ink">
       <header className="sticky top-0 z-50 flex items-center justify-between h-14 px-4 sm:px-6 bg-[var(--nav-bg)] backdrop-blur-[14px] border-b border-hairline-2">
@@ -50,19 +69,35 @@ export default function LegalPage({
         <h1 className="text-[28px] sm:text-[36px] font-medium tracking-[-0.02em] text-ink">
           {title}
         </h1>
-        <p className="mt-2 text-[13px] text-ink-3">Last updated: {updated}</p>
+        <p className="mt-2 text-[13px] text-ink-3">
+          Last updated: <time dateTime={page.updated}>{updated}</time>
+        </p>
         <div className="legal-body mt-8 text-[15px] leading-[1.7] text-ink-2">
           {children}
         </div>
 
         <div className="mt-14 pt-8 border-t border-hairline text-[13px] text-ink-3">
           Questions about this policy? Email{' '}
-          <a href={SUPPORT_MAILTO} className="text-accent-text hover:underline">
+          <a href={SUPPORT_MAILTO} className="fx-prose-link">
             {SUPPORT_EMAIL}
           </a>
+          , or see{' '}
+          <Link to="/support" className="fx-prose-link">
+            Support
+          </Link>{' '}
+          and{' '}
+          <Link to="/faq" className="fx-prose-link">
+            the FAQ
+          </Link>
           .
         </div>
       </div>
+
+      {/* The same footer as every other public page. Without it the two legal
+          pages were dead ends: no link out to pricing, help, trust or the
+          Careers surface, on URLs that search engines index and people land on
+          directly. */}
+      <LandingFooter />
     </div>
   );
 }

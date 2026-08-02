@@ -237,7 +237,7 @@ export default function TransactionModal({
   // scroll reveals) can ever hijack the fixed overlay's containing block. The
   // .fx-tools wrapper re-establishes the tools' scoped styles and variables.
   return createPortal(
-    <div className="fx-tools">
+    <div className="fx-tools fx-scope">
     <div
       className="fx-tx-overlay"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}

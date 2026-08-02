@@ -31,6 +31,9 @@
  * redirecting them would cost an invocation per asset and change nothing.
  */
 import { CANONICAL_HOST, isKnownRoute, canonicalRedirect } from '../src/shared/routes';
+import { topicSlugForContentPath } from '../src/shared/content';
+import { loadTopicContent } from '../src/content';
+import type { TopicContent } from '../src/content/types';
 import {
   CANONICAL_ORIGIN,
   ROUTE_SCHEMA_ID,
@@ -154,7 +157,11 @@ function isHtmlDocument(response: Response): boolean {
  * so this degrades to returning the response untouched rather than throwing —
  * the shell is still served, exactly as it was before this function existed.
  */
-function withSeoMetadata(response: Response, pathname: string): Response {
+function withSeoMetadata(
+  response: Response,
+  pathname: string,
+  copy: TopicContent | null = null,
+): Response {
   if (typeof HTMLRewriter === 'undefined') return response;
 
   const {
@@ -163,7 +170,7 @@ function withSeoMetadata(response: Response, pathname: string): Response {
   // Mirrors applySeo: a non-indexable route points at the site root rather than
   // at itself, because a self-canonical on a noindex page is contradictory.
   const href = canonical ?? `${CANONICAL_ORIGIN}/`;
-  const schema = serialiseJsonLd(structuredDataForPath(pathname));
+  const schema = serialiseJsonLd(structuredDataForPath(pathname, copy));
 
   // The body is about to change, so the validator that described the ORIGINAL
   // index.html no longer describes it. Content-Length would be plain wrong;
@@ -252,6 +259,22 @@ export default {
     // exactly the signal needed to tell "this is /robots.txt" apart from "this
     // is a client route". Returning the asset response untouched is what keeps
     // public/_headers (CSP, HSTS, immutable caching) intact.
+    /**
+     * The knowledge layer's editorial chunk for this URL, if it needs one.
+     *
+     * Resolved through the SAME `LOADERS` map the browser uses, rather than a
+     * second list of module paths for the edge — one registry, two bundlers. In
+     * the browser this is real code-splitting; the Workers build inlines the
+     * dynamic imports into one module, so at the edge it is a memory lookup
+     * after the first request.
+     *
+     * This is what puts `FAQPage`, `DefinedTermSet` and the article `abstract`
+     * into the SERVED bytes, for the consumers that never run JavaScript: link
+     * unfurlers, Bing, and most AI answer engines. See `structuredDataForPath`.
+     */
+    const topicSlug = topicSlugForContentPath(url.pathname);
+    const copy = topicSlug ? await loadTopicContent(topicSlug) : null;
+
     const asset = await env.ASSETS.fetch(request);
     if (asset.status !== 404) {
       // `/` and `/index.html` match a built file, so they are served from here
@@ -260,7 +283,7 @@ export default {
       // is not an HTML document and is handed back byte-for-byte, which is what
       // keeps its _headers content-type and immutable caching intact.
       return asset.status === 200 && isHtmlDocument(asset)
-        ? withSeoMetadata(asset, url.pathname)
+        ? withSeoMetadata(asset, url.pathname, copy)
         : asset;
     }
 
@@ -278,6 +301,7 @@ export default {
         headers: new Headers(shell.headers),
       }),
       url.pathname,
+      copy,
     );
   },
 };

@@ -4,13 +4,13 @@ import { SUPPORT_EMAIL, SUPPORT_MAILTO } from '../shared/brand';
 
 export default function Privacy() {
   return (
-    <LegalPage title="Privacy Policy" updated="11 July 2026">
+    <LegalPage path="/privacy">
       <P>
         This Privacy Policy explains what information FinatriX (&ldquo;we&rdquo;,
         &ldquo;us&rdquo;) collects when you use our website and financial education tools
         (the &ldquo;Service&rdquo;), how we use it, and the choices and rights you have. By
         using the Service you agree to this policy and to our{' '}
-        <Link to="/terms" className="text-[#D4AF37] hover:underline">
+        <Link to="/terms" className="fx-prose-link">
           Terms &amp; Conditions
         </Link>
         .
@@ -21,7 +21,7 @@ export default function Privacy() {
         FinatriX is an independent, educational personal-finance toolset operated from
         India. We are not a bank, broker, exchange, or a registered investment or tax
         adviser. You can contact us at{' '}
-        <a href={SUPPORT_MAILTO} className="text-[#D4AF37] hover:underline">
+        <a href={SUPPORT_MAILTO} className="fx-prose-link">
           {SUPPORT_EMAIL}
         </a>
         .
@@ -100,7 +100,7 @@ export default function Privacy() {
         Protection Act and the EU/UK GDPR), you may have the right to access, correct,
         export or delete your personal data, and to withdraw consent. To exercise any of
         these — including deleting your account and all associated data — email us at{' '}
-        <a href={SUPPORT_MAILTO} className="text-[#D4AF37] hover:underline">
+        <a href={SUPPORT_MAILTO} className="fx-prose-link">
           {SUPPORT_EMAIL}
         </a>{' '}
         and we will action your request within a reasonable period.

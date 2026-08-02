@@ -1,15 +1,18 @@
 import { Link } from 'react-router';
 import LegalPage, { H2, P, UL } from '../components/LegalPage';
 import { SUPPORT_EMAIL, SUPPORT_MAILTO } from '../shared/brand';
+import { BILLING_FACTS } from '../shared/publicPages';
 
 export default function Terms() {
   return (
-    <LegalPage title="Terms &amp; Conditions" updated="20 June 2026">
+    // Title and review date both come from the public-page registry — the same
+    // entry that supplies this URL's <title>, description and sitemap row.
+    <LegalPage path="/terms">
       <P>
         These Terms &amp; Conditions (&ldquo;Terms&rdquo;) govern your use of the FinatriX
         website and tools (the &ldquo;Service&rdquo;). By using the Service, or by ticking
         the consent box when you create an account, you agree to these Terms and to our{' '}
-        <Link to="/privacy" className="text-[#D4AF37] hover:underline">
+        <Link to="/privacy" className="fx-prose-link">
           Privacy Policy
         </Link>
         . If you do not agree, please do not use the Service.
@@ -42,6 +45,74 @@ export default function Terms() {
         </li>
         <li>Tell us promptly at the contact below if you suspect unauthorised access.</li>
       </UL>
+
+      <H2 id="billing">Paid plans, billing and refunds</H2>
+      <P>
+        The FinatriX money tools are free. <strong>FinatriX Careers</strong> is a paid
+        product, and these terms apply to it. Current prices are on the{' '}
+        <Link to="/pricing" className="fx-prose-link">
+          Pricing page
+        </Link>
+        .
+      </P>
+      <UL>
+        <li>
+          <strong>One payment per period, no auto-renewal.</strong> A plan purchase is a
+          single payment covering one billing period. No recurring mandate is created
+          against your payment method and nothing is charged again unless you choose to
+          buy another period.
+        </li>
+        <li>
+          <strong>What you are charged.</strong> The price shown at checkout, in Indian
+          rupees, is the total amount charged — nothing is added at the payment step. A
+          payment receipt is issued for each purchase and is available from your Billing
+          page.
+        </li>
+        <li>
+          <strong>Payment processing.</strong> Payments are processed by Stripe. Your card
+          details are entered on Stripe&rsquo;s own payment page and are never received or
+          stored by FinatriX.
+        </li>
+        <li>
+          <strong>When a period ends.</strong> Access to paid Careers features ends and
+          your account returns to the free tier. Your data is retained and becomes
+          available again if you purchase another period.
+        </li>
+        <li>
+          <strong>Cancellation.</strong> Because nothing auto-renews, there is no
+          subscription to cancel — simply do not purchase another period.
+        </li>
+        <li>
+          <strong>Refunds.</strong> A first purchase may be refunded within{' '}
+          {BILLING_FACTS.refundWindowDays} days if the paid features have not been
+          substantially used, and billing errors are refunded in full at any time. The{' '}
+          <Link to="/refunds" className="fx-prose-link">
+            Refunds &amp; Cancellations policy
+          </Link>{' '}
+          forms part of these Terms and sets out the full detail, including what is not
+          refundable.
+        </li>
+        <li>
+          <strong>Price changes.</strong> We may change prices for future periods. A change
+          never affects a period you have already paid for, and the price you are charged
+          is always the one shown at checkout.
+        </li>
+        <li>
+          <strong>Quotas and fair use.</strong> Each plan includes stated monthly limits on
+          AI analyses, storage, resume versions and tracked applications. We may suspend
+          access for use that is automated, abusive, or clearly intended to circumvent
+          those limits.
+        </li>
+        <li>
+          <strong>No outcome is promised.</strong> FinatriX Careers provides tools for
+          searching, preparing and tracking job applications. It does not apply to jobs on
+          your behalf and does not guarantee an interview, an offer or any employment
+          outcome.
+        </li>
+      </UL>
+      <P>
+        Nothing in this section limits your rights under Indian consumer protection law.
+      </P>
 
       <H2>Acceptable use</H2>
       <P>
@@ -90,7 +161,7 @@ export default function Terms() {
       <H2>Contact</H2>
       <P>
         Questions about these Terms? Email{' '}
-        <a href={SUPPORT_MAILTO} className="text-[#D4AF37] hover:underline">
+        <a href={SUPPORT_MAILTO} className="fx-prose-link">
           {SUPPORT_EMAIL}
         </a>
         .

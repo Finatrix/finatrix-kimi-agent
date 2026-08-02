@@ -65,6 +65,7 @@ export default function ReportsPage() {
         </div>
         {availableCount > 0 && (
           <ExportMenu
+            source="reports-all"
             label={`Export all (${availableCount})`}
             onCsv={doExportAll('csv')}
             onXlsx={doExportAll('xlsx')}
@@ -112,6 +113,7 @@ export default function ReportsPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 {r.available ? (
                   <ExportMenu
+                    source="reports-single"
                     label="Export"
                     onCsv={doExport(r.id, 'csv', r.title)}
                     onXlsx={doExport(r.id, 'xlsx', r.title)}

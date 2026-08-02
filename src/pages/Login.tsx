@@ -66,7 +66,7 @@ export default function Login() {
       footer={
         <>
           New here?{' '}
-          <Link to="/signup" className="text-accent-text hover:underline">
+          <Link to="/signup" className="fx-prose-link">
             Create an account
           </Link>
         </>
