@@ -5,6 +5,7 @@ import BudgetPage from '../tools/pages/BudgetPage';
 import { currentMonth, prevMonth } from '../tools/lib/month';
 import type { BudgetStore } from '../tools/lib/budget';
 import type { ExpenseItem } from '../tools/lib/expense';
+import { BUDGET_SUGGESTIONS_ENABLED } from '../tools/lib/featureFlags';
 
 /**
  * Smart budget suggestions, as the user meets them.
@@ -12,7 +13,15 @@ import type { ExpenseItem } from '../tools/lib/expense';
  * The behaviour under test is mostly a promise about what does NOT happen: a
  * suggestion must never become a budget without an explicit press. Everything
  * else on this card is in service of making that decision an informed one.
+ *
+ * The card is temporarily switched off (see BUDGET_SUGGESTIONS_ENABLED). Rather
+ * than delete the coverage for a feature that still exists, the suites below
+ * arm themselves off the same flag: while it is `false` we assert the section is
+ * genuinely gone, and flipping it back restores the full suite unedited.
  */
+
+/** Suites that describe the card in use — skipped while the section is off. */
+const whenEnabled = describe.skipIf(!BUDGET_SUGGESTIONS_ENABLED);
 
 const CM = currentMonth();
 const M1 = prevMonth(CM);
@@ -49,7 +58,36 @@ beforeEach(() => {
   cleanup();
 });
 
-describe('the card only appears when there is something to suggest', () => {
+describe.runIf(!BUDGET_SUGGESTIONS_ENABLED)('while the section is disabled', () => {
+  it('does not render the card, however much history exists', () => {
+    seed([tx(M1, 'groceries', 560), tx(M2, 'groceries', 500), tx(M3, 'groceries', 566)], { groceries: 400 });
+    renderPage();
+
+    expect(screen.queryByText('Suggested from your spending')).not.toBeInTheDocument();
+    // The rest of Budget Builder is untouched.
+    expect(screen.getByText(/^Needs · /)).toBeInTheDocument();
+    expect(savedVals().groceries).toBe(400);
+  });
+
+  it('does not read the Expense Tracker at all', () => {
+    seed([tx(M1, 'groceries', 560)], { groceries: 400 });
+    const reads: string[] = [];
+    const getItem = Storage.prototype.getItem;
+    Storage.prototype.getItem = function (key: string) {
+      reads.push(key);
+      return getItem.call(this, key);
+    };
+    try {
+      renderPage();
+    } finally {
+      Storage.prototype.getItem = getItem;
+    }
+
+    expect(reads).not.toContain('fx_expenses');
+  });
+});
+
+whenEnabled('the card only appears when there is something to suggest', () => {
   it('stays hidden with no spending history at all', () => {
     seed([]);
     renderPage();
@@ -63,7 +101,7 @@ describe('the card only appears when there is something to suggest', () => {
   });
 });
 
-describe('what the card tells the user', () => {
+whenEnabled('what the card tells the user', () => {
   beforeEach(() => {
     seed([tx(M1, 'groceries', 560), tx(M2, 'groceries', 500), tx(M3, 'groceries', 566)], { groceries: 400 });
   });
@@ -99,7 +137,7 @@ describe('what the card tells the user', () => {
   });
 });
 
-describe('nothing is written without an explicit press', () => {
+whenEnabled('nothing is written without an explicit press', () => {
   beforeEach(() => {
     seed([tx(M1, 'groceries', 560), tx(M2, 'groceries', 500), tx(M3, 'groceries', 566)], { groceries: 400 });
   });

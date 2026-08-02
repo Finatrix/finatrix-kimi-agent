@@ -25,6 +25,7 @@ import { SECTION_COLOR, SECTION_FILL } from '../lib/sectionColors';
 import { BudgetSuggestions } from '../ui/BudgetSuggestions';
 import { AskAiButton } from '../ui/AskAiButton';
 import { loadExpenses, type ExpenseItem } from '../lib/expense';
+import { BUDGET_SUGGESTIONS_ENABLED } from '../lib/featureFlags';
 import { track } from '../../lib/analytics';
 
 const SECTIONS: CatKey[] = ['needs', 'wants', 'save'];
@@ -55,12 +56,21 @@ export default function BudgetPage() {
    * Logged spending, read only to power the suggestions card. Budget Builder
    * never writes it; the Expense Tracker owns this key, and the `fx:write`
    * subscription keeps the two views agreeing without a reload.
+   *
+   * With the suggestions card switched off there is no consumer, so neither the
+   * initial read nor the subscription happens — a disabled section should cost
+   * the page nothing.
    */
-  const [spend, setSpend] = useState<ExpenseItem[]>(loadExpenses);
+  const [spend, setSpend] = useState<ExpenseItem[]>(
+    () => (BUDGET_SUGGESTIONS_ENABLED ? loadExpenses() : []),
+  );
 
-  useEffect(() => onLocalWrite((key) => {
-    if (key === 'fx_expenses') setSpend(loadExpenses());
-  }), []);
+  useEffect(() => {
+    if (!BUDGET_SUGGESTIONS_ENABLED) return;
+    return onLocalWrite((key) => {
+      if (key === 'fx_expenses') setSpend(loadExpenses());
+    });
+  }, []);
 
   const cats = useMemo(() => mergedCats(custom), [custom]);
   const view = useMemo(() => applyCatPrefs(cats, prefs), [cats, prefs]);
@@ -422,17 +432,20 @@ export default function BudgetPage() {
           </div>
 
           {/* Recommendations from logged spending. Renders nothing until there
-              is history to argue from, and never writes a value on its own. */}
-          <BudgetSuggestions
-            items={spend}
-            cats={view.active}
-            vals={vals}
-            month={month}
-            cfmt={cfmt}
-            sym={sym}
-            onApply={applySuggestion}
-            onAnnounce={say}
-          />
+              is history to argue from, and never writes a value on its own.
+              Temporarily switched off — see BUDGET_SUGGESTIONS_ENABLED. */}
+          {BUDGET_SUGGESTIONS_ENABLED && (
+            <BudgetSuggestions
+              items={spend}
+              cats={view.active}
+              vals={vals}
+              month={month}
+              cfmt={cfmt}
+              sym={sym}
+              onApply={applySuggestion}
+              onAnnounce={say}
+            />
+          )}
 
           {SECTIONS.map((section) => (
             <CategoryCard
