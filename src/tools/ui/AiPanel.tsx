@@ -12,6 +12,7 @@ import { loadCatView } from '../lib/budgetCats';
 import { type BudgetStore } from '../lib/budget';
 import { ask, askForMonthlyReview, type AskResult } from '../ai/assistant';
 import { describeFocus, type AiFocus, type FocusDescription } from '../ai/focus';
+import { track } from '../../lib/analytics';
 import { SUGGESTED_PROMPTS, MAX_QUESTION_CHARS } from '../ai/prompts';
 import {
   loadHistory, saveHistory, clearHistory, pruneOtherUsers, newMessageId,
@@ -218,6 +219,17 @@ export default function AiPanel({ id, onClose, focus = null, openedAt = 0 }: AiP
           at: new Date().toISOString(), failed: true,
         };
 
+    // One event per completed turn, carrying only the SHAPE of the exchange:
+    // whether it was a chat question or a monthly review, what subject the
+    // panel was focused on, and whether the model answered.
+    //
+    // `where` is `AiFocus['kind']` — 'budget', 'category', 'transaction' and so
+    // on — which is an enum this codebase defines, never anything the user
+    // typed. The focus object also carries labels and ids (a category name, a
+    // transaction id); those are deliberately not read here, and would be
+    // dropped by the prop allowlist even if they were.
+    track('ai_message_sent', { kind, where: focus?.kind ?? 'none', ok: result.ok });
+
     persist([...withQuestion, reply]);
     setBusy(false);
     inputRef.current?.focus();
@@ -234,7 +246,7 @@ export default function AiPanel({ id, onClose, focus = null, openedAt = 0 }: AiP
   const canSend = !busy && !signedOut && draft.trim().length > 0;
 
   const body = (
-    <div className="fx-tools fx-ai-shell">
+    <div className="fx-tools fx-scope fx-ai-shell">
       <style>{PANEL_STYLES}</style>
       <div className="fx-ai-backdrop" onClick={onClose} aria-hidden="true" />
 

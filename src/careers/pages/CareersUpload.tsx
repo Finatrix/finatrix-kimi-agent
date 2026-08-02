@@ -7,6 +7,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
+import { track } from '../../lib/analytics';
 import { useToast } from '../../tools/ui/Toast';
 import { Icon } from '../../tools/ui/Icon';
 import { PageHead } from '../../tools/ui/common';
@@ -86,6 +87,12 @@ export default function CareersUpload() {
       });
       setOutcome(result);
       setPhase('done');
+      // Emitted on the pipeline COMPLETING, not on the file being dropped: a
+      // resume that fails to parse is not an uploaded resume, and counting the
+      // drop would make the funnel's most fragile step look perfect.
+      // `reusedAnalysis` separates a genuine new analysis from a duplicate
+      // re-upload, which cost nothing and mean something different.
+      track('resume_uploaded', { ok: true, kind: result.reusedAnalysis ? 'duplicate' : 'new' });
       await refresh();
       if (result.reusedAnalysis) {
         notify('Duplicate detected — reused the existing analysis at no AI cost.', 'info');
@@ -96,6 +103,11 @@ export default function CareersUpload() {
       const err = toCareersError(e);
       failedVersionId.current = err.versionId ?? null;
       setFailedStep(progressRef.current.step);
+      // `where` is the pipeline stage that failed — parse, OCR, AI, storage.
+      // Upload is the first thing a new Careers subscriber does, so a stage
+      // that fails often is the most expensive bug in the product to not know
+      // about.
+      track('resume_uploaded', { ok: false, where: progressRef.current.step, kind: err.code });
       setError(err);
       setPhase('error');
       await refresh();

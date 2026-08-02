@@ -62,7 +62,16 @@ async function avgValue(event: CareersEvent, limit = 500): Promise<number | null
   return Math.round(values.reduce((a, b) => a + b, 0) / values.length);
 }
 
-/** The signed-in user's AI calls today (from the edge function's meter). */
+/**
+ * The signed-in user's AI calls today (from the edge function's meter).
+ *
+ * Deliberately UTC, and NOT ymdLocal: `careers_ai_usage.day` is written by the
+ * careers-ai edge function, which keys it in UTC, and that meter is what
+ * actually enforces the daily limit. Reading it in local time would miss the
+ * server's row for the first hours of each day east of UTC and report 0 calls
+ * used against a quota that is really being spent. The reader must match the
+ * writer; changing this means changing careers-ai/index.ts too.
+ */
 export async function getAiUsageToday(userId: string): Promise<number> {
   const today = new Date().toISOString().slice(0, 10);
   const { data, error } = await supabase

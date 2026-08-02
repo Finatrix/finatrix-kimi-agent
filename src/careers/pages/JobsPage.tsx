@@ -8,6 +8,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
+// Aliased: this file already has a local `track()` that saves a job as a tracked
+// application. Two different `track`s in one 900-line file is a bug waiting to
+// be written, and the alias makes which one is meant unmissable at the call site.
+import { track as trackEvent } from '../../lib/analytics';
 import { useToast } from '../../tools/ui/Toast';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
 import { Tabs } from '../../tools/ui/Tabs';
@@ -536,6 +540,18 @@ export default function JobsPage() {
         setCompanyFallback([]);
       }
 
+      // A search that returned. `count` is bucketed rather than exact: the
+      // number that matters is "did this search find anything usable", and a
+      // precise result count on a query we do not record adds nothing but
+      // cardinality. The query text itself is never sent — it is free text a
+      // user typed, and the prop allowlist has no key that could carry it.
+      trackEvent('job_search_completed', {
+        count: out.jobs.length === 0 ? 0 : out.jobs.length < 10 ? 1 : 10,
+        ok: out.jobs.length > 0,
+        where: version?.id ? 'with-resume' : 'no-resume',
+        step: page,
+      });
+
       if (!out.jobs.length) {
         notify(
           fallback.length
@@ -547,6 +563,9 @@ export default function JobsPage() {
     } catch (e) {
       if (seq !== searchSeq.current) return;
       const err = toCareersError(e);
+      // A search that failed is still a completed search from the user's point
+      // of view, and the failure code is what makes provider outages visible.
+      trackEvent('job_search_completed', { ok: false, kind: err.code });
       setSearchError(err);
       // Backend/network down → still surface matching companies so the user
       // isn't left at a dead end while live listings are unavailable.

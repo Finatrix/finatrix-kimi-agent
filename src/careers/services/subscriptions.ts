@@ -7,7 +7,9 @@
  */
 
 import { supabase } from '../../lib/supabase';
+import { ymLocal } from '../../lib/date';
 import { invokeAuthed } from '../../lib/functions';
+import { track } from '../../lib/analytics';
 import { logAudit } from './audit';
 import { mapSupabaseError } from '../utils/errors';
 import type {
@@ -116,6 +118,24 @@ export async function applyCoupon(userId: string, subscriptionId: string, code: 
   return data as SubscriptionRow;
 }
 
+/**
+ * Has this row just been demoted from a paid plan by `expire_subscriptions()`?
+ *
+ * There is no `status = 'expired'` to look for. That SQL function (see
+ * supabase/migrations/20260728000100_subscription_expiry.sql) sets
+ * `plan_id = 'free'` and leaves `status = 'active'`, so a lapse is legible only
+ * from what it leaves behind: the free plan on a row that Stripe provisioned.
+ * `provider` is not reset by the demotion, and a user who never paid keeps the
+ * schema default of 'manual', which is what makes the pair unambiguous.
+ *
+ * Exported so `subscriptionExpiry.test.ts` can assert this against the row the
+ * migration actually produces — the previous check tested a status nothing ever
+ * writes, and no type or test could see that the branch was unreachable.
+ */
+export function hasLapsedFromPaid(sub: Pick<SubscriptionRow, 'plan_id' | 'provider'> | null): boolean {
+  return sub?.plan_id === 'free' && sub.provider === 'stripe';
+}
+
 export type BillingPeriod = 'monthly' | 'yearly';
 
 /**
@@ -126,10 +146,25 @@ export type BillingPeriod = 'monthly' | 'yearly';
  * or an error message safe to show the user directly.
  */
 export async function startCheckout(planId: string, period: BillingPeriod): Promise<{ url: string } | { error: string }> {
+  // Instrumented HERE rather than at each button, because there are two entry
+  // points (BillingPage and CareersProPaywall) and a funnel that counts one of
+  // them is worse than one that counts neither — it looks complete and is
+  // wrong. Every checkout attempt in the product goes through this function.
+  track('checkout_started', { plan: planId, period });
+
   const { data, error, reason } = await invokeAuthed<{ url?: string; error?: string }>('careers-billing-checkout', { planId, period });
-  if (reason === 'no-session') return { error: 'Sign in to subscribe.' };
-  if (reason === 'not-configured') return { error: 'Payments are not available right now.' };
-  if (error || !data?.url) return { error: data?.error || 'Could not start checkout. Please try again.' };
+
+  // `where` names the stage that failed, so a spike is attributable without
+  // anyone having to reproduce it: an auth problem, an unconfigured Stripe key
+  // and a rejected session are three very different incidents.
+  const fail = (where: string, message: string) => {
+    track('checkout_failed', { plan: planId, period, where });
+    return { error: message };
+  };
+  if (reason === 'no-session') return fail('auth', 'Sign in to subscribe.');
+  if (reason === 'not-configured') return fail('not-configured', 'Payments are not available right now.');
+  if (error || !data?.url) return fail('session', data?.error || 'Could not start checkout. Please try again.');
+
   return { url: data.url };
 }
 
@@ -145,8 +180,21 @@ export async function listBillingHistory(userId: string): Promise<BillingHistory
 
 // ─────────────────────────── usage counters + quota gating ───────────────────────────
 
+/**
+ * The billing month a usage counter belongs to, read in the user's own timezone.
+ *
+ * `toISOString().slice(0, 7)` was wrong here for the same reason it is wrong
+ * everywhere east of UTC (see src/lib/date.ts): for the first 5h30m of every
+ * month in IST — FinatriX's primary market — the UTC month is still the
+ * previous one. Usage in that window was billed against the month that had
+ * just ended, so a user who had exhausted their quota stayed locked out past
+ * their own reset, and the consumption never counted toward the new month.
+ * `usage_counters` is written only from here (RLS gives the client insert and
+ * update on its own row), so this function is the sole authority on the key
+ * and switching it is safe.
+ */
 function currentPeriod(): string {
-  return new Date().toISOString().slice(0, 7); // YYYY-MM
+  return ymLocal(new Date()); // YYYY-MM, local
 }
 
 export async function getUsageCounter(userId: string): Promise<UsageCounterRow> {

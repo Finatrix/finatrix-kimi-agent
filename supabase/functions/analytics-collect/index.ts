@@ -31,15 +31,27 @@ const MAX_EVENTS = 50;
 // allowlist stays strict — `reflectAnyWebOrigin: false` — or any site on the
 // internet could post events into FinatriX's analytics table.
 
-// Must mirror the client taxonomy in src/lib/analytics.ts.
+// Must mirror the client taxonomy in src/lib/analytics.ts. `analytics.test.ts`
+// parses this file and fails if the two lists disagree — necessary because this
+// function is deployed by hand and therefore drifts, and the failure is silent
+// in the worst direction: a client sends a new event, this set does not contain
+// it, and the event is dropped here with a 204. The dashboard shows zero and
+// nothing anywhere reports an error.
 const ALLOWED_EVENTS = new Set([
   'page_view', 'tool_view', 'tool_completed', 'signup_prompt_shown',
   'signup_prompt_action', 'web_vital', 'app_error', 'route_not_found',
-  'careers_paywall_view', 'careers_checkout_clicked', 'careers_paywall_closed', 'subscription_success',
+  'careers_paywall_view', 'careers_checkout_clicked', 'careers_paywall_closed',
+  'signup_started', 'signup_completed',
+  'checkout_started', 'checkout_completed', 'checkout_failed',
+  'subscription_started', 'subscription_renewed', 'subscription_expired',
+  'ai_message_sent', 'report_exported', 'resume_uploaded', 'job_search_completed',
 ]);
+// `plan` and `period` are plan identifiers ('professional') and billing periods
+// ('yearly') — low-cardinality enums chosen by us, never anything the user
+// typed. No key here may ever carry free text or a monetary amount.
 const ALLOWED_PROP_KEYS = new Set([
   'tool', 'route', 'action', 'metric', 'rating', 'value', 'bucket',
-  'kind', 'where', 'count', 'ok', 'step',
+  'kind', 'where', 'count', 'ok', 'step', 'plan', 'period',
 ]);
 const MAX_STRING = 64;
 

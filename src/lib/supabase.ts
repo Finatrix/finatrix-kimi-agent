@@ -1,35 +1,28 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-
-const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-
-const PLACEHOLDER_URL = 'https://placeholder.supabase.co';
-const PLACEHOLDER_KEY = 'public-anon-placeholder-key';
+import {
+  isSupabaseConfigured,
+  supabaseConfigError,
+  PLACEHOLDER_KEY,
+  PLACEHOLDER_URL,
+  SUPABASE_ANON_KEY,
+  SUPABASE_URL,
+} from './supabaseConfig';
 
 /**
- * Whether a real Supabase backend is configured via environment variables.
- * When false, the app still runs fully — auth UI explains setup is needed and
- * the tools fall back to on-device (localStorage) storage for guests.
+ * IMPORTING THIS MODULE PULLS IN `@supabase/supabase-js` — 54 KB gzipped.
  *
- * Vite inlines `import.meta.env.*` at BUILD time, so these must be present in
- * the environment that runs `vite build` (local `.env` or CI build vars) — not
- * only in Supabase/Cloudflare runtime secrets.
+ * That is fine everywhere it is used: every consumer (the careers services, the
+ * tools' cloud sync, the AI transport, the profile page) is inside a lazily
+ * loaded route chunk that cannot function without a backend anyway.
+ *
+ * It was NOT fine in `AuthContext`, which is mounted on every route including
+ * the landing page, and which imported this file only to read
+ * `isSupabaseConfigured`. Those constants now live in `./supabaseConfig`, which
+ * has no dependency on the library, and `AuthContext` loads this module
+ * dynamically and only when there is a session to restore. If you need to know
+ * *whether* a backend is configured, import `./supabaseConfig`; import this only
+ * when you are about to actually talk to it.
  */
-export const isSupabaseConfigured = Boolean(url && anonKey);
-
-/**
- * A precise, human-readable reason the backend is not usable, or '' when it is.
- * Surfaced by the UI instead of letting an undefined/placeholder credential
- * reach the gateway (which returns a 401 the browser mislabels as a CORS error).
- */
-export const supabaseConfigError: string = (() => {
-  if (!url) return 'VITE_SUPABASE_URL is not set in this build.';
-  if (!anonKey) return 'VITE_SUPABASE_ANON_KEY is not set in this build.';
-  if (anonKey === PLACEHOLDER_KEY || url === PLACEHOLDER_URL) {
-    return 'Supabase env vars were missing at build time (placeholder values are in use).';
-  }
-  return '';
-})();
 
 // Fail loud in the console (once) rather than silently shipping a broken client.
 if (typeof console !== 'undefined' && supabaseConfigError) {
@@ -42,8 +35,8 @@ if (typeof console !== 'undefined' && supabaseConfigError) {
  * UI shows the "backend not configured" state.
  */
 export const supabase: SupabaseClient = createClient(
-  url || 'https://placeholder.supabase.co',
-  anonKey || 'public-anon-placeholder-key',
+  SUPABASE_URL || PLACEHOLDER_URL,
+  SUPABASE_ANON_KEY || PLACEHOLDER_KEY,
   {
     auth: {
       persistSession: true,
@@ -52,3 +45,7 @@ export const supabase: SupabaseClient = createClient(
     },
   }
 );
+
+// Re-exported so the many existing `import { supabase, isSupabaseConfigured }
+// from '../lib/supabase'` call sites keep working unchanged.
+export { isSupabaseConfigured, supabaseConfigError };

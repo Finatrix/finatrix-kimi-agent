@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
+import { track } from '../lib/analytics';
 import AuthShell, {
   Field,
   PrimaryButton,
@@ -21,6 +22,19 @@ export default function Signup() {
   const [done, setDone] = useState(false);
   const [agreed, setAgreed] = useState(false);
 
+  /**
+   * Reaching the form is the top of the funnel.
+   *
+   * Emitted on mount rather than on first keystroke: the number worth knowing
+   * is how many people who ARRIVE here finish, and measuring from first
+   * keystroke would silently exclude everyone who took one look and left —
+   * which is exactly the population a sign-up flow needs to hear about. The
+   * event carries no identifier of any kind; it is a counter.
+   */
+  useEffect(() => {
+    track('signup_started');
+  }, []);
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -32,6 +46,13 @@ export default function Signup() {
     const { error, needsConfirmation } = await signUp(email.trim(), password, name.trim());
     setBusy(false);
     if (error) return setError(error);
+    // The account now exists. `step` distinguishes the two endings, because they
+    // are very different outcomes: an unconfirmed account still has an email to
+    // survive, and conflating them hides every sign-up lost to a spam folder.
+    track('signup_completed', {
+      kind: 'email',
+      step: needsConfirmation ? 'awaiting_confirmation' : 'active',
+    });
     if (needsConfirmation) {
       setDone(true);
     } else {
@@ -51,7 +72,10 @@ export default function Signup() {
       setBusy(false);
       setError(error);
     }
-    // On success the browser redirects to the provider.
+    // On success the browser redirects to the provider, so there is no
+    // `signup_completed` to send from here — the account is created on the way
+    // back. It is emitted by the OAuth landing instead (see AuthContext's
+    // session restore), not faked here for a redirect that may never return.
   }
 
   if (done) {
@@ -60,7 +84,7 @@ export default function Signup() {
         title="Verify your email"
         subtitle="We've sent a confirmation link to your inbox."
         footer={
-          <Link to="/login" className="text-accent-text hover:underline">
+          <Link to="/login" className="fx-prose-link">
             Back to sign in
           </Link>
         }
@@ -83,7 +107,7 @@ export default function Signup() {
       footer={
         <>
           Already have an account?{' '}
-          <Link to="/login" className="text-accent-text hover:underline">
+          <Link to="/login" className="fx-prose-link">
             Sign in
           </Link>
         </>
@@ -148,7 +172,7 @@ export default function Signup() {
               to="/terms"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-accent-text hover:underline"
+              className="fx-prose-link"
             >
               Terms &amp; Conditions
             </Link>{' '}
@@ -157,7 +181,7 @@ export default function Signup() {
               to="/privacy"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-accent-text hover:underline"
+              className="fx-prose-link"
             >
               Privacy Policy
             </Link>

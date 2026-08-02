@@ -6,7 +6,7 @@
  * there's exactly one source of plan data and one checkout path in the app.
  */
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
 import { Tabs } from '../../tools/ui/Tabs';
@@ -146,11 +146,32 @@ export default function CareersProPaywall() {
         })}
       </div>
 
-      <div style={{ textAlign: 'center' }}>
+      {/* A paywall that offers only "buy" and "leave" loses everyone who simply
+          wanted to read more first. Both routes out now go somewhere useful:
+          the full pricing page (plan comparison, billing terms, refund policy)
+          and the public Careers page (what the product actually does). Before
+          this, neither existed — which is precisely why nobody could evaluate a
+          ₹199–₹2,499/month product before being asked to pay for it. */}
+      <div style={{ textAlign: 'center', display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
+        <Link className="btn btn-ghost btn-sm" to="/pricing">
+          Compare plans in detail
+        </Link>
+        <Link className="btn btn-ghost btn-sm" to="/careers">
+          What is Careers?
+        </Link>
         <button className="btn btn-ghost btn-sm" onClick={maybeLater} disabled={!!busy}>
-          Maybe Later
+          Maybe later
         </button>
       </div>
+
+      <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--ink3)', marginTop: 16, lineHeight: 1.7 }}>
+        One payment per billing period — nothing auto-renews and no card is stored for future
+        charges. See the{' '}
+        <Link to="/refunds" className="fx-prose-link">
+          refund policy
+        </Link>
+        .
+      </p>
     </div>
   );
 }

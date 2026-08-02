@@ -71,7 +71,15 @@ describe('Careers Pro paywall gate', () => {
     h.subscription = { plan_id: 'free', status: 'active' };
     renderAt('/careers/jobs');
     expect((await screen.findAllByText('Unlock FinatriX Careers Pro')).length).toBeGreaterThan(0);
-    expect(screen.queryByText('Maybe Later')).toBeTruthy();
+    expect(screen.queryByText('Maybe later')).toBeTruthy();
+
+    // A paywall whose only exits are "pay" or "leave" loses everyone who wanted
+    // to read more first — which, until the public pages existed, was the only
+    // thing it could offer. Both routes out must now lead somewhere that
+    // explains the product and its billing.
+    expect(screen.getByRole('link', { name: /compare plans/i })).toHaveAttribute('href', '/pricing');
+    expect(screen.getByRole('link', { name: /what is careers/i })).toHaveAttribute('href', '/careers');
+    expect(screen.getByRole('link', { name: /refund policy/i })).toHaveAttribute('href', '/refunds');
   });
 
   it('logged-in, no subscription row at all: shows the paywall (fails closed)', async () => {

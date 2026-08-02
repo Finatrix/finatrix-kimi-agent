@@ -14,7 +14,7 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { rateLimited } from '../_shared/ratelimit.ts';
-import { corsHeaders, CANONICAL_ORIGIN } from '../_shared/origins.ts';
+import { corsHeaders, CANONICAL_ORIGIN, ALLOWED_ORIGINS, isLocalOrigin } from '../_shared/origins.ts';
 
 const RATE_PER_MINUTE = Number(Deno.env.get('CAREERS_BILLING_RATE_PER_MINUTE') ?? '10');
 
@@ -84,8 +84,18 @@ Deno.serve(async (req) => {
   const currency = String(plan.currency || 'INR').toLowerCase();
   const unitAmount = Math.round(price * 100); // smallest currency unit (paise for INR)
 
-  const origin = req.headers.get('Origin');
-  const returnOrigin = origin && /^https?:\/\/[a-z0-9.-]+(:\d+)?$/i.test(origin) ? origin : CANONICAL_ORIGIN;
+  // Where Stripe sends the user after paying. Deliberately stricter than this
+  // function's CORS: `reflectAnyWebOrigin` is safe for the API surface because
+  // these are bearer-token endpoints with no cookie auth, but a post-payment
+  // redirect target is a different trust decision — it is baked into the Stripe
+  // session and carries the checkout session id. Reflecting any well-formed
+  // origin here would let a caller land a completed payment on a domain nobody
+  // vetted, so this uses the allowlist (plus localhost for dev) and falls back
+  // to the canonical apex rather than trusting the header.
+  const origin = req.headers.get('Origin') ?? '';
+  const returnOrigin = ALLOWED_ORIGINS.includes(origin) || isLocalOrigin(origin)
+    ? origin
+    : CANONICAL_ORIGIN;
 
   const form = toForm({
     mode: 'payment',

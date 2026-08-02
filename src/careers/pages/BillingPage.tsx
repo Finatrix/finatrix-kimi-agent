@@ -8,7 +8,7 @@
  * plan back to Free once current_period_end passes.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
@@ -18,7 +18,8 @@ import { track } from '../../lib/analytics';
 import { EmptyState, PageLoading, ErrorCard } from '../components/states';
 import { useCareers } from '../context/CareersContext';
 import {
-  checkQuota, ensureFreeSubscription, getMySubscription, getUsageCounter, listBillingHistory, listPlans, startCheckout,
+  checkQuota, ensureFreeSubscription, getMySubscription, getUsageCounter, hasLapsedFromPaid,
+  listBillingHistory, listPlans, startCheckout,
   type BillingPeriod,
 } from '../services/subscriptions';
 import type { BillingHistoryRow, SubscriptionPlanRow, SubscriptionRow, UsageCounterRow } from '../types/phase4';
@@ -43,6 +44,9 @@ function formatQuotaValue(kind: QuotaKind, n: number): string {
   return String(n);
 }
 
+/** Last subscription `updated_at` already reported as a lapse — see `load()`. */
+const EXPIRY_SEEN_KEY = 'fx_sub_expiry_seen';
+
 export default function BillingPage() {
   const { user } = useAuth();
   const { loading, error: ctxError, refresh } = useCareers();
@@ -57,6 +61,8 @@ export default function BillingPage() {
   const [loadError, setLoadError] = useState<CareersError | null>(null);
   const [period, setPeriod] = useState<BillingPeriod>('monthly');
   const [busy, setBusy] = useState('');
+  /** `load()` runs on mount and after checkout; expiry is one fact, not two. */
+  const expiryReported = useRef(false);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -72,6 +78,36 @@ export default function BillingPage() {
       setUsage(u);
       setHistory(h);
       setLoadError(null);
+
+      // A lapsed plan, observed. `expire_subscriptions()` demotes the row
+      // server-side on a schedule, so nothing in the browser is told when it
+      // happens — this is the first moment the app can see it, and without it
+      // churn is invisible until someone emails to ask why Careers is locked.
+      //
+      // This used to test `status === 'expired'`, which never matched and made
+      // the event unreachable: that function does NOT write such a status, it
+      // sets plan_id='free' and leaves status 'active' (and `getMySubscription`
+      // filters to active statuses anyway, so an 'expired' row could not even
+      // be read here). Churn read as a flat zero, which looks like a metric
+      // rather than a missing one.
+      //
+      // What a demotion actually leaves behind is a free plan on a row Stripe
+      // provisioned. A user who never paid keeps the schema default provider
+      // 'manual', and this page has no downgrade-to-free control, so the pair
+      // means exactly one thing. Deduped on `updated_at` — stamped at the
+      // moment of demotion — so a lapse is reported once and not on every
+      // subsequent visit. The prior plan is deliberately not reported: the
+      // demotion overwrote it, and guessing it from history would be a
+      // different claim than the one this event makes.
+      if (hasLapsedFromPaid(sub) && !expiryReported.current) {
+        expiryReported.current = true;
+        let seen = '';
+        try { seen = localStorage.getItem(EXPIRY_SEEN_KEY) ?? ''; } catch { /* private mode */ }
+        if (seen !== sub.updated_at) {
+          try { localStorage.setItem(EXPIRY_SEEN_KEY, sub.updated_at); } catch { /* private mode */ }
+          track('subscription_expired');
+        }
+      }
     } catch (e) {
       setLoadError(toCareersError(e));
     }
@@ -88,27 +124,59 @@ export default function BillingPage() {
     if (!checkout || !user) return;
 
     if (checkout === 'cancelled') {
+      track('checkout_failed', { where: 'abandoned' });
       notify('Checkout cancelled — you were not charged.', 'error');
       navigate('/careers/billing', { replace: true });
       return;
     }
+
+    // Stripe sent us back with a successful payment. That is a real, separate
+    // fact from access being granted: the money is taken here, and the webhook
+    // that upgrades the plan lands moments later — or does not.
+    track('checkout_completed');
 
     let cancelled = false;
     notify('Payment received — setting up your account…', 'ok');
     void (async () => {
       const deadline = Date.now() + 8000;
       let paid = false;
+      let plan = '';
       while (!cancelled && Date.now() < deadline) {
         const sub = await getMySubscription(user.id).catch(() => null);
-        if (sub && sub.plan_id !== 'free') { paid = true; break; }
+        if (sub && sub.plan_id !== 'free') { paid = true; plan = sub.plan_id; break; }
         await new Promise((r) => setTimeout(r, 1000));
       }
       if (cancelled) return;
       void load();
       if (paid) {
-        track('subscription_success');
-        navigate('/careers', { replace: true });
+        // First subscription or renewal? Counted from billing history rather
+        // than from the subscription row, which the webhook has just
+        // overwritten — by the time we get here a renewal and a first purchase
+        // look identical on that row. Reading React state instead would be
+        // worse still: `load()` is async and `subscription` is reliably null
+        // this early, so every renewal would be reported as a new customer.
+        // History is append-only and written by the same webhook, so counting
+        // paid rows answers the question exactly.
+        const priorPaid = await listBillingHistory(user.id)
+          .then((rows) => rows.filter((r) => r.status === 'paid').length)
+          .catch(() => 0);
+        // The gap between `checkout_completed` and this pair is the failure the
+        // launch review called out as invisible: money taken, access not
+        // granted. It is now a subtraction on a dashboard rather than a support
+        // email.
+        //
+        // Written as two statements rather than one ternary so the event names
+        // are greppable — `analytics.taxonomy.test.ts` scans source for
+        // `track('<name>'` to prove nothing is declared but unsent, and a name
+        // hidden inside a conditional expression reads to it as never emitted.
+        if (priorPaid > 1) track('subscription_renewed', { plan });
+        else track('subscription_started', { plan });
+        navigate('/careers/dashboard', { replace: true });
       } else {
+        // Not necessarily lost — the webhook may simply be slow — but a
+        // customer who has paid and cannot get in is the single most urgent
+        // thing this product can do wrong, so it is recorded distinctly.
+        track('checkout_failed', { where: 'activation' });
         notify('Still finishing up — refresh in a moment if Careers looks locked.', 'ok');
         navigate('/careers/billing', { replace: true });
       }

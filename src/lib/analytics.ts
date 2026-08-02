@@ -22,13 +22,32 @@
 
 import { routeTemplate } from '../shared/routes';
 
-/** Allowlisted event names. Adding an event = adding it here (typed taxonomy). */
+/**
+ * Allowlisted event names. Adding an event = adding it here (typed taxonomy).
+ *
+ * The rule this list is maintained by: **every name here is emitted by real
+ * code**. A declared-but-unsent event is not a placeholder waiting to be filled
+ * in — it is a metric that reads zero and is indistinguishable from a real one
+ * that has flatlined. `analytics.test.ts` asserts the union and the emitting
+ * call sites agree in both directions.
+ *
+ * `finance_tool_used` is deliberately absent. It is what `tool_completed`
+ * already measures, and more precisely: it fires when a calculator produces a
+ * RESULT, not merely when its route is opened (that is `tool_view`). Two names
+ * for one action would split the metric and make both wrong.
+ */
 export type AnalyticsEvent =
   | 'page_view'
   | 'tool_view'
   | 'tool_completed'
   | 'signup_prompt_shown'
   | 'signup_prompt_action'
+  // ── Acquisition ──────────────────────────────────────────────────────────
+  // The funnel the launch review named as unmeasurable: without these, a
+  // sign-up page view and a created account could not be told apart, so no
+  // conversion rate on the site's own front door could be computed at all.
+  | 'signup_started'
+  | 'signup_completed'
   // `search_performed` and `careers_view` were declared here and emitted by
   // nothing. Both were already covered elsewhere: careers routes produce a
   // `page_view` like every other route, and the careers workspace has its own
@@ -43,12 +62,36 @@ export type AnalyticsEvent =
   | 'careers_paywall_view'
   | 'careers_checkout_clicked'
   | 'careers_paywall_closed'
-  | 'subscription_success';
+  // ── Revenue ──────────────────────────────────────────────────────────────
+  // `checkout_*` describe the payment attempt; `subscription_*` describe what
+  // happened to ACCESS as a result. They are not duplicates: a completed
+  // checkout whose webhook never lands produces `checkout_completed` with no
+  // `subscription_started`, and that gap is precisely the failure the review
+  // called out as invisible — money taken, access not granted.
+  | 'checkout_started'
+  | 'checkout_completed'
+  | 'checkout_failed'
+  | 'subscription_started'
+  | 'subscription_renewed'
+  | 'subscription_expired'
+  // ── Feature engagement ───────────────────────────────────────────────────
+  | 'ai_message_sent'
+  | 'report_exported'
+  | 'resume_uploaded'
+  | 'job_search_completed';
 
-/** Prop keys that may be sent. Anything else is dropped before it leaves the tab. */
+/**
+ * Prop keys that may be sent. Anything else is dropped before it leaves the tab.
+ *
+ * Every key is an enum WE choose the values for — a tool id, a route template, a
+ * plan id, a billing period. None of them may ever carry free text, a monetary
+ * amount, a filename or anything the user typed. The server keeps the same list
+ * (`supabase/functions/analytics-collect`) and drops the rest again, so this is
+ * defence in depth rather than the only gate.
+ */
 const ALLOWED_PROP_KEYS = new Set([
   'tool', 'route', 'action', 'metric', 'rating', 'value', 'bucket',
-  'kind', 'where', 'count', 'ok', 'step',
+  'kind', 'where', 'count', 'ok', 'step', 'plan', 'period',
 ]);
 
 export type AnalyticsProps = Record<string, string | number | boolean>;
