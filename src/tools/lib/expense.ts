@@ -318,10 +318,48 @@ export interface SectionSummary {
   budget: number;
   spent: number;
 }
+/**
+ * Spend split across the three budget sections.
+ *
+ * `unassigned` catches spend whose category no longer resolves to a section — a
+ * deleted or legacy key `migrateCategory` cannot land anywhere. It exists so the
+ * four figures always sum to the point's `spent`: a stacked bar that silently
+ * rendered less than the total it is labelled with would be the kind of quiet
+ * disagreement this codebase keeps eliminating.
+ */
+export interface SectionSplit {
+  needs: number;
+  wants: number;
+  save: number;
+  unassigned: number;
+}
+
+/**
+ * Split a set of transactions across the budget sections.
+ *
+ * Resolves each category exactly the way `computeDashboard` does — via
+ * `migrateCategory` against the live key set — so a month's split can never
+ * disagree with the Needs/Wants/Savings figures shown beside it. Pure.
+ */
+export function splitBySection(
+  items: ExpenseItem[],
+  validKeys: ReadonlySet<string>,
+  meta: ReadonlyMap<string, { section: CatKey }>,
+): SectionSplit {
+  const split: SectionSplit = { needs: 0, wants: 0, save: 0, unassigned: 0 };
+  for (const e of items) {
+    const section = meta.get(migrateCategory(e.category, validKeys))?.section;
+    split[section ?? 'unassigned'] += e.amount;
+  }
+  return split;
+}
+
 export interface TrendPoint {
   month: string;
   label: string;
   spent: number;
+  /** Same `spent`, broken into Needs / Wants / Savings for the stacked chart. */
+  split: SectionSplit;
 }
 export interface DashResult {
   isCurrentMonth: boolean;
@@ -468,8 +506,14 @@ export function computeDashboard(
   for (let i = 5; i >= 0; i--) {
     const d = new Date(sy, sm - 1 - i, 1);
     const mk = ymLocal(d);
-    const spent = items.filter((e) => (e.date || '').slice(0, 7) === mk).reduce((s, e) => s + e.amount, 0);
-    trend.push({ month: mk, label: monthLabel(mk).split(' ')[0].slice(0, 3), spent });
+    const mItems = items.filter((e) => (e.date || '').slice(0, 7) === mk);
+    const spent = mItems.reduce((s, e) => s + e.amount, 0);
+    trend.push({
+      month: mk,
+      label: monthLabel(mk).split(' ')[0].slice(0, 3),
+      spent,
+      split: splitBySection(mItems, validKeys, meta),
+    });
   }
 
   return {

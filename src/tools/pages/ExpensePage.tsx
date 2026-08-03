@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
-import Chart from 'chart.js/auto';
+import Chart, { type Plugin } from 'chart.js/auto';
 import { useTheme } from '../../context/ThemeContext';
-import { getChartTheme } from '../lib/chartTheme';
+import {
+  getChartTheme, getSectionFills, SECTION_LABEL_INK, type SectionSeriesKey,
+} from '../lib/chartTheme';
 import { useCurrency } from '../CurrencyContext';
 import { PageHead, ToolFoot } from '../ui/common';
 import { Icon, type IconName } from '../ui/Icon';
@@ -15,6 +17,7 @@ import {
   loadExpenses, saveExpenses, etToday, etMonthsWithData, computeDashboard, genExpenseId,
   isSpendingCategory,
   type ExpenseItem, type DashResult, type DashCategory, type BudgetWarning,
+  type SectionSplit,
 } from '../lib/expense';
 import { allCategories, SECTION_LABEL, type SectionedCats, type CatKey, type BudgetStore } from '../lib/budget';
 import { loadCatView } from '../lib/budgetCats';
@@ -1261,12 +1264,137 @@ function CategoryRow({ c, cfmt }: { c: DashCategory; cfmt: (n: number) => string
 
 /* ── Charts ── */
 
+/* ══════════════════════════════════════════════════════════════════════════
+   Stacked trend charts
+
+   Both trend charts show the same thing at different ranges, so the segment
+   construction, the in-bar labels and the text alternative live here once
+   rather than twice.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** The shape both `TrendPoint` and `MonthlyTrend` already satisfy. */
+interface StackablePoint {
+  label: string;
+  spent: number;
+  split: SectionSplit;
+}
+
+/** Bottom-to-top segment order, matching the Needs · Wants · Savings card. */
+const SECTION_SERIES: readonly { key: SectionSeriesKey; label: string }[] = [
+  { key: 'needs', label: SECTION_LABEL.needs },
+  { key: 'wants', label: SECTION_LABEL.wants },
+  { key: 'save', label: SECTION_LABEL.save },
+  { key: 'unassigned', label: 'Unassigned' },
+];
+
+/**
+ * One dataset per section.
+ *
+ * `unassigned` is dropped unless it carries something — it is the rare case
+ * (spend on a category that was since deleted), and an always-present empty
+ * series would put a fourth entry in every legend for nothing.
+ */
+function buildSectionDatasets(points: StackablePoint[], radius: number, scope: Element | null) {
+  const fills = getSectionFills(scope);
+  return SECTION_SERIES.filter(
+    (s) => s.key !== 'unassigned' || points.some((p) => p.split.unassigned > 0),
+  ).map((s) => ({
+    label: s.label,
+    data: points.map((p) => p.split[s.key]),
+    backgroundColor: fills[s.key],
+    borderRadius: radius,
+    borderWidth: 0,
+    stack: 'spend',
+  }));
+}
+
+/** Minimum segment box, in px, that can hold a label without it spilling. */
+const LABEL_MIN_HEIGHT = 15;
+const LABEL_SIDE_PADDING = 4;
+
+/**
+ * Draws each segment's amount inside the segment.
+ *
+ * Chart.js has no built-in data labels, and `chartjs-plugin-datalabels` is a
+ * dependency for the one feature used here — this is the public plugin API
+ * instead.
+ *
+ * Takes the SHORT formatter: a bar is about 35px wide at six months in a card,
+ * where "₹22,125" cannot fit but "₹22K" can. The exact figure is a hover away
+ * in the tooltip and is always in the text alternative, so the in-bar label is
+ * there to make the split legible at a glance, not to be the record.
+ *
+ * Segments still too short or too narrow are skipped rather than allowed to
+ * spill across a boundary — on a phone a small Wants segment is routinely that
+ * thin, and an unreadable overlap is worse than a figure shown elsewhere.
+ */
+function segmentLabels(fmt: (n: number) => string): Plugin<'bar'> {
+  return {
+    id: 'fxSegmentLabels',
+    afterDatasetsDraw(chart) {
+      const { ctx } = chart;
+      ctx.save();
+      ctx.font = '600 10px ui-sans-serif, system-ui, sans-serif';
+      ctx.fillStyle = SECTION_LABEL_INK;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      chart.data.datasets.forEach((ds, di) => {
+        const meta = chart.getDatasetMeta(di);
+        if (meta.hidden) return;
+        meta.data.forEach((el, i) => {
+          const value = Number(ds.data[i]) || 0;
+          if (value <= 0) return;
+          const bar = el as unknown as { x: number; y: number; base: number; width: number };
+          const height = Math.abs(bar.base - bar.y);
+          if (height < LABEL_MIN_HEIGHT) return;
+          const text = fmt(value);
+          if (ctx.measureText(text).width + LABEL_SIDE_PADDING > bar.width) return;
+          ctx.fillText(text, bar.x, (bar.y + bar.base) / 2);
+        });
+      });
+      ctx.restore();
+    },
+  };
+}
+
+/**
+ * Text alternative for the stacked chart.
+ *
+ * A bare <canvas> is an empty element to a screen reader, and this chart is the
+ * only place the month-by-month split appears — without this the information
+ * does not exist for a non-visual user (WCAG 1.1.1). Built from the same points
+ * the canvas is given, so the two can never describe different numbers.
+ */
+function stackedTrendSummary(points: StackablePoint[], cfmt: (n: number) => string): string {
+  if (points.length === 0) return 'Spending trend chart. No spending recorded yet.';
+  const described = points.map((p) => {
+    if (p.spent <= 0) return `${p.label} nothing`;
+    const parts = SECTION_SERIES.filter((s) => p.split[s.key] > 0).map(
+      (s) => `${s.label} ${cfmt(p.split[s.key])}`,
+    );
+    return `${p.label} ${cfmt(p.spent)} total (${parts.join(', ')})`;
+  });
+  return `Stacked bar chart of spending by month, split into Needs, Wants and Savings: ${described.join('; ')}.`;
+}
+
+/** Tooltip callbacks shared by both charts: per-section value plus the total. */
+function stackedTooltipCallbacks(points: StackablePoint[], cfmt: (n: number) => string) {
+  return {
+    label: (c: { dataset: { label?: string }; raw: unknown }) =>
+      ` ${c.dataset.label}: ${cfmt(c.raw as number)}`,
+    footer: (items: { dataIndex: number }[]) => {
+      const p = points[items[0]?.dataIndex ?? 0];
+      return p ? `Total ${cfmt(p.spent)}` : '';
+    },
+  };
+}
+
 function TrendChart({ trend, cfmt, code }: { trend: DashResult['trend']; cfmt: (n: number) => string; code: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const chartRef = useRef<Chart | null>(null);
   const { theme } = useTheme();
+  const { cfmtSh } = useCurrency();
   const labels = useMemo(() => trend.map((t) => t.label), [trend]);
-  const data = useMemo(() => trend.map((t) => t.spent), [trend]);
 
   useEffect(() => {
     const el = ref.current;
@@ -1277,13 +1405,17 @@ function TrendChart({ trend, cfmt, code }: { trend: DashResult['trend']; cfmt: (
     const ct = getChartTheme(theme);
     chartRef.current = new Chart(el, {
       type: 'bar',
-      data: { labels, datasets: [{ label: 'Spent', data, backgroundColor: 'rgba(232,131,61,0.55)', borderColor: '#E8833D', borderWidth: 1, borderRadius: 6 }] },
+      data: { labels, datasets: buildSectionDatasets(trend, 4, el) },
+      plugins: [segmentLabels(cfmtSh)],
       options: {
         responsive: true, animation: { duration: 450 },
-        plugins: { legend: { display: false }, tooltip: { backgroundColor: ct.tooltipBg, borderColor: ct.tooltipBorder, borderWidth: 1, titleColor: ct.tooltipTitle, bodyColor: ct.tooltipBody, callbacks: { label: (c) => ' ' + cfmt(c.raw as number) } } },
+        plugins: {
+          legend: { display: true, position: 'top', align: 'end', labels: { usePointStyle: true, pointStyle: 'rect', padding: 12, boxWidth: 8, boxHeight: 8, font: { size: 11 }, color: ct.tick } },
+          tooltip: { backgroundColor: ct.tooltipBg, borderColor: ct.tooltipBorder, borderWidth: 1, titleColor: ct.tooltipTitle, bodyColor: ct.tooltipBody, footerColor: ct.tooltipTitle, callbacks: stackedTooltipCallbacks(trend, cfmt) },
+        },
         scales: {
-          x: { ticks: { color: ct.tick, font: { size: 10 } }, grid: { display: false } },
-          y: { ticks: { color: ct.tick, font: { size: 10 }, callback: (v) => cfmt(v as number) }, grid: { color: ct.grid } },
+          x: { stacked: true, ticks: { color: ct.tick, font: { size: 10 } }, grid: { display: false } },
+          y: { stacked: true, ticks: { color: ct.tick, font: { size: 10 }, callback: (v) => cfmt(v as number) }, grid: { color: ct.grid } },
         },
       },
     });
@@ -1295,20 +1427,14 @@ function TrendChart({ trend, cfmt, code }: { trend: DashResult['trend']; cfmt: (
     const ch = chartRef.current;
     if (!ch) return;
     ch.data.labels = labels;
-    ch.data.datasets[0].data = data;
+    ch.data.datasets = buildSectionDatasets(trend, 4, ref.current);
+    if (ch.options.plugins?.tooltip) {
+      ch.options.plugins.tooltip.callbacks = stackedTooltipCallbacks(trend, cfmt);
+    }
     ch.update();
-  }, [labels, data]);
+  }, [labels, trend, cfmt]);
 
-  // A bare <canvas> is an empty element to a screen reader: the chart is the
-  // only place this breakdown is shown, so without a text alternative the
-  // information simply does not exist for a non-visual user (WCAG 1.1.1).
-  // Built from the same `trend` array Chart.js is given, so the two can never
-  // describe different numbers.
-  const summary = useMemo(() => {
-    if (trend.length === 0) return 'Spending trend chart. No spending recorded yet.';
-    const points = trend.map((t) => `${t.label} ${cfmt(t.spent)}`).join(', ');
-    return `Bar chart of spending by period: ${points}.`;
-  }, [trend, cfmt]);
+  const summary = useMemo(() => stackedTrendSummary(trend, cfmt), [trend, cfmt]);
 
   return <canvas ref={ref} height={150} role="img" aria-label={summary} />;
 }
@@ -1316,12 +1442,32 @@ function TrendChart({ trend, cfmt, code }: { trend: DashResult['trend']; cfmt: (
 function Trend12Chart({ trend, cfmt, code, theme }: { trend: MonthlyTrend[]; cfmt: (n: number) => string; code: string; theme: string | undefined }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const chartRef = useRef<Chart | null>(null);
+  const { cfmtSh } = useCurrency();
   const labels = useMemo(() => trend.map((t) => t.label), [trend]);
-  const data = useMemo(() => trend.map((t) => t.spent), [trend]);
   const avgData = useMemo(() => {
     const avg = trend.length > 0 ? trend.reduce((s, t) => s + t.spent, 0) / trend.length : 0;
     return trend.map(() => avg);
   }, [trend]);
+
+  /**
+   * Stacked segments plus the average line. The line is built here rather than
+   * in `buildSectionDatasets` because it is this chart's own idea, and it must
+   * stay out of the `spend` stack or it would be added to the bar height.
+   *
+   * Its colour was `var(--gold)`, which canvas cannot resolve — the line has
+   * been painting as default black in both themes. It gets the literal token
+   * value now.
+   *
+   * A callback rather than a memo because the section fills are read off the
+   * live canvas, which does not exist yet on the first render.
+   */
+  const buildDatasets = useCallback((scope: Element | null) => [
+    ...buildSectionDatasets(trend, 3, scope).map((d) => ({ ...d, order: 2 })),
+    {
+      label: 'Average', data: avgData, type: 'line' as const, borderColor: '#E3B341',
+      borderWidth: 2, borderDash: [6, 3], pointRadius: 0, fill: false, order: 1,
+    },
+  ], [trend, avgData]);
 
   useEffect(() => {
     const el = ref.current;
@@ -1332,22 +1478,17 @@ function Trend12Chart({ trend, cfmt, code, theme }: { trend: MonthlyTrend[]; cfm
     const ct = getChartTheme(theme === 'light' ? 'light' : 'dark');
     chartRef.current = new Chart(el, {
       type: 'bar',
-      data: {
-        labels,
-        datasets: [
-          { label: 'Spent', data, backgroundColor: 'rgba(232,131,61,0.6)', borderColor: '#E8833D', borderWidth: 1, borderRadius: 5, order: 2 },
-          { label: 'Average', data: avgData, type: 'line', borderColor: 'var(--gold)', borderWidth: 2, borderDash: [6, 3], pointRadius: 0, fill: false, order: 1 },
-        ],
-      },
+      data: { labels, datasets: buildDatasets(el) },
+      plugins: [segmentLabels(cfmtSh)],
       options: {
         responsive: true, animation: { duration: 500 },
         plugins: {
-          legend: { display: true, position: 'top', align: 'end', labels: { usePointStyle: true, pointStyle: 'rect', padding: 12, font: { size: 11 }, color: ct.tick } },
-          tooltip: { backgroundColor: ct.tooltipBg, borderColor: ct.tooltipBorder, borderWidth: 1, titleColor: ct.tooltipTitle, bodyColor: ct.tooltipBody, callbacks: { label: (c) => ` ${c.dataset.label}: ${cfmt(c.raw as number)}` } },
+          legend: { display: true, position: 'top', align: 'end', labels: { usePointStyle: true, pointStyle: 'rect', padding: 12, boxWidth: 8, boxHeight: 8, font: { size: 11 }, color: ct.tick } },
+          tooltip: { backgroundColor: ct.tooltipBg, borderColor: ct.tooltipBorder, borderWidth: 1, titleColor: ct.tooltipTitle, bodyColor: ct.tooltipBody, footerColor: ct.tooltipTitle, callbacks: stackedTooltipCallbacks(trend, cfmt) },
         },
         scales: {
-          x: { ticks: { color: ct.tick, font: { size: 10 } }, grid: { display: false } },
-          y: { ticks: { color: ct.tick, font: { size: 10 }, callback: (v) => cfmt(v as number) }, grid: { color: ct.grid } },
+          x: { stacked: true, ticks: { color: ct.tick, font: { size: 10 } }, grid: { display: false } },
+          y: { stacked: true, ticks: { color: ct.tick, font: { size: 10 }, callback: (v) => cfmt(v as number) }, grid: { color: ct.grid } },
         },
       },
     });
@@ -1359,19 +1500,20 @@ function Trend12Chart({ trend, cfmt, code, theme }: { trend: MonthlyTrend[]; cfm
     const ch = chartRef.current;
     if (!ch) return;
     ch.data.labels = labels;
-    ch.data.datasets[0].data = data;
-    ch.data.datasets[1].data = avgData;
+    ch.data.datasets = buildDatasets(ref.current);
+    if (ch.options.plugins?.tooltip) {
+      ch.options.plugins.tooltip.callbacks = stackedTooltipCallbacks(trend, cfmt);
+    }
     ch.update();
-  }, [labels, data, avgData]);
+  }, [labels, buildDatasets, trend, cfmt]);
 
   // Text alternative for the same reason as TrendChart above. The average line
   // is called out explicitly because it is a second dataset a sighted user can
   // read straight off the chart.
   const summary = useMemo(() => {
     if (trend.length === 0) return 'Monthly spending chart. No spending recorded yet.';
-    const points = trend.map((t) => `${t.label} ${cfmt(t.spent)}`).join(', ');
-    return `Bar chart of spending across ${trend.length} months, with an average of `
-      + `${cfmt(avgData[0] ?? 0)}: ${points}.`;
+    return `Across ${trend.length} months, average ${cfmt(avgData[0] ?? 0)}. `
+      + stackedTrendSummary(trend, cfmt);
   }, [trend, avgData, cfmt]);
 
   return <canvas ref={ref} height={180} role="img" aria-label={summary} />;

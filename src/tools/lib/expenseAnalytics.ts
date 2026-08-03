@@ -8,8 +8,8 @@
  *
  * Every function is pure and unit-testable.
  */
-import type { ExpenseItem } from './expense';
-import { ymdLocal, migrateCategory } from './expense';
+import type { ExpenseItem, SectionSplit } from './expense';
+import { ymdLocal, migrateCategory, splitBySection } from './expense';
 import type { CatKey } from './budget';
 import type { IconName } from '../ui/Icon';
 import { monthLabel } from './month';
@@ -47,6 +47,8 @@ export interface MonthlyTrend {
   dailyAvg: number;
   topCategory: string | null;
   topCategorySpent: number;
+  /** Same `spent`, broken into Needs / Wants / Savings for the stacked chart. */
+  split: SectionSplit;
 }
 
 export interface CategoryComparison {
@@ -152,6 +154,9 @@ export function computeMonthlyTrend(
 ): MonthlyTrend[] {
   const [ey, em] = endMonth.split('-').map(Number);
   const trend: MonthlyTrend[] = [];
+  // Hoisted: `catKeyOf` rebuilds this set per call, which inside a 12-month
+  // loop over every transaction is the same allocation many times over.
+  const validKeys = new Set(catMeta.keys());
 
   for (let i = months - 1; i >= 0; i--) {
     const d = new Date(ey, em - 1 - i, 1);
@@ -178,6 +183,7 @@ export function computeMonthlyTrend(
       dailyAvg: daysInMonth > 0 ? spent / daysInMonth : 0,
       topCategory: topCat ? (catMeta.get(topCat[0])?.l ?? topCat[0]) : null,
       topCategorySpent: topCat ? topCat[1] : 0,
+      split: splitBySection(monthItems, validKeys, catMeta),
     });
   }
   return trend;
