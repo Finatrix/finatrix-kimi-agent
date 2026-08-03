@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import Chart, { type Plugin } from 'chart.js/auto';
 import { useTheme } from '../../context/ThemeContext';
 import {
-  getChartTheme, getSectionFills, SECTION_LABEL_INK, type SectionSeriesKey,
+  getChartTheme, getSectionFills, type SectionSeriesKey,
 } from '../lib/chartTheme';
 import { useCurrency } from '../CurrencyContext';
 import { PageHead, ToolFoot } from '../ui/common';
@@ -1288,22 +1288,62 @@ const SECTION_SERIES: readonly { key: SectionSeriesKey; label: string }[] = [
 ];
 
 /**
+ * Opacity of a segment's fill. The bar this replaced was a translucent wash
+ * under a full-strength 1px outline, which is what let the card's own glow show
+ * through and gave it the glass look — the section colours inherit exactly that
+ * treatment rather than flattening into three opaque blocks.
+ */
+const SEGMENT_FILL_ALPHA = 0.55;
+
+/**
+ * `#rrggbb` → `#rrggbbaa`. Canvas understands 8-digit hex, so this needs no
+ * colour parsing. Anything not a plain 6-digit hex (a token that resolved to
+ * `rgb()`, say) is handed back untouched and simply stays opaque.
+ */
+function withAlpha(color: string, alpha: number): string {
+  if (!/^#[0-9a-f]{6}$/i.test(color)) return color;
+  return color + Math.round(alpha * 255).toString(16).padStart(2, '0');
+}
+
+/**
  * One dataset per section.
  *
  * `unassigned` is dropped unless it carries something — it is the rare case
  * (spend on a category that was since deleted), and an always-present empty
  * series would put a fourth entry in every legend for nothing.
+ *
+ * Corners are rounded on the outside of the stack only: the topmost and
+ * bottommost segments that actually carry a value for that month. Rounding
+ * every segment would put a notch at each internal boundary and break the
+ * single-bar silhouette; skipping it entirely would square off a bar that was
+ * round before.
  */
 function buildSectionDatasets(points: StackablePoint[], radius: number, scope: Element | null) {
   const fills = getSectionFills(scope);
-  return SECTION_SERIES.filter(
+  const series = SECTION_SERIES.filter(
     (s) => s.key !== 'unassigned' || points.some((p) => p.split.unassigned > 0),
-  ).map((s) => ({
+  );
+  /** Indices into `series` of the lowest and highest non-empty segment. */
+  const ends = points.map((p) => {
+    const filled = series.map((s, i) => (p.split[s.key] > 0 ? i : -1)).filter((i) => i >= 0);
+    return { first: filled[0] ?? -1, last: filled[filled.length - 1] ?? -1 };
+  });
+
+  return series.map((s, seriesIndex) => ({
     label: s.label,
     data: points.map((p) => p.split[s.key]),
-    backgroundColor: fills[s.key],
-    borderRadius: radius,
-    borderWidth: 0,
+    backgroundColor: withAlpha(fills[s.key], SEGMENT_FILL_ALPHA),
+    borderColor: fills[s.key],
+    borderWidth: 1,
+    // Draw all four sides, so each section reads as its own pane of glass
+    // instead of the bottom edge being dropped as Chart.js does by default.
+    borderSkipped: false as const,
+    borderRadius: (ctx: { dataIndex: number }) => {
+      const end = ends[ctx.dataIndex];
+      const top = end?.last === seriesIndex ? radius : 0;
+      const bottom = end?.first === seriesIndex ? radius : 0;
+      return { topLeft: top, topRight: top, bottomLeft: bottom, bottomRight: bottom };
+    },
     stack: 'spend',
   }));
 }
@@ -1328,14 +1368,14 @@ const LABEL_SIDE_PADDING = 4;
  * spill across a boundary — on a phone a small Wants segment is routinely that
  * thin, and an unreadable overlap is worse than a figure shown elsewhere.
  */
-function segmentLabels(fmt: (n: number) => string): Plugin<'bar'> {
+function segmentLabels(fmt: (n: number) => string, ink: string): Plugin<'bar'> {
   return {
     id: 'fxSegmentLabels',
     afterDatasetsDraw(chart) {
       const { ctx } = chart;
       ctx.save();
       ctx.font = '600 10px ui-sans-serif, system-ui, sans-serif';
-      ctx.fillStyle = SECTION_LABEL_INK;
+      ctx.fillStyle = ink;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       chart.data.datasets.forEach((ds, di) => {
@@ -1405,8 +1445,8 @@ function TrendChart({ trend, cfmt, code }: { trend: DashResult['trend']; cfmt: (
     const ct = getChartTheme(theme);
     chartRef.current = new Chart(el, {
       type: 'bar',
-      data: { labels, datasets: buildSectionDatasets(trend, 4, el) },
-      plugins: [segmentLabels(cfmtSh)],
+      data: { labels, datasets: buildSectionDatasets(trend, 6, el) },
+      plugins: [segmentLabels(cfmtSh, ct.onSection)],
       options: {
         responsive: true, animation: { duration: 450 },
         plugins: {
@@ -1427,7 +1467,7 @@ function TrendChart({ trend, cfmt, code }: { trend: DashResult['trend']; cfmt: (
     const ch = chartRef.current;
     if (!ch) return;
     ch.data.labels = labels;
-    ch.data.datasets = buildSectionDatasets(trend, 4, ref.current);
+    ch.data.datasets = buildSectionDatasets(trend, 6, ref.current);
     if (ch.options.plugins?.tooltip) {
       ch.options.plugins.tooltip.callbacks = stackedTooltipCallbacks(trend, cfmt);
     }
@@ -1462,7 +1502,7 @@ function Trend12Chart({ trend, cfmt, code, theme }: { trend: MonthlyTrend[]; cfm
    * live canvas, which does not exist yet on the first render.
    */
   const buildDatasets = useCallback((scope: Element | null) => [
-    ...buildSectionDatasets(trend, 3, scope).map((d) => ({ ...d, order: 2 })),
+    ...buildSectionDatasets(trend, 5, scope).map((d) => ({ ...d, order: 2 })),
     {
       label: 'Average', data: avgData, type: 'line' as const, borderColor: '#E3B341',
       borderWidth: 2, borderDash: [6, 3], pointRadius: 0, fill: false, order: 1,
@@ -1479,7 +1519,7 @@ function Trend12Chart({ trend, cfmt, code, theme }: { trend: MonthlyTrend[]; cfm
     chartRef.current = new Chart(el, {
       type: 'bar',
       data: { labels, datasets: buildDatasets(el) },
-      plugins: [segmentLabels(cfmtSh)],
+      plugins: [segmentLabels(cfmtSh, ct.onSection)],
       options: {
         responsive: true, animation: { duration: 500 },
         plugins: {

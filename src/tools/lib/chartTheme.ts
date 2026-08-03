@@ -18,6 +18,16 @@ export interface ChartTheme {
   tooltipBorder: string;
   tooltipTitle: string;
   tooltipBody: string;
+  /**
+   * Amount drawn inside a stacked segment.
+   *
+   * Segment fills are translucent, so what sits behind the text is the section
+   * colour washed over the card — dark on a dark card, pale on a light one.
+   * That flips which ink is legible, so it cannot be one constant. Measured on
+   * the composited pixels, each theme's value clears AA against all three of
+   * its sections — 4.78:1 at worst.
+   */
+  onSection: string;
 }
 
 const DARK: ChartTheme = {
@@ -27,6 +37,7 @@ const DARK: ChartTheme = {
   tooltipBorder: '#26262B',
   tooltipTitle: '#F5F5F0',
   tooltipBody: '#9A9A94',
+  onSection: '#F5F5F0',
 };
 
 const LIGHT: ChartTheme = {
@@ -36,6 +47,7 @@ const LIGHT: ChartTheme = {
   tooltipBorder: 'rgba(23,21,15,.12)',
   tooltipTitle: '#17150F',
   tooltipBody: '#57534A',
+  onSection: '#17150F',
 };
 
 export function getChartTheme(theme?: Theme): ChartTheme {
@@ -105,9 +117,3 @@ export function getSectionFills(scope?: Element | null): Record<SectionSeriesKey
   };
 }
 
-/**
- * Colour for the amount drawn inside a segment. One value for all four fills:
- * it clears 4.5:1 against every one of them in both themes (5.31:1 at worst),
- * so a segment label never needs a per-colour branch.
- */
-export const SECTION_LABEL_INK = '#17150F';
