@@ -499,6 +499,18 @@
 .fx-tools .bar-sm { --bar-h: 6px; }
 .fx-tools .bar-fill { height: 100%; border-radius: 8px; transition: width 800ms cubic-bezier(.4,0,.2,1); }
 .fx-tools .hr { height: 1px; background: var(--hair2); margin: 18px 0; }
+
+/* Trend charts (Expense overview + 12-month analytics).
+   Chart.js sizes a responsive canvas by aspect ratio, which is fine on a wide
+   card and wrong on a phone: at ~310px the default 2:1 leaves a ~90px plot, in
+   which a month's Needs slice can be under 20px — too short to round, to label,
+   or to read, and the stack degrades into a row of chips. Desktop keeps exactly
+   the 2:1 it already had; narrow screens trade it for a real height instead.
+   Chart.js needs `maintainAspectRatio:false` to honour this box. */
+.fx-tools .fx-trend-canvas { position: relative; aspect-ratio: 2; }
+@media (max-width: 640px) {
+  .fx-tools .fx-trend-canvas { aspect-ratio: auto; height: 280px; }
+}
 /* NOTE: no `.fx-tools .hidden` override here. This stylesheet loads after the
    Tailwind utility layer, so an !important display:none would defeat every
    responsive `hidden md:*` reveal inside the shells (it silently removed the

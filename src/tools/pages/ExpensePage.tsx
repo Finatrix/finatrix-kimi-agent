@@ -1306,6 +1306,23 @@ function withAlpha(color: string, alpha: number): string {
 }
 
 /**
+ * A corner can only be as round as its segment is tall.
+ *
+ * Chart.js clamps `borderRadius` to half the bar, which quietly turns a short
+ * segment into a pill — and a stack of pills reads as loose chips rather than
+ * one bar. That is what the card looked like on a phone, where the plot is
+ * ~90px tall and a month's Needs slice can be under 20px. Capping at a third of
+ * the segment keeps it a bar at every size, and leaves the desktop bars (100px+
+ * tall) at the full radius they already had.
+ */
+function cappedRadius(base: number, chart: Chart, value: number): number {
+  const y = chart.scales?.y;
+  if (!y || value <= 0) return 0;
+  const height = Math.abs(y.getPixelForValue(0) - y.getPixelForValue(value));
+  return Math.max(0, Math.min(base, Math.floor(height / 3)));
+}
+
+/**
  * One dataset per section.
  *
  * `unassigned` is dropped unless it carries something — it is the rare case
@@ -1338,19 +1355,31 @@ function buildSectionDatasets(points: StackablePoint[], radius: number, scope: E
     // Draw all four sides, so each section reads as its own pane of glass
     // instead of the bottom edge being dropped as Chart.js does by default.
     borderSkipped: false as const,
-    borderRadius: (ctx: { dataIndex: number }) => {
+    // Chart.js leaves 28% of each slot empty by default. Reclaiming most of it
+    // is what lets a figure fit inside a bar on a phone, where six months of a
+    // ~250px plot otherwise gives each bar about 33px to work with.
+    categoryPercentage: 0.9,
+    barPercentage: 0.94,
+    borderRadius: (ctx: { dataIndex: number; chart: Chart }) => {
       const end = ends[ctx.dataIndex];
-      const top = end?.last === seriesIndex ? radius : 0;
-      const bottom = end?.first === seriesIndex ? radius : 0;
+      const r = cappedRadius(radius, ctx.chart, points[ctx.dataIndex]?.split[s.key] ?? 0);
+      const top = end?.last === seriesIndex ? r : 0;
+      const bottom = end?.first === seriesIndex ? r : 0;
       return { topLeft: top, topRight: top, bottomLeft: bottom, bottomRight: bottom };
     },
     stack: 'spend',
   }));
 }
 
-/** Minimum segment box, in px, that can hold a label without it spilling. */
-const LABEL_MIN_HEIGHT = 15;
-const LABEL_SIDE_PADDING = 4;
+/**
+ * Minimum segment box, in px, that can hold a label without it spilling.
+ *
+ * The text is 10px, but the box also carries a 1px border and a rounded corner
+ * that eats into the ends, so a 15px segment fits the glyphs and still reads as
+ * crowded. 20 is the point where the figure sits inside its own colour.
+ */
+const LABEL_MIN_HEIGHT = 20;
+const LABEL_SIDE_PADDING = 6;
 
 /**
  * Draws each segment's amount inside the segment.
@@ -1448,14 +1477,14 @@ function TrendChart({ trend, cfmt, code }: { trend: DashResult['trend']; cfmt: (
       data: { labels, datasets: buildSectionDatasets(trend, 6, el) },
       plugins: [segmentLabels(cfmtSh, ct.onSection)],
       options: {
-        responsive: true, animation: { duration: 450 },
+        responsive: true, maintainAspectRatio: false, animation: { duration: 450 },
         plugins: {
           legend: { display: true, position: 'top', align: 'end', labels: { usePointStyle: true, pointStyle: 'rect', padding: 12, boxWidth: 8, boxHeight: 8, font: { size: 11 }, color: ct.tick } },
           tooltip: { backgroundColor: ct.tooltipBg, borderColor: ct.tooltipBorder, borderWidth: 1, titleColor: ct.tooltipTitle, bodyColor: ct.tooltipBody, footerColor: ct.tooltipTitle, callbacks: stackedTooltipCallbacks(trend, cfmt) },
         },
         scales: {
           x: { stacked: true, ticks: { color: ct.tick, font: { size: 10 } }, grid: { display: false } },
-          y: { stacked: true, ticks: { color: ct.tick, font: { size: 10 }, callback: (v) => cfmt(v as number) }, grid: { color: ct.grid } },
+          y: { stacked: true, ticks: { color: ct.tick, font: { size: 10 }, maxTicksLimit: 6, callback: (v) => cfmtSh(v as number) }, grid: { color: ct.grid } },
         },
       },
     });
@@ -1476,7 +1505,11 @@ function TrendChart({ trend, cfmt, code }: { trend: DashResult['trend']; cfmt: (
 
   const summary = useMemo(() => stackedTrendSummary(trend, cfmt), [trend, cfmt]);
 
-  return <canvas ref={ref} height={150} role="img" aria-label={summary} />;
+  return (
+    <div className="fx-trend-canvas">
+      <canvas ref={ref} role="img" aria-label={summary} />
+    </div>
+  );
 }
 
 function Trend12Chart({ trend, cfmt, code, theme }: { trend: MonthlyTrend[]; cfmt: (n: number) => string; code: string; theme: string | undefined }) {
@@ -1521,14 +1554,14 @@ function Trend12Chart({ trend, cfmt, code, theme }: { trend: MonthlyTrend[]; cfm
       data: { labels, datasets: buildDatasets(el) },
       plugins: [segmentLabels(cfmtSh, ct.onSection)],
       options: {
-        responsive: true, animation: { duration: 500 },
+        responsive: true, maintainAspectRatio: false, animation: { duration: 500 },
         plugins: {
           legend: { display: true, position: 'top', align: 'end', labels: { usePointStyle: true, pointStyle: 'rect', padding: 12, boxWidth: 8, boxHeight: 8, font: { size: 11 }, color: ct.tick } },
           tooltip: { backgroundColor: ct.tooltipBg, borderColor: ct.tooltipBorder, borderWidth: 1, titleColor: ct.tooltipTitle, bodyColor: ct.tooltipBody, footerColor: ct.tooltipTitle, callbacks: stackedTooltipCallbacks(trend, cfmt) },
         },
         scales: {
           x: { stacked: true, ticks: { color: ct.tick, font: { size: 10 } }, grid: { display: false } },
-          y: { stacked: true, ticks: { color: ct.tick, font: { size: 10 }, callback: (v) => cfmt(v as number) }, grid: { color: ct.grid } },
+          y: { stacked: true, ticks: { color: ct.tick, font: { size: 10 }, maxTicksLimit: 6, callback: (v) => cfmtSh(v as number) }, grid: { color: ct.grid } },
         },
       },
     });
@@ -1556,7 +1589,11 @@ function Trend12Chart({ trend, cfmt, code, theme }: { trend: MonthlyTrend[]; cfm
       + stackedTrendSummary(trend, cfmt);
   }, [trend, avgData, cfmt]);
 
-  return <canvas ref={ref} height={180} role="img" aria-label={summary} />;
+  return (
+    <div className="fx-trend-canvas">
+      <canvas ref={ref} role="img" aria-label={summary} />
+    </div>
+  );
 }
 
 /* ── Daily heatmap ── */
