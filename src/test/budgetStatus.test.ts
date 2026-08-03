@@ -34,8 +34,43 @@ describe('budgetTone thresholds', () => {
   });
 
   it('turns red only once spending passes the budget', () => {
-    expect(budgetTone(1000, 1000.01)).toBe('over');
+    expect(budgetTone(1000, 1001)).toBe('over');
     expect(budgetTone(1000, 4000)).toBe('over');
+  });
+
+  /**
+   * Every amount is displayed rounded to whole units, so the tone is decided on
+   * those same figures. Before this, a section limit of `income × pct ÷ 100`
+   * — fractional almost always — could not be matched: typing the limit the UI
+   * showed you read as `over` and reported "Over by 0", and `complete` needed
+   * an exact float nobody can type. See budgetStatus.ts for the full rationale.
+   */
+  describe('classifies at the precision it displays', () => {
+    it('treats the displayed limit as reachable', () => {
+      // 30% of 4,039.99 — displays as "1,212", so typing 1212 is "Fully used".
+      expect(budgetTone(1211.997, 1212)).toBe('complete');
+      expect(budgetTone(1211.9, 1212)).toBe('complete');
+      expect(budgetTone(1212, 1211.9)).toBe('complete');
+    });
+
+    it('never reports an overspend that rounds away to nothing', () => {
+      expect(budgetTone(1000, 1000.01)).not.toBe('over');
+      expect(budgetTone(1000, 1000.49)).toBe('complete');
+    });
+
+    it('still turns red on a real overspend', () => {
+      expect(budgetTone(1211.997, 1213)).toBe('over');
+      expect(budgetTone(1000, 1000.51)).toBe('over');
+    });
+
+    it('survives floating-point noise in an allocation sum', () => {
+      expect(budgetTone(1212, 0.1 + 0.2 + 1211.7)).toBe('complete');
+    });
+
+    it('handles a budget that rounds away to zero', () => {
+      expect(budgetTone(0.4, 0)).toBe('safe');
+      expect(budgetTone(0.4, 10)).toBe('over');
+    });
   });
 
   it('never uses black for any state', () => {
