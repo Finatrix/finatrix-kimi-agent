@@ -41,8 +41,15 @@ jobs:
       - name: Test
         run: npm test
 
+      # A compile check, not a deployable artifact — this job has no VITE_*
+      # secrets and its dist/ is thrown away. vite.config.ts fails a production
+      # build with missing client config (that bundle has reached finatrix.co
+      # twice), so this build states outright that it is not one to deploy.
+      # The deploy workflow does NOT opt out: there the guard must bite.
       - name: Build
         run: npm run build
+        env:
+          FX_ALLOW_UNCONFIGURED_BUILD: '1'
 
       # Fails only on critical advisories in production dependencies.
       # Advisories assessed and accepted below the "critical" bar — re-review
@@ -77,5 +84,10 @@ jobs:
 
       # Builds a production bundle and drives it in real Chromium (desktop +
       # mobile) — the Expense Tracker add/persist/edit/delete/undo lifecycle.
+      # playwright.config.ts builds the bundle it serves. These specs drive the
+      # on-device (guest) paths and need no backend, so the same opt-out as the
+      # Build step above applies.
       - name: E2E (Playwright)
         run: npm run test:e2e
+        env:
+          FX_ALLOW_UNCONFIGURED_BUILD: '1'

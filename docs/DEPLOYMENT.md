@@ -157,12 +157,21 @@ hold the same key, which is a quick way to spot a provider accidentally reusing 
 
 ## 3. Frontend environment variables (`.env`, build-time)
 
-| Var | Purpose |
-|---|---|
-| `VITE_SUPABASE_URL` | Supabase project URL (also drives the boot-time preconnect hint) |
-| `VITE_SUPABASE_ANON_KEY` | Supabase anon key (public by design; RLS is the boundary) |
+| Var | Purpose | Absent from the build ⇒ |
+|---|---|---|
+| `VITE_SUPABASE_URL` | Supabase project URL (also drives the boot-time preconnect hint) | sign-in and cloud sync dead site-wide |
+| `VITE_SUPABASE_ANON_KEY` | Supabase anon key (public by design; RLS is the boundary) | sign-in and cloud sync dead site-wide |
+| `VITE_ANALYTICS_URL` | `analytics-collect` ingest endpoint | no events, error reports or web vitals, ever |
 
-The app degrades gracefully (finance tools work locally, careers gated) when these are absent.
+These are **inlined by Vite at build time**, so they must exist in the environment that runs `vite build` — a local `.env` or the deploy workflow's secrets. Runtime secrets in Supabase or Cloudflare have no effect on them.
+
+Absent, the build still succeeds and the affected feature is simply compiled out, with nothing broken-looking to show for it. Both failure modes above have reached production. Three gates now cover it:
+
+1. `vite.config.ts` aborts a production build when any of the three is missing or still a placeholder. Builds that are deliberately backend-less (CI's compile check, Playwright e2e, forks) opt out with `FX_ALLOW_UNCONFIGURED_BUILD=1`.
+2. `.github/workflows/deploy.yml` checks the same three before building.
+3. `npm run verify:production` re-downloads the **live** bundle and fails if it shipped the placeholder client — the backstop for a manual `wrangler deploy`, which is how every production deploy has actually happened.
+
+The app still degrades gracefully by design when a build opts out (finance tools work on-device, careers gated) — that path is for forks, not for finatrix.co.
 
 ---
 
