@@ -69,6 +69,15 @@ describe('SYSTEM_PROMPT', () => {
     expect(SYSTEM_PROMPT).toMatch(/"mode": "data"/);
     expect(SYSTEM_PROMPT).toMatch(/ONLY in "data" mode/);
   });
+
+  it('knows who founded FinatriX, and knows that is all it knows', () => {
+    // Two bare names are exactly what a model pads into an invented bio, so
+    // the bound travels with the fact rather than being left implied.
+    expect(SYSTEM_PROMPT).toMatch(/founded by Hrishik KS and Jeevan Prasath C/);
+    expect(SYSTEM_PROMPT).toMatch(/Never invent or infer a role, title, background/);
+    // And the off-topic rule must not swallow the question before it is asked.
+    expect(SYSTEM_PROMPT).toMatch(/Questions about FinatriX itself are NOT out of scope/);
+  });
 });
 
 const snapshot = { currency: 'INR', totalSpent: 670, gaps: [] } as unknown as FinanceSnapshot;
