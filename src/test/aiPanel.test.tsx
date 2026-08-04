@@ -114,6 +114,14 @@ describe('AiPanel', () => {
     expect(screen.getByRole('button', { name: /Create a monthly review/ })).toBeInTheDocument();
   });
 
+  it('shows that questions need not be about the user’s own data', () => {
+    // The chips are the only place the general-knowledge half of the assistant
+    // is visible before somebody guesses it exists, so at least one has to be a
+    // question the DATA block could never answer.
+    renderPanel();
+    expect(screen.getByRole('button', { name: 'How does compounding work?' })).toBeInTheDocument();
+  });
+
   it('answers a question and shows the model’s reply', async () => {
     reply({ answer: '## Result\nYou spent **670**.', followUps: ['And last month?'] });
     renderPanel();
@@ -363,6 +371,18 @@ describe('AiPanel — how much the answer stands on', () => {
     renderPanel();
     await ask('How much did I spend?');
     await waitFor(() => expect(screen.getByText(/Could not reach FinatriX AI/)).toBeInTheDocument());
+    expect(screen.queryByText(/confidence/i)).not.toBeInTheDocument();
+  });
+
+  it('puts no badge on an answer that did not read the user’s data', async () => {
+    // The badge rates their records. This account is empty, so an unscoped
+    // badge would stamp "Low confidence — no transactions logged" onto a
+    // correct textbook explanation that never depended on their records.
+    reply({ mode: 'general', answer: 'Compounding is interest earned on interest.' });
+    renderPanel();
+    await ask('How does compounding work?');
+    await waitFor(() =>
+      expect(screen.getByText(/interest earned on interest/)).toBeInTheDocument());
     expect(screen.queryByText(/confidence/i)).not.toBeInTheDocument();
   });
 });

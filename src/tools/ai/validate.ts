@@ -32,9 +32,21 @@ export interface AiChart {
   points: AiChartPoint[];
 }
 
+/**
+ * Which of the assistant's two jobs this answer was.
+ *
+ * `data` reads the user's own records; `general` explains how money works. The
+ * distinction is not cosmetic — the confidence badge describes how many months
+ * of *their* transactions an answer rests on, and hanging "Low confidence — no
+ * transactions logged yet" under a correct explanation of compound interest
+ * would discredit an answer that never depended on their data at all.
+ */
+export type AiAnswerMode = 'data' | 'general';
+
 export interface AiAnswer {
   /** Markdown, sanitized. Never empty — a blank reply is reported as a failure. */
   answer: string;
+  mode: AiAnswerMode;
   followUps: string[];
   chart: AiChart | null;
 }
@@ -59,10 +71,20 @@ export function parseAiAnswer(content: string): AiAnswer | null {
   const answer = sanitizeProse(raw, MAX_ANSWER_CHARS);
   if (!answer) return null;
 
+  // Anything that is not explicitly "general" is treated as an answer about the
+  // user's own money. That is the safe default in both directions: a reply that
+  // dropped the JSON contract keeps its confidence badge rather than silently
+  // losing it, and a model cannot suppress the badge by omitting the field.
+  const mode: AiAnswerMode = dict.mode === 'general' ? 'general' : 'data';
+
   return {
     answer,
+    mode,
     followUps: parseFollowUps(dict.followUps),
-    chart: parseChart(dict.chart),
+    // Enforced here, not merely asked for: a chart drawn from hypothetical
+    // figures is indistinguishable on screen from one drawn from the user's,
+    // and the axis carries their currency either way.
+    chart: mode === 'general' ? null : parseChart(dict.chart),
   };
 }
 

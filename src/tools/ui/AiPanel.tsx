@@ -211,7 +211,9 @@ export default function AiPanel({ id, onClose, focus = null, openedAt = 0 }: AiP
           // Stored with the turn, not recomputed on render: it describes the
           // evidence as it stood when the answer was given, and a transaction
           // logged afterwards must not silently upgrade an old answer's badge.
-          confidence: result.confidence,
+          // Omitted rather than stored null when the answer did not read their
+          // data, so a stored turn has one way of saying "no badge here".
+          ...(result.confidence ? { confidence: result.confidence } : {}),
           ...(subject ? { focusTitle: subject.title } : {}),
         }
       : {
@@ -357,7 +359,7 @@ export default function AiPanel({ id, onClose, focus = null, openedAt = 0 }: AiP
             ref={inputRef}
             rows={1}
             maxLength={MAX_QUESTION_CHARS}
-            placeholder={signedOut ? 'Sign in to ask about your money' : 'Ask about your budget or spending…'}
+            placeholder={signedOut ? 'Sign in to ask about your money' : 'Ask about your money, or how money works…'}
             value={draft}
             disabled={signedOut}
             onChange={(e) => setDraft(e.target.value)}
@@ -375,9 +377,11 @@ export default function AiPanel({ id, onClose, focus = null, openedAt = 0 }: AiP
           </button>
         </form>
 
+        {/* A privacy statement, not a scope statement — the assistant answers
+            general money questions too, so this says whose records it can read
+            rather than what it is allowed to talk about. */}
         <p className="fx-ai-foot">
-          Educational only, not financial advice. FinatriX AI reads the data in your own account and
-          nothing else.
+          Educational only, not financial advice. The only account data FinatriX AI reads is your own.
         </p>
       </div>
     </div>
@@ -418,9 +422,14 @@ function EmptyState({ signedOut, configured, subject, onPick, onReview }: {
   return (
     <div className="fx-ai-empty">
       <p className="fx-ai-lead">{subject ? 'What would you like to know?' : 'Ask anything about your money.'}</p>
+      {/* Both halves of the feature, in the order they matter. The grounding
+          promise comes first because it is what makes the figures trustworthy;
+          the second sentence exists because otherwise nobody discovers they can
+          ask how an index fund works, and simply never asks. */}
       <p className="note">
         Every figure comes from what you have logged — if something is not in your data,
-        FinatriX AI will say so rather than guess.
+        FinatriX AI will say so rather than guess. It can also explain how money works,
+        from compounding to tax regimes.
       </p>
       {!subject && (
         <button type="button" className="fx-ai-review" onClick={onReview}>

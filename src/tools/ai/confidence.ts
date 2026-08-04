@@ -87,14 +87,24 @@ export function assessConfidence(snapshot: FinanceSnapshot): Confidence {
  * The badge tells the user how solid the ground is; this tells the assistant to
  * write as if it knows. Without it, a model with eleven months of history
  * hedges exactly as much as one with two, and the badge and the prose disagree.
+ *
+ * Scoped to "data" answers, and explicitly so. An empty account produces the
+ * strongest hedging language in this file, and left unscoped it would leak into
+ * a "general" answer — turning "how does compounding work" into a paragraph
+ * about how little the user has logged, which is both irrelevant and untrue of
+ * an answer that never touched their records.
  */
 export function confidenceInstruction(c: Confidence): string {
+  return `EVIDENCE (applies to "data" answers only — it rates the user's records, not your general knowledge) — ${basisInstruction(c)}`;
+}
+
+function basisInstruction(c: Confidence): string {
   switch (c.level) {
     case 'low':
-      return `EVIDENCE — ${c.basis} Say plainly what is missing, and label anything forward-looking as an estimate. Do not present a trend, a comparison or a forecast as established fact.`;
+      return `${c.basis} Say plainly what is missing, and label anything forward-looking as an estimate. Do not present a trend, a comparison or a forecast as established fact.`;
     case 'medium':
-      return `EVIDENCE — ${c.basis} That supports comparison between months, but not seasonal claims. Label forecasts as estimates.`;
+      return `${c.basis} That supports comparison between months, but not seasonal claims. Label forecasts as estimates.`;
     case 'high':
-      return `EVIDENCE — ${c.basis} That is enough to describe trends and compare months directly. Still label anything forward-looking as an estimate.`;
+      return `${c.basis} That is enough to describe trends and compare months directly. Still label anything forward-looking as an estimate.`;
   }
 }

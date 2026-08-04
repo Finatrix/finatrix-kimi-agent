@@ -32,8 +32,13 @@ export interface AskSuccess extends AiAnswer {
    * How much data the answer stands on. Measured from the snapshot before the
    * model was called — never something the model was asked to rate about
    * itself. See `confidence.ts`.
+   *
+   * Null for a `general` answer. The badge rates the user's *records*, and an
+   * explanation of how compounding works did not stand on them — badging it
+   * "Low confidence" because the account is new would be a false statement
+   * about a correct answer.
    */
-  confidence: Confidence;
+  confidence: Confidence | null;
 }
 
 export interface AskFailure {
@@ -118,7 +123,12 @@ export async function ask(opts: AskOptions): Promise<AskResult> {
     };
   }
 
-  return { ok: true, model: result.model, confidence, ...parsed };
+  return {
+    ok: true,
+    model: result.model,
+    ...parsed,
+    confidence: parsed.mode === 'general' ? null : confidence,
+  };
 }
 
 /** Generate the fixed monthly review brief for the month in the snapshot. */
