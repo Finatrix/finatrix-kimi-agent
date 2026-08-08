@@ -53,12 +53,12 @@ describe('ExpensePage (React) — dashboard wiring', () => {
     fireEvent.click(screen.getByText('Add expense'));
 
     const alert = screen.getByRole('alert');
-    expect(alert).toHaveTextContent(/amount greater than 0/i);
+    expect(alert).toHaveTextContent(/enter an amount/i);
 
     // The field is marked invalid, points at the message, and takes focus back.
     const amount = screen.getByLabelText(/^Amount/);
     expect(amount).toHaveAttribute('aria-invalid', 'true');
-    expect(amount).toHaveAccessibleDescription(/amount greater than 0/i);
+    expect(amount).toHaveAccessibleDescription(/enter an amount/i);
     expect(amount).toHaveFocus();
 
     // …and nothing was written.
@@ -80,16 +80,50 @@ describe('ExpensePage (React) — dashboard wiring', () => {
     expect(within(txList).getAllByText('₹250').length).toBeGreaterThan(0);
   });
 
-  it('rejects a zero or negative amount for the same reason', () => {
+  it('rejects a zero amount — it says nothing and still occupies the ledger', () => {
     renderPage();
     fireEvent.change(screen.getByLabelText(/^Amount/), { target: { value: '0' } });
     fireEvent.click(screen.getByText('Add expense'));
-    expect(screen.getByRole('alert')).toHaveTextContent(/amount greater than 0/i);
-
-    fireEvent.change(screen.getByLabelText(/^Amount/), { target: { value: '-5' } });
-    fireEvent.click(screen.getByText('Add expense'));
-    expect(screen.getByRole('alert')).toHaveTextContent(/amount greater than 0/i);
+    expect(screen.getByRole('alert')).toHaveTextContent(/enter an amount/i);
     expect(localStorage.getItem('fx_expenses')).toBeNull();
+  });
+
+  /**
+   * Negative amounts are a deliberate capability, not an oversight: a refund,
+   * reimbursement or cashback credit belongs to the category it reverses, so
+   * netting it there is what keeps that category's total honest. This used to
+   * be clamped to zero and rejected.
+   */
+  it('accepts a negative amount so a refund can be logged against its category', () => {
+    renderPage();
+    fireEvent.change(screen.getByLabelText(/^Amount/), { target: { value: '-500' } });
+    fireEvent.click(screen.getByText('Add expense'));
+
+    expect(screen.queryByRole('alert')).toBeNull();
+    const saved = JSON.parse(localStorage.getItem('fx_expenses') ?? '[]');
+    expect(saved).toHaveLength(1);
+    expect(saved[0].amount).toBe(-500);
+  });
+
+  it('nets a refund against an earlier spend in the same category', () => {
+    renderPage();
+    const amount = screen.getByLabelText(/^Amount/);
+    // The submit button relabels to "Added ✓" for a moment after each save, so
+    // it is addressed by role rather than by its current text.
+    const submit = () => fireEvent.click(screen.getByRole('button', { name: /add expense|added/i }));
+
+    fireEvent.change(amount, { target: { value: '1200' } });
+    submit();
+    fireEvent.change(amount, { target: { value: '-200' } });
+    submit();
+
+    const saved = JSON.parse(localStorage.getItem('fx_expenses') ?? '[]');
+    expect(saved.map((e: { amount: number }) => e.amount).sort((a: number, b: number) => a - b))
+      .toEqual([-200, 1200]);
+    // Rendered with a real minus sign (U+2212), the same treatment every other
+    // negative figure in the tools gets.
+    const txList = screen.getByText('Transactions').closest('.card') as HTMLElement;
+    expect(within(txList).getAllByText('−₹200').length).toBeGreaterThan(0);
   });
 
   it("reflects a Budget Builder allocation as this category's budget", () => {
@@ -267,7 +301,7 @@ describe('ExpensePage (React) — dashboard wiring', () => {
 
     // Modal stays open, the error is announced, nothing was written.
     expect(screen.getByRole('dialog')).toBeInTheDocument();
-    expect(within(dialog).getByRole('alert')).toHaveTextContent('Enter an amount greater than 0.');
+    expect(within(dialog).getByRole('alert')).toHaveTextContent('Enter an amount. Use a minus sign for a refund.');
     expect(within(dialog).getByLabelText(/^Amount \(₹\)$/)).toHaveAttribute('aria-invalid', 'true');
     expect(localStorage.getItem('fx_expenses')).toBeNull();
   });

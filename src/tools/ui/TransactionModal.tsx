@@ -7,7 +7,7 @@ import { SECTION_COLOR } from '../lib/sectionColors';
 import {
   PAYMENT_METHODS, etToday, genExpenseId, type ExpenseItem,
 } from '../lib/expense';
-import { evaluateFormula, formulaAmount } from '../lib/formula';
+import { evaluateFormula, formulaSignedAmount } from '../lib/formula';
 import { AmountInput } from './AmountInput';
 import { useAskAi } from './AiAssistant';
 
@@ -119,9 +119,12 @@ export default function TransactionModal({
     // cast; a malformed formula reports its own reason instead of collapsing
     // into the generic "greater than 0" message.
     const parsed = evaluateFormula(d.amount);
-    if (!d.amount.trim()) e.amount = 'Enter an amount greater than 0.';
+    // Negative amounts are allowed and meaningful — that is how a refund is
+    // recorded against the category it reverses. Only zero is rejected, because
+    // a zero-value transaction says nothing and still occupies the ledger.
+    if (!d.amount.trim()) e.amount = 'Enter an amount. Use a minus sign for a refund.';
     else if (!parsed.ok) e.amount = parsed.error;
-    else if (parsed.value <= 0) e.amount = 'Enter an amount greater than 0.';
+    else if (parsed.value === 0) e.amount = 'Enter an amount other than 0.';
     if (!d.category) e.category = 'Choose a category.';
     if (!d.date) e.date = 'Pick a date.';
     return e;
@@ -141,7 +144,7 @@ export default function TransactionModal({
     const editCount = editing ? (editing.editCount ?? 0) + 1 : 0;
     return {
       id: editing ? editing.id : genExpenseId(),
-      amount: formulaAmount(draft.amount),
+      amount: formulaSignedAmount(draft.amount),
       category: draft.category,
       date: draft.date,
       ...(draft.note.trim() ? { note: draft.note.trim() } : {}),

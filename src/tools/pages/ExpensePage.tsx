@@ -184,7 +184,10 @@ export default function ExpensePage() {
     // A rejected formula names its own reason ("Check the brackets…") instead of
     // silently becoming 0 and reporting "enter an amount greater than 0".
     const parsed = evaluateFormula(amount);
-    const amt = parsed.ok ? Math.max(0, parsed.value) : 0;
+    // Sign is preserved: a negative amount records a refund against the
+    // category it reverses, so that category's total nets out correctly. Zero
+    // is still rejected — it says nothing and still occupies the ledger.
+    const amt = parsed.ok ? parsed.value : 0;
     if (!selKey) {
       setAddError('Add a category in Budget Builder before logging a spend.');
       return;
@@ -195,7 +198,7 @@ export default function ExpensePage() {
       return;
     }
     if (!amt) {
-      setAddError('Enter an amount greater than 0.');
+      setAddError('Enter an amount. Use a minus sign for a refund.');
       amountRef.current?.focus();
       return;
     }

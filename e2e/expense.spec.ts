@@ -60,7 +60,7 @@ test('validates an empty amount inline without saving', async ({ page }) => {
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('button', { name: 'Add transaction' }).click();
   await expect(dialog).toBeVisible(); // stays open
-  await expect(dialog.getByRole('alert')).toContainText(/amount greater than 0/i);
+  await expect(dialog.getByRole('alert')).toContainText(/enter an amount/i);
   const stored = await page.evaluate(() => localStorage.getItem('fx_expenses'));
   expect(stored).toBeNull();
 });
@@ -75,7 +75,7 @@ test('inline add form refuses an empty amount out loud', async ({ page }) => {
   const card = page.locator('.card', { hasText: 'Add an expense' });
   await card.getByRole('button', { name: 'Add expense' }).click();
 
-  await expect(card.getByRole('alert')).toContainText(/amount greater than 0/i);
+  await expect(card.getByRole('alert')).toContainText(/enter an amount/i);
   const amount = card.getByLabel(/^Amount/);
   await expect(amount).toHaveAttribute('aria-invalid', 'true');
   await expect(amount).toBeFocused();
@@ -88,6 +88,46 @@ test('inline add form refuses an empty amount out loud', async ({ page }) => {
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('fx_expenses') || '[]'));
   expect(stored).toHaveLength(1);
   expect(stored[0].amount).toBeCloseTo(320);
+});
+
+/**
+ * Refunds. A negative amount belongs to the category it reverses, so the
+ * category total nets rather than double-counting the original spend. Proven in
+ * a real browser because the number has to survive `saveExpenses` →
+ * localStorage → `normalizeExpense` on reload, and a clamp anywhere along that
+ * path would silently turn the refund into a second charge.
+ */
+test('accepts a negative amount as a refund and nets it against the spend', async ({ page }) => {
+  await gotoFresh(page);
+  const card = page.locator('.card', { hasText: 'Add an expense' });
+  const amount = card.getByLabel(/^Amount/);
+  const submit = card.getByRole('button', { name: /add expense|added/i });
+
+  await amount.fill('1200');
+  await submit.click();
+  await amount.fill('-200');
+  await submit.click();
+
+  await expect(card.getByRole('alert')).toHaveCount(0);
+
+  // Survives a hard reload with its sign intact.
+  await page.reload();
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('fx_expenses') || '[]'));
+  expect(stored.map((e: { amount: number }) => e.amount).sort((a: number, b: number) => a - b))
+    .toEqual([-200, 1200]);
+
+  // Rendered with a true minus sign, and the month totals the net figure.
+  await expect(page.locator('.card', { hasText: 'Transactions' }).getByText('−₹200').first()).toBeVisible();
+  await expect(page.getByText('₹1,000').first()).toBeVisible();
+});
+
+test('still refuses a zero amount', async ({ page }) => {
+  await gotoFresh(page);
+  const card = page.locator('.card', { hasText: 'Add an expense' });
+  await card.getByLabel(/^Amount/).fill('0');
+  await card.getByRole('button', { name: 'Add expense' }).click();
+  await expect(card.getByRole('alert')).toContainText(/enter an amount/i);
+  expect(await page.evaluate(() => localStorage.getItem('fx_expenses'))).toBeNull();
 });
 
 test('closed mobile drawer is not reachable by keyboard', async ({ page }) => {

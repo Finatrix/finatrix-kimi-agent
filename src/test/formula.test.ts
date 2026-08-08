@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  evaluateFormula, formulaAmount, isFormula, roundAmount,
+  evaluateFormula, formulaAmount, formulaSignedAmount, isFormula, roundAmount,
 } from '../tools/lib/formula';
 
 /**
@@ -132,6 +132,23 @@ describe('formulaAmount', () => {
   });
 
   it('clamps negatives to zero, matching Math.max(0, …) elsewhere', () => {
+    // Still the right behaviour for its remaining callers: budget figures. A
+    // negative allocation is a typo, not a refund. Ledger entries that CAN be
+    // negative use formulaSignedAmount instead.
     expect(formulaAmount('5-10')).toBe(0);
+  });
+});
+
+describe('formulaSignedAmount', () => {
+  it('preserves a negative value so refunds can be recorded', () => {
+    expect(formulaSignedAmount('-500')).toBe(-500);
+    expect(formulaSignedAmount('5-10')).toBe(-5);
+    expect(formulaSignedAmount('-1200/4')).toBe(-300);
+  });
+
+  it('behaves like formulaAmount for everything non-negative', () => {
+    for (const input of ['120/4', '42', 'nonsense', '', '0']) {
+      expect(formulaSignedAmount(input), input).toBe(formulaAmount(input));
+    }
   });
 });

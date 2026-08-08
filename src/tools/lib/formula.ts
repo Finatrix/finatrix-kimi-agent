@@ -217,8 +217,29 @@ export function evaluateFormula(input: string): FormulaResult {
 /**
  * Convenience for callers that only need "a number or nothing" — the same
  * `Math.max(0, Number(x) || 0)` shape the tools already use, but formula-aware.
+ *
+ * Keeps clamping at zero, because its remaining callers are budget figures: a
+ * negative budget, target or allocation is not a refund, it is a typo. Expense
+ * amounts, which CAN legitimately be negative, use `formulaSignedAmount`.
  */
 export function formulaAmount(input: string): number {
   const r = evaluateFormula(input);
   return r.ok ? Math.max(0, r.value) : 0;
+}
+
+/**
+ * As `formulaAmount`, but preserves sign.
+ *
+ * A negative expense is how a refund, a reimbursement, a cashback credit or a
+ * corrected double-entry is recorded: it belongs to the category it reverses,
+ * so netting it there is what makes the category total tell the truth. Booking
+ * it as income instead would leave the original spend overstating that category
+ * forever.
+ *
+ * Split from `formulaAmount` rather than adding a flag so the two intents can
+ * never be confused at a call site — budgets clamp, ledger entries sign.
+ */
+export function formulaSignedAmount(input: string): number {
+  const r = evaluateFormula(input);
+  return r.ok ? r.value : 0;
 }
