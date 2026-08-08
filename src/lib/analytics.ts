@@ -78,7 +78,11 @@ export type AnalyticsEvent =
   | 'ai_message_sent'
   | 'report_exported'
   | 'resume_uploaded'
-  | 'job_search_completed';
+  | 'job_search_completed'
+  // Match Queue — one event per verdict. `action` carries which verdict, so
+  // decline:apply ratio (is the matching any good?) and reviews-per-session
+  // (is the queue worth opening?) both fall out of a single event.
+  | 'match_queue_decided';
 
 /**
  * Prop keys that may be sent. Anything else is dropped before it leaves the tab.

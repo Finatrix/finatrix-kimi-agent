@@ -54,3 +54,20 @@ export function scoreLabel(score: number | null | undefined): string {
   if (score >= 40) return 'Needs work';
   return 'Poor';
 }
+
+/**
+ * Resume-match score → fit vocabulary, for job cards.
+ *
+ * Deliberately shares `scoreColor`'s thresholds (80/60/40) rather than
+ * `matchBand`'s (70/40), so the word and the colour on a card can never
+ * disagree — a 75% match reading "Strong fit" in gold, not "Excellent" in
+ * gold. `scoreLabel` above grades a resume's own quality ("Needs work"),
+ * which is the wrong register for how well a *job* suits a person.
+ */
+export function fitLabel(score: number | null | undefined): string {
+  if (score == null) return 'Not scored';
+  if (score >= 80) return 'Excellent fit';
+  if (score >= 60) return 'Strong fit';
+  if (score >= 40) return 'Moderate fit';
+  return 'Weak fit';
+}

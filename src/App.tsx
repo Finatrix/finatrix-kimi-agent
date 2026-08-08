@@ -18,6 +18,7 @@ const CareersDashboard = lazy(() => import('./careers/pages/CareersDashboard'))
 const CareersUpload = lazy(() => import('./careers/pages/CareersUpload'))
 const ResumeLibrary = lazy(() => import('./careers/pages/ResumeLibrary'))
 const JobsPage = lazy(() => import('./careers/pages/JobsPage'))
+const MatchQueuePage = lazy(() => import('./careers/pages/MatchQueuePage'))
 const ApplicationsPage = lazy(() => import('./careers/pages/ApplicationsPage'))
 const CompaniesPage = lazy(() => import('./careers/pages/CompaniesPage'))
 const CompanyIntelPage = lazy(() => import('./careers/pages/CompanyIntelPage'))
@@ -182,6 +183,7 @@ export default function App() {
             <Route path="upload" element={<CareersUpload />} />
             <Route path="resumes" element={<ResumeLibrary />} />
             <Route path="jobs" element={<JobsPage />} />
+            <Route path="queue" element={<MatchQueuePage />} />
             <Route path="applications" element={<ApplicationsPage />} />
             <Route path="tasks" element={<TasksPage />} />
             <Route path="companies" element={<CompaniesPage />} />

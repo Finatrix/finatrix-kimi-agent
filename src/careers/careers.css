@@ -180,6 +180,42 @@
 .ci-table th { color: var(--ink2); font-weight: 600; }
 .ci-table tbody tr:last-child td { border-bottom: none; }
 
+/* Match Queue — review progress. Scoped under .fx-tools like everything else
+   here so the lazily-loaded careers chunk can never restyle another surface. */
+.fx-tools .q-progress {
+  flex: 1 1 160px;
+  min-width: 120px;
+  height: 6px;
+  border-radius: 980px;
+  background: var(--hair2);
+  overflow: hidden;
+}
+.fx-tools .q-progress-fill {
+  height: 100%;
+  border-radius: 980px;
+  background: var(--gold);
+  transition: width 260ms var(--ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx-tools .q-progress-fill { transition: none; }
+}
+
+/* Keyboard hints on the queue card. */
+.fx-tools kbd {
+  display: inline-block;
+  min-width: 18px;
+  padding: 1px 5px;
+  border: 1px solid var(--hair2);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--hair);
+  color: var(--ink2);
+  font: inherit;
+  font-size: 11.5px;
+  line-height: 1.5;
+  text-align: center;
+}
+
 /* Careers Pro paywall — subtle lift on the pricing cards, CSS-only (no JS
    mutation) so it also respects prefers-reduced-motion. */
 .fx-tools .fx-pro-card { transition: transform 160ms var(--ease-out), box-shadow 160ms var(--ease-out); }

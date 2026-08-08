@@ -16,6 +16,8 @@ export const CAREERS_ROUTES = {
   upload: '/careers/upload',
   resumes: '/careers/resumes',
   jobs: '/careers/jobs',
+  /** Match Queue — one scored role at a time (reached from Job Search). */
+  queue: '/careers/queue',
   applications: '/careers/applications',
   companies: '/careers/companies',
   // Phase 4.1 — Company Intelligence search + profiles.
@@ -61,6 +63,9 @@ export const CAREERS_NAV = [
 export const CAREERS_HIDDEN_SECTIONS = [
   { id: 'upload', name: 'Upload', href: CAREERS_ROUTES.upload },
   { id: 'profile', name: 'Career Profile', href: CAREERS_ROUTES.profile },
+  // Kept out of the 7-item tab bar per the focus decision above; entered from
+  // Job Search and the dashboard rather than by URL.
+  { id: 'queue', name: 'Match Queue', href: CAREERS_ROUTES.queue },
   { id: 'tasks', name: 'Tasks', href: CAREERS_ROUTES.tasks },
   { id: 'companies', name: 'Companies', href: CAREERS_ROUTES.companies },
   { id: 'intelligence', name: 'Company Intelligence', href: CAREERS_ROUTES.intelligence },
