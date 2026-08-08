@@ -723,11 +723,14 @@ function OverviewTab({
           <div className="fg">
             <label className="fl" htmlFor="et-amount">Amount ({sym})</label>
             {/* Accepts arithmetic as well as a number — "120/4" is a valid way
-                to say 30. See ui/AmountInput.tsx. */}
+                to say 30, and "=10+5+3" is the spreadsheet form of the same
+                thing. The placeholder is what makes that discoverable.
+                See ui/AmountInput.tsx. */}
             <AmountInput
               id="et-amount"
               inputRef={amountRef}
               sym={sym}
+              placeholder="0  or  =10+5+3"
               required
               invalid={!!addError}
               errorId={addError ? 'et-add-err' : undefined}

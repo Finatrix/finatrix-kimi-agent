@@ -121,6 +121,54 @@ describe('isFormula', () => {
     expect(isFormula('-42')).toBe(false); // a signed number is not "a formula"
     expect(isFormula('')).toBe(false);
   });
+
+  it('treats a leading = as an explicit formula, even before a bare number', () => {
+    expect(isFormula('=10+5')).toBe(true);
+    expect(isFormula('=250')).toBe(true); // the prefix itself is the signal
+  });
+});
+
+/**
+ * Spreadsheet muscle memory. `=10+5+3+2` is how anyone who has used Excel
+ * starts a calculation, and the key gets pressed before any thought about
+ * whether this field is a spreadsheet. It used to be a dead end: `=` is not in
+ * the character set, so the whole entry was rejected as invalid.
+ */
+describe('spreadsheet-style = prefix', () => {
+  it('evaluates the form people actually type', () => {
+    expect(evaluateFormula('=10+5+3+2')).toMatchObject({ ok: true, value: 20 });
+    expect(evaluateFormula('=1200/4')).toMatchObject({ ok: true, value: 300 });
+    expect(evaluateFormula('=(100-25)/5')).toMatchObject({ ok: true, value: 15 });
+  });
+
+  it('accepts a bare number and a negative behind the prefix', () => {
+    expect(evaluateFormula('=250')).toMatchObject({ ok: true, value: 250 });
+    expect(evaluateFormula('=-500')).toMatchObject({ ok: true, value: -500 });
+  });
+
+  it('tolerates whitespace around the prefix', () => {
+    expect(evaluateFormula('  = 10 + 5  ')).toMatchObject({ ok: true, value: 15 });
+  });
+
+  it('reads a lone = as unfinished, not as a bad character', () => {
+    const r = evaluateFormula('=');
+    expect(r.ok).toBe(false);
+    expect(r.ok === false && r.error).toBe('This formula is incomplete.');
+  });
+
+  it('strips only the leading =, so an = used as an operator still fails', () => {
+    // Widening the character set instead would have let this reach the
+    // tokenizer and fail with a confusing message.
+    const r = evaluateFormula('1=2');
+    expect(r.ok).toBe(false);
+    expect(r.ok === false && r.error).toBe('Use only numbers and + − × ÷ ( ).');
+    expect(evaluateFormula('==10').ok).toBe(false);
+  });
+
+  it('flows through the amount helpers both tools use', () => {
+    expect(formulaAmount('=10+5+3+2')).toBe(20);
+    expect(formulaSignedAmount('=0-300')).toBe(-300);
+  });
 });
 
 describe('formulaAmount', () => {

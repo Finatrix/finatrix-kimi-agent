@@ -121,6 +121,34 @@ test('accepts a negative amount as a refund and nets it against the spend', asyn
   await expect(page.getByText('₹1,000').first()).toBeVisible();
 });
 
+/**
+ * Spreadsheet muscle memory — `=10+5+3+2`. The arithmetic itself already
+ * worked; the leading `=` used to be rejected outright as a bad character,
+ * which is the one thing an Excel user is most likely to type first.
+ */
+test('adds up a spreadsheet-style formula and previews the total', async ({ page }) => {
+  await gotoFresh(page);
+  const card = page.locator('.card', { hasText: 'Add an expense' });
+  const amount = card.getByLabel(/^Amount/);
+
+  await amount.fill('=10+5+3+2');
+  await expect(card.getByText('= ₹20')).toBeVisible(); // live preview before saving
+  await card.getByRole('button', { name: /add expense|added/i }).click();
+
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('fx_expenses') || '[]'));
+  expect(stored).toHaveLength(1);
+  expect(stored[0].amount).toBe(20);
+});
+
+test('rejects = used as an operator with the honest character message', async ({ page }) => {
+  await gotoFresh(page);
+  const card = page.locator('.card', { hasText: 'Add an expense' });
+  await card.getByLabel(/^Amount/).fill('1=2');
+  await card.getByRole('button', { name: 'Add expense' }).click();
+  await expect(card.getByRole('alert')).toContainText('Use only numbers');
+  expect(await page.evaluate(() => localStorage.getItem('fx_expenses'))).toBeNull();
+});
+
 test('still refuses a zero amount', async ({ page }) => {
   await gotoFresh(page);
   const card = page.locator('.card', { hasText: 'Add an expense' });

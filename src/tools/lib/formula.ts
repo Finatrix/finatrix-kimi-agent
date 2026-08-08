@@ -173,24 +173,47 @@ export function roundAmount(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
+/**
+ * Strip the spreadsheet-style `=` that introduces a formula.
+ *
+ * `=10+5+3+2` is how anyone who has used Excel starts a calculation, and the
+ * habit is strong enough that the leading key is pressed before any thought
+ * about whether this field is a spreadsheet. Accepting it costs nothing and
+ * removes a dead end.
+ *
+ * Deliberately stripped rather than added to `ALLOWED`: `=` is only meaningful
+ * as a prefix, never as an operator. Widening the charset would let `1=2` reach
+ * the tokenizer and fail with a confusing message instead of the honest
+ * "Use only numbers and + − × ÷ ( )."
+ */
+function stripFormulaPrefix(body: string): string {
+  return body.startsWith('=') ? body.slice(1).trim() : body;
+}
+
 /** True when the input contains arithmetic rather than a plain number. */
 export function isFormula(input: string): boolean {
   const body = input.trim();
   if (!body) return false;
+  // An explicit `=` says "this is a formula" even when what follows is a bare
+  // number, so `=250` still previews and confirms the prefix was understood.
+  if (body.startsWith('=')) return true;
   // A leading sign on an otherwise bare number is not "a formula" to the user.
   return /[+\-*/×÷()]/.test(body.replace(/^[+-]/, ''));
 }
 
 /**
- * Evaluate an amount field. Returns the numeric value for both `42` and
- * `(100-25)/5`; returns a named error for anything the grammar rejects.
- * An empty string is an error (`This formula is incomplete.`) so callers can
- * treat "nothing typed" and "typed nonsense" with the same branch if they wish.
+ * Evaluate an amount field. Returns the numeric value for `42`, `(100-25)/5`
+ * and the spreadsheet form `=10+5+3+2` alike; returns a named error for
+ * anything the grammar rejects. An empty string is an error (`This formula is
+ * incomplete.`) so callers can treat "nothing typed" and "typed nonsense" with
+ * the same branch if they wish.
  */
 export function evaluateFormula(input: string): FormulaResult {
   const src = String(input ?? '');
   if (src.length > MAX_LENGTH) return { ok: false, error: ERR.tooLong };
-  const body = src.trim();
+  // `=` first, so a lone "=" reads as an unfinished formula rather than a
+  // character-set violation.
+  const body = stripFormulaPrefix(src.trim());
   if (!body) return { ok: false, error: ERR.incomplete };
   if (!ALLOWED.test(body)) return { ok: false, error: ERR.chars };
 

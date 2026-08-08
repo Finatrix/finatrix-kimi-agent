@@ -315,11 +315,15 @@ export default function TransactionModal({
             <div className="fg" style={{ marginBottom: 10 }}>
               <label className="fl" htmlFor="tx-amount">Amount ({sym})</label>
               {/* Accepts arithmetic as well as a number, with a live preview of
-                  what will be saved. See ui/AmountInput.tsx. */}
+                  what will be saved. The placeholder is the only place this is
+                  advertised — the capability existed for months behind a bare
+                  "0" and nothing on screen ever hinted at it.
+                  See ui/AmountInput.tsx. */}
               <AmountInput
                 id="tx-amount"
                 inputRef={amountRef}
                 sym={sym}
+                placeholder="0  or  =10+5+3"
                 value={draft.amount}
                 onChange={(v) => set('amount', v)}
                 invalid={!!err('amount')}
