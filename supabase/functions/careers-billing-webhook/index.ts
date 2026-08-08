@@ -3,7 +3,9 @@
 // Stripe calls this directly — no user session, no browser Origin, no CORS.
 // Trust comes entirely from verifying the `Stripe-Signature` header against
 // STRIPE_WEBHOOK_SECRET (Stripe's documented v1 HMAC-SHA256 scheme), computed
-// with Web Crypto rather than pulling in the Stripe SDK for one check.
+// with Web Crypto rather than pulling in the Stripe SDK for one check. That
+// verification — the whole trust boundary — lives in `./signature.ts` so it can
+// be tested without standing up the function; see `signature.test.ts`.
 //
 // Deploy:  supabase functions deploy careers-billing-webhook --no-verify-jwt
 // Secret:  supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_...
@@ -12,41 +14,10 @@
 // async_payment_failed, and copy the signing secret it gives you back here.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-
-const TOLERANCE_SECONDS = 300; // reject signatures older than 5 minutes (replay protection)
+import { verifyStripeSignature, periodEnd } from './signature.ts';
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
-}
-
-function toHex(buf: ArrayBuffer): string {
-  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
-}
-
-async function verifyStripeSignature(rawBody: string, header: string | null, secret: string): Promise<boolean> {
-  if (!header) return false;
-  const parts = Object.fromEntries(header.split(',').map((kv) => {
-    const [k, v] = kv.split('=');
-    return [k, v];
-  }));
-  const t = parts.t;
-  const v1 = parts.v1;
-  if (!t || !v1) return false;
-  if (Math.abs(Date.now() / 1000 - Number(t)) > TOLERANCE_SECONDS) return false;
-
-  const key = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${t}.${rawBody}`));
-  return toHex(sig) === v1;
-}
-
-/** monthly → +1 calendar month, yearly → +1 calendar year, from `now`. */
-function periodEnd(period: string, from: Date): string {
-  const d = new Date(from);
-  if (period === 'yearly') d.setUTCFullYear(d.getUTCFullYear() + 1);
-  else d.setUTCMonth(d.getUTCMonth() + 1);
-  return d.toISOString();
 }
 
 /**

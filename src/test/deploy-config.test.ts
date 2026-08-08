@@ -311,3 +311,60 @@ describe('observability wiring', () => {
     expect(fn).not.toContain('ip:');
   });
 });
+
+/**
+ * Every edge function must be both DEPLOYED and DRIFT-CHECKED by CI.
+ *
+ * The outage this prevents: `careers-billing-checkout` and
+ * `careers-billing-webhook` existed in the repo for weeks while appearing in
+ * neither `deploy.yml` nor the drift verifier's FUNCTIONS list. The two
+ * functions that take money and grant access were hand-deployed, so production
+ * could sit on an arbitrarily old build with a fully green pipeline — the exact
+ * failure the deploy job's own error message warns about ("will drift from
+ * main"). Adding a function without adding it to both lists now fails here
+ * rather than in a customer's bank statement.
+ */
+describe('edge function deploy coverage', () => {
+  /** Every deployable function directory — `_shared` is a library, not a function. */
+  const functionSlugs = readdirSync(join(root, 'supabase/functions'))
+    .filter((name) => !name.startsWith('_') && !name.startsWith('.'))
+    .filter((name) => statSync(join(root, 'supabase/functions', name)).isDirectory())
+    .sort();
+
+  const workflow = read('.github/workflows/deploy.yml');
+  const verifier = read('scripts/verify-deployment.mjs');
+
+  it('finds the function directories it is meant to be guarding', () => {
+    // Guards the guard: a bad glob returning [] would make every test below
+    // vacuously pass.
+    expect(functionSlugs.length).toBeGreaterThanOrEqual(6);
+    expect(functionSlugs).toContain('careers-billing-webhook');
+    expect(functionSlugs).toContain('careers-billing-checkout');
+  });
+
+  it.each(functionSlugs)('%s is deployed by the deploy workflow', (slug) => {
+    expect(workflow).toMatch(new RegExp(`functions deploy[^\\n]*\\b${slug}\\b`));
+  });
+
+  it.each(functionSlugs)('%s is drift-checked by verify:deploy', (slug) => {
+    expect(verifier).toMatch(new RegExp(`'${slug}'`));
+  });
+
+  /**
+   * Both of these are called by something that cannot present a Supabase JWT —
+   * `sendBeacon` has no way to set an Authorization header, and Stripe calls
+   * server-to-server. With the gateway check on, every request is rejected 401
+   * before the function runs: analytics goes 100% dark, and paid customers are
+   * never provisioned.
+   */
+  it.each(['analytics-collect', 'careers-billing-webhook'])(
+    '%s is deployed with --no-verify-jwt',
+    (slug) => {
+      expect(workflow).toMatch(new RegExp(`functions deploy ${slug} --no-verify-jwt`));
+    },
+  );
+
+  it('careers-billing-checkout keeps the JWT gate — it derives the buyer from the caller', () => {
+    expect(workflow).not.toMatch(/functions deploy careers-billing-checkout --no-verify-jwt/);
+  });
+});

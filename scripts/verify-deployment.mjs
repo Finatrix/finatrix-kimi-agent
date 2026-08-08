@@ -50,8 +50,24 @@ const REQUIRED_RELATIONS = [
   'analytics_events',
 ];
 
-/** Edge functions whose deployed source must match the repo. */
-const FUNCTIONS = ['careers-jobs', 'careers-ai'];
+/**
+ * Edge functions whose deployed source must match the repo.
+ *
+ * Every function the deploy workflow ships belongs here. The list used to name
+ * only the two careers functions, which meant the two BILLING functions — the
+ * ones that take money and grant access — could drift from `main` indefinitely
+ * with a green pipeline, and `analytics-collect` could silently fall behind the
+ * client's event allowlist (it answers 204 whether it accepts an event or drops
+ * it, so a stale allowlist looks exactly like a healthy one from the browser).
+ */
+const FUNCTIONS = [
+  'careers-jobs',
+  'careers-ai',
+  'careers-email',
+  'careers-billing-checkout',
+  'careers-billing-webhook',
+  'analytics-collect',
+];
 
 const results = [];
 const record = (name, ok, detail) => results.push({ name, ok, detail });

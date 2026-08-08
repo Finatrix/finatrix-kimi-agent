@@ -109,8 +109,23 @@ jobs:
       - run: npm ci --no-audit --no-fund
       # The provider suite is the only automated check these functions have.
       - run: npx tsc -b && npx vitest run supabase/functions
+      # careers-billing-checkout belongs here, not in the no-JWT step below: it
+      # reads the caller's identity from their Authorization header to decide
+      # who the subscription is for.
       - name: Deploy authenticated edge functions
-        run: npx supabase functions deploy careers-jobs careers-ai careers-email --project-ref "$SUPABASE_PROJECT_REF"
+        run: npx supabase functions deploy careers-jobs careers-ai careers-email careers-billing-checkout --project-ref "$SUPABASE_PROJECT_REF"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      # careers-billing-webhook MUST be --no-verify-jwt for the same structural
+      # reason as analytics-collect: Stripe calls it server-to-server and cannot
+      # present a Supabase JWT, so with the gateway check on, every payment
+      # event is rejected 401 before the function runs — the customer is charged
+      # and never provisioned. It is not unauthenticated: trust comes from the
+      # Stripe-Signature HMAC (supabase/functions/careers-billing-webhook/
+      # signature.ts), which is unit-tested including the secret-rotation case.
+      - name: Deploy Stripe webhook (no JWT gate — see comment)
+        run: npx supabase functions deploy careers-billing-webhook --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF"
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
