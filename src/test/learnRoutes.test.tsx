@@ -166,6 +166,19 @@ describe('knowledge-layer routes', () => {
     });
   }
 
+  /**
+   * Timeout raised well above vitest's 5s default on purpose. This renders
+   * every content URL in one test — 99 lazy routes today — so its cost grows
+   * with the knowledge layer, and it had been sitting just under the default:
+   * ~0.9s on a dev machine, 5013ms on a CI runner, i.e. red in CI and green
+   * locally for anyone who never looked at the pipeline.
+   *
+   * Raised rather than narrowed. Checking a sample of paths would run fast and
+   * prove less: the whole value here is that NO content URL disagrees with its
+   * own JSON-LD, and a breadcrumb regression tends to hit one topic, not all
+   * of them. The ceiling is generous so adding articles doesn't re-break it,
+   * while a genuine hang still fails instead of running forever.
+   */
   it('shows a breadcrumb trail that matches the JSON-LD, on every content URL', async () => {
     for (const path of CONTENT_PATHS) {
       cleanup();
@@ -174,7 +187,7 @@ describe('knowledge-layer routes', () => {
       await screen.findByRole('heading', { level: 1 });
       expect(visibleTrail(), path).toEqual(markupTrail(path));
     }
-  });
+  }, 60_000);
 
   it('renders the real not-found page for an unregistered /learn URL', async () => {
     await renderAt('/learn/budgeting/not-an-article');
