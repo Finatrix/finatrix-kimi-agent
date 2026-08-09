@@ -11,6 +11,7 @@
  * active currency, totals and a summary; PDFs add the full report layout from
  * pdfReport.ts (masthead, stat cards, charts, ruled tables, page numbers).
  */
+import { csvBlob } from '../../lib/csv';
 import { cfmt } from './format';
 import { budgetTone, TONE_EXPORT_LABEL } from './budgetStatus';
 import {
@@ -67,19 +68,8 @@ function lastY(doc: unknown, fallback: number): number {
   return typeof y === 'number' ? y : fallback;
 }
 
-function csvCell(v: string | number): string {
-  return `"${String(v).replace(/"/g, '""')}"`;
-}
-function toCsv(rows: (string | number)[][]): string {
-  return rows.map((r) => r.map(csvCell).join(',')).join('\n');
-}
-/**
- * CSV as a UTF-8 blob with a BOM. Without the BOM Excel decodes the file as the
- * system codepage and every non-ASCII currency symbol (₹, €, ¥) arrives mangled.
- */
-function csvBlob(rows: (string | number)[][]): Blob {
-  return new Blob(['﻿' + toCsv(rows)], { type: 'text/csv;charset=utf-8' });
-}
+// CSV serialization — including the formula-injection guard — lives in
+// src/lib/csv.ts, shared with the Careers exporter so the two cannot drift.
 
 function slug(s: string): string {
   return s.replace(/\s+/g, '-').toLowerCase();

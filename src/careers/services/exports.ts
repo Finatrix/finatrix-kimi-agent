@@ -12,6 +12,7 @@ import type {
   CompanyRow,
   CoverLetterRow,
 } from '../types/jobs';
+import { csvBlob, toCsv } from '../../lib/csv';
 import { STAGE_LABELS } from '../types/jobs';
 import type { ApplicationStats } from './applications';
 import { formatDate } from '../utils/format';
@@ -120,16 +121,12 @@ function safeName(title: string): string {
 }
 
 export function csvOf(table: ExportTable): string {
-  const cell = (v: string | number | null) => {
-    const s = v == null ? '' : String(v);
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
-  return [table.columns.map(cell).join(','), ...table.rows.map((r) => r.map(cell).join(','))].join('\n');
+  return toCsv([table.columns, ...table.rows]);
 }
 
 export function exportCsv(table: ExportTable): void {
   // UTF-8 BOM so Excel opens the UTF-8 CSV with correct encoding.
-  download(new Blob(['\uFEFF' + csvOf(table)], { type: 'text/csv;charset=utf-8' }), `${safeName(table.title)}.csv`);
+  download(csvBlob([table.columns, ...table.rows]), `${safeName(table.title)}.csv`);
 }
 
 export function exportJson(table: ExportTable): void {

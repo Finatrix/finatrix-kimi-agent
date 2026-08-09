@@ -50,11 +50,18 @@ function captureDownloads(): { text: () => Promise<string>; count: () => number 
   };
 }
 
-/** Data rows in the exported CSV's transaction block (after its header row). */
+/**
+ * Data rows in the exported CSV's transaction block (after its header row).
+ *
+ * Matched on the header's CONTENT, not its quoting. Cells are quoted only when
+ * they contain a quote, comma or newline (RFC 4180 minimal quoting, shared with
+ * the Careers exporter via src/lib/csv.ts), so these header cells are bare —
+ * this used to look for `"Date","Category",…` and silently found nothing.
+ */
 function csvTransactionRows(csv: string): string[] {
   const lines = csv.split('\n');
-  const start = lines.findIndex((l) => l.startsWith('"Date","Category","Merchant"'));
-  expect(start).toBeGreaterThan(-1);
+  const start = lines.findIndex((l) => /^"?Date"?,"?Category"?,"?Merchant"?/.test(l));
+  expect(start, 'transaction header row not found in export').toBeGreaterThan(-1);
   return lines.slice(start + 1).filter((l) => l.trim() !== '');
 }
 
