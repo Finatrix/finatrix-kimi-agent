@@ -100,6 +100,31 @@ export interface CorsOptions {
    * internet from posting events into FinatriX's analytics table.
    */
   reflectAnyWebOrigin: boolean;
+  /**
+   * Send `Access-Control-Allow-Credentials: true`.
+   *
+   * Required by `navigator.sendBeacon`, which the analytics client uses as its
+   * primary transport. The Beacon spec fixes the request's credentials mode to
+   * "include" — it is not configurable — and the CORS check for a credentialed
+   * request FAILS unless the response carries this header. Without it the
+   * browser discards the beacon before it leaves the machine.
+   *
+   * That is not theoretical: on production, Firefox rejected every
+   * `analytics-collect` beacon with NS_ERROR_DOM_BAD_URI and WebKit with
+   * "Credentials flag is true, but Access-Control-Allow-Credentials is not
+   * 'true'". The loss is silent — `sendBeacon` returns `true` for "queued",
+   * so the client's `fetch(keepalive)` fallback never runs, and the endpoint
+   * itself answers a plain server-side POST with 204, so every server-side
+   * check passes while real browsers deliver nothing.
+   *
+   * MUST NOT be combined with `reflectAnyWebOrigin` — see the guard in
+   * `corsHeaders`. Credentials plus an arbitrarily reflected origin is what
+   * turns a CORS policy into a same-origin bypass for every site on the
+   * internet. Safe on `analytics-collect` precisely because that function
+   * pins a strict allowlist, and safe in kind because the endpoint is
+   * cookieless and anonymous: there are no ambient credentials to ride on.
+   */
+  allowCredentials?: boolean;
 }
 
 /**
@@ -112,16 +137,30 @@ export interface CorsOptions {
  * origin's response to another.
  */
 export function corsHeaders(req: Request, opts: CorsOptions): Record<string, string> {
+  // Reflecting any origin AND allowing credentials would let every site on the
+  // internet make credentialed cross-origin calls with the browser's ambient
+  // authority. Fail loudly at the call site rather than silently emitting it.
+  if (opts.reflectAnyWebOrigin && opts.allowCredentials) {
+    throw new Error(
+      'corsHeaders: allowCredentials cannot be combined with reflectAnyWebOrigin',
+    );
+  }
   const origin = req.headers.get('Origin') ?? '';
   const permitted = Boolean(origin) && (
     ALLOWED_ORIGINS.includes(origin)
     || isLocalOrigin(origin)
     || (opts.reflectAnyWebOrigin && isWebOrigin(origin))
   );
-  return {
+  const headers: Record<string, string> = {
     'Access-Control-Allow-Origin': permitted ? origin : CANONICAL_ORIGIN,
     'Access-Control-Allow-Headers': opts.headers,
     'Access-Control-Allow-Methods': opts.methods,
     Vary: 'Origin',
   };
+  // Only for a permitted origin: emitting it alongside the fallback origin
+  // would advertise credentialed access the caller does not have.
+  if (opts.allowCredentials && permitted) {
+    headers['Access-Control-Allow-Credentials'] = 'true';
+  }
+  return headers;
 }

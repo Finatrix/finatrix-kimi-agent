@@ -61,6 +61,10 @@ function corsFor(req: Request): Record<string, string> {
     headers: 'content-type',
     methods: 'POST, OPTIONS',
     reflectAnyWebOrigin: false,
+    // navigator.sendBeacon always sends credentials mode "include"; without
+    // this the browser drops every beacon before it is sent. Safe only because
+    // the allowlist above is strict — see CorsOptions in ../_shared/origins.ts.
+    allowCredentials: true,
   });
 }
 

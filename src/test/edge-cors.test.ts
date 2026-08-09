@@ -137,3 +137,56 @@ describe('edge CORS: no function rebuilds its own allowlist', () => {
     expect(src).not.toMatch(/Deno\.env\.get\(['"]CAREERS_ALLOWED_ORIGINS['"]\)\s*\?\?/);
   });
 });
+
+/**
+ * `navigator.sendBeacon` fixes the request's credentials mode to "include" and
+ * offers no way to change it, so the CORS check fails unless the response
+ * carries `Access-Control-Allow-Credentials: true`. On production this dropped
+ * every analytics beacon in Firefox (NS_ERROR_DOM_BAD_URI) and WebKit
+ * ("Credentials flag is true, but Access-Control-Allow-Credentials is not
+ * 'true'") — silently, because sendBeacon reports success on queueing and the
+ * endpoint answers a server-side POST with 204.
+ */
+describe('edge CORS: credentialed beacons', () => {
+  afterEach(() => {
+    delete (globalThis as { Deno?: unknown }).Deno;
+  });
+
+  it('sends Allow-Credentials for a permitted origin', async () => {
+    const { corsHeaders } = await loadOrigins();
+    const h = corsHeaders(req(`https://${CANONICAL_HOST}`), { ...PUBLIC, allowCredentials: true });
+    expect(h['Access-Control-Allow-Credentials']).toBe('true');
+    expect(h['Access-Control-Allow-Origin']).toBe(`https://${CANONICAL_HOST}`);
+  });
+
+  it('never advertises credentials to an origin it is refusing', async () => {
+    const { corsHeaders } = await loadOrigins();
+    const h = corsHeaders(req('https://evil.example'), { ...PUBLIC, allowCredentials: true });
+    expect(h['Access-Control-Allow-Credentials']).toBeUndefined();
+  });
+
+  it('omits the header entirely when not requested', async () => {
+    const { corsHeaders } = await loadOrigins();
+    const h = corsHeaders(req(`https://${CANONICAL_HOST}`), PUBLIC);
+    expect(h['Access-Control-Allow-Credentials']).toBeUndefined();
+  });
+
+  /** Credentials + an arbitrarily reflected origin is a same-origin bypass. */
+  it('refuses to combine credentials with open origin reflection', async () => {
+    const { corsHeaders } = await loadOrigins();
+    expect(() =>
+      corsHeaders(req('https://evil.example'), { ...AUTHED, allowCredentials: true }),
+    ).toThrow(/cannot be combined/i);
+  });
+
+  it('analytics-collect asks for credentials; no authed function does', async () => {
+    const read = (slug: string) =>
+      readFileSync(join(FUNCTIONS_DIR, slug, 'index.ts'), 'utf8');
+    expect(read('analytics-collect')).toMatch(/allowCredentials:\s*true/);
+    for (const slug of readdirSync(FUNCTIONS_DIR)) {
+      if (slug === '_shared' || slug === 'analytics-collect') continue;
+      if (!existsSync(join(FUNCTIONS_DIR, slug, 'index.ts'))) continue;
+      expect(read(slug), `${slug} must not allow credentials`).not.toMatch(/allowCredentials:\s*true/);
+    }
+  });
+});
