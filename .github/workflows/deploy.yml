@@ -45,7 +45,13 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       # Deploy only what passed the gates.
-      - run: npx tsc -b && npx eslint . --max-warnings 0 && npx vitest run
+      #
+      # Re-run here rather than depending on the CI workflow: Deploy triggers on
+      # push to main independently, so a green CI run is not a precondition for
+      # shipping. The dependency audit is part of that gate for the same reason
+      # — it is the only workflow that reaches production, and it previously
+      # shipped without ever checking advisories at all.
+      - run: npx tsc -b && npx eslint . --max-warnings 0 && npx vitest run && npm run audit:prod
       # VITE_* values are INLINED AT BUILD TIME. Building without them does not
       # fail — it silently produces a bundle with the feature compiled out:
       # `VITE_ANALYTICS_URL` missing makes `analyticsEnabled()` constant-fold to

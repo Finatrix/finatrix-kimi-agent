@@ -51,19 +51,19 @@ jobs:
         env:
           FX_ALLOW_UNCONFIGURED_BUILD: '1'
 
-      # Fails only on critical advisories in production dependencies.
-      # Advisories assessed and accepted below the "critical" bar — re-review
-      # whenever this list changes (`npm audit --omit=dev`):
-      #   • xlsx (high)        — registry has no fixed version; the patched build
-      #     ships from SheetJS's own CDN. See docs/DEPLOYMENT.md.
-      #   • react-router (high, GHSA-qwww-vcr4-c8h2) — RSC-mode CSRF bypass.
-      #     Not reachable: the app uses only <BrowserRouter> + declarative
-      #     <Routes>, no createBrowserRouter/RouterProvider, no route
-      #     actions/loaders, no RSC. Fixed only in 8.3.0, i.e. a major upgrade —
-      #     tracked as planned work, not a pre-launch change.
-      # (dompurify's low advisory was resolved by an in-range bump and is gone.)
-      - name: Dependency audit (production, critical only)
-        run: npm audit --omit=dev --audit-level=critical
+      # Fails on any HIGH or CRITICAL advisory in production dependencies that
+      # is not explicitly accepted, with its reachability argument, in
+      # scripts/audit-production-deps.mjs.
+      #
+      # This replaced `npm audit --omit=dev --audit-level=critical`, which could
+      # not distinguish "assessed and accepted" from "never noticed" — every
+      # high advisory passed either way. pdfjs-dist shipped
+      # GHSA-hq66-cqwq-w95j (arbitrary JS execution on opening a malicious PDF,
+      # in the library that parses user-uploaded résumés) and this step stayed
+      # green the whole time. The allowlist now lives in code, and a stale entry
+      # fails the build too, so exemptions get deleted rather than inherited.
+      - name: Dependency audit (production)
+        run: npm run audit:prod
 
   e2e:
     runs-on: ubuntu-latest
