@@ -101,6 +101,13 @@ export default defineConfig(({ command, mode }) => {
       globals: true,
       setupFiles: "./src/test/setup.ts",
       css: false,
+      // Above the 4s Testing Library `asyncUtilTimeout` set in
+      // src/test/setup.ts, so a query that never matches fails with TL's
+      // "unable to find element" output (which prints the DOM) instead of
+      // being cut short by a bare test-timeout error that says nothing about
+      // why. The 5s default sat below it and would have inverted that.
+      // A real hang still fails; it is nowhere near 15s.
+      testTimeout: 15_000,
       // Playwright specs live in ./e2e and use @playwright/test, not vitest —
       // keep them out of the unit runner (they match the default *.spec glob).
       // `**/e2e/**` (not `e2e/**`) also covers agent git worktrees checked out

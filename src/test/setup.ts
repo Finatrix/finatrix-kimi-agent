@@ -1,6 +1,32 @@
 // Global Vitest setup. @testing-library/react registers automatic DOM cleanup
 // between tests when run with Vitest globals enabled.
 import '@testing-library/jest-dom/vitest';
+import { configure } from '@testing-library/react';
+
+/**
+ * How long `findBy*` / `waitFor` may wait before failing.
+ *
+ * Testing Library's default is 1000ms, which is not a realistic budget for the
+ * route-level tests: most pages here are `React.lazy` chunks, so a render has
+ * to resolve a dynamic import before anything appears. On a developer machine
+ * that lands in tens of milliseconds and every test passes; on a 2-core CI
+ * runner under full worker contention it is genuinely marginal.
+ *
+ * The failure mode is what makes this worth fixing centrally rather than per
+ * test: whichever test happens to lose the CPU lottery is the one that fails,
+ * so CI goes red on a different, unrelated-looking test each run while the
+ * suite stays green locally. Reproduced deliberately with
+ * `vitest run --maxWorkers=2`: `E2ERoutes` failed in CI, and locally the same
+ * contention took out `careers.matchQueue.page` instead. Both were timeouts
+ * waiting on a lazy route, and neither indicated anything wrong with the code.
+ *
+ * 4s is well clear of that noise while staying below the 15s per-test timeout
+ * in vite.config.ts, so a query that will never match still fails with Testing
+ * Library's useful "unable to find element" output — including the rendered
+ * DOM — rather than being cut off by a bare test-timeout error. A genuinely
+ * broken render fails just as reliably, only later.
+ */
+configure({ asyncUtilTimeout: 4000 });
 
 // jsdom's blank document ships no <title>, but index.html — the shell every
 // route is really served from — always does. `applySeo` deliberately writes
