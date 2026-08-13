@@ -10,7 +10,7 @@ import { downloadBlob } from './exporters';
 import { clearNotificationState } from './notifications';
 
 /** Non-synced local keys that still belong to the user and should be reset. */
-const LOCAL_ONLY_KEYS = ['fx_activity', 'fx_last_tool', 'fx_notif_read', 'fx_notif_dismissed', 'fx_notif_seen_at', 'fx_dash_layout'];
+const LOCAL_ONLY_KEYS = ['fx_activity', 'fx_last_tool', 'fx_notif_read', 'fx_notif_dismissed', 'fx_notif_seen_at', 'fx_dash_layout', 'fx_exp_catsort'];
 
 /** Human labels for the tool data keys (for the storage summary). */
 const KEY_LABEL: Record<string, string> = {

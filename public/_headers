@@ -85,3 +85,10 @@
 # The manifest names the icons, so a stale copy pins the old set on Android.
 /manifest.webmanifest
   Cache-Control: public, max-age=86400, must-revalidate
+
+# The service worker must never be served from cache. Browsers already bypass
+# the HTTP cache for the worker script on update checks, but an intermediary
+# that holds it would pin an entire build's caching behaviour indefinitely —
+# the one file where a stale copy is not recoverable by reloading.
+/sw.js
+  Cache-Control: no-cache, max-age=0, must-revalidate

@@ -17,7 +17,7 @@ import { cfmt } from './format';
 import { budgetTone, TONE_EXPORT_LABEL } from './budgetStatus';
 import {
   MARGIN, TABLE_STYLES, TONE_RGB, GOLD, INK, contentW, ensureSpace,
-  drawDonut, drawGroupedBars, drawHeader, drawStatCards,
+  drawComparison, drawCover, drawDonut, drawGroupedBars, drawHeader, drawStatCards,
   loadLogo, money, pct, sectionTitle, stampFooters,
   type Doc, type StatCard,
 } from './pdfReport';
@@ -318,6 +318,19 @@ export interface ExpenseExport {
   daysRemaining?: number;
   /** Per-category budget vs spend — drives the chart and the comparison table. */
   categoryBudgets?: ExpenseCategoryBudget[];
+  /**
+   * The month before this one, for the PDF's comparison section.
+   *
+   * A month in isolation cannot answer "am I improving?", which is the question
+   * a monthly report is actually asked. Optional so the CSV/XLSX exporters and
+   * any caller without prior data still produce a valid report.
+   */
+  previous?: {
+    label: string;
+    totalSpent: number;
+    /** Per-category totals, keyed by the same display label as `breakdown`. */
+    byCategory: Record<string, number>;
+  };
 }
 
 function budgetRemainingOf(e: ExpenseExport): number {
@@ -340,6 +353,37 @@ function largestCategory(e: ExpenseExport): ExpenseBreakdownRow | null {
 
 function txLabel(t: ExpenseTxRow): string {
   return t.merchant || t.note || t.category;
+}
+
+/**
+ * One sentence on the cover, in the reader's own terms.
+ *
+ * Deliberately factual rather than encouraging: this document gets shared with
+ * accountants and partners, and a report that congratulates or scolds its
+ * subject reads as a toy. It states what happened; the reader judges it.
+ */
+function coverSummary(e: ExpenseExport): string {
+  const m = (n: number) => cfmt(n, e.currency);
+  const top = largestCategory(e);
+  const bits: string[] = [];
+  bits.push(`${e.txCount} transaction${e.txCount === 1 ? '' : 's'} totalling ${m(e.totalSpent)}`);
+  if (top) bits.push(`with ${top.label} the largest category at ${m(top.amount)}`);
+  if (e.budget > 0) {
+    const left = budgetRemainingOf(e);
+    bits.push(left >= 0
+      ? `${m(left)} of the ${m(e.budget)} budget remained`
+      : `${m(-left)} over the ${m(e.budget)} budget`);
+  }
+  if (e.previous) {
+    const diff = e.totalSpent - e.previous.totalSpent;
+    if (e.previous.totalSpent > 0) {
+      const pctChange = Math.abs(Math.round((diff / e.previous.totalSpent) * 100));
+      bits.push(diff === 0
+        ? `level with ${e.previous.label}`
+        : `${pctChange}% ${diff > 0 ? 'more' : 'less'} than ${e.previous.label}`);
+    }
+  }
+  return bits.join(', ') + '.';
 }
 
 function expenseMatrix(e: ExpenseExport): (string | number)[][] {
@@ -485,6 +529,32 @@ export async function exportExpensePdf(e: ExpenseExport) {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' }) as Doc;
   const m = (n: number) => money(n, e.currency);
 
+  /* ── Cover ── */
+  const coverFacts: Array<{ label: string; value: string }> = [
+    { label: 'Transactions', value: String(e.txCount) },
+    { label: 'Daily average', value: m(e.dailyAvg) },
+  ];
+  if (e.budget > 0) {
+    coverFacts.push({
+      label: 'Budget used',
+      value: pct(e.budgetUsedPct ?? (e.totalSpent / e.budget) * 100),
+    });
+  }
+  if (e.income != null && e.income > 0) {
+    coverFacts.push({ label: 'Income', value: m(e.income) });
+  }
+  drawCover(doc, {
+    title: 'Expense Report',
+    period: e.monthLabel,
+    currency: e.currency,
+    logo,
+    headline: m(e.totalSpent),
+    headlineLabel: 'Total spent',
+    facts: coverFacts,
+    summary: coverSummary(e),
+  });
+  doc.addPage();
+
   let y = drawHeader(doc, {
     title: 'Expense Report', period: e.monthLabel, currency: e.currency, logo,
   });
@@ -528,6 +598,38 @@ export async function exportExpensePdf(e: ExpenseExport) {
     },
   ];
   y = drawStatCards(doc, y, cards);
+
+  /* ── This month against last ── */
+  if (e.previous) {
+    const prev = e.previous;
+    // The categories that matter to the comparison are the ones with real
+    // money on either side — a category that was zero in both months adds a
+    // row of nothing to a printed page.
+    const rows = e.breakdown
+      .map((b) => ({ label: b.label, current: b.amount, previous: prev.byCategory[b.label] ?? 0 }))
+      .concat(
+        Object.entries(prev.byCategory)
+          .filter(([label]) => !e.breakdown.some((b) => b.label === label))
+          .map(([label, amount]) => ({ label, current: 0, previous: amount })),
+      )
+      .filter((r) => r.current > 0 || r.previous > 0)
+      .sort((a, b) => Math.abs(b.current - b.previous) - Math.abs(a.current - a.previous))
+      .slice(0, 8);
+
+    if (rows.length > 0) {
+      y = sectionTitle(
+        doc, y,
+        `${e.monthLabel} vs ${prev.label}`,
+        'Biggest movements first — a month on its own cannot show a direction',
+      );
+      y = drawComparison(
+        doc, y,
+        [{ label: 'Total spending', current: e.totalSpent, previous: prev.totalSpent }, ...rows],
+        e.currency,
+        { current: e.monthLabel, previous: prev.label },
+      );
+    }
+  }
 
   /* ── Budget vs expense ── */
   const budgeted = (e.categoryBudgets ?? []).filter((c) => c.budget > 0 || c.spent > 0);

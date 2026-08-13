@@ -14,8 +14,8 @@ import {
   exportExpenseCsv, exportExpenseXlsx, exportExpensePdf, exportAuditCsv,
   type ExpenseExport,
 } from '../lib/exporters';
-import { currentMonth, monthLabel } from '../lib/month';
-import { getJSON, onLocalWrite } from '../lib/storage';
+import { currentMonth, monthLabel, prevMonth } from '../lib/month';
+import { getJSON, setJSON, onLocalWrite } from '../lib/storage';
 import {
   loadExpenses, saveExpenses, etToday, etMonthsWithData, computeDashboard, genExpenseId,
   isSpendingCategory, migrateCategory,
@@ -23,11 +23,14 @@ import {
   type SectionSplit,
 } from '../lib/expense';
 import {
-  loadAuditLog, recordAudit, clearAuditLog, auditEvent, auditEdit, newBatchId,
+  loadAuditLog, recordAudit, clearAuditLog, auditEvent, auditEdit, newBatchId, historyFor,
   AUDIT_ACTION_LABEL, AUDIT_FIELD_LABEL,
   type AuditEntry,
 } from '../lib/expenseAudit';
 import AuditTrail from '../ui/AuditTrail';
+import { QuickAddBar } from '../ui/QuickAddBar';
+import type { QuickAddResult } from '../lib/quickAdd';
+import { haptic } from '../../lib/haptics';
 import { allCategories, SECTION_LABEL, type SectionedCats, type CatKey, type BudgetStore } from '../lib/budget';
 import { loadCatView } from '../lib/budgetCats';
 import { budgetFillPct, budgetTone, TONE_COLOR, TONE_FILL, TONE_LABEL } from '../lib/budgetStatus';
@@ -215,11 +218,13 @@ export default function ExpensePage() {
     }
     if (!parsed.ok && amount.trim()) {
       setAddError(parsed.error);
+      haptic('warn');
       amountRef.current?.focus();
       return;
     }
     if (!amt) {
       setAddError('Enter an amount. Use a minus sign for a refund.');
+      haptic('warn');
       amountRef.current?.focus();
       return;
     }
@@ -229,6 +234,7 @@ export default function ExpensePage() {
     const item: ExpenseItem = { id: genExpenseId(), amount: amt, category: selKey, date: d, createdAt: nowIso, updatedAt: nowIso };
     if (note.trim()) item.note = note.trim();
     commit([item, ...items], [auditEvent('add', item)]);
+    haptic('success');
     // A logged spend IS the completion for a tracker — there is no result
     // screen to reach, so counting result views would score this tool zero
     // forever.
@@ -240,6 +246,41 @@ export default function ExpensePage() {
     setJustAdded(true);
     if (flashTimer.current) clearTimeout(flashTimer.current);
     flashTimer.current = setTimeout(() => setJustAdded(false), 1200);
+  };
+
+  /**
+   * Commit a parsed quick-add line.
+   *
+   * Goes through the same `commit` path and records the same `add` event as
+   * every other entry route — the shortcut is in how the fields were filled,
+   * never in what reaches the ledger. Returns false when the line had no
+   * usable category, which is the one condition the parser cannot fix.
+   */
+  const addFromQuickAdd = (parsed: QuickAddResult): boolean => {
+    const category = parsed.category || selKey;
+    if (!category) {
+      setAddError('Add a category in Budget Builder before logging a spend.');
+      haptic('warn');
+      return false;
+    }
+    const nowIso = new Date().toISOString();
+    const item: ExpenseItem = {
+      id: genExpenseId(),
+      amount: parsed.amount,
+      category,
+      date: parsed.date,
+      ...(parsed.note ? { note: parsed.note } : {}),
+      ...(parsed.paymentMethod ? { paymentMethod: parsed.paymentMethod } : {}),
+      ...(parsed.tags?.length ? { tags: parsed.tags } : {}),
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+    commit([item, ...items], [auditEvent('add', item)]);
+    track('tool_completed', { tool: 'expenses' });
+    haptic('success');
+    const m = parsed.date.slice(0, 7);
+    if (m !== selMonth) switchMonth(m);
+    return true;
   };
 
   const saveTransaction = (item: ExpenseItem) => {
@@ -287,6 +328,7 @@ export default function ExpensePage() {
     const victim = items.find((e) => e.id === id);
     if (!victim) return;
     commit(items.filter((e) => e.id !== id), [auditEvent('delete', victim)]);
+    haptic('remove');
     setModalOpen(false);
     setEditing(null);
     pushUndo([victim], victim.note || victim.merchant || 'Transaction');
@@ -301,6 +343,7 @@ export default function ExpensePage() {
     if (revived.length) {
       const batch = revived.length > 1 ? newBatchId() : undefined;
       commit([...revived, ...items], revived.map((v) => auditEvent('restore', v, { batch })));
+      haptic('success');
     }
     const rest = undoStack.slice(0, -1);
     setUndoStack(rest);
@@ -313,6 +356,40 @@ export default function ExpensePage() {
 
   const openEdit = (item: ExpenseItem) => { setEditing(item); setModalOpen(true); };
   const openAdd = () => { setEditing(null); setModalOpen(true); };
+
+  /**
+   * Take the user from an empty Analytics tab to the thing that fills it.
+   *
+   * Switches tab, then focuses the quick-add field on the next frame — the
+   * Overview panel does not exist in the DOM until React has rendered it, so
+   * focusing synchronously would find nothing and silently do nothing.
+   */
+  const startLogging = () => {
+    setTab('overview');
+    requestAnimationFrame(() => {
+      const el = document.getElementById('fx-qa-input') as HTMLInputElement | null;
+      el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      el?.focus();
+    });
+  };
+
+  /**
+   * Put a deleted transaction back from its History entry.
+   *
+   * Long after the 10-second undo window has closed: the entry carries the
+   * complete original record, so this returns the transaction exactly as it
+   * was — tags, payment method and notes included — rather than a thinner copy
+   * rebuilt from what the log happened to display. Restoring something that
+   * already exists is a no-op, so a double tap cannot duplicate a row.
+   */
+  const restoreFromHistory = (item: ExpenseItem) => {
+    if (items.some((e) => e.id === item.id)) return;
+    commit([item, ...items], [auditEvent('restore', item)]);
+    haptic('success');
+    notify(`Restored “${item.merchant || item.note || 'transaction'}”.`, 'ok');
+    const m = (item.date || '').slice(0, 7);
+    if (m && m !== selMonth) switchMonth(m);
+  };
 
   // Ctrl/Cmd+Z restores the most recent deletion while the undo window is
   // open. Skipped when typing so the browser's native text undo still works.
@@ -347,6 +424,7 @@ export default function ExpensePage() {
       items.filter((e) => !set.has(e.id)),
       victims.map((v) => auditEvent('delete', v, { batch })),
     );
+    haptic('remove');
     pushUndo(victims, `${victims.length} transaction${victims.length > 1 ? 's' : ''}`);
   };
 
@@ -494,8 +572,33 @@ export default function ExpensePage() {
    * selected month — never `r.recent` (an 8-row preview for the dashboard),
    * never the filtered/paginated view. Display concerns must not reach a report.
    */
+  /**
+   * The previous month, summarised for the PDF's comparison section.
+   *
+   * Keyed by the same display labels `breakdown` uses, so the two months line
+   * up on the page even where a category key was migrated between them. Null
+   * when the month before this one has nothing in it — a comparison against
+   * zero is a chart of one bar and a "New" on every row.
+   */
+  const previousForExport = (): ExpenseExport['previous'] => {
+    const pm = prevMonth(selMonth);
+    const prevItems = items.filter((e) => (e.date || '').slice(0, 7) === pm);
+    if (prevItems.length === 0) return undefined;
+    const byCategory: Record<string, number> = {};
+    prevItems.forEach((t) => {
+      const label = catLabel(migrateCategory(t.category, new Set(flatCats.map((c) => c.k))));
+      byCategory[label] = (byCategory[label] || 0) + t.amount;
+    });
+    return {
+      label: monthLabel(pm),
+      totalSpent: prevItems.reduce((s, t) => s + t.amount, 0),
+      byCategory,
+    };
+  };
+
   const buildExport = (): ExpenseExport => ({
     monthLabel: monthLabel(selMonth),
+    previous: previousForExport(),
     currency: code,
     totalSpent: r.monthlySpent,
     dailyAvg: r.dailyAvg,
@@ -563,7 +666,8 @@ export default function ExpensePage() {
             addError={addError} amountRef={amountRef}
             date={date} setDate={setDate} note={note} setNote={setNote} justAdded={justAdded}
             cfmt={cfmt} sym={sym} now={now} catMeta={catMeta} monthlyBudget={r.monthlyBudget}
-            addExpense={addExpense} openAdd={openAdd} openEdit={openEdit}
+            addExpense={addExpense} addFromQuickAdd={addFromQuickAdd}
+            openAdd={openAdd} openEdit={openEdit}
             duplicateTransaction={duplicateTransaction} deleteTransaction={deleteTransaction}
             bulkDelete={bulkDelete} bulkDuplicate={bulkDuplicate} bulkCategory={bulkCategory}
             bulkAddTags={bulkAddTags} exportTransactions={exportTransactions}
@@ -577,6 +681,7 @@ export default function ExpensePage() {
             cfmt={cfmt} code={code} theme={theme} now={now}
             monthlyBudget={r.monthlyBudget}
             budgetTotalOf={budgetTotalOf}
+            onStartLogging={startLogging}
           />
         )}
         {tab === 'recurring' && (
@@ -593,6 +698,7 @@ export default function ExpensePage() {
             cfmt={cfmt}
             now={now}
             onOpen={openEdit}
+            onRestore={restoreFromHistory}
             onExport={exportAudit}
             onClear={clearAudit}
           />
@@ -607,6 +713,8 @@ export default function ExpensePage() {
           sym={sym}
           defaultCat={selKey}
           recentCats={recentCatKeys}
+          history={editing ? historyFor(audit, editing.id) : []}
+          cfmt={cfmt}
           onSave={saveTransaction}
           onClose={() => { setModalOpen(false); setEditing(null); }}
           onDelete={deleteTransaction}
@@ -667,7 +775,10 @@ interface OverviewProps {
   justAdded: boolean;
   cfmt: (n: number) => string; sym: string; now: Date;
   catMeta: Map<string, CatMeta>; monthlyBudget: number;
-  addExpense: () => void; openAdd: () => void; openEdit: (item: ExpenseItem) => void;
+  addExpense: () => void;
+  /** Commit a parsed one-line entry. False when it could not be logged. */
+  addFromQuickAdd: (parsed: QuickAddResult) => boolean;
+  openAdd: () => void; openEdit: (item: ExpenseItem) => void;
   duplicateTransaction: (item: ExpenseItem) => void; deleteTransaction: (id: string) => void;
   bulkDelete: (ids: string[]) => void; bulkDuplicate: (ids: string[]) => void;
   bulkCategory: (ids: string[], catKey: string) => void;
@@ -682,7 +793,7 @@ function OverviewTab({
   r, items, monthTx, selMonth, flatCats, selKey, setSel, recentCatKeys,
   amount, setAmount, addError, amountRef, date, setDate, note, setNote, justAdded,
   cfmt, sym, now, catMeta, monthlyBudget,
-  addExpense, openAdd, openEdit, duplicateTransaction, deleteTransaction,
+  addExpense, addFromQuickAdd, openAdd, openEdit, duplicateTransaction, deleteTransaction,
   bulkDelete, bulkDuplicate, bulkCategory, bulkAddTags, exportTransactions,
   code, listApi,
 }: OverviewProps) {
@@ -834,8 +945,21 @@ function OverviewTab({
       {/* Add expense — a real form, so Enter submits and the browser exposes
           the field/validation relationships to assistive tech. */}
       <div className="card">
-        <form onSubmit={(e) => { e.preventDefault(); addExpense(); }} noValidate>
         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>Add an expense</div>
+
+        {/* The one-line route, above the structured one. Fills the same fields
+            through the same commit path — see QuickAddBar. */}
+        {flatCats.length > 0 && (
+          <QuickAddBar
+            cats={flatCats}
+            cfmt={cfmt}
+            now={now}
+            onAdd={addFromQuickAdd}
+            fallbackCategory={selKey}
+          />
+        )}
+
+        <form onSubmit={(e) => { e.preventDefault(); addExpense(); }} noValidate>
         <div className="grid2">
           <div className="fg">
             <label className="fl" htmlFor="et-amount">Amount ({sym})</label>
@@ -914,16 +1038,11 @@ function OverviewTab({
       </div>
 
       {/* Per-category budget health */}
-      <div className="card">
-        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>Category budgets</div>
-        {r.categories.filter((c) => c.budget > 0 || c.spent > 0).length === 0 ? (
-          <div className="note">No budgets or spending yet for {monthLabel(selMonth)}.</div>
-        ) : (
-          r.categories.filter((c) => c.budget > 0 || c.spent > 0).sort((a, b) => b.spent - a.spent).map((c) => (
-            <CategoryRow key={c.k} c={c} cfmt={cfmt} />
-          ))
-        )}
-      </div>
+      <CategoryBudgetsCard
+        categories={r.categories}
+        cfmt={cfmt}
+        monthText={monthLabel(selMonth)}
+      />
 
       {/* Top categories */}
       <div className="card">
@@ -981,12 +1100,15 @@ function OverviewTab({
 
 function AnalyticsTab({
   items, selMonth, catMeta, cfmt, code, theme, now, monthlyBudget, budgetTotalOf,
+  onStartLogging,
 }: {
   items: ExpenseItem[]; selMonth: string; catMeta: Map<string, CatMeta>;
   cfmt: (n: number) => string; code: string; theme: string | undefined; now: Date;
   monthlyBudget: number;
   /** Total budget for any month, used by the timeline's 12-month view. */
   budgetTotalOf: (month: string) => number;
+  /** Send the user to the place they can actually act — the add form. */
+  onStartLogging: () => void;
 }) {
   const forecast = useMemo(
     () => computeMonthForecast(items, selMonth, now, monthlyBudget),
@@ -1009,15 +1131,7 @@ function AnalyticsTab({
   const summary = useMemo(() => computeAnalyticsSummary(items, catMeta), [items, catMeta]);
 
   if (items.length === 0) {
-    return (
-      <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }}>
-        <Icon name="trending" size={40} style={{ color: 'var(--ink3)', marginBottom: 12 }} />
-        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>No data yet</div>
-        <p className="note" style={{ maxWidth: 320, margin: '0 auto' }}>
-          Add some transactions on the Overview tab to see your spending analytics and patterns.
-        </p>
-      </div>
-    );
+    return <AnalyticsPreview logged={0} onStart={onStartLogging} />;
   }
 
   return (
@@ -1152,6 +1266,102 @@ function AnalyticsTab({
     </>
   );
 }
+
+/**
+ * The Analytics tab before there is anything to analyse.
+ *
+ * "No data yet" is true and useless: it describes the gap without saying what
+ * closing it buys, so the tab reads as broken rather than as empty. This shows
+ * the actual shape of what each chart will become, names what unlocks when, and
+ * puts the one action that helps — logging a spend — inside the empty state
+ * instead of describing where to find it.
+ *
+ * The sample bars are explicitly labelled as an example and marked
+ * `aria-hidden`: an illustration a screen reader announced as figures would be
+ * indistinguishable from real data, which is the one thing this must never be.
+ */
+function AnalyticsPreview({ logged, onStart }: { logged: number; onStart: () => void }) {
+  const milestones = [
+    { at: 1, label: 'Payment methods & daily heatmap', icon: 'pie' as IconName },
+    { at: 5, label: 'Top merchants and category mix', icon: 'briefcase' as IconName },
+    { at: 10, label: 'Month-end forecast and pacing', icon: 'trending' as IconName },
+    { at: 30, label: 'Recurring detection and month-on-month trends', icon: 'refresh' as IconName },
+  ];
+
+  return (
+    <div className="card fx-apv">
+      <style>{ANALYTICS_PREVIEW_STYLES}</style>
+
+      <div className="fx-apv-head">
+        <Icon name="trending" size={22} style={{ color: 'var(--gold)' }} />
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 700 }}>Your analytics start here</div>
+          <p className="note" style={{ margin: '3px 0 0' }}>
+            Every spend you log adds to these. Nothing below is real yet — it is what this
+            tab becomes once you start.
+          </p>
+        </div>
+      </div>
+
+      {/* A sample of the real chart, drawn from fixed values. */}
+      <div className="fx-apv-chart" aria-hidden="true">
+        {[38, 62, 45, 78, 55, 88].map((h, i) => (
+          <span key={i} className="fx-apv-bar" style={{ height: `${h}%`, animationDelay: `${i * 70}ms` }} />
+        ))}
+      </div>
+      <p className="note fx-apv-caption">Example only — a six-month trend, split into Needs, Wants and Savings.</p>
+
+      <ul className="fx-apv-list">
+        {milestones.map((m) => {
+          const done = logged >= m.at;
+          return (
+            <li key={m.at} className={`fx-apv-item${done ? ' is-done' : ''}`}>
+              <Icon
+                name={done ? 'check' : m.icon}
+                size={15}
+                style={{ color: done ? 'var(--green)' : 'var(--ink3)', flexShrink: 0 }}
+                aria-hidden="true"
+              />
+              <span className="fx-apv-label">{m.label}</span>
+              <span className="fx-apv-at">
+                {done ? 'Ready' : `${m.at} transaction${m.at === 1 ? '' : 's'}`}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+
+      <button type="button" className="btn btn-sm fx-apv-cta" onClick={onStart}>
+        Log your first expense
+      </button>
+    </div>
+  );
+}
+
+const ANALYTICS_PREVIEW_STYLES = `
+.fx-tools .fx-apv-head{display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;}
+.fx-tools .fx-apv-chart{display:flex;align-items:flex-end;gap:8px;height:120px;padding:0 4px;
+  border-bottom:1px solid var(--hair2);}
+.fx-tools .fx-apv-bar{flex:1;border-radius:5px 5px 0 0;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--gold) 42%,transparent),color-mix(in srgb,var(--gold) 12%,transparent));
+  border:1px solid color-mix(in srgb,var(--gold) 30%,transparent);border-bottom:none;
+  transform-origin:bottom;animation:fxApvGrow .5s cubic-bezier(.2,.9,.3,1) both;}
+@keyframes fxApvGrow{from{transform:scaleY(.05);opacity:0}to{transform:scaleY(1);opacity:1}}
+.fx-tools .fx-apv-caption{margin:8px 0 16px;font-size:11px;}
+.fx-tools .fx-apv-list{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:2px;}
+.fx-tools .fx-apv-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;
+  background:var(--well);border:1px solid var(--well-border);}
+.fx-tools .fx-apv-item.is-done{border-color:color-mix(in srgb,var(--green) 35%,transparent);}
+.fx-tools .fx-apv-label{flex:1;min-width:0;font-size:12.5px;font-weight:600;color:var(--ink2);}
+.fx-tools .fx-apv-at{font-size:11px;font-weight:700;color:var(--ink3);flex-shrink:0;}
+.fx-tools .fx-apv-item.is-done .fx-apv-at{color:var(--green);}
+.fx-tools .fx-apv-cta{width:auto;min-width:180px;}
+@media (max-width:480px){
+  .fx-tools .fx-apv-chart{height:88px;}
+  .fx-tools .fx-apv-cta{width:100%;}
+}
+@media (prefers-reduced-motion:reduce){.fx-tools .fx-apv-bar{animation:none;}}
+`;
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Recurring Tab
@@ -1343,6 +1553,136 @@ function InsightCard({ insight }: { insight: SpendingInsight }) {
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ── Category budgets, with a sort the user controls ── */
+
+type CatSort = 'section' | 'spent' | 'budget' | 'over' | 'name';
+
+const CAT_SORTS: ReadonlyArray<{ key: CatSort; label: string }> = [
+  { key: 'spent', label: 'Most spent' },
+  { key: 'section', label: 'Needs · Wants · Savings' },
+  { key: 'over', label: 'Closest to limit' },
+  { key: 'budget', label: 'Largest budget' },
+  { key: 'name', label: 'Name (A–Z)' },
+];
+
+/** Display preference, not data — deliberately outside SYNC_KEYS. */
+const CAT_SORT_KEY = 'fx_exp_catsort';
+
+const SECTION_ORDER: Record<string, number> = { needs: 0, wants: 1, save: 2 };
+
+function sortCategories(list: DashCategory[], sort: CatSort): DashCategory[] {
+  const rows = [...list];
+  switch (sort) {
+    case 'name':
+      return rows.sort((a, b) => a.l.localeCompare(b.l));
+    case 'budget':
+      return rows.sort((a, b) => b.budget - a.budget || b.spent - a.spent);
+    case 'over':
+      // A category with no budget has no "limit" to be close to, so it sorts
+      // last rather than sharing 0% with a category that is genuinely untouched.
+      return rows.sort((a, b) => {
+        const ap = a.budget > 0 ? a.pct : -1;
+        const bp = b.budget > 0 ? b.pct : -1;
+        return bp - ap || b.spent - a.spent;
+      });
+    case 'section':
+      return rows.sort((a, b) => {
+        // Uncategorised spend has no section and belongs after all three,
+        // not silently folded into Needs.
+        const as = a.section ? SECTION_ORDER[a.section] : 3;
+        const bs = b.section ? SECTION_ORDER[b.section] : 3;
+        return as - bs || b.spent - a.spent;
+      });
+    case 'spent':
+    default:
+      return rows.sort((a, b) => b.spent - a.spent);
+  }
+}
+
+/**
+ * Per-category budget health.
+ *
+ * Sorting by section is the reason this exists: the card lists every category
+ * the month touched, and "how are my Needs doing?" was unanswerable without
+ * reading the whole list and remembering which key sat in which section. When
+ * that sort is active the sections are labelled, because a grouped list with no
+ * headings is just a differently-ordered list.
+ */
+function CategoryBudgetsCard({
+  categories, cfmt, monthText,
+}: {
+  categories: DashCategory[];
+  cfmt: (n: number) => string;
+  monthText: string;
+}) {
+  const [sort, setSort] = useState<CatSort>(() => {
+    const saved = getJSON<string>(CAT_SORT_KEY, 'spent');
+    return CAT_SORTS.some((s) => s.key === saved) ? (saved as CatSort) : 'spent';
+  });
+
+  const changeSort = (next: CatSort) => {
+    setSort(next);
+    setJSON(CAT_SORT_KEY, next);
+  };
+
+  const shown = useMemo(
+    () => sortCategories(categories.filter((c) => c.budget > 0 || c.spent > 0), sort),
+    [categories, sort],
+  );
+
+  // Section headings are only meaningful — and only honest — under the section
+  // sort; anywhere else the same heading would sit above a non-contiguous run.
+  let lastSection: string | null | undefined;
+
+  return (
+    <div className="card">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+        <div style={{ fontSize: 14, fontWeight: 700 }}>Category budgets</div>
+        {shown.length > 1 && (
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <label className="note" htmlFor="fx-catsort" style={{ fontWeight: 600 }}>Sort</label>
+            <select
+              id="fx-catsort"
+              className="fs"
+              style={{ width: 'auto', minWidth: 150, height: 34, fontSize: 12 }}
+              value={sort}
+              onChange={(e) => changeSort(e.target.value as CatSort)}
+            >
+              {CAT_SORTS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+            </select>
+          </div>
+        )}
+      </div>
+      {shown.length === 0 ? (
+        <div className="note">No budgets or spending yet for {monthText}.</div>
+      ) : (
+        shown.map((c) => {
+          const heading = sort === 'section' && c.section !== lastSection
+            ? (lastSection = c.section, c.section)
+            : null;
+          return (
+            <div key={c.k}>
+              {sort === 'section' && heading !== null && (
+                <div
+                  className="note"
+                  style={{
+                    fontWeight: 700, marginTop: 10, marginBottom: 2,
+                    color: c.section ? SECTION_COLOR[c.section] : 'var(--ink3)',
+                    textTransform: 'uppercase', letterSpacing: '.04em', fontSize: 10.5,
+                  }}
+                >
+                  {c.section ? SECTION_LABEL[c.section] : 'Uncategorised'}
+                </div>
+              )}
+              <CategoryRow c={c} cfmt={cfmt} />
+            </div>
+          );
+        })
+      )}
     </div>
   );
 }

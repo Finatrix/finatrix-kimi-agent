@@ -37,9 +37,10 @@ function txCard(): HTMLElement {
 function quickAdd(amount: string, note?: string) {
   fireEvent.change(screen.getByLabelText(/^Amount \(₹\)$/), { target: { value: amount } });
   if (note) fireEvent.change(screen.getByLabelText(/^Note/), { target: { value: note } });
-  // Matched by role, not by its text: the button flashes "Added ✓" for a beat
-  // after a save, so a second add in the same test would miss it by label.
-  fireEvent.click(screen.getByRole('button', { name: /^Add(ed)?/ }));
+  // The structured form's submit, named exactly: it flashes "Added ✓" for a
+  // beat after a save (so a second add would miss a plain "Add expense"
+  // lookup), and the quick-add bar above it has its own "Add" button.
+  fireEvent.click(screen.getByRole('button', { name: /^(Add expense|Added ✓)$/ }));
 }
 
 function storedLog() {
@@ -234,6 +235,63 @@ describe('expense change history — every mutation is recorded', () => {
     expect(localStorage.getItem(AUDIT_KEY)).toBeNull();
     expect(localStorage.getItem('fx_expenses')).toBe(before); // ledger untouched
     expect(screen.getByText('No changes recorded yet')).toBeInTheDocument();
+  });
+
+  it('restores a deleted transaction from its History entry, in full', async () => {
+    const m = thisMonth();
+    localStorage.setItem('fx_expenses', JSON.stringify([
+      {
+        id: 't1', amount: 300, category: 'eating_out', date: `${m}-05`,
+        merchant: 'Blue Bottle', paymentMethod: 'UPI', tags: ['work'], notes: 'client catch-up',
+      },
+    ]));
+    renderPage();
+
+    fireEvent.click(within(txCard()).getByLabelText('Delete Blue Bottle'));
+    await waitFor(() => expect(within(txCard()).queryByText('Blue Bottle')).toBeNull());
+
+    const history = openHistory();
+    fireEvent.click(within(history).getByRole('button', { name: /Restore Blue Bottle/ }));
+
+    // Back in the ledger, with every field it had — not a thinner copy.
+    const stored = JSON.parse(localStorage.getItem('fx_expenses') || '[]');
+    expect(stored).toHaveLength(1);
+    expect(stored[0]).toMatchObject({
+      id: 't1', amount: 300, merchant: 'Blue Bottle', paymentMethod: 'UPI',
+      notes: 'client catch-up',
+    });
+    expect(stored[0].tags).toEqual(['work']);
+    // …and the restore is itself recorded.
+    expect(storedLog()[0].action).toBe('restore');
+  });
+
+  it('does not offer Restore for a transaction that still exists', () => {
+    renderPage();
+    quickAdd('500', 'Flat rent');
+    const history = openHistory();
+    // `/^Restore($| )/` rather than `/^Restore/`: the latter also matches the
+    // "Restored" filter chip, which is always present.
+    expect(within(history).queryByRole('button', { name: /^Restore($| )/ })).toBeNull();
+  });
+
+  it("shows a transaction's own change history inside its editor", () => {
+    renderPage();
+    quickAdd('500', 'Flat rent');
+
+    fireEvent.click(within(txCard()).getByLabelText('Edit Flat rent'));
+    let dialog = screen.getByRole('dialog');
+    fireEvent.change(within(dialog).getByLabelText(/^Amount \(₹\)$/), { target: { value: '750' } });
+    fireEvent.click(within(dialog).getByText('Save changes'));
+
+    fireEvent.click(within(txCard()).getByLabelText('Edit Flat rent'));
+    dialog = screen.getByRole('dialog');
+    const toggle = within(dialog).getByRole('button', { name: /Change history \(2\)/ });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(toggle);
+    expect(within(dialog).getByText('Edited')).toBeInTheDocument();
+    expect(within(dialog).getByText('Amount')).toBeInTheDocument();
+    expect(within(dialog).getByText('₹500')).toBeInTheDocument();
   });
 
   /**

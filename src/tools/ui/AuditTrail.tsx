@@ -16,7 +16,7 @@ import { ymdLocal } from '../../lib/date';
 import { Icon, type IconName } from './Icon';
 import {
   AUDIT_ACTION_LABEL, AUDIT_FIELD_LABEL, MAX_AUDIT_ENTRIES,
-  emptyAuditFilter, filterAudit, groupAuditByDay, groupAuditBatches,
+  emptyAuditFilter, filterAudit, groupAuditByDay, groupAuditBatches, restorableFrom,
   type AuditAction, type AuditEntry, type AuditField, type AuditGroup, type AuditValue,
 } from '../lib/expenseAudit';
 import type { ExpenseItem } from '../lib/expense';
@@ -52,12 +52,14 @@ interface Props {
   now: Date;
   /** Open a transaction that still exists. */
   onOpen: (item: ExpenseItem) => void;
+  /** Put a deleted transaction back. Given the full record from the snapshot. */
+  onRestore: (item: ExpenseItem) => void;
   onExport: () => void;
   onClear: () => void;
 }
 
 export default function AuditTrail({
-  entries, items, catLabel, cfmt, now, onOpen, onExport, onClear,
+  entries, items, catLabel, cfmt, now, onOpen, onRestore, onExport, onClear,
 }: Props) {
   const [filter, setFilter] = useState(emptyAuditFilter);
   const [pages, setPages] = useState(1);
@@ -208,6 +210,7 @@ export default function AuditTrail({
                   catLabel={catLabel}
                   cfmt={cfmt}
                   onOpen={onOpen}
+                  onRestore={onRestore}
                 />
               ))}
             </ul>
@@ -236,17 +239,23 @@ export default function AuditTrail({
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function AuditRow({
-  group, live, catLabel, cfmt, onOpen,
+  group, live, catLabel, cfmt, onOpen, onRestore,
 }: {
   group: AuditGroup;
   live: Map<string, ExpenseItem>;
   catLabel: (key: string) => string;
   cfmt: (n: number) => string;
   onOpen: (item: ExpenseItem) => void;
+  onRestore: (item: ExpenseItem) => void;
 }) {
   const [open, setOpen] = useState(false);
   const { action, entries } = group;
   const style = ACTION_STYLE[action];
+
+  /** Every deletion in this group that can still be put back. */
+  const restorable = entries
+    .map(restorableFrom)
+    .filter((it): it is ExpenseItem => !!it && !live.has(it.id));
 
   // A batch is summarised, then itemised on demand.
   if (entries.length > 1) {
@@ -274,11 +283,26 @@ function AuditRow({
             <Icon name="arrow-up" size={14} />
           </span>
         </button>
+        {restorable.length > 0 && (
+          <div className="au-restore-row">
+            <button
+              type="button"
+              className="au-restore"
+              onClick={() => restorable.forEach(onRestore)}
+            >
+              <Icon name="refresh" size={13} aria-hidden="true" />
+              Restore {restorable.length === entries.length ? 'all' : `${restorable.length}`}
+            </button>
+          </div>
+        )}
         {open && (
           <ul className="au-sublist" id={listId}>
             {entries.map((e) => (
               <li key={e.id}>
-                <EntryBody entry={e} live={live} catLabel={catLabel} cfmt={cfmt} onOpen={onOpen} nested />
+                <EntryBody
+                  entry={e} live={live} catLabel={catLabel} cfmt={cfmt}
+                  onOpen={onOpen} onRestore={onRestore} nested
+                />
               </li>
             ))}
           </ul>
@@ -289,7 +313,10 @@ function AuditRow({
 
   return (
     <li className="au-item">
-      <EntryBody entry={entries[0]} live={live} catLabel={catLabel} cfmt={cfmt} onOpen={onOpen} />
+      <EntryBody
+        entry={entries[0]} live={live} catLabel={catLabel} cfmt={cfmt}
+        onOpen={onOpen} onRestore={onRestore}
+      />
     </li>
   );
 }
@@ -302,19 +329,24 @@ function AuditRow({
  * because a control that cannot act is worse than no control.
  */
 function EntryBody({
-  entry, live, catLabel, cfmt, onOpen, nested = false,
+  entry, live, catLabel, cfmt, onOpen, onRestore, nested = false,
 }: {
   entry: AuditEntry;
   live: Map<string, ExpenseItem>;
   catLabel: (key: string) => string;
   cfmt: (n: number) => string;
   onOpen: (item: ExpenseItem) => void;
+  onRestore: (item: ExpenseItem) => void;
   nested?: boolean;
 }) {
   const style = ACTION_STYLE[entry.action];
   const item = live.get(entry.txId);
   const name = entry.label || catLabel(entry.category);
   const when = fmtTime(entry.ts);
+  // Offered only when the whole record was kept AND the row is really gone:
+  // restoring over a live transaction would duplicate it, and a restore built
+  // from the display fields alone would silently drop tags and notes.
+  const revive = !item ? restorableFrom(entry) : null;
 
   const body = (
     <>
@@ -344,7 +376,31 @@ function EntryBody({
     </>
   );
 
-  if (!item) return <div className={rowClass(nested)}>{body}</div>;
+  if (!item) {
+    return (
+      <>
+        <div className={rowClass(nested)}>{body}</div>
+        {/* Restore sits outside the row rather than inside it: the row is not a
+            control here, and a button nested in a non-interactive block keeps
+            the deleted entry readable while still offering the one action that
+            makes sense for it. Batch groups render their own bulk Restore, so
+            this is suppressed there to avoid offering the same thing twice. */}
+        {revive && !nested && (
+          <div className="au-restore-row">
+            <button
+              type="button"
+              className="au-restore"
+              onClick={() => onRestore(revive)}
+              aria-label={`Restore ${name}, ${cfmt(entry.amount)}`}
+            >
+              <Icon name="refresh" size={13} aria-hidden="true" />
+              Restore
+            </button>
+          </div>
+        )}
+      </>
+    );
+  }
 
   return (
     <button
@@ -456,6 +512,13 @@ const AUDIT_STYLES = `
   transform:rotate(180deg);transition:transform var(--ctl-trans);}
 .fx-tools .au-caret[data-open]{transform:rotate(0deg);}
 
+.fx-tools .au-restore-row{padding:0 6px 10px 45px;}
+.fx-tools .au-restore{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:980px;
+  border:1px solid color-mix(in srgb,var(--gold) 45%,transparent);background:color-mix(in srgb,var(--gold) 10%,transparent);
+  color:var(--ink);font-size:11.5px;font-weight:600;font-family:inherit;cursor:pointer;
+  transition:background-color var(--ctl-trans),border-color var(--ctl-trans);}
+.fx-tools .au-restore:hover{background:color-mix(in srgb,var(--gold) 18%,transparent);border-color:var(--gold);}
+
 .fx-tools .au-diffs{display:flex;flex-direction:column;gap:3px;margin-top:5px;}
 .fx-tools .au-diff{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px;font-size:11.5px;color:var(--ink3);}
 .fx-tools .au-diff-f{font-weight:700;color:var(--ink2);min-width:74px;}
@@ -470,6 +533,7 @@ const AUDIT_STYLES = `
 
 @media (max-width:480px){
   .fx-tools .au-row-nested{padding-left:16px;}
+  .fx-tools .au-restore-row{padding-left:21px;}
   .fx-tools .au-diff-f{min-width:0;}
   /* The meta line carries the time, so it wraps rather than truncating — a
      change history that hides "when" on a phone has hidden the point. */

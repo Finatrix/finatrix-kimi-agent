@@ -29,7 +29,7 @@
  */
 import { ymdLocal } from '../../lib/date';
 import { getJSON, setJSON, store } from './storage';
-import type { ExpenseItem } from './expense';
+import { normalizeExpense, type ExpenseItem } from './expense';
 
 /** Storage key. Synced with the rest of the user's data (see cloudSync.ts). */
 export const AUDIT_KEY = 'fx_expense_audit';
@@ -110,6 +110,16 @@ export interface AuditEntry {
   label: string;
   /** Field-level diff. Present on edits only, and never empty. */
   changes?: AuditFieldChange[];
+  /**
+   * The complete record, kept on `delete` entries only.
+   *
+   * The display fields above describe a deletion; they cannot undo one. Tags,
+   * payment method, notes and the recurring flag are not among them, so a
+   * restore built from the snapshot-for-display would quietly return a poorer
+   * transaction than the one that was removed — the sort of silent lossy
+   * "undo" that is worse than no undo at all.
+   */
+  snapshot?: ExpenseItem;
   /**
    * Shared by every entry written by one multi-row action, so "deleted 12
    * transactions" reads as one event while each row stays individually
@@ -199,8 +209,24 @@ export function auditEvent(
     category: item.category,
     date: item.date,
     label: labelOf(item),
+    // Only a deletion needs the whole record: it is the one action whose
+    // subject no longer exists anywhere else.
+    ...(action === 'delete' ? { snapshot: item } : {}),
     ...(opts.batch ? { batch: opts.batch } : {}),
   };
+}
+
+/**
+ * The transaction a `delete` entry can put back, or null when it cannot.
+ *
+ * Entries written before snapshots existed have no record to restore, and a
+ * restore reconstructed from the display fields would silently drop tags,
+ * payment method and notes. Returning null lets the UI simply not offer the
+ * action rather than offer a lossy one.
+ */
+export function restorableFrom(entry: AuditEntry): ExpenseItem | null {
+  if (entry.action !== 'delete' || !entry.snapshot) return null;
+  return normalizeExpense(entry.snapshot);
 }
 
 /**
@@ -264,6 +290,9 @@ export function normalizeAuditEntry(raw: unknown): AuditEntry | null {
     date: String(r.date ?? ''),
     label: String(r.label ?? ''),
     ...(changes && changes.length ? { changes } : {}),
+    ...(r.snapshot && typeof r.snapshot === 'object'
+      ? { snapshot: normalizeExpense(r.snapshot) }
+      : {}),
     ...(r.batch ? { batch: String(r.batch) } : {}),
   };
 }
@@ -345,6 +374,16 @@ export function filterAudit(
     return e.label.toLowerCase().includes(q)
       || catLabel(e.category).toLowerCase().includes(q);
   });
+}
+
+/**
+ * One transaction's own history, newest first.
+ *
+ * Scoped by the stable transaction id, so a row keeps its history through
+ * every rename, recategorisation and date change it has ever had.
+ */
+export function historyFor(entries: AuditEntry[], txId: string): AuditEntry[] {
+  return entries.filter((e) => e.txId === txId);
 }
 
 /** Entries that happened on one calendar day, newest first. */
