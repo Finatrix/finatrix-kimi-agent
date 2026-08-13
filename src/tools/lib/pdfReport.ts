@@ -178,6 +178,216 @@ export function stamp(): string {
   });
 }
 
+/* ── Cover page ─────────────────────────────────────────────────────────── */
+
+export interface CoverOptions {
+  title: string;
+  /** e.g. "July 2026". */
+  period: string;
+  currency: string;
+  logo: string | null;
+  /** The one number the report is about, pre-formatted. */
+  headline: string;
+  headlineLabel: string;
+  /** Two or three supporting figures, shown beneath the headline. */
+  facts: Array<{ label: string; value: string }>;
+  /** Optional one-line summary in the reader's own terms. */
+  summary?: string;
+}
+
+/**
+ * A cover page.
+ *
+ * Reports get printed, emailed to an accountant and filed. Opening straight
+ * onto a dense stat grid gives the reader nothing to orient on and nothing to
+ * file it under — the cover exists so the first thing seen is *what this is,
+ * whose it is, and which month*, at a size that survives being printed and
+ * skimmed.
+ *
+ * Always followed by `doc.addPage()` from the caller: this function owns the
+ * whole first page and leaves the cursor nowhere.
+ */
+export function drawCover(doc: Doc, o: CoverOptions): void {
+  const W = pageW(doc);
+  const H = pageH(doc);
+
+  // A full-bleed tint. Kept very light: this page is routinely printed on a
+  // mono laser, where a heavy fill becomes a grey smear across the sheet.
+  doc.setFillColor(...PAPER);
+  doc.rect(0, 0, W, H, 'F');
+
+  doc.setFillColor(...GOLD);
+  doc.rect(0, 0, W, 6, 'F');
+
+  const size = 46;
+  if (o.logo) {
+    try { doc.addImage(o.logo, 'PNG', MARGIN, 92, size, size); } catch { drawMark(doc, MARGIN, 92, size); }
+  } else {
+    drawMark(doc, MARGIN, 92, size);
+  }
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(22);
+  doc.setTextColor(...INK);
+  doc.text('FinatriX', MARGIN + size + 14, 116);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+  doc.setTextColor(...MUTED);
+  doc.text('Personal finance, made clear', MARGIN + size + 14, 131);
+
+  // Title block.
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(34);
+  doc.setTextColor(...INK);
+  doc.text(o.title, MARGIN, 232);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(16);
+  doc.setTextColor(...INK_2);
+  doc.text(o.period, MARGIN, 258);
+
+  doc.setDrawColor(...GOLD);
+  doc.setLineWidth(2);
+  doc.line(MARGIN, 278, MARGIN + 64, 278);
+
+  // The headline figure.
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(...MUTED);
+  doc.text(o.headlineLabel.toUpperCase(), MARGIN, 320);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(40);
+  doc.setTextColor(...INK);
+  doc.text(o.headline, MARGIN, 356);
+
+  // Supporting facts, evenly spaced across the page.
+  const factY = 410;
+  const colW = contentW(doc) / Math.max(1, o.facts.length);
+  o.facts.forEach((f, i) => {
+    const x = MARGIN + i * colW;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(...MUTED);
+    doc.text(f.label.toUpperCase(), x, factY);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(15);
+    doc.setTextColor(...INK);
+    doc.text(f.value, x, factY + 20);
+  });
+
+  if (o.summary) {
+    doc.setDrawColor(...HAIR);
+    doc.setLineWidth(0.6);
+    doc.line(MARGIN, factY + 44, W - MARGIN, factY + 44);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(...INK_2);
+    doc.text(doc.splitTextToSize(o.summary, contentW(doc)) as string[], MARGIN, factY + 68);
+  }
+
+  // Footer block.
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(...MUTED);
+  doc.text(`Currency ${o.currency}`, MARGIN, H - 64);
+  doc.text(`Generated ${stamp()}`, MARGIN, H - 52);
+  doc.text('Educational tool, not financial advice.', MARGIN, H - 40);
+  doc.text('finatrix.co', W - MARGIN, H - 40, { align: 'right' });
+}
+
+/* ── Period comparison ──────────────────────────────────────────────────── */
+
+export interface CompareRow {
+  label: string;
+  current: number;
+  previous: number;
+}
+
+/**
+ * This period against the one before it, as paired bars.
+ *
+ * A single month in isolation cannot tell anyone whether they are improving —
+ * that is the question a monthly report is actually asked. Rows are drawn on a
+ * shared scale so the two bars are directly comparable, and the delta is
+ * printed as well as drawn: the direction must survive being photocopied in
+ * black and white, where the two fills become the same grey.
+ */
+export function drawComparison(
+  doc: Doc,
+  y: number,
+  rows: CompareRow[],
+  code: string,
+  labels: { current: string; previous: string },
+): number {
+  if (rows.length === 0) return y;
+
+  const W = contentW(doc);
+  const labelW = 130;
+  const deltaW = 88;
+  const barsW = W - labelW - deltaW - 16;
+  const rowH = 30;
+  let cursor = ensureSpace(doc, y, 40);
+
+  // Legend.
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setFillColor(...GOLD);
+  doc.rect(MARGIN + labelW, cursor - 2, 8, 8, 'F');
+  doc.setTextColor(...INK_2);
+  doc.text(labels.current, MARGIN + labelW + 12, cursor + 5);
+  doc.setFillColor(...HAIR);
+  doc.rect(MARGIN + labelW + 12 + doc.getTextWidth(labels.current) + 14, cursor - 2, 8, 8, 'F');
+  doc.setTextColor(...MUTED);
+  doc.text(
+    labels.previous,
+    MARGIN + labelW + 12 + doc.getTextWidth(labels.current) + 28,
+    cursor + 5,
+  );
+  cursor += 18;
+
+  const max = Math.max(...rows.map((r) => Math.max(r.current, r.previous)), 1);
+
+  for (const r of rows) {
+    cursor = ensureSpace(doc, cursor, rowH + 4);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(...INK);
+    doc.text(fit(doc, r.label, labelW - 8), MARGIN, cursor + 12);
+
+    const barX = MARGIN + labelW;
+    // Current on top, previous beneath, both from the same origin.
+    doc.setFillColor(...GOLD);
+    doc.rect(barX, cursor + 2, Math.max(1, (r.current / max) * barsW), 8, 'F');
+    doc.setFillColor(...HAIR);
+    doc.rect(barX, cursor + 13, Math.max(1, (r.previous / max) * barsW), 8, 'F');
+
+    doc.setFontSize(7.5);
+    doc.setTextColor(...MUTED);
+    doc.text(money(r.current, code), barX + Math.max(1, (r.current / max) * barsW) + 5, cursor + 9);
+
+    // The delta, in words as well as position.
+    const diff = r.current - r.previous;
+    const pctChange = r.previous > 0 ? (diff / r.previous) * 100 : null;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    // Keys must come from the BudgetTone set — `TONE_RGB` is a loose
+    // `Record<string, RGB>`, so a typo yields `undefined` and the spread below
+    // throws "is not iterable" at export time rather than at compile time.
+    doc.setTextColor(...(diff > 0 ? TONE_RGB.over : diff < 0 ? TONE_RGB.safe : MUTED));
+    const text = pctChange == null
+      ? (r.previous === 0 ? 'New' : '—')
+      : `${diff >= 0 ? '+' : ''}${Math.round(pctChange)}%`;
+    doc.text(text, MARGIN + W, cursor + 12, { align: 'right' });
+
+    cursor += rowH;
+  }
+
+  return cursor + 6;
+}
+
 /* ── Flow helpers ───────────────────────────────────────────────────────── */
 
 /** Start a new page when `needed` points wouldn't fit. Returns the y to use. */

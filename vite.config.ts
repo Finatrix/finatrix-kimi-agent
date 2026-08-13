@@ -1,6 +1,7 @@
+import fs from "fs"
 import path from "path"
 import react from "@vitejs/plugin-react"
-import { loadEnv } from "vite"
+import { loadEnv, type Plugin } from "vite"
 import { defineConfig } from "vitest/config"
 
 /**
@@ -63,13 +64,35 @@ function assertDeployableClientConfig(mode: string): void {
   );
 }
 
+/**
+ * Stamp the service worker with a per-build identity.
+ *
+ * `public/sw.js` is copied verbatim into `dist`, which would make it
+ * byte-identical on every deploy — and a byte-identical worker is one the
+ * browser considers unchanged, so a new build's shell would never be picked
+ * up. Replacing the placeholder is what makes updates land at all; it also
+ * namespaces the caches per build, so `activate` can drop the previous one.
+ */
+function stampServiceWorker(): Plugin {
+  return {
+    name: "fx-stamp-service-worker",
+    apply: "build",
+    closeBundle() {
+      const file = path.resolve(__dirname, "dist/sw.js");
+      if (!fs.existsSync(file)) return;
+      const version = `${Date.now().toString(36)}`;
+      fs.writeFileSync(file, fs.readFileSync(file, "utf8").replace(/__FX_SW_VERSION__/g, version));
+    },
+  };
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ command, mode }) => {
   if (command === "build") assertDeployableClientConfig(mode);
 
   return {
     base: '/',
-    plugins: [react()],
+    plugins: [react(), stampServiceWorker()],
     server: {
       // Honour an externally assigned port (e.g. preview harnesses); default 3000.
       port: Number(process.env.PORT) || 3000,

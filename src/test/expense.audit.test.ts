@@ -4,6 +4,7 @@ import {
   auditEvent, auditEdit, diffTransaction, newBatchId,
   loadAuditLog, saveAuditLog, appendEntries, recordAudit, clearAuditLog,
   normalizeAuditEntry, filterAudit, emptyAuditFilter, groupAuditByDay, groupAuditBatches,
+  historyFor, restorableFrom,
   type AuditEntry,
 } from '../tools/lib/expenseAudit';
 import type { ExpenseItem } from '../tools/lib/expense';
@@ -92,6 +93,68 @@ describe('expense audit — recording what changed', () => {
     const ids = new Set<string>();
     for (let i = 0; i < 500; i++) ids.add(auditEvent('add', tx()).id);
     expect(ids.size).toBe(500);
+  });
+});
+
+describe('expense audit — restoring a deletion', () => {
+  it('keeps the WHOLE record on a delete, not just the display fields', () => {
+    const victim = tx({
+      merchant: 'Corner Store', paymentMethod: 'UPI', tags: ['weekly', 'food'],
+      recurring: true, notes: 'stocked up for the week',
+    });
+    const restored = restorableFrom(auditEvent('delete', victim));
+    expect(restored).toMatchObject({
+      id: 'tx_1', amount: 450, category: 'groceries', date: '2026-08-12',
+      merchant: 'Corner Store', paymentMethod: 'UPI', recurring: true,
+      notes: 'stocked up for the week',
+    });
+    expect(restored!.tags).toEqual(['weekly', 'food']);
+  });
+
+  it('restores the original id, so a restore can never duplicate the row', () => {
+    expect(restorableFrom(auditEvent('delete', tx()))!.id).toBe('tx_1');
+  });
+
+  it('offers nothing to restore for any action that is not a deletion', () => {
+    expect(restorableFrom(auditEvent('add', tx()))).toBeNull();
+    expect(restorableFrom(auditEvent('duplicate', tx()))).toBeNull();
+    expect(restorableFrom(auditEdit(tx(), tx({ amount: 9 }))!)).toBeNull();
+  });
+
+  /**
+   * Entries written before snapshots existed have nothing to restore. Offering
+   * a restore rebuilt from the display fields would silently drop tags, payment
+   * method and notes — a lossy undo is worse than none.
+   */
+  it('offers nothing for a legacy delete entry with no snapshot', () => {
+    const legacy = auditEvent('delete', tx());
+    delete legacy.snapshot;
+    expect(restorableFrom(legacy)).toBeNull();
+  });
+
+  it('survives a round trip through storage', () => {
+    localStorage.clear();
+    recordAudit([auditEvent('delete', tx({ merchant: 'Corner Store', tags: ['weekly'] }))]);
+    const restored = restorableFrom(loadAuditLog()[0]);
+    expect(restored).toMatchObject({ id: 'tx_1', merchant: 'Corner Store' });
+    expect(restored!.tags).toEqual(['weekly']);
+  });
+});
+
+describe('expense audit — one transaction\'s own history', () => {
+  it('follows the stable id, not the label or the category', () => {
+    const entries = [
+      auditEdit(tx(), tx({ category: 'eating_out', merchant: 'Renamed' }))!,
+      auditEvent('add', tx({ id: 'tx_2' })),
+      auditEvent('add', tx()),
+    ];
+    const mine = historyFor(entries, 'tx_1');
+    expect(mine).toHaveLength(2);
+    expect(mine.every((e) => e.txId === 'tx_1')).toBe(true);
+  });
+
+  it('is empty for a transaction with no recorded changes', () => {
+    expect(historyFor([auditEvent('add', tx())], 'nope')).toEqual([]);
   });
 });
 

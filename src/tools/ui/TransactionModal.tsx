@@ -7,6 +7,9 @@ import { SECTION_COLOR } from '../lib/sectionColors';
 import {
   PAYMENT_METHODS, etToday, genExpenseId, type ExpenseItem,
 } from '../lib/expense';
+import {
+  AUDIT_ACTION_LABEL, AUDIT_FIELD_LABEL, type AuditEntry, type AuditField, type AuditValue,
+} from '../lib/expenseAudit';
 import { evaluateFormula, formulaSignedAmount } from '../lib/formula';
 import { AmountInput } from './AmountInput';
 import { useAskAi } from './AiAssistant';
@@ -27,6 +30,10 @@ interface Props {
   onClose: () => void;
   onDelete?: (id: string) => void;
   onDuplicate?: (item: ExpenseItem) => void;
+  /** This transaction's own change history, newest first. Empty when unknown. */
+  history?: AuditEntry[];
+  /** Formats an amount in the active currency, for the history's diffs. */
+  cfmt?: (n: number) => string;
 }
 
 interface Draft {
@@ -76,6 +83,7 @@ const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:n
  */
 export default function TransactionModal({
   editing, cats, sym, defaultCat, recentCats = [], onSave, onClose, onDelete, onDuplicate,
+  history = [], cfmt,
 }: Props) {
   const isEdit = !!editing;
   const [draft, setDraft] = useState<Draft>(() => (editing ? draftFromItem(editing) : emptyDraft(defaultCat)));
@@ -450,6 +458,10 @@ export default function TransactionModal({
             </div>
           )}
 
+          {isEdit && history.length > 0 && (
+            <TransactionHistory history={history} cats={cats} cfmt={cfmt} />
+          )}
+
           {/* Actions — sticky so the primary action stays visible while the
               long form scrolls within the card. */}
           <div className="fx-tx-footer">
@@ -515,6 +527,85 @@ export default function TransactionModal({
     </div>
     </div>,
     document.body
+  );
+}
+
+/**
+ * This transaction's own change history.
+ *
+ * The line above already says *that* it was edited; this says *what* changed.
+ * Collapsed by default — the common reason to open this sheet is to make a
+ * change, not to audit one — and it never renders when the tracker has no
+ * record, so a transaction from before the history existed simply shows
+ * nothing rather than claiming it was never touched.
+ */
+function TransactionHistory({
+  history, cats, cfmt,
+}: {
+  history: AuditEntry[];
+  cats: FlatCat[];
+  cfmt?: (n: number) => string;
+}) {
+  const [open, setOpen] = useState(false);
+  const listId = useId();
+  const money = cfmt ?? ((n: number) => String(n));
+  const catLabel = (k: string) => cats.find((c) => c.k === k)?.l ?? k;
+
+  const value = (field: AuditField, v: AuditValue): string => {
+    if (field === 'recurring') return v ? 'Yes' : 'No';
+    if (v == null || v === '') return '—';
+    if (field === 'amount') return money(Number(v));
+    if (field === 'category') return catLabel(String(v));
+    return String(v);
+  };
+
+  return (
+    <div style={{ marginBottom: 10, paddingTop: 10, borderTop: '1px solid var(--hair2)' }}>
+      <button
+        type="button"
+        className="fx-tx-iconbtn"
+        style={{ width: '100%', justifyContent: 'space-between', height: 34 }}
+        aria-expanded={open}
+        aria-controls={listId}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+          <Icon name="clock" size={14} style={{ color: 'var(--ink3)' }} />
+          Change history ({history.length})
+        </span>
+        <span aria-hidden="true" style={{ color: 'var(--ink3)', fontSize: 11 }}>{open ? 'Hide' : 'Show'}</span>
+      </button>
+      {open && (
+        <ul id={listId} style={{ listStyle: 'none', margin: '8px 0 0', padding: 0, display: 'grid', gap: 8 }}>
+          {history.map((e) => (
+            <li key={e.id} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
+              <span
+                aria-hidden="true"
+                style={{
+                  width: 6, height: 6, borderRadius: '50%', marginTop: 6, flexShrink: 0,
+                  background: e.action === 'delete' ? 'var(--red)'
+                    : e.action === 'edit' ? 'var(--blue)' : 'var(--green)',
+                }}
+              />
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 600 }}>
+                  {AUDIT_ACTION_LABEL[e.action]}
+                  <span className="note" style={{ fontWeight: 500 }}> · {fmtStamp(new Date(e.ts).toISOString())}</span>
+                </div>
+                {e.changes?.map((c) => (
+                  <div key={c.field} className="note" style={{ fontSize: 11.5, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    <b style={{ fontWeight: 600 }}>{AUDIT_FIELD_LABEL[c.field]}</b>
+                    <s style={{ opacity: 0.75 }}>{value(c.field, c.before)}</s>
+                    <span aria-hidden="true">→</span>
+                    <span style={{ color: 'var(--ink)' }}>{value(c.field, c.after)}</span>
+                  </div>
+                ))}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
