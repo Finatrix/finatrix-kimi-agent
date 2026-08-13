@@ -5,6 +5,7 @@ describe('cloudSync SYNC_KEYS', () => {
   it('covers every key the tools persist to localStorage', () => {
     const expected = [
       'fx_expenses',
+      'fx_expense_audit',
       'fx_budget',
       'fx_budgets',
       'fx_bb_data',

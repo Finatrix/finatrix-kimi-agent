@@ -15,6 +15,10 @@ import { store } from './lib/storage';
 
 export const SYNC_KEYS = [
   'fx_expenses',
+  // The expense change history rides along with the ledger it describes: a
+  // record of "what did I delete?" that only exists on the device where the
+  // deletion happened answers the question exactly where it is least useful.
+  'fx_expense_audit',
   'fx_budget',
   'fx_currency',
   'fx_budgets',

@@ -17,6 +17,7 @@ const KEY_LABEL: Record<string, string> = {
   fx_bb_data: 'Budget', fx_bb_cats: 'Budget categories',
   fx_bb_catprefs: 'Category arrangement', fx_bb_income: 'Income sources',
   fx_expenses: 'Expenses',
+  fx_expense_audit: 'Expense change history',
   fx_goals: 'Goals', fx_investmatch: 'InvestMatch', fx_parksmart: 'ParkSmart',
   fx_peercompare: 'PeerCompare', fx_lifemap: 'LifeMap', fx_currency: 'Currency',
 };

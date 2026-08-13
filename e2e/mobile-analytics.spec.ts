@@ -50,11 +50,15 @@ test('Analytics tab does not overflow horizontally on mobile with dense data', a
   await noHorizontalScroll(page);
 });
 
-test('Overview + Recurring tabs also stay within the viewport width', async ({ page }) => {
+test('Overview, Recurring and History tabs also stay within the viewport width', async ({ page }) => {
   await page.goto('/tools/expenses');
   await page.evaluate(SEED);
   await page.reload();
   await noHorizontalScroll(page);
   await page.getByRole('tab', { name: 'Recurring' }).click();
+  await noHorizontalScroll(page);
+  // History was the fourth tab added to a bar sized for three: the bar itself
+  // is what would push the page wide, on every tab at once.
+  await page.getByRole('tab', { name: 'History' }).click();
   await noHorizontalScroll(page);
 });

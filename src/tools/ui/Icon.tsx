@@ -12,7 +12,8 @@ export type IconName =
   | 'emi' | 'other' | 'pharma' | 'dining' | 'pet' | 'charity' | 'sip' | 'shield'
   | 'home' | 'car' | 'award' | 'warn' | 'check' | 'trending' | 'briefcase'
   | 'map' | 'clock' | 'dollar' | 'lock' | 'bank' | 'pie' | 'sun' | 'users'
-  | 'zap' | 'arrow-up' | 'refresh' | 'layers' | 'compass' | 'sparkle';
+  | 'zap' | 'arrow-up' | 'refresh' | 'layers' | 'compass' | 'sparkle'
+  | 'edit' | 'trash' | 'plus';
 
 export function Icon({
   name,
@@ -190,6 +191,18 @@ export function IconSprite() {
         </symbol>
         <symbol id="ic-compass" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="10" /><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+        </symbol>
+        {/* The three verbs a ledger supports. The change history distinguishes
+            them at a glance, which a shared shape in three colours cannot do —
+            colour alone is not an accessible difference (WCAG 1.4.1). */}
+        <symbol id="ic-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+        </symbol>
+        <symbol id="ic-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z" />
+        </symbol>
+        <symbol id="ic-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
         </symbol>
       </defs>
     </svg>

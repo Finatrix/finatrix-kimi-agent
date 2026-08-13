@@ -10,15 +10,24 @@ import { PageHead, ToolFoot } from '../ui/common';
 import { Icon, type IconName } from '../ui/Icon';
 import { MonthNav } from '../ui/MonthNav';
 import { ExportMenu } from '../ui/ExportMenu';
-import { exportExpenseCsv, exportExpenseXlsx, exportExpensePdf, type ExpenseExport } from '../lib/exporters';
+import {
+  exportExpenseCsv, exportExpenseXlsx, exportExpensePdf, exportAuditCsv,
+  type ExpenseExport,
+} from '../lib/exporters';
 import { currentMonth, monthLabel } from '../lib/month';
 import { getJSON, onLocalWrite } from '../lib/storage';
 import {
   loadExpenses, saveExpenses, etToday, etMonthsWithData, computeDashboard, genExpenseId,
-  isSpendingCategory,
+  isSpendingCategory, migrateCategory,
   type ExpenseItem, type DashResult, type DashCategory, type BudgetWarning,
   type SectionSplit,
 } from '../lib/expense';
+import {
+  loadAuditLog, recordAudit, clearAuditLog, auditEvent, auditEdit, newBatchId,
+  AUDIT_ACTION_LABEL, AUDIT_FIELD_LABEL,
+  type AuditEntry,
+} from '../lib/expenseAudit';
+import AuditTrail from '../ui/AuditTrail';
 import { allCategories, SECTION_LABEL, type SectionedCats, type CatKey, type BudgetStore } from '../lib/budget';
 import { loadCatView } from '../lib/budgetCats';
 import { budgetFillPct, budgetTone, TONE_COLOR, TONE_FILL, TONE_LABEL } from '../lib/budgetStatus';
@@ -41,7 +50,7 @@ import { track } from '../../lib/analytics';
 
 /* ── Design tokens ── */
 
-type Tab = 'overview' | 'analytics' | 'recurring';
+type Tab = 'overview' | 'analytics' | 'recurring' | 'history';
 
 /**
  * How long a deleted transaction stays recoverable.
@@ -58,6 +67,7 @@ const TAB_ITEMS: ReadonlyArray<TabItem<Tab>> = [
   { key: 'overview', label: 'Overview', icon: 'expense' },
   { key: 'analytics', label: 'Analytics', icon: 'trending' },
   { key: 'recurring', label: 'Recurring', icon: 'refresh' },
+  { key: 'history', label: 'History', icon: 'clock' },
 ];
 
 /** That month's Budget Builder plan — per-category allocations and total income. */
@@ -76,6 +86,8 @@ export default function ExpensePage() {
 
   const { notify } = useOptionalToast();
   const [items, setItems] = useState<ExpenseItem[]>(() => loadExpenses());
+  /** The change history. Written by `commit`, read only by the History tab. */
+  const [audit, setAudit] = useState<AuditEntry[]>(() => loadAuditLog());
   const [selMonth, setSelMonth] = useState(currentMonth());
   // The user's own arrangement: archived categories are excluded everywhere,
   // so the picker, the totals and the reports always agree.
@@ -168,9 +180,18 @@ export default function ExpensePage() {
 
   const switchMonth = (m: string) => setSelMonth(m);
 
-  const commit = (next: ExpenseItem[]) => {
+  /**
+   * The single write path for the ledger.
+   *
+   * `events` is required rather than optional so a future mutation cannot reach
+   * storage without saying what it did — an audit trail with one unlogged code
+   * path is an audit trail nobody can trust. Pass `[]` deliberately for a change
+   * that genuinely records nothing (an edit that changed no field).
+   */
+  const commit = (next: ExpenseItem[], events: AuditEntry[]) => {
     setItems(next);
     saveExpenses(next);
+    if (events.length) setAudit(recordAudit(events));
   };
 
   /**
@@ -207,7 +228,7 @@ export default function ExpensePage() {
     const nowIso = new Date().toISOString();
     const item: ExpenseItem = { id: genExpenseId(), amount: amt, category: selKey, date: d, createdAt: nowIso, updatedAt: nowIso };
     if (note.trim()) item.note = note.trim();
-    commit([item, ...items]);
+    commit([item, ...items], [auditEvent('add', item)]);
     // A logged spend IS the completion for a tracker — there is no result
     // screen to reach, so counting result views would score this tool zero
     // forever.
@@ -222,9 +243,12 @@ export default function ExpensePage() {
   };
 
   const saveTransaction = (item: ExpenseItem) => {
-    const exists = items.some((e) => e.id === item.id);
-    const next = exists ? items.map((e) => (e.id === item.id ? item : e)) : [item, ...items];
-    commit(next);
+    const before = items.find((e) => e.id === item.id);
+    const next = before ? items.map((e) => (e.id === item.id ? item : e)) : [item, ...items];
+    // An edit that moved nothing records nothing — `auditEdit` returns null and
+    // the history stays a list of actual changes.
+    const event = before ? auditEdit(before, item) : auditEvent('add', item);
+    commit(next, event ? [event] : []);
     setModalOpen(false);
     setEditing(null);
     const m = item.date.slice(0, 7);
@@ -235,7 +259,7 @@ export default function ExpensePage() {
     const nowIso = new Date().toISOString();
     const copy: ExpenseItem = { ...src, id: genExpenseId(), date: etToday(), createdAt: nowIso, updatedAt: nowIso };
     delete copy.editCount;
-    commit([copy, ...items]);
+    commit([copy, ...items], [auditEvent('duplicate', copy)]);
     setEditing(copy);
     setModalOpen(true);
     const m = copy.date.slice(0, 7);
@@ -262,7 +286,7 @@ export default function ExpensePage() {
   const deleteTransaction = (id: string) => {
     const victim = items.find((e) => e.id === id);
     if (!victim) return;
-    commit(items.filter((e) => e.id !== id));
+    commit(items.filter((e) => e.id !== id), [auditEvent('delete', victim)]);
     setModalOpen(false);
     setEditing(null);
     pushUndo([victim], victim.note || victim.merchant || 'Transaction');
@@ -274,7 +298,10 @@ export default function ExpensePage() {
     // Re-insert, skipping ids that already exist (e.g. double-click on Undo).
     const existing = new Set(items.map((e) => e.id));
     const revived = top.victims.filter((v) => !existing.has(v.id));
-    if (revived.length) commit([...revived, ...items]);
+    if (revived.length) {
+      const batch = revived.length > 1 ? newBatchId() : undefined;
+      commit([...revived, ...items], revived.map((v) => auditEvent('restore', v, { batch })));
+    }
     const rest = undoStack.slice(0, -1);
     setUndoStack(rest);
     if (rest.length) {
@@ -303,12 +330,23 @@ export default function ExpensePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- undoDelete reads current stack/items each render
   }, [undoStack, items]);
 
+  /**
+   * A batch id when — and only when — more than one row is touched. It is what
+   * lets the history collapse "deleted 12 transactions" into one line while
+   * still holding all twelve, so a bulk action is both scannable and itemised.
+   */
+  const batchIdFor = (n: number) => (n > 1 ? newBatchId() : undefined);
+
   const bulkDelete = (ids: string[]) => {
     if (ids.length === 0) return;
     const set = new Set(ids);
     const victims = items.filter((e) => set.has(e.id));
     if (!victims.length) return;
-    commit(items.filter((e) => !set.has(e.id)));
+    const batch = batchIdFor(victims.length);
+    commit(
+      items.filter((e) => !set.has(e.id)),
+      victims.map((v) => auditEvent('delete', v, { batch })),
+    );
     pushUndo(victims, `${victims.length} transaction${victims.length > 1 ? 's' : ''}`);
   };
 
@@ -318,27 +356,88 @@ export default function ExpensePage() {
     const copies = items
       .filter((e) => set.has(e.id))
       .map((e) => { const c: ExpenseItem = { ...e, id: genExpenseId(), date: etToday(), createdAt: nowIso, updatedAt: nowIso }; delete c.editCount; return c; });
-    if (copies.length) commit([...copies, ...items]);
+    if (!copies.length) return;
+    const batch = batchIdFor(copies.length);
+    commit([...copies, ...items], copies.map((c) => auditEvent('duplicate', c, { batch })));
+  };
+
+  /**
+   * Apply a change to many rows at once, recording the diff of each.
+   *
+   * `update` returns the new version of a row; rows it leaves untouched (an
+   * identical field value) produce no entry, because `auditEdit` compares the
+   * two versions rather than trusting that a write happened.
+   */
+  const bulkEdit = (ids: string[], update: (e: ExpenseItem, nowIso: string) => ExpenseItem) => {
+    const set = new Set(ids);
+    const nowIso = new Date().toISOString();
+    const events: AuditEntry[] = [];
+    const batch = batchIdFor(ids.length);
+    const next = items.map((e) => {
+      if (!set.has(e.id)) return e;
+      const after = update(e, nowIso);
+      const event = auditEdit(e, after, { batch });
+      if (event) events.push(event);
+      return after;
+    });
+    commit(next, events);
   };
 
   const bulkCategory = (ids: string[], catKey: string) => {
-    const set = new Set(ids);
-    const nowIso = new Date().toISOString();
-    commit(items.map((e) => (set.has(e.id) ? { ...e, category: catKey, updatedAt: nowIso, editCount: (e.editCount ?? 0) + 1 } : e)));
+    bulkEdit(ids, (e, nowIso) => ({
+      ...e, category: catKey, updatedAt: nowIso, editCount: (e.editCount ?? 0) + 1,
+    }));
   };
 
   const bulkAddTags = (ids: string[], tags: string[]) => {
     if (tags.length === 0) return;
-    const set = new Set(ids);
-    const nowIso = new Date().toISOString();
-    commit(items.map((e) => {
-      if (!set.has(e.id)) return e;
-      const merged = Array.from(new Set([...(e.tags ?? []), ...tags]));
-      return { ...e, tags: merged, updatedAt: nowIso, editCount: (e.editCount ?? 0) + 1 };
+    bulkEdit(ids, (e, nowIso) => ({
+      ...e,
+      tags: Array.from(new Set([...(e.tags ?? []), ...tags])),
+      updatedAt: nowIso,
+      editCount: (e.editCount ?? 0) + 1,
     }));
   };
 
   const catLabel = (k: string) => flatCats.find((c) => c.k === k)?.l ?? k;
+
+  /**
+   * Category label for a key recorded in the past.
+   *
+   * The history holds raw keys, and a key written before the V4.1 taxonomy (or
+   * before a category was renamed) will not be in `flatCats`. Resolving through
+   * `migrateCategory` first is the same step `computeDashboard` takes, so an old
+   * entry reads as "Groceries" rather than as the bare key `grocery`.
+   */
+  const auditCatLabel = useCallback(
+    (k: string) => {
+      const resolved = migrateCategory(k, new Set(flatCats.map((c) => c.k)));
+      return flatCats.find((c) => c.k === resolved)?.l ?? k;
+    },
+    [flatCats],
+  );
+
+  /** The whole log, flattened for the CSV — never the filtered on-screen view. */
+  const exportAudit = () => {
+    exportAuditCsv(audit.map((e) => ({
+      changedAt: new Date(e.ts).toLocaleString(),
+      action: AUDIT_ACTION_LABEL[e.action],
+      category: auditCatLabel(e.category),
+      txDate: e.date,
+      amount: e.amount,
+      label: e.label,
+      changes: (e.changes ?? [])
+        .map((c) => `${AUDIT_FIELD_LABEL[c.field]}: ${c.before ?? '—'} → ${c.after ?? '—'}`)
+        .join('; '),
+    })));
+    notify(`Exporting ${audit.length} recorded change${audit.length === 1 ? '' : 's'}…`, 'ok');
+  };
+
+  const clearAudit = () => {
+    clearAuditLog();
+    setAudit([]);
+    notify('Change history cleared. Your transactions are untouched.', 'ok');
+  };
 
   /**
    * Map transactions to export rows. Always the whole list it is handed, and
@@ -433,19 +532,25 @@ export default function ExpensePage() {
       {/* Tab bar — WAI-ARIA tablist with roving tabindex + arrow-key nav. */}
       <Tabs items={TAB_ITEMS} active={tab} onChange={setTab} idBase="fx-exp" label="Expense views" />
 
-      {/* Month nav + export */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-        <div style={{ flex: 1 }}>
-          <MonthNav activeMonth={selMonth} months={months} onSwitch={switchMonth} pastNote="Viewing past month" pastColor="var(--orange)" />
+      {/* Month nav + export. Hidden on History, which is ordered by when a
+          change was made rather than by the month a spend falls in: a month
+          picker that changes nothing, beside an Export that would silently
+          produce the month's expenses instead of the history, is two controls
+          quietly lying about their scope. History carries its own export. */}
+      {tab !== 'history' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+          <div style={{ flex: 1 }}>
+            <MonthNav activeMonth={selMonth} months={months} onSwitch={switchMonth} pastNote="Viewing past month" pastColor="var(--orange)" />
+          </div>
+          <ExportMenu
+            source="expenses"
+            label="Export"
+            onCsv={() => runExport('csv', buildExport())}
+            onXlsx={() => runExport('xlsx', buildExport())}
+            onPdf={() => runExport('pdf', buildExport())}
+          />
         </div>
-        <ExportMenu
-          source="expenses"
-          label="Export"
-          onCsv={() => runExport('csv', buildExport())}
-          onXlsx={() => runExport('xlsx', buildExport())}
-          onPdf={() => runExport('pdf', buildExport())}
-        />
-      </div>
+      )}
 
       {/* Tab panels — labelled by their tab; panels hold focusable content so
           they need no tabindex of their own (APG). */}
@@ -478,6 +583,18 @@ export default function ExpensePage() {
           <RecurringTab
             items={items} catMeta={catMeta} cfmt={cfmt}
             onEdit={openEdit}
+          />
+        )}
+        {tab === 'history' && (
+          <AuditTrail
+            entries={audit}
+            items={items}
+            catLabel={auditCatLabel}
+            cfmt={cfmt}
+            now={now}
+            onOpen={openEdit}
+            onExport={exportAudit}
+            onClear={clearAudit}
           />
         )}
       </div>
@@ -1776,7 +1893,16 @@ const TAB_STYLES = `
   transition:background-color var(--ctl-trans),color var(--ctl-trans),box-shadow var(--ctl-trans);}
 .fx-tab:hover{color:var(--ink);background:var(--fill-04);}
 .fx-tab.active{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08);}
-@media (max-width:480px){.fx-tab{padding:9px 10px;font-size:12px;gap:5px;}}
+/* Four tabs have to share a phone's width. Each gives up padding, then its
+   icon, before the bar is allowed to grow — and the bar scrolls rather than
+   pushing the page wider, because the exact text width depends on a font this
+   stylesheet cannot measure. The page must never scroll sideways. */
+@media (max-width:480px){
+  .fx-tabs{overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;}
+  .fx-tabs::-webkit-scrollbar{display:none;}
+  .fx-tab{padding:9px 6px;font-size:11.5px;gap:4px;min-width:0;white-space:nowrap;}
+}
+@media (max-width:400px){.fx-tab svg{display:none;}}
 .fx-streak{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:10px;
   background:var(--well);border:1px solid var(--well-border);font-size:12px;font-weight:600;color:var(--ink2);}
 
