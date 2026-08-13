@@ -17,7 +17,13 @@ vi.mock('jspdf', async (importOriginal) => {
   class NonSavingPdf extends actual.jsPDF {
     constructor(...args: ConstructorParameters<typeof actual.jsPDF>) {
       super(...args);
-      this.save = (name?: string) => { saved.push(name ?? ''); return this; };
+      // Cast: jsPDF's `save` is overloaded (it can return a Promise when asked
+      // for one). The exporters only ever call the plain form, so the stub
+      // implements that and is asserted through `saved`.
+      this.save = ((name?: string) => {
+        saved.push(name ?? '');
+        return this;
+      }) as unknown as typeof this.save;
     }
   }
   return { ...actual, jsPDF: NonSavingPdf, default: NonSavingPdf };
