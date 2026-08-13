@@ -12,6 +12,7 @@
  * pdfReport.ts (masthead, stat cards, charts, ruled tables, page numbers).
  */
 import { csvBlob } from '../../lib/csv';
+import { ymdLocal } from '../../lib/date';
 import { cfmt } from './format';
 import { budgetTone, TONE_EXPORT_LABEL } from './budgetStatus';
 import {
@@ -432,6 +433,39 @@ export async function exportExpenseXlsx(e: ExpenseExport) {
   const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
   downloadBlob(`finatrix-expenses-${slug(e.monthLabel)}.xlsx`,
     new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+}
+
+/* ────────────────────── Expense change history ────────────────────── */
+
+export interface AuditExportRow {
+  /** When the change was made, already formatted in the user's locale. */
+  changedAt: string;
+  action: string;
+  category: string;
+  /** The transaction's own calendar day. */
+  txDate: string;
+  amount: number;
+  label: string;
+  /** Field-level diff, one line per field ("Amount: 450 → 520"). */
+  changes: string;
+}
+
+/**
+ * The change history as a flat CSV.
+ *
+ * The one export that outlives the cap: the in-app log keeps a bounded number of
+ * recent changes, so this is how a user keeps a permanent record. It is
+ * therefore emitted whole — every entry currently held, never the filtered view.
+ */
+export function exportAuditCsv(rows: AuditExportRow[], now = new Date()) {
+  const matrix: (string | number)[][] = [
+    ['FinatriX — Expense Change History'],
+    [`Generated: ${stamp()}`, `Changes: ${rows.length}`],
+    [],
+    ['Changed at', 'Action', 'Transaction', 'Category', 'Transaction date', 'Amount', 'What changed'],
+    ...rows.map((r) => [r.changedAt, r.action, r.label, r.category, r.txDate, r.amount, r.changes]),
+  ];
+  downloadBlob(`finatrix-expense-history-${ymdLocal(now)}.csv`, csvBlob(matrix));
 }
 
 /**
