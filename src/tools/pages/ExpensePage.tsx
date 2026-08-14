@@ -672,30 +672,40 @@ export default function ExpensePage() {
           change was made rather than by the month a spend falls in: a month
           picker that changes nothing, beside an Export that would silently
           produce the month's expenses instead of the history, is two controls
-          quietly lying about their scope. History carries its own export. */}
+          quietly lying about their scope. History carries its own export.
+
+          The row wraps rather than overflowing. Neither the month nav nor the
+          two buttons shrink below their content, so at 320px a third control in
+          one line pushed the page 79px wider than the viewport — a horizontal
+          scrollbar on the whole tool, not just this row. Giving the nav a
+          flex-basis it cannot reach on a small screen makes the buttons drop to
+          a second line instead, with no media query to keep in sync with the
+          breakpoints in tools.css. */}
       {tab !== 'history' && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-          <div style={{ flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 240px', minWidth: 0 }}>
             <MonthNav activeMonth={selMonth} months={months} onSwitch={switchMonth} pastNote="Viewing past month" pastColor="var(--orange)" />
           </div>
-          {/* Import sits beside Export because they are the same idea in two
-              directions, and someone looking for one looks here for the other. */}
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            style={{ gap: 6 }}
-            onClick={() => setImporting(true)}
-          >
-            <Icon name="layers" size={15} />
-            Import
-          </button>
-          <ExportMenu
-            source="expenses"
-            label="Export"
-            onCsv={() => runExport('csv', buildExport())}
-            onXlsx={() => runExport('xlsx', buildExport())}
-            onPdf={() => runExport('pdf', buildExport())}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto' }}>
+            {/* Import sits beside Export because they are the same idea in two
+                directions, and someone looking for one looks here for the other. */}
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              style={{ gap: 6 }}
+              onClick={() => setImporting(true)}
+            >
+              <Icon name="layers" size={15} />
+              Import
+            </button>
+            <ExportMenu
+              source="expenses"
+              label="Export"
+              onCsv={() => runExport('csv', buildExport())}
+              onXlsx={() => runExport('xlsx', buildExport())}
+              onPdf={() => runExport('pdf', buildExport())}
+            />
+          </div>
         </div>
       )}
 
