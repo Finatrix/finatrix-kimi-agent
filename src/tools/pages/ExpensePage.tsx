@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import {
+  Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type RefObject,
+} from 'react';
 import { createPortal } from 'react-dom';
 import Chart, { type Plugin } from 'chart.js/auto';
 import { useTheme } from '../../context/ThemeContext';
@@ -66,6 +68,17 @@ type Tab = 'overview' | 'analytics' | 'recurring' | 'history';
  */
 const UNDO_WINDOW_MS = 10_000;
 
+/**
+ * The statement review sheet, loaded the first time someone opens it.
+ *
+ * It is a large surface — a parser suite, a review table, and pdf.js behind a
+ * further dynamic import — and the overwhelming majority of visits to this page
+ * are someone logging a coffee. Keeping it out of the Expense Tracker's chunk
+ * means importing costs a moment when it is first used, and costs nothing at all
+ * to everyone who never does.
+ */
+const StatementImport = lazy(() => import('../ui/StatementImport'));
+
 const TAB_ITEMS: ReadonlyArray<TabItem<Tab>> = [
   { key: 'overview', label: 'Overview', icon: 'expense' },
   { key: 'analytics', label: 'Analytics', icon: 'trending' },
@@ -125,6 +138,7 @@ export default function ExpensePage() {
   // snapshot — snapshots can't compose across several deletes). Undo pops
   // the most recent batch and re-inserts it, so a run of mistaken deletes
   // can be walked back one by one.
+  const [importing, setImporting] = useState(false);
   const [undoStack, setUndoStack] = useState<{ victims: ExpenseItem[]; label: string }[]>([]);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Bumped on every delete/undo to restart the countdown bar. */
@@ -440,6 +454,25 @@ export default function ExpensePage() {
   };
 
   /**
+   * Land a reviewed statement in the ledger.
+   *
+   * Everything that decides *what* is imported already happened in the review
+   * sheet; by the time rows arrive here they are ordinary transactions and take
+   * the ordinary write path, audit trail included. Imports are recorded as
+   * `add` events under one batch id, so the History tab shows "Added 143
+   * transactions" as a single, expandable line rather than burying a week of
+   * manual entries under one upload.
+   */
+  const importTransactions = (imported: ExpenseItem[]) => {
+    if (!imported.length) return;
+    const batch = batchIdFor(imported.length);
+    commit([...imported, ...items], imported.map((it) => auditEvent('add', it, { batch })));
+    haptic('success');
+    notify(`Imported ${imported.length} transaction${imported.length > 1 ? 's' : ''}.`, 'ok');
+    track('tool_completed', { tool: 'expenses' });
+  };
+
+  /**
    * Apply a change to many rows at once, recording the diff of each.
    *
    * `update` returns the new version of a row; rows it leaves untouched (an
@@ -639,20 +672,54 @@ export default function ExpensePage() {
           change was made rather than by the month a spend falls in: a month
           picker that changes nothing, beside an Export that would silently
           produce the month's expenses instead of the history, is two controls
-          quietly lying about their scope. History carries its own export. */}
+          quietly lying about their scope. History carries its own export.
+
+          The row wraps rather than overflowing. Neither the month nav nor the
+          two buttons shrink below their content, so at 320px a third control in
+          one line pushed the page 79px wider than the viewport — a horizontal
+          scrollbar on the whole tool, not just this row. Giving the nav a
+          flex-basis it cannot reach on a small screen makes the buttons drop to
+          a second line instead, with no media query to keep in sync with the
+          breakpoints in tools.css. */}
       {tab !== 'history' && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-          <div style={{ flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 240px', minWidth: 0 }}>
             <MonthNav activeMonth={selMonth} months={months} onSwitch={switchMonth} pastNote="Viewing past month" pastColor="var(--orange)" />
           </div>
-          <ExportMenu
-            source="expenses"
-            label="Export"
-            onCsv={() => runExport('csv', buildExport())}
-            onXlsx={() => runExport('xlsx', buildExport())}
-            onPdf={() => runExport('pdf', buildExport())}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto' }}>
+            {/* Import sits beside Export because they are the same idea in two
+                directions, and someone looking for one looks here for the other. */}
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              style={{ gap: 6 }}
+              onClick={() => setImporting(true)}
+            >
+              <Icon name="layers" size={15} />
+              Import
+            </button>
+            <ExportMenu
+              source="expenses"
+              label="Export"
+              onCsv={() => runExport('csv', buildExport())}
+              onXlsx={() => runExport('xlsx', buildExport())}
+              onPdf={() => runExport('pdf', buildExport())}
+            />
+          </div>
         </div>
+      )}
+
+      {importing && (
+        <Suspense fallback={null}>
+          <StatementImport
+            cats={flatCats}
+            existing={items}
+            cfmt={cfmt}
+            currencyCode={code}
+            onImport={importTransactions}
+            onClose={() => setImporting(false)}
+          />
+        </Suspense>
       )}
 
       {/* Tab panels — labelled by their tab; panels hold focusable content so

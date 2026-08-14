@@ -19,6 +19,12 @@ export const SYNC_KEYS = [
   // record of "what did I delete?" that only exists on the device where the
   // deletion happened answers the question exactly where it is least useful.
   'fx_expense_audit',
+  // Categorisation preferences learned from confirmed statement imports. Holds
+  // merchant names and category keys only — no amounts, dates or references —
+  // and following the user between devices is the whole point: a preference
+  // that only applies on the laptop is one they have to teach twice. The staged
+  // review itself (`fx_import_staged`) is deliberately NOT here; see draft.ts.
+  'fx_import_merchants',
   'fx_budget',
   'fx_currency',
   'fx_budgets',
