@@ -99,7 +99,7 @@ function ParkResultView({ result, amount, dur, onReset }: { result: ParkResult; 
 
   return (
     <div>
-      <div className="card result-hero-anim" style={{ background: 'linear-gradient(135deg,rgba(20,184,166,.16),rgba(13,13,15,.86) 62%)' }}>
+      <div className="card hero-tint hero-tint-teal result-hero-anim">
         <span className="pill" style={{ background: 'rgba(12,128,121,.12)', color: 'var(--teal)' }}>Best Match</span>
         <div style={{ fontSize: 23, fontWeight: 700, letterSpacing: '-.015em', marginTop: 10 }}>
           <Icon name={best.ic} size={18} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> {best.n}

@@ -85,9 +85,12 @@ function CurrencySelect() {
 
 function ToolTabs({ activeTool }: { activeTool: string }) {
   return (
+    /* Wider than the 1024px content column on purpose — see the `.nav` rule in
+       tools.css. The nine labels need about 1030px to sit on one row, and this
+       bar is the only place in the shell that has to hold them all at once. */
     <div
       style={{
-        maxWidth: 1024,
+        maxWidth: 1240,
         margin: '0 auto',
         display: 'flex',
         alignItems: 'center',
@@ -118,20 +121,10 @@ function ToolTabs({ activeTool }: { activeTool: string }) {
             {t.name}
           </Link>
         ))}
-        <Link
-          to="/tools/reports"
-          data-route="reports"
-          className={activeTool === 'reports' ? 'on' : undefined}
-        >
-          Reports
-        </Link>
-        <Link
-          to="/tools/calendar"
-          data-route="calendar"
-          className={activeTool === 'calendar' ? 'on' : undefined}
-        >
-          Calendar
-        </Link>
+        {/* Reports and Calendar are deliberately not in this bar. It holds one
+            row that never scrolls, which is a fixed budget of horizontal space,
+            and the two of them are the least-reached-for destinations here. Both
+            remain one tap away in the drawer, which carries the full set. */}
         {/* In-app navigation goes to the WORKSPACE, not the public landing page
             at /careers — this bar is only ever seen inside the signed-in tools
             shell, where "Careers" means the section, not the pitch. */}

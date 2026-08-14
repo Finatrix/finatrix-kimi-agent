@@ -184,10 +184,21 @@
 
 /* ============ TOOL NAV (in-page tab bar) ============ */
 .fx-tools .nav-wrap { position: sticky; top: 0; z-index: var(--z-toolnav); background: var(--nav-solid); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-bottom: 1px solid var(--hair); }
-.fx-tools .nav { max-width: 1024px; margin: 0 auto; display: flex; gap: 2px; overflow-x: auto; padding: 10px 16px; scrollbar-width: none; }
-.fx-tools .nav::-webkit-scrollbar { display: none; }
-.fx-tools .nav a, .fx-tools .nav button { display: inline-flex; align-items: center; flex-shrink: 0; font-size: 13px; font-weight: 500; color: color-mix(in srgb, var(--ink) 72%, transparent); text-decoration: none; padding: 7px 14px; border-radius: 980px; transition: color .2s var(--ease-out), background .2s var(--ease-out); white-space: nowrap; letter-spacing: -.01em; background: none; border: none; font-family: inherit; cursor: pointer; }
-.fx-tools .nav a::before, .fx-tools .nav button::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 8px; background: currentColor; opacity: .55; transition: opacity .2s ease, transform .2s ease; }
+/* One row, no horizontal scrolling — every destination is visible where it sits.
+   A scrolling nav hides its own contents: the tail of the row was reachable only
+   by a gesture with nothing on screen to suggest it, so the last items were
+   effectively invisible on the widest displays we serve.
+
+   Two things make the row fit. It is allowed to be wider than the 1024px content
+   column, because a nav bar is chrome rather than content and the nine labels
+   need about 1030px; and `flex-wrap` means the fallback at any width too narrow
+   for one row is a second centred row, not a clipped one. That is deliberately a
+   wrap rather than a breakpoint: it self-tunes to whatever the labels and the
+   user's font settings actually measure, so nothing is hidden at any width.
+   Below 767px the bar is replaced wholesale by the drawer and bottom bar. */
+.fx-tools .nav { max-width: 1240px; margin: 0 auto; display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; padding: 10px 8px; }
+.fx-tools .nav a, .fx-tools .nav button { display: inline-flex; align-items: center; flex-shrink: 0; font-size: 13px; font-weight: 500; color: color-mix(in srgb, var(--ink) 72%, transparent); text-decoration: none; padding: 7px 9px; border-radius: 980px; transition: color .2s var(--ease-out), background .2s var(--ease-out); white-space: nowrap; letter-spacing: -.01em; background: none; border: none; font-family: inherit; cursor: pointer; }
+.fx-tools .nav a::before, .fx-tools .nav button::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 7px; background: currentColor; opacity: .55; transition: opacity .2s ease, transform .2s ease; }
 .fx-tools .nav a[data-route="budget"]::before { background: #16A36A; opacity: .85; }
 .fx-tools .nav a[data-route="expenses"]::before { background: #1FAE5A; opacity: .85; }
 .fx-tools .nav a[data-route="investmatch"]::before { background: #0A84FF; opacity: .85; }
@@ -265,6 +276,14 @@
 /* ============ CARDS & FORMS ============ */
 .fx-tools .card { background: var(--card); border: 1px solid var(--hair2); border-radius: var(--r); padding: 24px; box-shadow: var(--shadow); margin-bottom: 16px; backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); transition: box-shadow .25s ease, transform .25s var(--ease-out), border-color .25s ease; }
 .fx-tools .card:hover { box-shadow: 0 24px 60px -18px rgba(0,0,0,.6); transform: translateY(-2px); }
+/* Tinted hero card — the "here is your answer" surface (ParkSmart's Best Match).
+   The tint is a translucent wash layered OVER var(--card), never a colour pair
+   baked into the gradient: a two-stop gradient ending in a literal dark value
+   themes in one direction only, which is how this card came to render as a
+   near-black slab under light mode while its text stayed dark-on-dark. Adding a
+   tint must not cost a card its theming. */
+.fx-tools .card.hero-tint { background: linear-gradient(135deg, var(--hero-tint), transparent 62%), var(--card); }
+.fx-tools .card.hero-tint-teal { --hero-tint: rgba(20,184,166,.16); }
 .fx-tools .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .fx-tools .grid3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
 @media(max-width:560px){ .fx-tools .grid3 { grid-template-columns: 1fr 1fr; } }

@@ -12,6 +12,8 @@ import {
   calcWealth, calcScore, calcHealth,
   type LifeProfile, type Decision,
 } from '../lib/lifemap';
+import { applyPlan } from '../ai/lifemapPlan';
+import { useLifeMapPlan, type PlanStatus } from '../ai/useLifeMapPlan';
 import { track } from '../../lib/analytics';
 
 const CAREERS: [string, string][] = [
@@ -44,6 +46,14 @@ export default function LifeMapPage() {
   const [cat, setCat] = useState('invest');
   const [dialog, setDialog] = useState<{ d: Decision; amt: string } | null>(null);
   const [launching, setLaunching] = useState(false);
+
+  /* `dec` stays the engine's output — the single source of truth for every
+     number LifeMap computes. The plan is a view concern applied on top, so the
+     SIP-edit path below keeps writing engine decisions and the ranking survives
+     the edit. `applyPlan` is a permutation with one prose field replaced, which
+     is why the chart and the score can read `planned` safely. */
+  const { plan, status: planStatus, message: planMessage } = useLifeMapPlan(profile, dec);
+  const planned = useMemo(() => applyPlan(dec, plan), [dec, plan]);
 
   const setField = (k: string, v: string) => {
     const next = { ...form, [k]: v };
@@ -86,8 +96,8 @@ export default function LifeMapPage() {
   return (
     <div className="fx-page" style={{ paddingBottom: 64 }}>
       <AppScreen
-        profile={profile} dec={dec} applied={applied} currentAge={currentAge} cat={cat} code={code}
-        cfmt={cfmt}
+        profile={profile} dec={planned} applied={applied} currentAge={currentAge} cat={cat} code={code}
+        cfmt={cfmt} planStatus={planStatus} planSummary={plan?.summary ?? ''} planMessage={planMessage}
         onAge={setCurrentAge}
         onCat={setCat}
         onToggle={(id) => {
@@ -193,9 +203,10 @@ function SetupForm({ form, goals, setField, setGoals, onLaunch, launching, sym }
 }
 
 /* ───────────────────────── App screen ───────────────────────── */
-function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, onAge, onCat, onToggle, onEdit }: {
+function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, planStatus, planSummary, planMessage, onAge, onCat, onToggle, onEdit }: {
   profile: LifeProfile; dec: Decision[]; applied: Set<string>; currentAge: number; cat: string; code: string;
-  cfmt: (n: number) => string; onAge: (a: number) => void; onCat: (c: string) => void; onToggle: (id: string) => void; onEdit: () => void;
+  cfmt: (n: number) => string; planStatus: PlanStatus; planSummary: string; planMessage: string;
+  onAge: (a: number) => void; onCat: (c: string) => void; onToggle: (id: string) => void; onEdit: () => void;
 }) {
   const score = calcScore(p, applied);
   const health = calcHealth(p, applied);
@@ -288,7 +299,19 @@ function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, onAg
 
       <div className="lm-dec-uni-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
         <div>
-          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Life decisions</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <span style={{ fontSize: 15, fontWeight: 700 }}>Life decisions</span>
+            {planStatus === 'ready' && (
+              <span className="pill" style={{ background: 'rgba(110,59,212,.1)', color: 'var(--purple)' }}>
+                <Icon name="sparkle" size={11} style={{ verticalAlign: '-1px', marginRight: 3 }} />Ranked for your goals
+              </span>
+            )}
+          </div>
+          {/* The ordering is live either way; this only says whose it is. A
+              spinner here would imply the list below is provisional, and it is
+              not — it is the engine's own ranking, which is what LifeMap has
+              always shown and what stays if no plan arrives. */}
+          <PlanNote status={planStatus} summary={planSummary} message={planMessage} />
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
             {LM_CATS.map((c) => {
               const cnt = dec.filter((d) => d.cat === c.id).length;
@@ -335,6 +358,29 @@ function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, onAg
       </div>
     </div>
   );
+}
+
+/**
+ * What the ranking below is, when there is something to say.
+ *
+ * Silent while a plan is in flight and silent when one is applied without a
+ * summary: the list is already ordered and already correct in both cases, and a
+ * status line about machinery the user did not ask about is noise. It speaks
+ * only to explain a personalised ordering, or to say plainly why the ordering
+ * stayed standard.
+ */
+function PlanNote({ status, summary, message }: { status: PlanStatus; summary: string; message: string }) {
+  if (status === 'ready' && summary) {
+    return (
+      <div className="note" role="status" style={{ marginBottom: 12, lineHeight: 1.7 }}>{summary}</div>
+    );
+  }
+  if (status === 'fallback' && message) {
+    return (
+      <div className="note" role="status" style={{ marginBottom: 12, color: 'var(--ink3)' }}>{message}</div>
+    );
+  }
+  return null;
 }
 
 function Kpi({ v, l, color }: { v: string; l: string; color?: string }) {
