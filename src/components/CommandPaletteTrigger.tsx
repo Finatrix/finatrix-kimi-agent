@@ -9,6 +9,12 @@
  *
  * Shared by both shells so the control cannot drift into two versions of
  * itself.
+ *
+ * Hidden below 360px, and only there. At 320px the app bar is genuinely full —
+ * menu, home, brand, notifications, theme, sync state and sign-in — and one
+ * more control pushes the row off the screen. Every real phone width (375 and
+ * up) keeps it, and the 320px case still reaches the palette from "Search
+ * everything" at the top of the navigation drawer.
  */
 export function CommandPaletteTrigger({ onOpen }: { onOpen: () => void }) {
   const mac =
@@ -20,7 +26,7 @@ export function CommandPaletteTrigger({ onOpen }: { onOpen: () => void }) {
       aria-label="Search tools, guides and actions"
       aria-keyshortcuts={mac ? 'Meta+K' : 'Control+K'}
       aria-haspopup="dialog"
-      className="flex items-center gap-2 rounded-full border border-hairline px-2.5 sm:px-3 py-1.5 min-h-6 text-ink-3 hover:text-ink hover:border-hairline-2 transition-colors"
+      className="hidden min-[360px]:flex items-center gap-2 rounded-full border border-hairline px-2.5 sm:px-3 py-1.5 min-h-6 text-ink-3 hover:text-ink hover:border-hairline-2 transition-colors"
     >
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
         <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" />
