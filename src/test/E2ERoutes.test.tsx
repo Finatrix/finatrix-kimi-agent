@@ -20,6 +20,7 @@ const CASES: [string, string | RegExp][] = [
   ['/', 'Real-time calculations'],
   ['/login', 'Welcome back'],
   ['/signup', 'Create your account'],
+  ['/reset-password', 'Choose a new password'],
   ['/profile', 'Your profile'],
   ['/privacy', 'Privacy Policy'],
   ['/terms', 'Terms & Conditions'],

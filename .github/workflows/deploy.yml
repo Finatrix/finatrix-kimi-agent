@@ -10,6 +10,9 @@
 # Repository secrets (Settings → Secrets and variables → Actions):
 #   CLOUDFLARE_API_TOKEN    — API token with "Workers Scripts: Edit"
 #   CLOUDFLARE_ACCOUNT_ID   — the account id shown by `npx wrangler whoami`
+#   VITE_SUPABASE_URL       — inlined into the bundle at build time
+#   VITE_SUPABASE_ANON_KEY  — inlined into the bundle at build time
+#   VITE_ANALYTICS_URL      — inlined into the bundle at build time
 #   SUPABASE_ACCESS_TOKEN   — personal access token (supabase.com/dashboard/account/tokens)
 #   SUPABASE_PROJECT_REF    — the project ref, e.g. from `supabase/.temp/project-ref`
 #
@@ -17,6 +20,21 @@
 # never blocks the other. Manual deploys keep working regardless:
 #   npm run build && npx wrangler deploy
 #   npx supabase functions deploy careers-jobs careers-ai
+#
+# The preflight step in each job names EVERY missing secret in one run, and does
+# it before `npm ci`. Both properties were learned the hard way: the checks used
+# to be split across three steps in two jobs, the first of which bailed on
+# `CLOUDFLARE_API_TOKEN` alone — so configuring this repository was a sequence of
+# push, wait, discover one more missing name, repeat, and the two Cloudflare
+# checks sat five minutes apart with the full gate suite between them.
+# `CLOUDFLARE_ACCOUNT_ID` was in the list above but checked by nothing at all,
+# surfacing instead as an opaque wrangler error after a successful build.
+#
+# Secrets are read through `env:` rather than interpolated into the `run:`
+# script. `if [ -z "${{ secrets.FOO }}" ]` expands the VALUE into the command
+# line, which the runner prints to the log before executing it; masking is the
+# only thing standing between that and a published credential, and masking is a
+# post-processing step on a string, not a guarantee.
 name: Deploy
 
 on:
@@ -32,12 +50,39 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Check deploy credentials are configured
+      # Everything this job cannot succeed without, checked in one pass, before
+      # any minutes are spent installing or testing.
+      - name: Preflight — deploy secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # VITE_* values are INLINED AT BUILD TIME. Building without them does
+          # not fail — it silently produces a bundle with the feature compiled
+          # out: `VITE_SUPABASE_URL` missing makes `isSupabaseConfigured` fold to
+          # `false`, so the shipped app shows every visitor "the backend isn't
+          # configured yet" and sign-in is dead, while every endpoint looks
+          # perfectly healthy. `VITE_ANALYTICS_URL` missing makes
+          # `analyticsEnabled()` fold to `return false`, so no event, error
+          # report or web vital is ever sent. This exact bundle reached
+          # production. It is a deploy credential in every sense that matters,
+          # so it is checked here with the others.
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_ANALYTICS_URL: ${{ secrets.VITE_ANALYTICS_URL }}
         run: |
-          if [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
-            echo "::error::CLOUDFLARE_API_TOKEN secret is not set — skipping deploy. See docs/DEPLOYMENT.md."
+          missing=
+          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID \
+                      VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY VITE_ANALYTICS_URL; do
+            if [ -z "${!name:-}" ]; then
+              missing="$missing $name"
+              echo "  missing: $name"
+            fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Deploy cannot run — these repository secrets are not set:$missing. Add them under Settings → Secrets and variables → Actions. See docs/DEPLOYMENT.md §1."
             exit 1
           fi
+          echo "All 5 deploy secrets are present."
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
@@ -52,28 +97,13 @@ jobs:
       # — it is the only workflow that reaches production, and it previously
       # shipped without ever checking advisories at all.
       - run: npx tsc -b && npx eslint . --max-warnings 0 && npx vitest run && npm run audit:prod
-      # VITE_* values are INLINED AT BUILD TIME. Building without them does not
-      # fail — it silently produces a bundle with the feature compiled out:
-      # `VITE_ANALYTICS_URL` missing makes `analyticsEnabled()` constant-fold to
-      # `return false`, so the shipped app sends no events, no error reports and
-      # no web vitals while every endpoint looks perfectly healthy. This exact
-      # bundle reached production. The guard below fails the build loudly
-      # instead.
-      - name: Check build-time client config is present
-        run: |
-          missing=
-          for v in VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY VITE_ANALYTICS_URL; do
-            eval "val=\${$v}"
-            [ -z "$val" ] && missing="$missing $v"
-          done
-          if [ -n "$missing" ]; then
-            echo "::error::Missing build-time secrets:$missing — the bundle would ship with those features silently disabled. See docs/DEPLOYMENT.md."
-            exit 1
-          fi
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          VITE_ANALYTICS_URL: ${{ secrets.VITE_ANALYTICS_URL }}
+      # The build-time client config was verified by the preflight step above,
+      # before any of this ran. `vite.config.ts` re-checks it as the build's own
+      # last line of defence — that guard is what covers the manual
+      # `npm run build && npx wrangler deploy` path, which this workflow never
+      # observes. This job deliberately does NOT set
+      # FX_ALLOW_UNCONFIGURED_BUILD: here the guard must bite.
+      #
       # VITE_CANONICAL_ORIGIN is deliberately NOT passed. The canonical apex now
       # lives in exactly one place — CANONICAL_HOST in src/shared/routes.ts —
       # which the Worker, the SEO module and the tests all read. Threading it
@@ -95,18 +125,46 @@ jobs:
       # HTTPS, HSTS, the www → apex 301, self-canonical tags, robots, sitemap
       # and honest 404s. A green `wrangler deploy` only says the upload
       # succeeded — it says nothing about what finatrix.co now serves.
+      #
+      # VITE_SUPABASE_URL is what lets the two checks that matter most here run
+      # at all. Without it `checkAuthRedirect` and `checkEdgeCors` report
+      # "skipped" — and those are precisely the checks that exist because the
+      # last domain migration passed every other assertion in the file while
+      # login was completely broken (the Auth Site URL still named the old host,
+      # so every confirmation, reset and OAuth callback landed off-site with no
+      # session). Running this step without them verifies everything except the
+      # failure it was written for.
       - name: Verify production domain
         run: npm run verify:production
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
 
   edge-functions:
     runs-on: ubuntu-latest
     steps:
-      - name: Check Supabase credentials are configured
+      - name: Preflight — Supabase secrets
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          # Not needed to deploy, but `verify:deploy` at the end of this job
+          # cannot check anything without it — and a verification step that
+          # cannot run is worth knowing about now rather than after the deploy.
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: |
-          if [ -z "${{ secrets.SUPABASE_ACCESS_TOKEN }}" ] || [ -z "${{ secrets.SUPABASE_PROJECT_REF }}" ]; then
-            echo "::error::SUPABASE_ACCESS_TOKEN / SUPABASE_PROJECT_REF are not set — edge functions will NOT be deployed and will drift from main. See docs/DEPLOYMENT.md."
+          missing=
+          for name in SUPABASE_ACCESS_TOKEN SUPABASE_PROJECT_REF \
+                      VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY; do
+            if [ -z "${!name:-}" ]; then
+              missing="$missing $name"
+              echo "  missing: $name"
+            fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Edge functions will NOT be deployed and will drift from main — these repository secrets are not set:$missing. Add them under Settings → Secrets and variables → Actions. See docs/DEPLOYMENT.md §2."
             exit 1
           fi
+          echo "All 4 edge-function secrets are present."
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:

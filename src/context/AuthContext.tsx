@@ -10,6 +10,7 @@ import {
 // Type-only, so it is erased at compile time and costs nothing at runtime.
 import type { Session, User } from '@supabase/supabase-js';
 import { isSupabaseConfigured } from '../lib/supabaseConfig';
+import { RESET_PASSWORD_PATH } from '../shared/routes';
 import { track } from '../lib/analytics';
 
 /**
@@ -74,6 +75,55 @@ function isOAuthReturn(): boolean {
 }
 
 /**
+ * Did this page load arrive on a password-recovery link?
+ *
+ * Read from the URL rather than trusting the `PASSWORD_RECOVERY` event alone.
+ * GoTrue emits that event from inside the client's own initialisation, which
+ * begins the moment `createClient` runs — i.e. while the dynamic import of
+ * `../lib/supabase` is still resolving, before this provider has had a chance to
+ * subscribe. A listener that registers after the emit simply never hears it. The
+ * URL is still there to be read at first render, so read it, and treat the event
+ * as the second of two signals rather than the only one.
+ */
+function isRecoveryReturn(): boolean {
+  const { hash, search } = window.location;
+  return /[#&?]type=recovery\b/.test(hash + search);
+}
+
+/**
+ * The failure a Supabase auth redirect can carry back, translated for a human.
+ *
+ * GoTrue reports a rejected link — an expired recovery token, a confirmation
+ * link already used, a denied OAuth consent — by redirecting to
+ * `…#error=access_denied&error_code=otp_expired&error_description=…` rather
+ * than by failing a call, so nothing throws and nothing returns an error: the
+ * page simply renders signed-out with an unexplained URL. Every one of those
+ * arrives as "I clicked the link and nothing happened".
+ *
+ * Read at the provider's FIRST RENDER, for the same reason as `isOAuthReturn`
+ * above: `detectSessionInUrl` strips these parameters the moment the client is
+ * constructed, and the client is constructed from an effect that runs later.
+ * Reading it any later than this is reading an empty URL.
+ */
+function readCallbackError(): string | null {
+  const { hash, search } = window.location;
+  const params = new URLSearchParams(
+    `${hash.replace(/^#/, '')}&${search.replace(/^\?/, '')}`,
+  );
+  const code = params.get('error_code');
+  const description = params.get('error_description');
+  if (!code && !description && !params.get('error')) return null;
+
+  if (code === 'otp_expired' || /expired/i.test(description ?? '')) {
+    return 'That link has expired. Links are single-use and time-limited — request a fresh one below.';
+  }
+  if (code === 'access_denied' && !description) {
+    return 'That link is no longer valid. It may already have been used — request a fresh one below.';
+  }
+  return description || 'That link is no longer valid. Request a fresh one below.';
+}
+
+/**
  * Was this account created moments ago?
  *
  * The only way to tell a Google SIGN-UP from a Google SIGN-IN: both arrive as
@@ -104,38 +154,113 @@ interface AuthContextValue {
   session: Session | null;
   loading: boolean;
   configured: boolean;
+  /**
+   * The failure this page load arrived carrying, if it is the return leg of an
+   * auth link that GoTrue rejected — an expired recovery token, a confirmation
+   * link already used. Null on an ordinary load. See `readCallbackError`.
+   */
+  callbackError: string | null;
+  /**
+   * True once GoTrue has accepted a password-recovery link on this load.
+   *
+   * The recovery session it establishes is indistinguishable from an ordinary
+   * one in `user` / `session`, so without this flag `/reset-password` cannot
+   * tell "arrived here from the email" from "opened this page while signed in".
+   * Both may set a password — this only decides which of the two the copy
+   * addresses, and someone finishing a reset should not be told they are
+   * changing a password they were unable to recall.
+   */
+  recovery: boolean;
   signUp: (
     email: string,
     password: string,
     name: string
   ) => Promise<{ error: string | null; needsConfirmation: boolean }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  /**
+   * `next` is the in-app path to land on after the provider hands the browser
+   * back. Callers pass a path they have already validated as same-site (see
+   * `safeDestination` in Login.tsx) — it becomes a `redirectTo` GoTrue is asked
+   * to honour, and an absolute URL there would be an open redirect.
+   */
   signInWithProvider: (
-    provider: 'google'
+    provider: 'google',
+    next?: string
   ) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   resendVerification: (email: string) => Promise<{ error: string | null }>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
+  /** Set a new password for the signed-in (or recovering) user. */
+  updatePassword: (password: string) => Promise<{ error: string | null }>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-// Turn any Supabase auth error into a clean, human-readable string.
-// Guards against blank / "{}" / "[object Object]" messages ever reaching the UI,
-// and maps GoTrue email-delivery failures (HTTP 500 / unexpected_failure) to
-// actionable guidance instead of a cryptic blob.
-function authErrorMessage(error: unknown, fallback: string): string {
+/**
+ * Which kind of operation produced an error.
+ *
+ * This exists because a server-side failure means two completely different
+ * things depending on what was being attempted, and the message has to say the
+ * one that is true. GoTrue answers a broken SMTP configuration with a bare
+ * HTTP 500 / `unexpected_failure` on the operations that SEND an email, so
+ * translating that into "we couldn't send your email" is the single most useful
+ * thing the UI can say — but the previous version applied that translation to
+ * every 500 from every operation, including `signInWithPassword`, which has no
+ * email to send. Someone whose sign-in hit a transient backend fault was told
+ * their confirmation email had failed, sent to look in a spam folder for a
+ * message that was never owed to them, and left with the actual problem
+ * undescribed.
+ */
+type AuthOperation = 'send-email' | 'sign-in';
+
+/**
+ * Turn any Supabase auth error into a clean, human-readable string.
+ *
+ * Guards against blank / "{}" / "[object Object]" ever reaching the UI, and
+ * translates the GoTrue error codes a user can actually act on. Anything
+ * unrecognised falls through to Supabase's own message, which is usually
+ * serviceable — the fallback is only for when it is not.
+ */
+function authErrorMessage(
+  error: unknown,
+  fallback: string,
+  operation: AuthOperation = 'sign-in',
+): string {
   if (!error) return fallback;
   const e = error as { message?: string; status?: number; code?: string };
   const msg = (typeof error === 'string' ? error : e.message ?? '').trim();
-  const garbled = !msg || msg === '{}' || msg === '[object Object]';
-  if (
-    /sending.*(email|confirmation)|smtp/i.test(msg) ||
-    e.status === 500 ||
-    e.code === 'unexpected_failure'
-  ) {
-    return 'We couldn’t send your confirmation email right now. Please try again in a few minutes — if it keeps happening, contact support.';
+  const code = e.code ?? '';
+
+  // Rate limiting. Applies to every operation and is entirely recoverable by
+  // waiting, so say that rather than leaving "429" to be interpreted as a
+  // rejected credential.
+  if (e.status === 429 || /rate.?limit/i.test(code) || /rate limit/i.test(msg)) {
+    return 'Too many attempts in a short time. Please wait a minute and try again.';
   }
+
+  // The most common real sign-in failure that is NOT a wrong password: the
+  // account exists and the credentials are right, but the confirmation link was
+  // never clicked. Supabase's own "Email not confirmed" is accurate and gives
+  // no next step; the next step is the Resend button on this very page.
+  if (code === 'email_not_confirmed' || /email not confirmed/i.test(msg)) {
+    return 'Your email address has not been confirmed yet. Use “Resend verification” below, then click the link in that email.';
+  }
+
+  if (code === 'invalid_credentials' || /invalid login credentials/i.test(msg)) {
+    return 'That email and password do not match an account. Check both, or reset your password below.';
+  }
+
+  const serverFault =
+    e.status === 500 || code === 'unexpected_failure' || /smtp/i.test(msg);
+
+  if (operation === 'send-email' && (serverFault || /sending.*(email|confirmation)/i.test(msg))) {
+    return 'We couldn’t send that email right now. Please try again in a few minutes — if it keeps happening, contact support.';
+  }
+  if (serverFault) {
+    return 'Something went wrong on our side. Please try again in a moment — if it keeps happening, contact support.';
+  }
+
+  const garbled = !msg || msg === '{}' || msg === '[object Object]';
   return garbled ? fallback : msg;
 }
 
@@ -152,12 +277,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * cascades an extra render.
    */
   const [loading, setLoading] = useState(() => isSupabaseConfigured && mayHaveSession());
+  const [recovery, setRecovery] = useState(isRecoveryReturn);
 
   const mounted = useRef(true);
   const unsubscribe = useRef<(() => void) | undefined>(undefined);
   const subscribed = useRef(false);
   /** Read once, at first render — the client strips these params when it loads. */
   const oauthReturn = useRef(isOAuthReturn());
+  const callbackError = useRef(readCallbackError());
   const signupReported = useRef(false);
 
   /**
@@ -175,10 +302,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { supabase } = await loadSupabase();
     if (!subscribed.current) {
       subscribed.current = true;
-      const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      const { data: sub } = supabase.auth.onAuthStateChange((event, newSession) => {
         setSession(newSession);
         setUser(newSession?.user ?? null);
         rememberSession(!!newSession);
+
+        // The one event that carries information `session` does not. GoTrue
+        // emits it exactly once, when it accepts a recovery link, and the
+        // session it hands over looks like any other — so this is the only
+        // moment at which "this person proved control of the mailbox just now"
+        // is observable. `/reset-password` needs that distinction, and it is
+        // gone by the next render if nobody records it.
+        if (event === 'PASSWORD_RECOVERY') setRecovery(true);
 
         // A Google sign-up completing. `Signup.tsx` reports the email path
         // itself; it cannot report this one, because the browser left the page
@@ -208,17 +343,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // anonymous visitor to the landing page should not pay for an auth stack
     // they are not using. `ensureClient` still loads it the moment any auth
     // action below is taken.
-    if (!isSupabaseConfigured || !mayHaveSession()) return;
-
-    void (async () => {
-      const supabase = await ensureClient();
-      const { data } = await supabase.auth.getSession();
-      if (!mounted.current) return;
-      setSession(data.session);
-      setUser(data.session?.user ?? null);
-      rememberSession(!!data.session);
-      setLoading(false);
-    })();
+    //
+    // The cleanup below is registered on this path too. It used to be skipped
+    // with the early return, which meant a guest who then signed in from
+    // /login subscribed a listener (via `ensureClient`) that nothing would ever
+    // tear down — it outlived the provider, holding setState on a dead tree.
+    if (isSupabaseConfigured && mayHaveSession()) {
+      void (async () => {
+        try {
+          const supabase = await ensureClient();
+          const { data } = await supabase.auth.getSession();
+          if (!mounted.current) return;
+          setSession(data.session);
+          setUser(data.session?.user ?? null);
+          rememberSession(!!data.session);
+        } catch {
+          // Reaching here means the auth stack could not be loaded or queried
+          // at all — a chunk request that failed because a deploy replaced the
+          // fingerprinted file this tab was holding, storage unavailable, the
+          // network gone. There is nothing to recover, and nothing to say that
+          // is more useful than the signed-out UI, which offers a sign-in.
+          //
+          // What must NOT happen is staying in `loading` forever: `ToolsLayout`
+          // and the careers workspace gate their whole screen on it, so an
+          // unresolved promise here is an app that spins on a blank page for
+          // precisely the people who DO have an account. That is why the
+          // `finally` exists and why this catch is empty rather than absent.
+        } finally {
+          if (mounted.current) setLoading(false);
+        }
+      })();
+    }
 
     return () => {
       mounted.current = false;
@@ -242,7 +397,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (error)
       return {
-        error: authErrorMessage(error, 'Could not create your account. Please try again.'),
+        error: authErrorMessage(
+          error,
+          'Could not create your account. Please try again.',
+          'send-email',
+        ),
         needsConfirmation: false,
       };
     // If email confirmation is on, there is no active session yet.
@@ -258,14 +417,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithProvider: AuthContextValue['signInWithProvider'] = async (
-    provider
+    provider,
+    next = '/tools'
   ) => {
     if (!isSupabaseConfigured) return { error: 'Backend not configured yet.' };
     const supabase = await ensureClient();
+    // Belt and braces on top of the caller's own check: anything that is not a
+    // same-site absolute path is discarded rather than sent to GoTrue, so no
+    // future caller can turn this into an open redirect by passing a value it
+    // read straight from a query string.
+    const target = next.startsWith('/') && !next.startsWith('//') ? next : '/tools';
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/tools`,
+        redirectTo: `${window.location.origin}${target}`,
       },
     });
     return { error: error ? authErrorMessage(error, 'Could not sign in. Please try again.') : null };
@@ -293,16 +458,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!isSupabaseConfigured) return { error: 'Backend not configured yet.' };
     const supabase = await ensureClient();
     const { error } = await supabase.auth.resend({ type: 'signup', email });
-    return { error: error ? authErrorMessage(error, 'Could not resend the email. Please try again.') : null };
+    return {
+      error: error
+        ? authErrorMessage(error, 'Could not resend the email. Please try again.', 'send-email')
+        : null,
+    };
   };
 
   const resetPassword: AuthContextValue['resetPassword'] = async (email) => {
     if (!isSupabaseConfigured) return { error: 'Backend not configured yet.' };
     const supabase = await ensureClient();
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/login`,
+      // /reset-password, NOT /login. The recovery link establishes a session
+      // and then hands the browser to this URL, so whatever is here is the only
+      // chance the user gets to choose a new password. Pointed at /login, that
+      // chance was a sign-in form with no password field to change — the link
+      // worked perfectly and the flow was a dead end, which is indistinguishable
+      // from "password reset is broken" to everyone who tried it.
+      redirectTo: `${window.location.origin}${RESET_PASSWORD_PATH}`,
     });
-    return { error: error ? authErrorMessage(error, 'Could not send the reset link. Please try again.') : null };
+    return {
+      error: error
+        ? authErrorMessage(error, 'Could not send the reset link. Please try again.', 'send-email')
+        : null,
+    };
+  };
+
+  const updatePassword: AuthContextValue['updatePassword'] = async (password) => {
+    if (!isSupabaseConfigured) return { error: 'Backend not configured yet.' };
+    const supabase = await ensureClient();
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) {
+      return { error: authErrorMessage(error, 'Could not update your password. Please try again.') };
+    }
+    // The recovery grant is spent. Clearing it stops a back-navigation to this
+    // page from presenting the "set a new password" form a second time on the
+    // strength of a link that has already been redeemed.
+    setRecovery(false);
+    return { error: null };
   };
 
   return (
@@ -312,12 +505,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         loading,
         configured: isSupabaseConfigured,
+        callbackError: callbackError.current,
+        recovery,
         signUp,
         signIn,
         signInWithProvider,
         signOut,
         resendVerification,
         resetPassword,
+        updatePassword,
       }}
     >
       {children}

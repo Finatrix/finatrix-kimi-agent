@@ -22,7 +22,8 @@
  *   • an unknown URL returns a real 404, not a soft-404
  *   • the OG/Twitter image resolves
  *   • every favicon and manifest icon resolves, on `/` and on client routes
- *   • Supabase Auth returns users to THIS origin, not a previous domain
+ *   • Supabase Auth returns users to THIS origin, not a previous domain, and
+ *     every auth-email landing page (/login, /reset-password) is served 200
  *   • every edge function accepts CORS preflight from THIS origin
  *   • the deployed JS bundle was built with real Supabase credentials, not the
  *     placeholder client that silently disables sign-in, sync and analytics
@@ -325,36 +326,57 @@ async function checkIcons() {
  * only the HOST of the Location header is of interest. If it is not this
  * origin, `redirect_to` was discarded and auth is broken here.
  */
+/**
+ * Every path an auth email can send someone to. Both must be allow-listed, and
+ * both must be served by the edge, or the flow that uses them is a dead end:
+ *   /login           — email confirmation (`emailRedirectTo` in AuthContext)
+ *   /reset-password  — password recovery (`resetPasswordForEmail`)
+ * The second is the one no other check in this file would notice, because it is
+ * noindex and therefore absent from sitemap.xml.
+ */
+const AUTH_LANDINGS = ['/login', '/reset-password'];
+
 async function checkAuthRedirect() {
   if (!SUPABASE_URL) {
     record('auth redirect target', null, 'skipped — VITE_SUPABASE_URL not set');
     return;
   }
-  const target = `${ORIGIN}/login`;
-  const probe = `${SUPABASE_URL}/auth/v1/verify`
-    + `?token=invalid-probe-token&type=signup&redirect_to=${encodeURIComponent(target)}`;
-  const res = await req(probe);
-  if (!res) { record('auth redirect target', false, `${SUPABASE_URL} unreachable`); return; }
+  const bad = [];
+  for (const path of AUTH_LANDINGS) {
+    const target = `${ORIGIN}${path}`;
+    const probe = `${SUPABASE_URL}/auth/v1/verify`
+      + `?token=invalid-probe-token&type=signup&redirect_to=${encodeURIComponent(target)}`;
+    const res = await req(probe);
+    if (!res) { bad.push(`${path}: ${SUPABASE_URL} unreachable`); continue; }
 
-  const loc = res.headers.get('location');
-  if (!loc) {
-    record('auth redirect target', false, `HTTP ${res.status} with no Location header`);
-    return;
+    const loc = res.headers.get('location');
+    if (!loc) { bad.push(`${path}: HTTP ${res.status} with no Location header`); continue; }
+    let host;
+    try { ({ host } = new URL(loc)); } catch {
+      bad.push(`${path}: unparseable Location: ${loc}`);
+      continue;
+    }
+    if (host !== APEX) {
+      bad.push(`${path}: Supabase sent the user to "${host}", not ${APEX}.\n`
+        + `     ${target} is NOT in Authentication → URL Configuration → Redirect URLs,\n`
+        + `     so that flow falls back to the Site URL. Add ${ORIGIN}/** and set\n`
+        + `     the Site URL to ${ORIGIN}.`);
+      continue;
+    }
+
+    // Allow-listed is necessary but not sufficient: the user still has to be
+    // served a page when they get there. /reset-password is a client route with
+    // no built file behind it, so this is the Worker's `isKnownRoute` answering
+    // — and a 404 here strands someone holding a valid, single-use recovery
+    // grant that expires whether or not they ever see a form.
+    const landing = await req(target, { redirect: 'follow' });
+    if (landing?.status !== 200) {
+      bad.push(`${path}: allow-listed but the site serves it `
+        + `HTTP ${landing?.status ?? 'unreachable'} — the link lands on nothing.`);
+    }
   }
-  let host;
-  try { ({ host } = new URL(loc)); } catch {
-    record('auth redirect target', false, `unparseable Location: ${loc}`);
-    return;
-  }
-  if (host === APEX) {
-    record('auth redirect target', true, `redirect_to ${target} is allow-listed`);
-    return;
-  }
-  record('auth redirect target', false,
-    `Supabase sent the user to "${host}", not ${APEX}.\n`
-    + `     ${target} is NOT in Authentication → URL Configuration → Redirect URLs,\n`
-    + `     so every auth flow falls back to the Site URL. Add ${ORIGIN}/** and set\n`
-    + `     the Site URL to ${ORIGIN}.`);
+  record('auth redirect target', bad.length === 0,
+    bad.length ? bad.join('\n     ') : `${AUTH_LANDINGS.join(', ')} are allow-listed and live`);
 }
 
 // ── every edge function accepts CORS preflight from THIS origin ────────────

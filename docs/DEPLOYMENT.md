@@ -50,14 +50,45 @@ the behaviour we want.
 After any domain change run `npm run verify:production`, which checks the live host end to end: redirect topology, HSTS, robots, every sitemap URL, JSON-LD and a real 404.
 
 ### CD via GitHub Actions
-`.github/workflows/deploy.yml` deploys on every push to `main` once two repo secrets exist (Settings → Secrets and variables → Actions):
+`.github/workflows/deploy.yml` deploys on every push to `main` — but only once **all seven**
+repository secrets exist (Settings → Secrets and variables → Actions). Until then every run
+fails at its first step, which is the intended behaviour: a deploy that ships a bundle with
+sign-in compiled out is worse than no deploy.
+
+The `deploy` job (front end) needs five:
 
 | Secret | Where to get it |
 |---|---|
 | `CLOUDFLARE_API_TOKEN` | dash.cloudflare.com → My Profile → API Tokens → Create Token → "Edit Cloudflare Workers" template |
 | `CLOUDFLARE_ACCOUNT_ID` | `npx wrangler whoami` (currently `0cb5cc8481ab72624994a216ad4b1a19`) |
+| `VITE_SUPABASE_URL` | Supabase → Project Settings → API → Project URL |
+| `VITE_SUPABASE_ANON_KEY` | Supabase → Project Settings → API → `anon` `public` key |
+| `VITE_ANALYTICS_URL` | `<project-url>/functions/v1/analytics-collect` |
 
-`.github/workflows/ci.yml` runs type-check → lint → test → build on every push/PR to any branch.
+The `edge-functions` job needs two more (plus the two Supabase `VITE_*` values above, which
+`npm run verify:deploy` cannot check anything without):
+
+| Secret | Where to get it |
+|---|---|
+| `SUPABASE_ACCESS_TOKEN` | supabase.com/dashboard/account/tokens |
+| `SUPABASE_PROJECT_REF` | `supabase/.temp/project-ref`, or the dashboard URL |
+
+**The three `VITE_*` values are deploy credentials, not optional extras.** Vite inlines them
+at build time, so a build without them does not fail — it emits a bundle in which
+`isSupabaseConfigured` is the constant `false`. That site loads, renders and passes an SEO
+crawl while showing every visitor "the backend isn't configured yet" and refusing every
+sign-in. It has reached production twice. Three separate guards now exist because of it: the
+workflow preflight below, `assertDeployableClientConfig` in `vite.config.ts` (which covers
+manual `npm run build` deploys), and `checkFrontendConfigured` in `npm run verify:production`
+(which reads the bundle the live site actually serves).
+
+Each job starts with a **preflight** step that checks its whole set at once, names every
+missing secret in a single run, and does it before `npm ci` — so configuring this repository
+is one round trip rather than one push per missing name. Neither job blocks the other.
+
+`.github/workflows/ci.yml` runs type-check → lint → test → build on every push/PR to any
+branch, and needs no secrets: its build sets `FX_ALLOW_UNCONFIGURED_BUILD=1` because it is a
+compile check whose `dist/` is discarded. The deploy job deliberately does not.
 
 ---
 

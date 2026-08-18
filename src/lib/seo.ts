@@ -256,6 +256,7 @@ const PRIVATE_TITLES: Record<string, string> = {
   '/careers/settings': 'Careers Settings',
   '/login': 'Sign In',
   '/signup': 'Create Account',
+  '/reset-password': 'Choose a New Password',
   '/welcome': 'Welcome',
   '/profile': 'Your Profile',
 };

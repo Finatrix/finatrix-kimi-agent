@@ -5,6 +5,7 @@ import LoginReminderModal from './components/LoginReminderModal'
 import RouteFallback from './components/RouteFallback'
 import { trackPageView } from './lib/analytics'
 import { applySeo } from './lib/seo'
+import { RESET_PASSWORD_PATH } from './shared/routes'
 
 // Route-level code-splitting: each page (and its heavy deps like the
 // Supabase-backed tools) loads only when its route is visited.
@@ -37,6 +38,7 @@ const BillingPage = lazy(() => import('./careers/pages/BillingPage'))
 const AdminDashboard = lazy(() => import('./careers/pages/AdminDashboard'))
 const Login = lazy(() => import('./pages/Login'))
 const Signup = lazy(() => import('./pages/Signup'))
+const ResetPassword = lazy(() => import('./pages/ResetPassword'))
 const Onboarding = lazy(() => import('./pages/Onboarding'))
 const Profile = lazy(() => import('./pages/Profile'))
 const Privacy = lazy(() => import('./pages/Privacy'))
@@ -203,6 +205,10 @@ export default function App() {
           </Route>
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          {/* Where Supabase password-recovery links land. Registered in
+              shared/routes.ts too, so the edge serves it 200 rather than
+              404-ing a user who is holding a valid recovery grant. */}
+          <Route path={RESET_PASSWORD_PATH} element={<ResetPassword />} />
           <Route path="/welcome" element={<Onboarding />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/privacy" element={<Privacy />} />
