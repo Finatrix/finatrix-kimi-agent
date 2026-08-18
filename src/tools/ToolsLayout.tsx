@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState, type ReactElement } from 'react';
 import { Link, Outlet, useLocation } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { useMobileDrawer } from '../hooks/useMobileDrawer';
@@ -25,6 +25,8 @@ import { BrandLogo } from '../components/BrandLogo';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { BackButton } from '../components/BackButton';
 import ThemeToggle from '../components/ThemeToggle';
+import { CommandPaletteTrigger } from '../components/CommandPaletteTrigger';
+import { useCommandPalette } from '../hooks/useCommandPalette';
 import { CAREERS_ROUTES } from '../careers/constants';
 import { NotificationsBell } from './ui/NotificationsBell';
 import { AiProvider, AiLauncher } from './ui/AiAssistant';
@@ -218,38 +220,6 @@ function MobileTabBar({ activeTool, onMore, moreActive, drawerOpen }: { activeTo
 }
 
 /**
- * The visible half of ⌘K.
- *
- * A shortcut nobody can see is a shortcut only its author uses, so the palette
- * gets a real control in the app bar with its own key hint — and the hint is
- * rendered per-platform, because "Ctrl K" on a Mac is simply wrong. On a phone
- * (where there is no keyboard to hint at) it collapses to the icon alone and
- * keeps its accessible name.
- */
-function SearchTrigger({ onOpen }: { onOpen: () => void }) {
-  const mac =
-    typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform || '');
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      aria-label="Search tools, guides and actions"
-      aria-keyshortcuts={mac ? 'Meta+K' : 'Control+K'}
-      aria-haspopup="dialog"
-      className="flex items-center gap-2 rounded-full border border-hairline px-2.5 sm:px-3 py-1.5 min-h-6 text-ink-3 hover:text-ink hover:border-hairline-2 transition-colors"
-    >
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
-        <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" />
-      </svg>
-      <span className="hidden lg:inline font-mono text-[10px] uppercase tracking-[0.08em]">Search</span>
-      <kbd className="hidden lg:inline font-mono text-[10px] tracking-[0.04em] text-ink-3 border border-hairline-2 rounded px-1 py-px">
-        {mac ? '\u2318K' : 'Ctrl K'}
-      </kbd>
-    </button>
-  );
-}
-
-/**
  * Placeholder for the window between "auth resolved" and "cloud data seeded".
  * That window used to render an empty box: the global loader vanished and the
  * shell sat there with nothing under it for seconds, which reads as a broken
@@ -292,8 +262,7 @@ export default function ToolsLayout() {
   const readyRef = useRef(false);
   const [sync, setSync] = useState<SyncStatus>(configured ? 'idle' : 'offline');
   const [drawerOpen, setDrawerOpen] = useMobileDrawer();
-  const [paletteOpen, setPaletteOpen] = useState(false);
-  const closePalette = useCallback(() => setPaletteOpen(false), []);
+  const { open: paletteOpen, openPalette, closePalette } = useCommandPalette();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeTool = useActiveTool();
 
@@ -400,19 +369,6 @@ export default function ToolsLayout() {
     };
   }, [uid, configured]);
 
-  // ⌘K / Ctrl+K anywhere in the workspace. Registered on the window rather than
-  // a container so it works from any control, and prevented so it never reaches
-  // the browser's own Ctrl+K (focus the address bar's search).
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() !== 'k' || !(e.metaKey || e.ctrlKey) || e.altKey) return;
-      e.preventDefault();
-      setPaletteOpen((v) => !v);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
-
   const firstName =
     (user?.user_metadata?.full_name as string)?.split(' ')[0] ||
     user?.email?.split('@')[0] ||
@@ -467,7 +423,7 @@ export default function ToolsLayout() {
             </div>
 
             <div className="relative flex items-center gap-2.5 sm:gap-4">
-              <SearchTrigger onOpen={() => setPaletteOpen(true)} />
+              <CommandPaletteTrigger onOpen={openPalette} />
               <NotificationsBell />
               <ThemeToggle />
               {user ? (
@@ -542,7 +498,7 @@ export default function ToolsLayout() {
           >
             <button
               type="button"
-              onClick={() => { setDrawerOpen(false); setPaletteOpen(true); }}
+              onClick={() => { setDrawerOpen(false); openPalette(); }}
               aria-haspopup="dialog"
               className="flex w-full items-center gap-3 px-5 py-3 text-left text-[15px] text-ink hover:bg-hairline-2"
             >

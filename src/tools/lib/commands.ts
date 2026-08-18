@@ -23,7 +23,7 @@
  * through the existing path — the palette never writes a transaction itself.
  */
 import { TOOLS } from '../../lib/tools';
-import { CAREERS_ROUTES } from '../../careers/constants';
+import { CAREERS_HIDDEN_SECTIONS, CAREERS_NAV } from '../../careers/constants';
 import { TOPICS, ARTICLES, topicPath, articlePath } from '../../shared/content';
 import { CURRENCY_CODES, currencySym } from './format';
 import { parseQuickAdd } from './quickAdd';
@@ -79,10 +79,22 @@ export interface Command {
 export interface CommandContext {
   /** Drives sign in vs sign out, and whether account commands make sense. */
   signedIn: boolean;
-  /** Active display currency — the current one is not offered as a switch. */
-  currency: string;
+  /**
+   * Active display currency, or null where there is none (the Careers
+   * workspace). Null omits the currency switches entirely rather than offering
+   * a control that would change nothing on screen.
+   */
+  currency: string | null;
   /** Active theme — only the *other* one is offered. */
   theme: 'light' | 'dark';
+  /**
+   * Which workspace the palette was opened from.
+   *
+   * It changes only what is PROMOTED — the resting list before anything is
+   * typed. Everything stays searchable from both sides, because "take me to
+   * the other half of the product" is exactly what a command bar is for.
+   */
+  surface: 'money' | 'careers';
 }
 
 const TOOL_ICON: Record<string, IconName> = {
@@ -121,14 +133,48 @@ const WORKSPACE: readonly { id: string; title: string; subtitle: string; icon: I
   { id: 'settings', title: 'Settings', subtitle: 'Data, sync and preferences', icon: 'shield', keywords: ['preferences', 'privacy', 'reset', 'delete data', 'sync'] },
 ];
 
-/** Careers workspace destinations worth reaching from the money side. */
-const CAREERS: readonly { title: string; to: string; keywords: readonly string[] }[] = [
-  { title: 'Careers dashboard', to: CAREERS_ROUTES.dashboard, keywords: ['job', 'work'] },
-  { title: 'Resume library', to: CAREERS_ROUTES.resumes, keywords: ['cv', 'resume'] },
-  { title: 'Job search', to: CAREERS_ROUTES.jobs, keywords: ['roles', 'openings', 'vacancies'] },
-  { title: 'Applications', to: CAREERS_ROUTES.applications, keywords: ['applied', 'pipeline', 'tracker'] },
-  { title: 'Interview prep', to: CAREERS_ROUTES.interviews, keywords: ['interview', 'questions', 'star'] },
-];
+/**
+ * Search words per Careers section, for the same reason the calculators have
+ * them: people type the thing they want to do ("cv", "offer", "referral"), not
+ * the label the product happens to use.
+ */
+const CAREERS_KEYWORDS: Record<string, readonly string[]> = {
+  dashboard: ['careers home', 'overview'],
+  resumes: ['cv', 'resume', 'library'],
+  jobs: ['roles', 'openings', 'vacancies', 'search'],
+  applications: ['applied', 'pipeline', 'tracker', 'status'],
+  interviews: ['interview', 'questions', 'star', 'prep'],
+  coach: ['advice', 'mentor', 'ask'],
+  settings: ['preferences', 'account'],
+  upload: ['add resume', 'import cv'],
+  profile: ['about me', 'career profile'],
+  queue: ['matches', 'scored roles'],
+  tasks: ['todo', 'follow up', 'reminders'],
+  companies: ['employers', 'saved companies'],
+  intelligence: ['research', 'company research', 'employer intel'],
+  companyProfile: ['company page'],
+  recruiters: ['contacts', 'hiring managers'],
+  network: ['referrals', 'connections', 'networking'],
+  assessments: ['tests', 'coding test', 'aptitude'],
+  offers: ['offer', 'compensation', 'negotiate', 'ctc'],
+  knowledge: ['notes', 'stories', 'evidence bank'],
+  billing: ['plan', 'subscription', 'invoice', 'payment'],
+  admin: ['admin', 'internal'],
+};
+
+/**
+ * Every routable Careers section, from the same two registries the shell's own
+ * navigation reads — the tab bar's seven plus the sections it deliberately does
+ * not show. A section reachable only by URL is exactly the kind of thing a
+ * command bar should make findable.
+ *
+ * `companyProfile` is dropped: it shares a name and a purpose with
+ * `intelligence` and is entered from it, so listing both would put two
+ * identical rows in the results.
+ */
+const CAREERS_SECTIONS = [...CAREERS_NAV, ...CAREERS_HIDDEN_SECTIONS].filter(
+  (s) => s.id !== 'companyProfile',
+);
 
 /**
  * Every command available in the workspace, in a deterministic order.
@@ -149,7 +195,7 @@ export function buildCommands(ctx: CommandContext): Command[] {
     icon: 'plus',
     effect: { kind: 'logSpend', text: '' },
     keywords: ['add expense', 'new transaction', 'record', 'spent', 'quick add'],
-    promoted: true,
+    promoted: ctx.surface === 'money',
   });
   const nextTheme = ctx.theme === 'dark' ? 'light' : 'dark';
   list.push({
@@ -173,7 +219,7 @@ export function buildCommands(ctx: CommandContext): Command[] {
       icon: TOOL_ICON[t.id] ?? 'pie',
       effect: { kind: 'navigate', to: t.href },
       keywords: TOOL_KEYWORDS[t.id],
-      promoted: true,
+      promoted: ctx.surface === 'money',
     });
   }
 
@@ -187,20 +233,21 @@ export function buildCommands(ctx: CommandContext): Command[] {
       icon: w.icon,
       effect: { kind: 'navigate', to: `/tools/${w.id}` },
       keywords: w.keywords,
-      promoted: w.id === 'dashboard',
+      promoted: ctx.surface === 'money' && w.id === 'dashboard',
     });
   }
 
   // ── Careers ──────────────────────────────────────────────────────────────
-  for (const c of CAREERS) {
+  for (const section of CAREERS_SECTIONS) {
     list.push({
-      id: `careers:${c.to}`,
-      title: c.title,
+      id: `careers:${section.id}`,
+      title: section.name,
       subtitle: 'FinatriX Careers',
       group: 'Careers',
       icon: 'briefcase',
-      effect: { kind: 'navigate', to: c.to },
-      keywords: c.keywords,
+      effect: { kind: 'navigate', to: section.href },
+      keywords: CAREERS_KEYWORDS[section.id],
+      promoted: ctx.surface === 'careers' && CAREERS_NAV.some((n) => n.id === section.id),
     });
   }
 
@@ -243,7 +290,7 @@ export function buildCommands(ctx: CommandContext): Command[] {
   // ── Currency ─────────────────────────────────────────────────────────────
   // Never promoted: thirty-nine of them would bury everything else. They exist
   // so "usd" or "dollar" reaches the switch in two keystrokes.
-  for (const code of CURRENCY_CODES) {
+  for (const code of ctx.currency === null ? [] : CURRENCY_CODES) {
     if (code === ctx.currency) continue;
     list.push({
       id: `currency:${code}`,

@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { useCurrency } from '../CurrencyContext';
+import { useOptionalCurrency } from '../CurrencyContext';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import { track } from '../../lib/analytics';
 import { Icon } from './Icon';
@@ -55,11 +55,20 @@ const GROUP_ORDER: readonly CommandGroup[] = [
  * so first-run state is initial state and there is no closed branch to keep
  * consistent (or to leave a stale query sitting in).
  */
-export default function CommandPalette({ onClose }: { onClose: () => void }) {
+export default function CommandPalette({
+  onClose,
+  surface = 'money',
+}: {
+  onClose: () => void;
+  /** Which workspace opened it — decides what the resting list offers first. */
+  surface?: 'money' | 'careers';
+}) {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
-  const { code, setCode } = useCurrency();
+  // Optional: the Careers shell has no currency, and a palette that threw there
+  // would be a shell-level control that only works on half the product.
+  const currency = useOptionalCurrency();
   const toast = useOptionalToast();
 
   const [query, setQuery] = useState('');
@@ -73,8 +82,8 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
   useBodyScrollLock(true);
 
   const commands = useMemo(
-    () => buildCommands({ signedIn: !!user, currency: code, theme }),
-    [user, code, theme],
+    () => buildCommands({ signedIn: !!user, currency: currency?.code ?? null, theme, surface }),
+    [user, currency?.code, theme, surface],
   );
 
   const results = useMemo(() => {
@@ -121,7 +130,7 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
           toast?.notify(`${effect.theme === 'light' ? 'Light' : 'Dark'} theme on`, 'ok');
           break;
         case 'currency':
-          setCode(effect.code);
+          currency?.setCode(effect.code);
           toast?.notify(`Now showing amounts in ${effect.code}`, 'ok');
           break;
         case 'signOut':
@@ -129,7 +138,7 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
           break;
       }
     },
-    [navigate, onClose, setCode, setTheme, signOut, toast],
+    [currency, navigate, onClose, setTheme, signOut, toast],
   );
 
   // Keep the active option in view as it moves under the arrow keys.

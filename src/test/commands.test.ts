@@ -4,7 +4,7 @@ import {
   loadRecents, rememberRecent, type Command, type CommandContext,
 } from '../tools/lib/commands';
 
-const CTX: CommandContext = { signedIn: false, currency: 'INR', theme: 'dark' };
+const CTX: CommandContext = { signedIn: false, currency: 'INR', theme: 'dark', surface: 'money' };
 const titles = (list: readonly Command[]) => list.map((c) => c.title);
 const find = (list: readonly Command[], id: string) => list.find((c) => c.id === id);
 
@@ -179,5 +179,60 @@ describe('recents', () => {
     expect(loadRecents()).toEqual([]);
     localStorage.setItem('fx_cmd_recents', 'not json at all');
     expect(loadRecents()).toEqual([]);
+  });
+});
+
+/**
+ * The same palette serves both workspaces. Only the RESTING list changes with
+ * the surface — everything stays searchable from either side, because "take me
+ * to the other half of the product" is exactly what a command bar is for.
+ */
+describe('surfaces', () => {
+  const money = buildCommands({ ...CTX, surface: 'money' });
+  const careers = buildCommands({ ...CTX, currency: null, surface: 'careers' });
+
+  it('offers every routable Careers section from both sides', () => {
+    for (const name of [
+      'Resume Library', 'Job Search', 'Applications', 'Interview Prep', 'Career Coach',
+      'Match Queue', 'Offers', 'Recruiters', 'Network', 'Assessments', 'Knowledge Base', 'Billing',
+    ]) {
+      expect(titles(money), `${name} from money`).toContain(name);
+      expect(titles(careers), `${name} from careers`).toContain(name);
+    }
+  });
+
+  it('does not list the same destination twice under two names', () => {
+    const targets = careers
+      .filter((c) => c.group === 'Careers' && c.effect.kind === 'navigate')
+      .map((c) => (c.effect as { to: string }).to);
+    expect(new Set(targets).size).toBe(targets.length);
+  });
+
+  it('opens on the calculators in the money workspace', () => {
+    const resting = searchCommands('', money, { limit: 12 });
+    expect(resting.some((c) => c.group === 'Tools')).toBe(true);
+    expect(resting.some((c) => c.group === 'Careers')).toBe(false);
+  });
+
+  it('opens on the Careers sections in the Careers workspace', () => {
+    const resting = searchCommands('', careers, { limit: 12 });
+    expect(resting.every((c) => c.group === 'Careers' || c.group === 'Actions')).toBe(true);
+    expect(resting.some((c) => c.title === 'Job Search')).toBe(true);
+  });
+
+  it('keeps the calculators one keystroke away from Careers', () => {
+    expect(titles(searchCommands('budget', careers))).toContain('Budget Builder');
+  });
+
+  it('omits the currency switches where there is no currency to switch', () => {
+    expect(careers.some((c) => c.effect.kind === 'currency')).toBe(false);
+    expect(searchCommands('usd', careers).some((c) => c.effect.kind === 'currency')).toBe(false);
+    // …and they are there on the side that has a currency.
+    expect(searchCommands('usd', money)[0].effect).toEqual({ kind: 'currency', code: 'USD' });
+  });
+
+  it('still offers the theme switch on both, since it is a whole-app preference', () => {
+    expect(careers.some((c) => c.effect.kind === 'theme')).toBe(true);
+    expect(money.some((c) => c.effect.kind === 'theme')).toBe(true);
   });
 });

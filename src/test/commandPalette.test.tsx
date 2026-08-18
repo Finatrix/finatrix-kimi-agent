@@ -261,3 +261,57 @@ describe('CommandPalette in the tools shell', () => {
     expect(document.activeElement).toBe(trigger);
   });
 });
+
+/**
+ * The Careers workspace has no CurrencyProvider — a palette that threw there
+ * would be a shell-level control that works on half the product.
+ */
+describe('CommandPalette on the Careers surface', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    cleanup();
+  });
+
+  function renderCareersPalette(onClose = vi.fn()) {
+    render(
+      <MemoryRouter initialEntries={['/careers/dashboard']}>
+        <AuthProvider>
+          <ThemeProvider>
+            <Routes>
+              <Route path="*" element={<Here />} />
+            </Routes>
+            <CommandPalette onClose={onClose} surface="careers" />
+          </ThemeProvider>
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+    return { onClose, input: screen.getByRole('combobox') };
+  }
+
+  it('renders without a currency provider, and offers no currency switch', () => {
+    const { input } = renderCareersPalette();
+    expect(screen.getByRole('dialog', { name: 'Command palette' })).toBeInTheDocument();
+    fireEvent.change(input, { target: { value: 'rupee' } });
+    expect(screen.queryByRole('option', { name: /Display in/ })).not.toBeInTheDocument();
+  });
+
+  it('opens on the Careers sections rather than the calculators', () => {
+    renderCareersPalette();
+    expect(screen.getByRole('option', { name: /Job Search/ })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /Budget Builder/ })).not.toBeInTheDocument();
+  });
+
+  it('still reaches the calculators when asked for one', () => {
+    const { input } = renderCareersPalette();
+    fireEvent.change(input, { target: { value: 'budget' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(here()).toBe('/tools/budget');
+  });
+
+  it('reaches a section that the Careers tab bar does not show', () => {
+    const { input } = renderCareersPalette();
+    fireEvent.change(input, { target: { value: 'offers' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(here()).toBe('/careers/offers');
+  });
+});
