@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { track } from '../lib/analytics';
 import Button from './Button';
+import { RESET_PASSWORD_PATH } from '../shared/routes';
 
 /**
  * Guest account nudge, shown at a *value moment* rather than on arrival.
@@ -16,7 +17,11 @@ import Button from './Button';
  * pages.
  */
 const SEEN_KEY = 'fx_login_prompt_seen';
-const SUPPRESS_ON = ['/login', '/signup'];
+// Never over the auth pages: on /login and /signup the modal would advertise
+// the very action the page is already asking for, and on /reset-password it
+// would interrupt someone mid-recovery to suggest they make an account they
+// demonstrably already have.
+const SUPPRESS_ON = ['/login', '/signup', RESET_PASSWORD_PATH];
 /** How many distinct tools a guest must open before we offer an account. */
 const TOOLS_BEFORE_PROMPT = 2;
 

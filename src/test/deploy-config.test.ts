@@ -313,6 +313,90 @@ describe('observability wiring', () => {
 });
 
 /**
+ * The deploy workflow's own preconditions.
+ *
+ * Every Deploy run for three weeks failed on its first line, because none of
+ * the repository secrets were ever set — and the check that reported it named
+ * exactly one of the seven, so finding out what was actually needed took one
+ * push per missing name. These tests pin the two properties that fixed it: the
+ * whole set is checked, and it is checked in one pass before any minutes are
+ * spent installing.
+ */
+describe('deploy workflow preflight', () => {
+  const workflow = read('.github/workflows/deploy.yml');
+
+  /** Everything the front-end job cannot produce a correct artifact without. */
+  const DEPLOY_SECRETS = [
+    'CLOUDFLARE_API_TOKEN',
+    'CLOUDFLARE_ACCOUNT_ID',
+    // Inlined by Vite at build time. Absent, the build SUCCEEDS and emits a
+    // bundle with sign-in, cloud sync and analytics compiled out — a site that
+    // passes every other check while refusing every login. It has shipped twice.
+    'VITE_SUPABASE_URL',
+    'VITE_SUPABASE_ANON_KEY',
+    'VITE_ANALYTICS_URL',
+  ];
+  const EDGE_SECRETS = ['SUPABASE_ACCESS_TOKEN', 'SUPABASE_PROJECT_REF'];
+
+  /** The `run:` script of the named step. */
+  function stepScript(name: string): string {
+    const from = workflow.indexOf(`- name: ${name}`);
+    expect(from, `no step named "${name}"`).toBeGreaterThan(-1);
+    const rest = workflow.slice(from);
+    const next = rest.indexOf('\n      - ', 1);
+    return next === -1 ? rest : rest.slice(0, next);
+  }
+
+  it.each(DEPLOY_SECRETS)('the deploy job refuses to run without %s', (secret) => {
+    expect(stepScript('Preflight — deploy secrets')).toContain(secret);
+  });
+
+  it.each(EDGE_SECRETS)('the edge-functions job refuses to run without %s', (secret) => {
+    expect(stepScript('Preflight — Supabase secrets')).toContain(secret);
+  });
+
+  /**
+   * Checking credentials AFTER `npm ci` and the full gate suite means a
+   * misconfigured repository burns five minutes to report a missing string.
+   * Both preflights are the first step in their job.
+   */
+  it('checks credentials before spending any runner minutes on them', () => {
+    for (const step of ['Preflight — deploy secrets', 'Preflight — Supabase secrets']) {
+      expect(workflow.indexOf(`- name: ${step}`)).toBeLessThan(
+        workflow.indexOf('npm ci', workflow.indexOf(`- name: ${step}`)),
+      );
+    }
+    // Nothing may run before them inside their job.
+    expect(workflow).toMatch(/deploy:\n\s+runs-on: ubuntu-latest\n\s+steps:\n(\s*#[^\n]*\n)*\s*- name: Preflight — deploy secrets/);
+  });
+
+  /**
+   * `if [ -z "${{ secrets.FOO }}" ]` expands the VALUE into the command line,
+   * which the runner prints to the log before executing it. Masking is a
+   * post-processing pass over a string, not a guarantee — so secrets are read
+   * through `env:` and referenced by NAME in the script.
+   */
+  it('never expands a secret value into a logged command line', () => {
+    const runScripts = [...workflow.matchAll(/run: \|([\s\S]*?)(?=\n {6}[-a-z])/g)].map((m) => m[1]);
+    expect(runScripts.length).toBeGreaterThan(0);
+    for (const script of runScripts) {
+      expect(script, 'a run: script interpolates a secret').not.toMatch(/\$\{\{\s*secrets\./);
+    }
+  });
+
+  /**
+   * `checkAuthRedirect` and `checkEdgeCors` are the two assertions in
+   * verify:production that exist because the last domain migration passed every
+   * other check while login was completely broken. Both report "skipped"
+   * without VITE_SUPABASE_URL, so running the step without it verifies
+   * everything except the failure it was written for.
+   */
+  it('gives the production verifier the credential its auth checks need', () => {
+    expect(stepScript('Verify production domain')).toContain('VITE_SUPABASE_URL');
+  });
+});
+
+/**
  * Every edge function must be both DEPLOYED and DRIFT-CHECKED by CI.
  *
  * The outage this prevents: `careers-billing-checkout` and

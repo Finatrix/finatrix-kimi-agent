@@ -7,7 +7,13 @@
  * change can't silently reintroduce the soft-404 the audit flagged (FX-05).
  */
 import { describe, it, expect } from 'vitest';
-import { isKnownRoute, TOOL_IDS, canonicalRedirect, CANONICAL_HOST } from '../shared/routes';
+import {
+  isKnownRoute,
+  TOOL_IDS,
+  canonicalRedirect,
+  CANONICAL_HOST,
+  RESET_PASSWORD_PATH,
+} from '../shared/routes';
 
 describe('isKnownRoute', () => {
   it('treats landing, tools index, careers and legal pages as known (→ 200)', () => {
@@ -23,6 +29,17 @@ describe('isKnownRoute', () => {
     for (const p of ['/tools/dashboard', '/tools/reports', '/tools/calendar', '/tools/settings']) {
       expect(isKnownRoute(p), p).toBe(true);
     }
+  });
+
+  /**
+   * The destination of every password-recovery email. It is `noindex`, so it is
+   * absent from sitemap.xml and from every SEO check — nothing else in the
+   * suite would notice it 404-ing. A 404 here strands someone holding a valid,
+   * single-use recovery grant that expires whether or not they see a form.
+   */
+  it('serves the password-recovery landing 200, not 404', () => {
+    expect(isKnownRoute(RESET_PASSWORD_PATH)).toBe(true);
+    expect(isKnownRoute(`${RESET_PASSWORD_PATH}/`)).toBe(true);
   });
 
   it('matches the tool segment case-insensitively, as ToolRoute does', () => {

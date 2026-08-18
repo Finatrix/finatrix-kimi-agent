@@ -51,6 +51,19 @@ export type ToolId = (typeof TOOL_IDS)[number];
 const APP_TOOL_ROUTES = ['dashboard', 'reports', 'calendar', 'settings'] as const;
 
 /**
+ * Where a Supabase password-recovery link lands.
+ *
+ * A constant rather than a literal because three places have to agree on it and
+ * two of them are invisible from the third: `AuthContext.resetPassword` puts it
+ * in the `redirectTo` GoTrue is asked to honour, `App.tsx` routes it, and this
+ * module is what makes the edge Worker answer 200 for it. A mismatch between
+ * the first and the last is the worst of the three — the link works, GoTrue
+ * establishes the session, and the user is served a 404 while holding a valid
+ * recovery grant.
+ */
+export const RESET_PASSWORD_PATH = '/reset-password';
+
+/**
  * Top-level routes that resolve to a real page (mirrors App.tsx).
  *
  * The public marketing/trust/legal surface is folded in from `publicPages.ts`
@@ -64,6 +77,7 @@ const EXACT_ROUTES = new Set<string>([
   '/tools',
   '/login',
   '/signup',
+  RESET_PASSWORD_PATH,
   '/welcome',
   '/profile',
   '/dashboard', // redirects to /tools/dashboard
