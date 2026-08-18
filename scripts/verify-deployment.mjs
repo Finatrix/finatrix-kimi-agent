@@ -137,11 +137,23 @@ function tsFilesUnder(dir) {
   return out;
 }
 
-function checkFunctionDrift() {
-  if (!PROJECT_REF) {
-    record('edge function drift', null, 'skipped — no project ref (supabase link, or set SUPABASE_PROJECT_REF)');
-    return;
-  }
+/**
+ * Supabase's function store is read-after-write eventual: for a minute or so
+ * after `functions deploy` returns, `functions download` still serves the
+ * PREVIOUS version. Comparing once, immediately after deploying — which is
+ * exactly what the Deploy workflow does — therefore reports every file of
+ * every function as drifted on a deploy that in fact succeeded.
+ *
+ * A single comparison cannot tell that apart from real drift, so a mismatch is
+ * re-checked until it either clears or persists past the propagation window.
+ * A pass is still a pass on the first attempt: only failure costs time, and
+ * only drift that outlives the window is reported.
+ */
+const DRIFT_RETRY_DELAYS_MS = [15_000, 30_000, 45_000, 60_000];
+
+const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
+
+function collectDrift() {
   const work = mkdtempSync(join(tmpdir(), 'fx-deploy-verify-'));
   const drifted = [];
   for (const slug of FUNCTIONS) {
@@ -149,8 +161,7 @@ function checkFunctionDrift() {
       execFileSync('npx', ['--yes', 'supabase@latest', 'functions', 'download', slug, '--project-ref', PROJECT_REF],
         { cwd: work, stdio: 'pipe' });
     } catch (e) {
-      record('edge function drift', null, `skipped — could not download ${slug} (needs SUPABASE_ACCESS_TOKEN): ${String(e.message).slice(0, 120)}`);
-      return;
+      return { skipped: `skipped — could not download ${slug} (needs SUPABASE_ACCESS_TOKEN): ${String(e.message).slice(0, 120)}` };
     }
     const localDir = join(ROOT, 'supabase/functions', slug);
     const remoteDir = join(work, 'supabase/functions', slug);
@@ -165,14 +176,44 @@ function checkFunctionDrift() {
       }
     }
   }
-  record(
-    'edge function drift',
-    drifted.length === 0,
-    drifted.length
-      ? `${drifted.length} file(s) differ from the deployed version: ${drifted.join(', ')}\n`
-        + `     → npx supabase functions deploy ${FUNCTIONS.join(' ')}`
-      : `${FUNCTIONS.join(', ')} match the repository`,
-  );
+  return { drifted };
+}
+
+async function checkFunctionDrift() {
+  if (!PROJECT_REF) {
+    record('edge function drift', null, 'skipped — no project ref (supabase link, or set SUPABASE_PROJECT_REF)');
+    return;
+  }
+
+  let waited = 0;
+  for (let attempt = 0; ; attempt++) {
+    const outcome = collectDrift();
+    if (outcome.skipped) {
+      record('edge function drift', null, outcome.skipped);
+      return;
+    }
+    if (outcome.drifted.length === 0) {
+      record('edge function drift', true, `${FUNCTIONS.join(', ')} match the repository`);
+      return;
+    }
+    if (attempt >= DRIFT_RETRY_DELAYS_MS.length) {
+      record(
+        'edge function drift',
+        false,
+        `${outcome.drifted.length} file(s) still differ ${Math.round(waited / 1000)}s after deploying: `
+          + `${outcome.drifted.join(', ')}\n`
+          + `     → npx supabase functions deploy ${FUNCTIONS.join(' ')}`,
+      );
+      return;
+    }
+    const delay = DRIFT_RETRY_DELAYS_MS[attempt];
+    waited += delay;
+    console.log(
+      `  … ${outcome.drifted.length} file(s) differ; re-checking in ${delay / 1000}s `
+      + '(Supabase propagation lag looks identical to drift on the first read)',
+    );
+    await sleep(delay);
+  }
 }
 
 // ── check 3: the public analytics ingest is actually reachable ─────────────
@@ -206,7 +247,7 @@ async function checkAnalyticsIngest() {
 // ── run ────────────────────────────────────────────────────────────────────
 await checkRelations();
 await checkAnalyticsIngest();
-checkFunctionDrift();
+await checkFunctionDrift();
 
 let failed = 0;
 console.log('\nFinatriX deployment verification\n');
