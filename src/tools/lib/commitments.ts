@@ -3,16 +3,15 @@
  *
  * WHY
  * ---
- * "Daily safe spend" divides the whole remaining budget by the days left, which
- * silently assumes nothing is already spoken for. It never is: rent, the EMI,
- * the broadband bill and four subscriptions are still to land, and a figure
- * that ignores them tells someone they can spend money that is already gone.
- * This module names those commitments and reports what is genuinely free.
+ * "Daily safe spend" divides the remaining spendable budget by the days left,
+ * which silently assumes nothing is already spoken for. It never is: rent, the
+ * EMI, the broadband bill and four subscriptions are still to land, and a
+ * figure that ignores them tells someone they can spend money that is already
+ * gone. This module names those commitments and reports what is genuinely free.
  *
- * It does NOT change the existing pacing figure. Both are shown, because the
- * difference between them is the insight — the point is to make "already
- * spoken for" visible, not to quietly redefine a number people have been
- * reading for months.
+ * It does NOT change the pacing figure. Both are shown, because the difference
+ * between them is the insight — the point is to make "already spoken for"
+ * visible, not to quietly fold it into a number read at a glance.
  *
  * WHAT COUNTS AS COMMITTED
  * ------------------------
@@ -24,11 +23,15 @@
  * It is genuinely ambiguous — paid and unlogged, or missed — and guessing in
  * either direction would put a number on the screen that nobody entered.
  *
+ * A recurring SIP or standing transfer is not a bill here. It is money moving,
+ * not money spent, and its budget already sits outside the spendable figure
+ * this module subtracts from — counting it would take it away twice.
+ *
  * Pure and read-only. The detection itself is `detectRecurring`, the Expense
  * Tracker's own model; nothing is re-derived here.
  */
 import type { IconName } from '../ui/Icon';
-import type { ExpenseItem } from './expense';
+import { isSpendingCategory, type ExpenseItem } from './expense';
 import { detectRecurring, type CatMeta } from './expenseAnalytics';
 
 export interface UpcomingBill {
@@ -51,7 +54,7 @@ export interface CommittedOutlook {
   bills: UpcomingBill[];
   /** Sum of `bills`. Zero when none are due. */
   committed: number;
-  /** Remaining budget minus commitments. Null when no budget is set. */
+  /** Spendable budget minus commitments. Null when no spending budget is set. */
   free: number | null;
   /** `free` spread over the days left, today included. Null when no budget. */
   freePerDay: number | null;
@@ -70,8 +73,9 @@ function pad(n: number): string {
 /**
  * Bills still to come in `month`, and what they leave free.
  *
- * `remainingBudget` is the tracker's own figure (budget − spent), passed in
- * rather than recomputed so the two can never disagree.
+ * `remainingBudget` is the tracker's own spendable figure (spendable budget −
+ * spend against it), passed in rather than recomputed so the two can never
+ * disagree.
  */
 export function computeCommitments(
   items: readonly ExpenseItem[],
@@ -97,6 +101,9 @@ export function computeCommitments(
   const bills: UpcomingBill[] = [];
   for (const pattern of detectRecurring([...items], catMeta)) {
     if (pattern.frequency !== 'monthly') continue;
+    // Savings and transfers are already outside `remainingBudget` — see above.
+    const section = catMeta.get(pattern.category)?.section ?? null;
+    if (!isSpendingCategory({ k: pattern.category, section })) continue;
 
     const merchantKey = (pattern.merchant || '').trim().toLowerCase();
     const identity = `${pattern.category}|${merchantKey}`;
