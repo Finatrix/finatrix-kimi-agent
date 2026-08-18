@@ -13,8 +13,8 @@ import { TOOL_IDS, type ToolId } from '../shared/routes';
 const ToolEducation = lazy(() => import('./ui/ToolEducation'));
 
 /**
- * Registry mapping each tool id to its native React page. All seven tools are
- * first-class React routes — there is no iframe and no tools-app.html in the
+ * Registry mapping each tool id to its native React page. Every tool is a
+ * first-class React route — there is no iframe and no tools-app.html in the
  * running application.
  */
 const TOOL_PAGES: Record<string, ComponentType> = {
@@ -25,6 +25,7 @@ const TOOL_PAGES: Record<string, ComponentType> = {
   peercompare: lazy(() => import('./pages/PeerComparePage')),
   goals: lazy(() => import('./pages/GoalPlannerPage')),
   lifemap: lazy(() => import('./pages/LifeMapPage')),
+  networth: lazy(() => import('./pages/NetWorthPage')),
   reports: lazy(() => import('./pages/ReportsPage')),
   calendar: lazy(() => import('./pages/CalendarPage')),
   settings: lazy(() => import('./pages/SettingsPage')),

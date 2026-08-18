@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { AuthProvider } from '../context/AuthContext';
 import App from '../App';
@@ -49,6 +49,23 @@ describe('Careers routes render', () => {
     // backend-not-configured card — both are premium gate states, not errors.
     const gate = await screen.findByText(/Sign in to use Careers|Backend not configured/);
     expect(gate).toBeInTheDocument();
+  });
+
+  /**
+   * ⌘K reaches the Careers shell too. A shortcut that works on one half of a
+   * product is worse than no shortcut: it teaches a reflex that then fails.
+   */
+  it('opens the command palette on the shortcut, and on its visible trigger', async () => {
+    renderAt('/careers/dashboard');
+    const trigger = await screen.findByRole('button', { name: 'Search tools, guides and actions' });
+
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+    expect(await screen.findByRole('dialog', { name: 'Command palette' })).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+    expect(screen.queryByRole('dialog', { name: 'Command palette' })).not.toBeInTheDocument();
+
+    fireEvent.click(trigger);
+    expect(await screen.findByRole('dialog', { name: 'Command palette' })).toBeInTheDocument();
   });
 
   it('includes Careers in the landing navigation', async () => {

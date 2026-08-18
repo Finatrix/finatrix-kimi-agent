@@ -24,12 +24,12 @@ describe('ToolsLayout shell', () => {
     cleanup();
   });
 
-  it('mounts the unified shell: brand, all seven tool tabs, currency selector', async () => {
+  it('mounts the unified shell: brand, every tool tab, currency selector', async () => {
     renderShell('/tools/budget');
     // Brand appears in the app bar.
     expect(screen.getAllByText('FinatriX').length).toBeGreaterThan(0);
-    // All seven tools are present in the nav.
-    for (const name of ['Budget Builder', 'Expense Tracker', 'InvestMatch', 'ParkSmart', 'PeerCompare', 'Reverse Goal Planner', 'LifeMap']) {
+    // Every tool is present in the nav.
+    for (const name of ['Budget Builder', 'Expense Tracker', 'InvestMatch', 'ParkSmart', 'PeerCompare', 'Reverse Goal Planner', 'LifeMap', 'Net Worth']) {
       expect(screen.getAllByText(name).length).toBeGreaterThan(0);
     }
     // Currency selector defaults to INR.

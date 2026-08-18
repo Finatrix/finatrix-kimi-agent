@@ -312,7 +312,7 @@ export const PUBLIC_PAGES: readonly PublicPage[] = [
     faq: [
       {
         q: 'Are the money tools really free?',
-        a: 'Yes. All seven calculators — Budget Builder, Expense Tracker, InvestMatch, ParkSmart, PeerCompare, Reverse Goal Planner and LifeMap — are free with no usage limit and no card required. You can use them signed out; an account only adds sync across your devices.',
+        a: 'Yes. All eight calculators — Budget Builder, Expense Tracker, InvestMatch, ParkSmart, PeerCompare, Reverse Goal Planner, LifeMap and the Net Worth tracker — are free with no usage limit and no card required. You can use them signed out; an account only adds sync across your devices.',
       },
       {
         q: 'What do I actually pay for?',

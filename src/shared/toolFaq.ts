@@ -9,7 +9,7 @@
  * deterministic instead of dependent on how the bundler happens to shake one
  * unused export out of a shared chunk.
  *
- * The seven calculator pages are the primary organic-acquisition surface, and
+ * The calculator pages are the primary organic-acquisition surface, and
  * these answers are what an AI answer engine quotes when someone asks how a
  * 50/30/20 split or a step-up SIP works. Every answer is written against what
  * the tool actually computes — the rates, tax treatment and assumptions here are
@@ -116,6 +116,24 @@ export const TOOL_FAQ: Record<ToolId, readonly FaqEntry[]> = {
     {
       q: 'Why does my career field change the projection so much?',
       a: 'Because income growth rate compounds for longer than any other input in the model. Over decades, a difference in the rate at which earnings rise dominates differences in savings rate or return — which is the single most useful thing this simulation shows.',
+    },
+  ],
+  networth: [
+    {
+      q: 'What counts as net worth?',
+      a: 'Everything you own valued at what it is worth today — bank balances, deposits, mutual funds and stocks, EPF, PPF and NPS, property, gold — minus everything you owe: home loan, vehicle loan, education loan, personal loan and any credit-card balance you are carrying. The answer is a single number at a single point in time, and it can legitimately be negative early in a career.',
+    },
+    {
+      q: 'How often should I update it?',
+      a: 'Once a month is plenty, and once a quarter still works. Balances carry forward here, so you only re-enter what actually changed — a salary account and a loan outstanding move every month, a property valuation does not. The tracker tells you when something has not been touched in three months, because a stale balance quietly makes the whole figure wrong.',
+    },
+    {
+      q: 'Should I include my house and my home loan?',
+      a: 'Include both or neither, never one of them. Counting the loan without the property makes your position look far worse than it is; counting the property without the loan makes it look far better. If you do include property, use a conservative, honest number — the price a buyer would pay this year, not what you hope it becomes.',
+    },
+    {
+      q: 'Does FinatriX value my investments automatically?',
+      a: 'No. There is no market data feed and no bank connection here — every balance on the page is one you entered yourself. That is slower than an app that logs into your accounts, and it is also why nothing here has read access to them.',
     },
   ],
 };

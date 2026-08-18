@@ -12,7 +12,7 @@
  *     anything — this is a shortcut for the common case, not a new dialect
  *     the user has to learn.
  */
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { parseQuickAdd, type QuickAddResult } from '../lib/quickAdd';
 import { SECTION_COLOR } from '../lib/sectionColors';
@@ -26,13 +26,41 @@ interface Props {
   onAdd: (parsed: QuickAddResult) => boolean;
   /** Category used when the line names none — the form's current selection. */
   fallbackCategory: string;
+  /**
+   * A line handed over from somewhere else (today: the ⌘K palette), to be typed
+   * into this field on the user's behalf.
+   *
+   * `nonce` rather than the text alone, because the same words twice in a row
+   * are a legitimate second entry, and because this component is already
+   * mounted when the hand-off happens. Nothing is committed: the line lands in
+   * the field with the field focused, and the preview and Enter still belong to
+   * the user.
+   */
+  seed?: { text: string; nonce: number };
 }
 
-export function QuickAddBar({ cats, cfmt, now, onAdd, fallbackCategory }: Props) {
+export function QuickAddBar({ cats, cfmt, now, onAdd, fallbackCategory, seed }: Props) {
   const [text, setText] = useState('');
   const [flash, setFlash] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const seedNonce = seed?.nonce ?? 0;
+  const seedText = seed?.text ?? '';
+  useEffect(() => {
+    if (!seedNonce) return;
+    setText(seedText);
+    const el = inputRef.current;
+    el?.focus();
+    // The caret goes to the end so the handed-over line reads as something the
+    // user could have typed, ready to be finished rather than replaced.
+    el?.setSelectionRange?.(seedText.length, seedText.length);
+    el?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+    // seedText is intentionally not a dependency: a new hand-off always bumps
+    // the nonce, and re-running on the text alone would re-seed the field after
+    // the user had edited it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seedNonce]);
 
   const validKeys = useMemo(() => new Set(cats.map((c) => c.k)), [cats]);
   // Parsed on every keystroke: the preview IS the feedback, and a parse of one

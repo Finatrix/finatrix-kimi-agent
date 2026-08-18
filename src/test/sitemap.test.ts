@@ -25,7 +25,7 @@ describe('sitemap.xml', () => {
     expect(COMMITTED).toBe(buildSitemap());
   });
 
-  it('lists the homepage, all seven calculators and every public page', () => {
+  it('lists the homepage, every calculator and every public page', () => {
     const listed = new Set(locs().map((l) => new URL(l).pathname.replace(/\/$/, '') || '/'));
     expect(listed.has('/')).toBe(true);
     for (const id of TOOL_IDS) expect(listed.has(`/tools/${id}`), id).toBe(true);

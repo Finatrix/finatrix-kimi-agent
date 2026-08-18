@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup, within, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { CurrencyProvider } from '../tools/CurrencyContext';
 import ExpensePage from '../tools/pages/ExpensePage';
 import { buildExpenseExport } from '../tools/lib/reports';
@@ -91,7 +92,7 @@ describe('expense export completeness', () => {
     const n = 250; // far beyond the 8-row dashboard preview
     seed(n);
     const dl = captureDownloads();
-    render(<CurrencyProvider><ExpensePage /></CurrencyProvider>);
+    render(<MemoryRouter><CurrencyProvider><ExpensePage /></CurrencyProvider></MemoryRouter>);
 
     fireEvent.click(screen.getByText(/Export ▾/));
     fireEvent.click(screen.getByText('Download CSV'));
@@ -103,7 +104,7 @@ describe('expense export completeness', () => {
   it('exports a filtered-down list in full when a selection is exported', async () => {
     seed(20);
     const dl = captureDownloads();
-    render(<CurrencyProvider><ExpensePage /></CurrencyProvider>);
+    render(<MemoryRouter><CurrencyProvider><ExpensePage /></CurrencyProvider></MemoryRouter>);
 
     const txCard = screen.getByText('Transactions').closest('.card') as HTMLElement;
     fireEvent.click(within(txCard).getByText('Select'));

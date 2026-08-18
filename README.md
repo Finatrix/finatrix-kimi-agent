@@ -65,8 +65,9 @@ public/
   robots.txt      Crawl directives
 ```
 
-> The seven calculators are **first-class React routes** under `/tools/*`. There is no
-> `tools-app.html` and no iframe in the running application.
+> Every calculator is a **first-class React route** under `/tools/*` — the list lives in
+> `src/shared/routes.ts`. There is no `tools-app.html` and no iframe in the running
+> application.
 
 ## Deployment
 

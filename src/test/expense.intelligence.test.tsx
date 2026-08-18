@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup, within, act } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { CurrencyProvider } from '../tools/CurrencyContext';
 import ExpensePage from '../tools/pages/ExpensePage';
 import { currentMonth } from '../tools/lib/month';
@@ -40,7 +41,7 @@ function seed(items: ExpenseItem[]) {
 }
 
 function renderPage() {
-  return render(<CurrencyProvider><ExpensePage /></CurrencyProvider>);
+  return render(<MemoryRouter><CurrencyProvider><ExpensePage /></CurrencyProvider></MemoryRouter>);
 }
 
 const saved = (): ExpenseItem[] => JSON.parse(localStorage.getItem('fx_expenses') || '[]');

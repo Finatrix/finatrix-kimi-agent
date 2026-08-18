@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { TOOL_IDS } from '../src/shared/routes';
 
 /**
  * Accessibility floor for every Finance tool, checked against the real DOM.
@@ -13,10 +14,18 @@ import { test, expect, type Page } from '@playwright/test';
  * convenience — see the notes at each site.
  */
 
+/**
+ * Every Finance route, derived from the same registry the app and the sitemap
+ * read. It was a hand-written list, which meant a new calculator was covered
+ * only if whoever added it remembered this file — and the page nobody
+ * remembered is the one most likely to carry a violation.
+ */
 const TOOLS = [
-  '/tools', '/tools/dashboard', '/tools/budget', '/tools/expenses',
-  '/tools/investmatch', '/tools/parksmart', '/tools/peercompare',
-  '/tools/goals', '/tools/lifemap', '/tools/reports', '/tools/calendar',
+  '/tools',
+  '/tools/dashboard',
+  ...TOOL_IDS.map((id) => `/tools/${id}`),
+  '/tools/reports',
+  '/tools/calendar',
   '/tools/settings',
 ];
 

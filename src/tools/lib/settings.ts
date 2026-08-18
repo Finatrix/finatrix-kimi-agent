@@ -19,7 +19,8 @@ const KEY_LABEL: Record<string, string> = {
   fx_expenses: 'Expenses',
   fx_expense_audit: 'Expense change history',
   fx_goals: 'Goals', fx_investmatch: 'InvestMatch', fx_parksmart: 'ParkSmart',
-  fx_peercompare: 'PeerCompare', fx_lifemap: 'LifeMap', fx_currency: 'Currency',
+  fx_peercompare: 'PeerCompare', fx_lifemap: 'LifeMap', fx_networth: 'Net Worth',
+  fx_currency: 'Currency',
 };
 
 export interface DataArea { key: string; label: string; present: boolean; bytes: number }

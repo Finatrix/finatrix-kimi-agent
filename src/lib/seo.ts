@@ -132,7 +132,7 @@ function normalisePath(pathname: string): string {
 }
 
 /**
- * SEO copy for the seven public calculators.
+ * SEO copy for the public calculators.
  *
  * Descriptions are written against what each tool ACTUALLY does — the inputs,
  * outputs and instrument coverage in `src/tools/pages/*` — not against what
@@ -203,6 +203,13 @@ const TOOL_SEO: Record<ToolId, ToolSeo> = {
     description:
       'Project income, investments, debt and major life decisions across decades, and see how one choice today reshapes your net worth and financial health.',
     category: 'Financial planning',
+  },
+  networth: {
+    name: 'Net Worth Tracker',
+    title: 'Net Worth Tracker — Assets Minus Liabilities | FinatriX',
+    description:
+      'Record what you own and what you owe, and watch the one number that shows whether the rest is working. A free, private net worth tracker for India.',
+    category: 'Net worth tracking',
   },
 };
 

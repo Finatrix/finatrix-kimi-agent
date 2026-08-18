@@ -54,6 +54,9 @@ export type AnalyticsEvent =
   // opt-out-able pipeline (src/careers/services/analytics.ts) for its
   // domain events. A name in this union that nothing sends is not a gap waiting
   // to be filled — it is a metric that reads zero and looks like a real one.
+  // ⌘K command palette — which commands people actually reach for is the only
+  // evidence that would justify promoting one into the navigation itself.
+  | 'command_run'
   | 'web_vital'
   | 'app_error'
   | 'route_not_found'

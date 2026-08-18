@@ -38,7 +38,7 @@ export default function Privacy() {
           <strong>Tool data you enter</strong> — figures you type into the tools (for
           example income, expenses, savings, debt, goals and your currency preference)
           across Budget Builder, Expense Tracker, InvestMatch, ParkSmart, PeerCompare,
-          Reverse Goal Planner and LifeMap.
+          Reverse Goal Planner, LifeMap and the Net Worth tracker.
         </li>
         <li>
           <strong>Technical data</strong> — standard server logs kept by our hosting and

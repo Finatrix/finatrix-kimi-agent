@@ -20,6 +20,7 @@ const HERO_CARDS: HeroCard[] = [
   { tool: byId('peercompare'), name: 'PeerCompare', sub: 'Compare, decide, stay ahead' },
   { tool: byId('goals'), name: 'Goals', sub: 'Set goals, achieve more' },
   { tool: byId('lifemap'), name: 'LifeMap', sub: 'Map your life, secure your future' },
+  { tool: byId('networth'), name: 'Net Worth', sub: 'Track what you own and owe' },
 ];
 
 const TRUST: string[] = [
@@ -67,17 +68,23 @@ function ToolCard({ card, i }: { card: HeroCard; i: number }) {
 }
 
 /**
- * FinatriX Careers occupies the eighth grid cell as a premium spotlight card —
- * deliberately styled apart from the seven finance tools (gold glow, AI badge)
- * rather than presented as just another tool tile.
+ * FinatriX Careers — a premium spotlight BELOW the tool grid, deliberately
+ * styled apart from the finance tools (gold glow, AI badge) rather than
+ * presented as just another tile.
+ *
+ * It used to occupy the eighth cell of a 4x2 grid. With eight calculators that
+ * cell is spoken for, and a ninth half-width tile would either leave an orphan
+ * beside a gap or force an odd column count — which is what the centre logo hub
+ * is centred on. As its own full-width row it keeps the constellation's
+ * crosshair intact and gives the paid product more presence, not less.
  */
 function CareersSpotlightCard() {
   return (
     <Link
       to="/careers"
       aria-label="FinatriX Careers — AI-powered resume intelligence, job search, ATS optimization and career coach"
-      style={{ animationDelay: `${0.28 + 7 * 0.06}s` }}
-      className="fx-in fx-card-hover group relative flex flex-col items-center gap-2 rounded-2xl border border-[#D4AF37]/45 px-3 py-4 sm:py-5 text-center backdrop-blur-sm transition-all duration-300 hover:border-[#D4AF37] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/70"
+      style={{ animationDelay: `${0.28 + HERO_CARDS.length * 0.06}s` }}
+      className="fx-in fx-card-hover group relative flex flex-col items-center gap-2 rounded-2xl border border-[#D4AF37]/45 px-4 py-4 text-center backdrop-blur-sm transition-all duration-300 hover:border-[#D4AF37] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/70 sm:flex-row sm:gap-4 sm:px-5 sm:text-left"
     >
       <span
         className="pointer-events-none absolute inset-0 rounded-2xl transition-opacity duration-300"
@@ -101,15 +108,28 @@ function CareersSpotlightCard() {
           <path d="M3 12h18" />
         </svg>
       </span>
-      <span className="relative inline-flex items-center gap-1 rounded-full border border-[#D4AF37]/50 bg-[#D4AF37]/10 px-2 py-[2px] font-mono text-[8.5px] uppercase tracking-[0.14em] text-accent-text">
-        <span className="h-1 w-1 rounded-full bg-[#D4AF37]" aria-hidden="true" />
-        AI Powered
+      <span className="relative flex flex-col items-center gap-1 sm:flex-1 sm:items-start">
+        <span className="inline-flex items-center gap-1 rounded-full border border-[#D4AF37]/50 bg-[#D4AF37]/10 px-2 py-[2px] font-mono text-[8.5px] uppercase tracking-[0.14em] text-accent-text">
+          <span className="h-1 w-1 rounded-full bg-[#D4AF37]" aria-hidden="true" />
+          AI Powered
+        </span>
+        <span className="text-[15px] font-semibold tracking-[-0.01em] text-accent-text [text-shadow:0_0_20px_rgba(212,175,55,0.25)]">
+          FinatriX Careers
+        </span>
+        <span className="text-[11.5px] leading-snug text-ink-2">
+          Resume intelligence, job search, ATS optimization &amp; career coach
+        </span>
       </span>
-      <span className="relative text-[15px] font-semibold tracking-[-0.01em] text-accent-text [text-shadow:0_0_20px_rgba(212,175,55,0.25)]">
-        FinatriX Careers
-      </span>
-      <span className="relative text-[11px] leading-snug text-ink-2">
-        Resume intelligence, job search, ATS optimization &amp; career coach
+      {/* Decorative: the whole banner is one link, so this is an affordance
+          rather than a second target. */}
+      <span
+        className="relative hidden items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-accent-text sm:inline-flex"
+        aria-hidden="true"
+      >
+        Explore
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M5 12h14M13 6l6 6-6 6" />
+        </svg>
       </span>
     </Link>
   );
@@ -137,6 +157,10 @@ export default function LandingHero() {
 
       {/* ── Tool grid + centre logo hub (constellation) ── */}
       <div className="relative z-10 w-full max-w-[760px]">
+        {/* The hub is centred on the GRID alone — its crosshair sits in the gap
+            between the four columns and the two rows, which is why the Careers
+            spotlight below is a sibling rather than another cell. */}
+        <div className="relative">
         {/* decorative connectors + logo hub (desktop) */}
         <div className="pointer-events-none absolute left-1/2 top-1/2 z-20 hidden -translate-x-1/2 -translate-y-1/2 lg:block">
           <svg width="220" height="130" viewBox="0 0 220 130" className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" aria-hidden="true">
@@ -162,6 +186,10 @@ export default function LandingHero() {
           {HERO_CARDS.map((c, i) => (
             <ToolCard key={c.tool.id} card={c} i={i} />
           ))}
+        </div>
+        </div>
+
+        <div className="mt-3 sm:mt-3.5">
           <CareersSpotlightCard />
         </div>
       </div>

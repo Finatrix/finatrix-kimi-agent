@@ -86,3 +86,16 @@ export function useCurrency(): CurrencyCtx {
   if (!c) throw new Error('useCurrency must be used within CurrencyProvider');
   return c;
 }
+
+/**
+ * The active currency, or `undefined` outside a provider.
+ *
+ * For components that are genuinely shared between the money workspace (which
+ * has a currency) and the Careers workspace (which has none, because nothing
+ * there is denominated in money the user is tracking). Throwing there would be
+ * correct for a tool and wrong for a shell-level control like ⌘K.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useOptionalCurrency(): CurrencyCtx | undefined {
+  return useContext(Ctx);
+}

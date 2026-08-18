@@ -5,7 +5,7 @@
  * static `<link rel="canonical">` names the homepage. `applySeo` fixed that
  * after mount, so the corrected value existed only for a client that executes
  * JavaScript. Googlebot renders and would see it; Bing and every link unfurler
- * read the raw HTML and were told that all seven calculators — the entire
+ * read the raw HTML and were told that every calculator — the entire
  * organic surface — canonicalise to `/`.
  *
  * `HTMLRewriter` is a Workers runtime global and does not exist under Vitest,
@@ -230,7 +230,7 @@ describe('worker: server-side canonical + og:url', () => {
  *
  * Googlebot renders, so it would eventually see whatever `applySeo` writes.
  * Bing, DuckDuckGo, and every link unfurler — WhatsApp, Slack, X, LinkedIn,
- * iMessage — read the served HTML and stop. Before this, all seven calculators
+ * iMessage — read the served HTML and stop. Before this, every calculator
  * shipped the landing page's title and description to all of them, so the tools
  * competed for one identical SERP snippet and every shared tool link rendered
  * the same landing card.
@@ -257,7 +257,7 @@ describe('worker: server-side title, description and structured data', () => {
       expect(valueFor(applied, TITLE_SEL), tool).not.toBe(DEFAULT_TITLE);
       titles.add(title);
     }
-    // Seven pages, seven distinct titles — not one repeated seven times.
+    // One distinct title per calculator — not the landing page's, repeated.
     expect(titles.size).toBe(TOOL_IDS.length);
   });
 

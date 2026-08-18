@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState, type ReactElement } from 'react';
 import { Link, Outlet, useLocation } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { useMobileDrawer } from '../hooks/useMobileDrawer';
@@ -25,10 +25,16 @@ import { BrandLogo } from '../components/BrandLogo';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { BackButton } from '../components/BackButton';
 import ThemeToggle from '../components/ThemeToggle';
+import { CommandPaletteTrigger } from '../components/CommandPaletteTrigger';
+import { useCommandPalette } from '../hooks/useCommandPalette';
 import { CAREERS_ROUTES } from '../careers/constants';
 import { NotificationsBell } from './ui/NotificationsBell';
 import { AiProvider, AiLauncher } from './ui/AiAssistant';
 import './tools.css';
+
+// Lazy on purpose: the palette carries the whole command registry (including
+// the Learn index it searches), and it is worth nothing until it is opened.
+const CommandPalette = lazy(() => import('./ui/CommandPalette'));
 
 const syncLabel: Record<SyncStatus, string> = {
   idle: 'On this device',
@@ -256,6 +262,7 @@ export default function ToolsLayout() {
   const readyRef = useRef(false);
   const [sync, setSync] = useState<SyncStatus>(configured ? 'idle' : 'offline');
   const [drawerOpen, setDrawerOpen] = useMobileDrawer();
+  const { open: paletteOpen, openPalette, closePalette } = useCommandPalette();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeTool = useActiveTool();
 
@@ -416,6 +423,7 @@ export default function ToolsLayout() {
             </div>
 
             <div className="relative flex items-center gap-2.5 sm:gap-4">
+              <CommandPaletteTrigger onOpen={openPalette} />
               <NotificationsBell />
               <ThemeToggle />
               {user ? (
@@ -488,6 +496,17 @@ export default function ToolsLayout() {
               )
             }
           >
+            <button
+              type="button"
+              onClick={() => { setDrawerOpen(false); openPalette(); }}
+              aria-haspopup="dialog"
+              className="flex w-full items-center gap-3 px-5 py-3 text-left text-[15px] text-ink hover:bg-hairline-2"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" />
+              </svg>
+              Search everything
+            </button>
             <Link to="/" onClick={() => setDrawerOpen(false)} className="flex items-center gap-3 px-5 py-3 text-[15px] text-ink hover:bg-hairline-2">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M3 11l9-8 9 8" /><path d="M5 10v10h14V10" />
@@ -551,6 +570,14 @@ export default function ToolsLayout() {
               rendered by AiProvider above, as a lazy chunk fetched on first
               open. */}
           {ready && <AiLauncher />}
+
+          {/* The palette mounts only while open, so its chunk (and the command
+              registry inside it) is never fetched by someone who never uses it. */}
+          {paletteOpen && (
+            <Suspense fallback={null}>
+              <CommandPalette onClose={closePalette} />
+            </Suspense>
+          )}
 
           {/* Mobile bottom navigation (<768px) */}
           <MobileTabBar

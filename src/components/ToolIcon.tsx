@@ -75,6 +75,17 @@ export function ToolIcon({
           <path d="M9 4v14M15 6v14" />
         </svg>
       );
+    case 'networth':
+      // A balance: what you own on one side, what you owe on the other.
+      return (
+        <svg {...common}>
+          <path d="M12 4v16" />
+          <path d="M5 7h14" />
+          <path d="M5 7 2.5 13a2.6 2.6 0 0 0 5 0L5 7Z" />
+          <path d="M19 7l-2.5 6a2.6 2.6 0 0 0 5 0L19 7Z" />
+          <path d="M9 20h6" />
+        </svg>
+      );
     case 'grid':
       return (
         <svg {...common}>

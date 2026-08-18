@@ -273,3 +273,50 @@ describe('in-app brand logo stays off the critical path', () => {
     }
   });
 });
+
+/**
+ * App shortcuts — the long-press menu on an installed FinatriX icon.
+ *
+ * Two ways for these to rot silently: a URL that no longer routes (Android
+ * shows the entry, the tap lands on a 404) and an icon slot pointing at a file
+ * that was never shipped. Both are invisible until someone installs the app.
+ */
+describe('manifest shortcuts', () => {
+  interface Shortcut { name?: string; short_name?: string; url?: string; icons?: ManifestIcon[] }
+  const shortcuts = ((manifest as unknown as { shortcuts?: Shortcut[] }).shortcuts) ?? [];
+
+  it('declares the actions worth a long-press, and no more', () => {
+    expect(shortcuts.length).toBeGreaterThan(0);
+    // Android surfaces at most four; more is silently truncated, which makes
+    // the order — and the cap — a real product decision rather than an accident.
+    expect(shortcuts.length).toBeLessThanOrEqual(4);
+  });
+
+  it('points every shortcut at a route the app really serves', async () => {
+    const { isKnownRoute } = await import('../shared/routes');
+    for (const s of shortcuts) {
+      expect(s.url, 'a shortcut must declare a url').toBeTruthy();
+      const path = (s.url as string).split('?')[0];
+      expect(isKnownRoute(path), `shortcut "${s.name}" points at ${path}`).toBe(true);
+    }
+  });
+
+  it('names every shortcut, within the length a launcher will show', () => {
+    for (const s of shortcuts) {
+      expect(s.name?.trim()).toBeTruthy();
+      // short_name is what a launcher actually renders; long ones get elided.
+      expect((s.short_name ?? s.name ?? '').length).toBeLessThanOrEqual(12);
+    }
+  });
+
+  it('ships every icon a shortcut declares, at the size it claims', () => {
+    for (const s of shortcuts) {
+      for (const icon of s.icons ?? []) {
+        const rel = icon.src.split('?')[0].replace(/^\//, '');
+        expect(existsSync(join(PUBLIC, rel)), `missing ${icon.src}`).toBe(true);
+        const [w, h] = (icon.sizes ?? '').split('x').map(Number);
+        expect(pngSize(rel)).toEqual({ width: w, height: h });
+      }
+    }
+  });
+});
