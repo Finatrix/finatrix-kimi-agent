@@ -33,6 +33,7 @@ import {
 import AuditTrail from '../ui/AuditTrail';
 import { QuickAddBar } from '../ui/QuickAddBar';
 import type { QuickAddResult } from '../lib/quickAdd';
+import { computeCommitments } from '../lib/commitments';
 import { haptic } from '../../lib/haptics';
 import { allCategories, SECTION_LABEL, type SectionedCats, type CatKey, type BudgetStore } from '../lib/budget';
 import { loadCatView } from '../lib/budgetCats';
@@ -967,6 +968,16 @@ function OverviewTab({
         </div>
       </div>
 
+      {/* What is already spoken for */}
+      <CommitmentsCard
+        items={items}
+        catMeta={catMeta}
+        month={selMonth}
+        now={now}
+        remainingBudget={r.monthlyBudget > 0 ? r.remaining : null}
+        cfmt={cfmt}
+      />
+
       {/* Budget warnings — categories at or past 80% */}
       {r.warnings.length > 0 && (
         <WarningsCard warnings={r.warnings} cfmt={cfmt} onSelect={(k) => listApi.current?.focusCategory(k)} />
@@ -1578,6 +1589,109 @@ function Metric({ label, value, note, accent }: { label: string; value: string; 
  * transaction list to that category and scrolls to it, so "Food is at 92%"
  * leads straight to the transactions that made it 92%.
  */
+/**
+ * "Still to come" — the recurring bills this month has not seen yet, and what
+ * they leave genuinely free.
+ *
+ * The pacing card above divides the WHOLE remaining budget by the days left,
+ * which quietly assumes none of it is spoken for. This is the counterweight:
+ * it names what is still due and shows the smaller, truer number beside it. It
+ * adds a figure rather than changing that one, because the gap between the two
+ * is the thing worth learning.
+ *
+ * Renders nothing at all when there is nothing to say — a past month, or a
+ * ledger with no monthly pattern in it yet.
+ */
+function CommitmentsCard({
+  items, catMeta, month, now, remainingBudget, cfmt,
+}: {
+  items: ExpenseItem[];
+  catMeta: Map<string, CatMeta>;
+  month: string;
+  now: Date;
+  /** Budget − spent, or null when no budget is set. */
+  remainingBudget: number | null;
+  cfmt: (n: number) => string;
+}) {
+  const outlook = useMemo(
+    () => computeCommitments(items, catMeta, month, now, remainingBudget),
+    [items, catMeta, month, now, remainingBudget],
+  );
+
+  if (!outlook.applicable || outlook.bills.length === 0) return null;
+
+  const free = outlook.free;
+  const short = free != null && free < 0;
+
+  return (
+    <div className="card">
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+        <span style={{ fontSize: 14, fontWeight: 700 }}>Still to come this month</span>
+        <span className="note" style={{ fontSize: 12 }}>
+          {outlook.bills.length} recurring {outlook.bills.length === 1 ? 'bill' : 'bills'} · {cfmt(outlook.committed)}
+        </span>
+      </div>
+
+      {free != null && (
+        <div className="fx-metrics" style={{ marginBottom: 12 }}>
+          <Metric
+            label="Already spoken for"
+            value={cfmt(outlook.committed)}
+            note="Detected from your own logged history"
+            accent="var(--orange)"
+          />
+          <Metric
+            label={short ? 'Short by' : 'Free to spend'}
+            value={cfmt(Math.abs(free))}
+            note={short ? 'Bills due exceed what is left' : 'After the bills below'}
+            accent={short ? 'var(--red)' : 'var(--green)'}
+          />
+          <Metric
+            label="Free per day"
+            value={outlook.freePerDay != null && outlook.freePerDay > 0 ? cfmt(outlook.freePerDay) : cfmt(0)}
+            note={`Across ${outlook.daysLeft} ${outlook.daysLeft === 1 ? 'day' : 'days'} left, today included`}
+            accent={short ? 'var(--red)' : 'var(--green)'}
+          />
+        </div>
+      )}
+
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+        {outlook.bills.map((bill) => (
+          <li
+            key={bill.key}
+            style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '9px 0', borderTop: '1px solid var(--hair2)' }}
+          >
+            <Icon name={bill.icon} size={16} style={{ color: 'var(--ink3)', flex: '0 0 auto' }} />
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: 'block', fontSize: 13, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {bill.merchant || bill.label}
+              </span>
+              <span className="note" style={{ fontSize: 11.5 }}>
+                {bill.merchant ? `${bill.label} · ` : ''}usually the {ordinal(bill.day)}
+              </span>
+            </span>
+            <span style={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums', flex: '0 0 auto' }}>
+              {cfmt(bill.amount)}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      <p className="note" style={{ fontSize: 11.5, marginTop: 10 }}>
+        Estimated from expenses you logged in earlier months. A bill whose usual day has already
+        passed without being logged is left out rather than guessed at.
+      </p>
+    </div>
+  );
+}
+
+/** 1st, 2nd, 3rd, 4th … for a day of the month. */
+function ordinal(day: number): string {
+  const rem100 = day % 100;
+  if (rem100 >= 11 && rem100 <= 13) return `${day}th`;
+  return `${day}${['th', 'st', 'nd', 'rd'][day % 10] ?? 'th'}`;
+}
+
 function WarningsCard({
   warnings, cfmt, onSelect,
 }: {
