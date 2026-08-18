@@ -144,19 +144,25 @@ function tsFilesUnder(dir) {
  * exactly what the Deploy workflow does — therefore reports every file of
  * every function as drifted on a deploy that in fact succeeded.
  *
+ * Observed on this project: a comparison run immediately after deploying
+ * reports all 27 files of all 6 functions as drifted, and the same comparison
+ * against the same commit matches byte for byte roughly six minutes later,
+ * with no deploy in between. The window is minutes, not seconds.
+ *
  * A single comparison cannot tell that apart from real drift, so a mismatch is
  * re-checked until it either clears or persists past the propagation window.
  * A pass is still a pass on the first attempt: only failure costs time, and
  * only drift that outlives the window is reported.
  */
-const DRIFT_RETRY_DELAYS_MS = [15_000, 30_000, 45_000, 60_000];
+const DRIFT_RETRY_DELAYS_MS = [20_000, 40_000, 60_000, 90_000, 120_000, 120_000];
 
 const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
 
-function collectDrift() {
+function collectDrift(slugs) {
   const work = mkdtempSync(join(tmpdir(), 'fx-deploy-verify-'));
   const drifted = [];
-  for (const slug of FUNCTIONS) {
+  const driftedSlugs = new Set();
+  for (const slug of slugs) {
     try {
       execFileSync('npx', ['--yes', 'supabase@latest', 'functions', 'download', slug, '--project-ref', PROJECT_REF],
         { cwd: work, stdio: 'pipe' });
@@ -173,10 +179,11 @@ function collectDrift() {
       if (!existsSync(remoteFile)) continue;
       if (readFileSync(localFile, 'utf8') !== readFileSync(remoteFile, 'utf8')) {
         drifted.push(`${slug}/${rel}`);
+        driftedSlugs.add(slug);
       }
     }
   }
-  return { drifted };
+  return { drifted, driftedSlugs: [...driftedSlugs] };
 }
 
 async function checkFunctionDrift() {
@@ -186,8 +193,9 @@ async function checkFunctionDrift() {
   }
 
   let waited = 0;
+  let pending = FUNCTIONS;
   for (let attempt = 0; ; attempt++) {
-    const outcome = collectDrift();
+    const outcome = collectDrift(pending);
     if (outcome.skipped) {
       record('edge function drift', null, outcome.skipped);
       return;
@@ -206,10 +214,16 @@ async function checkFunctionDrift() {
       );
       return;
     }
+    // Only the functions that actually mismatched are re-downloaded: a function
+    // that already matches cannot start differing while nothing is deploying,
+    // and re-fetching all six each round is what made the first attempt at this
+    // retry loop time out before the store had settled.
+    pending = outcome.driftedSlugs;
     const delay = DRIFT_RETRY_DELAYS_MS[attempt];
     waited += delay;
     console.log(
-      `  … ${outcome.drifted.length} file(s) differ; re-checking in ${delay / 1000}s `
+      `  … ${outcome.drifted.length} file(s) across ${pending.length} function(s) differ; `
+      + `re-checking in ${delay / 1000}s `
       + '(Supabase propagation lag looks identical to drift on the first read)',
     );
     await sleep(delay);
