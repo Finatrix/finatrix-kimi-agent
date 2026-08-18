@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, within, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { CurrencyProvider } from '../tools/CurrencyContext';
 import ExpensePage from '../tools/pages/ExpensePage';
 import { AUDIT_KEY } from '../tools/lib/expenseAudit';
@@ -13,9 +14,11 @@ import { AUDIT_KEY } from '../tools/lib/expenseAudit';
 
 function renderPage() {
   return render(
-    <CurrencyProvider>
-      <ExpensePage />
-    </CurrencyProvider>
+    <MemoryRouter>
+      <CurrencyProvider>
+        <ExpensePage />
+      </CurrencyProvider>
+    </MemoryRouter>
   );
 }
 

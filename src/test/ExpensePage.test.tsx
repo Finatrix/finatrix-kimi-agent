@@ -1,13 +1,16 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup, within, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { CurrencyProvider } from '../tools/CurrencyContext';
 import ExpensePage from '../tools/pages/ExpensePage';
 
 function renderPage() {
   return render(
-    <CurrencyProvider>
-      <ExpensePage />
-    </CurrencyProvider>
+    <MemoryRouter>
+      <CurrencyProvider>
+        <ExpensePage />
+      </CurrencyProvider>
+    </MemoryRouter>
   );
 }
 

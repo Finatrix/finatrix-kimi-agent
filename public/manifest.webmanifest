@@ -12,6 +12,29 @@
   "background_color": "#060607",
   "theme_color": "#060607",
   "categories": ["finance", "productivity", "education"],
+  "shortcuts": [
+    {
+      "name": "Log a spend",
+      "short_name": "Log spend",
+      "description": "Open the Expense Tracker with the quick-add line ready",
+      "url": "/tools/expenses?add=",
+      "icons": [{ "src": "/android-chrome-192x192.png?v=3", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Your whole financial picture at a glance",
+      "url": "/tools/dashboard",
+      "icons": [{ "src": "/android-chrome-192x192.png?v=3", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Budget Builder",
+      "short_name": "Budget",
+      "description": "Split this month's income the 50/30/20 way",
+      "url": "/tools/budget",
+      "icons": [{ "src": "/android-chrome-192x192.png?v=3", "sizes": "192x192", "type": "image/png" }]
+    }
+  ],
   "icons": [
     { "src": "/android-chrome-192x192.png?v=3", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/android-chrome-512x512.png?v=3", "sizes": "512x512", "type": "image/png", "purpose": "any" },

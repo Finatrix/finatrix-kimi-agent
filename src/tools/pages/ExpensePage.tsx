@@ -2,6 +2,7 @@ import {
   Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type RefObject,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { useLocation, useNavigate } from 'react-router';
 import Chart, { type Plugin } from 'chart.js/auto';
 import { useTheme } from '../../context/ThemeContext';
 import {
@@ -372,6 +373,31 @@ export default function ExpensePage() {
   const openAdd = () => { setEditing(null); setModalOpen(true); };
 
   /**
+   * A spend handed over from the ⌘K palette as `?add=<line>`.
+   *
+   * The palette never writes a transaction; it forwards the words the user
+   * typed to this page's own quick-add line, which previews them and commits
+   * through the same path as anything typed here directly. The parameter is
+   * consumed immediately (replaced out of the URL) so a refresh or a shared
+   * link does not re-seed the field with a spend that was already logged.
+   */
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [quickSeed, setQuickSeed] = useState<{ text: string; nonce: number } | null>(null);
+  const seedNonce = useRef(0);
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (!params.has('add')) return;
+    const text = params.get('add') ?? '';
+    seedNonce.current += 1;
+    setQuickSeed({ text, nonce: seedNonce.current });
+    setTab('overview');
+    params.delete('add');
+    const q = params.toString();
+    navigate({ pathname: location.pathname, search: q ? `?${q}` : '' }, { replace: true });
+  }, [location.search, location.pathname, navigate]);
+
+  /**
    * Take the user from an empty Analytics tab to the thing that fills it.
    *
    * Switches tab, then focuses the quick-add field on the next frame — the
@@ -733,7 +759,7 @@ export default function ExpensePage() {
             addError={addError} amountRef={amountRef}
             date={date} setDate={setDate} note={note} setNote={setNote} justAdded={justAdded}
             cfmt={cfmt} sym={sym} now={now} catMeta={catMeta} monthlyBudget={r.monthlyBudget}
-            addExpense={addExpense} addFromQuickAdd={addFromQuickAdd}
+            addExpense={addExpense} addFromQuickAdd={addFromQuickAdd} quickSeed={quickSeed}
             openAdd={openAdd} openEdit={openEdit}
             duplicateTransaction={duplicateTransaction} deleteTransaction={deleteTransaction}
             bulkDelete={bulkDelete} bulkDuplicate={bulkDuplicate} bulkCategory={bulkCategory}
@@ -845,6 +871,8 @@ interface OverviewProps {
   addExpense: () => void;
   /** Commit a parsed one-line entry. False when it could not be logged. */
   addFromQuickAdd: (parsed: QuickAddResult) => boolean;
+  /** A line handed over by the ⌘K palette, to be typed into the quick-add field. */
+  quickSeed: { text: string; nonce: number } | null;
   openAdd: () => void; openEdit: (item: ExpenseItem) => void;
   duplicateTransaction: (item: ExpenseItem) => void; deleteTransaction: (id: string) => void;
   bulkDelete: (ids: string[]) => void; bulkDuplicate: (ids: string[]) => void;
@@ -860,7 +888,7 @@ function OverviewTab({
   r, items, monthTx, selMonth, flatCats, selKey, setSel, recentCatKeys,
   amount, setAmount, addError, amountRef, date, setDate, note, setNote, justAdded,
   cfmt, sym, now, catMeta, monthlyBudget,
-  addExpense, addFromQuickAdd, openAdd, openEdit, duplicateTransaction, deleteTransaction,
+  addExpense, addFromQuickAdd, quickSeed, openAdd, openEdit, duplicateTransaction, deleteTransaction,
   bulkDelete, bulkDuplicate, bulkCategory, bulkAddTags, exportTransactions,
   code, listApi,
 }: OverviewProps) {
@@ -1023,6 +1051,7 @@ function OverviewTab({
             now={now}
             onAdd={addFromQuickAdd}
             fallbackCategory={selKey}
+            seed={quickSeed ?? undefined}
           />
         )}
 

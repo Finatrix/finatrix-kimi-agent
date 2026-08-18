@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { CurrencyProvider } from '../tools/CurrencyContext';
 import ExpensePage from '../tools/pages/ExpensePage';
 import { currentMonth } from '../tools/lib/month';
@@ -7,7 +8,7 @@ import { currentMonth } from '../tools/lib/month';
 const CM = currentMonth();
 
 function renderPage() {
-  return render(<CurrencyProvider><ExpensePage /></CurrencyProvider>);
+  return render(<MemoryRouter><CurrencyProvider><ExpensePage /></CurrencyProvider></MemoryRouter>);
 }
 
 function seedBudget(vals: Record<string, number>, income = '80000') {

@@ -1,13 +1,16 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
+import { MemoryRouter, useLocation } from 'react-router';
 import { CurrencyProvider } from '../tools/CurrencyContext';
 import ExpensePage from '../tools/pages/ExpensePage';
 
 function renderPage() {
   return render(
-    <CurrencyProvider>
-      <ExpensePage />
-    </CurrencyProvider>
+    <MemoryRouter>
+      <CurrencyProvider>
+        <ExpensePage />
+      </CurrencyProvider>
+    </MemoryRouter>
   );
 }
 
@@ -173,5 +176,68 @@ describe('analytics — the empty state', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Analytics/ }));
     expect(screen.queryByText('Your analytics start here')).toBeNull();
     expect(screen.getByText(/Avg per month/i)).toBeInTheDocument();
+  });
+});
+
+/**
+ * The ⌘K palette does not log anything itself — it forwards the line the user
+ * typed to this page as `?add=`. What matters here is that the hand-off lands
+ * in the field (still unsaved, still editable) and then gets out of the URL.
+ */
+describe('hand-off from the command palette', () => {
+  beforeEach(() => { localStorage.clear(); cleanup(); });
+
+  function Here() {
+    const { search } = useLocation();
+    return <span data-testid="search">{search}</span>;
+  }
+
+  function renderWithAdd(line: string) {
+    return render(
+      <MemoryRouter initialEntries={[`/tools/expenses?add=${encodeURIComponent(line)}`]}>
+        <CurrencyProvider>
+          <Here />
+          <ExpensePage />
+        </CurrencyProvider>
+      </MemoryRouter>
+    );
+  }
+
+  it('types the handed-over line into quick add without saving it', () => {
+    renderWithAdd('340 lunch yesterday upi');
+    const input = screen.getByLabelText('Quick add') as HTMLInputElement;
+    expect(input.value).toBe('340 lunch yesterday upi');
+    // Previewed, not committed — the user still has to confirm.
+    expect(screen.getByText('₹340')).toBeInTheDocument();
+    expect(localStorage.getItem('fx_expenses')).toBeNull();
+  });
+
+  it('commits on Enter through the ordinary quick-add path', () => {
+    renderWithAdd('340 lunch upi');
+    fireEvent.keyDown(screen.getByLabelText('Quick add'), { key: 'Enter' });
+    const stored = JSON.parse(localStorage.getItem('fx_expenses') || '[]');
+    expect(stored).toHaveLength(1);
+    expect(stored[0]).toMatchObject({ amount: 340, note: 'lunch', paymentMethod: 'UPI' });
+  });
+
+  it('consumes the parameter, so a refresh does not re-seed the field', () => {
+    renderWithAdd('340 lunch');
+    expect(screen.getByTestId('search').textContent).toBe('');
+  });
+
+  it('opens the quick-add line even when the hand-off carries no text', () => {
+    render(
+      <MemoryRouter initialEntries={['/tools/expenses?add=']}>
+        <CurrencyProvider><ExpensePage /></CurrencyProvider>
+      </MemoryRouter>
+    );
+    const input = screen.getByLabelText('Quick add') as HTMLInputElement;
+    expect(input.value).toBe('');
+    expect(document.activeElement).toBe(input);
+  });
+
+  it('leaves the field alone when no hand-off was made', () => {
+    renderPage();
+    expect((screen.getByLabelText('Quick add') as HTMLInputElement).value).toBe('');
   });
 });

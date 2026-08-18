@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { CurrencyProvider } from '../tools/CurrencyContext';
 import { AiProvider } from '../tools/ui/AiAssistant';
 import { AskAiButton } from '../tools/ui/AskAiButton';
@@ -41,7 +42,7 @@ function seed() {
 }
 
 const renderInShell = (ui: React.ReactNode, enabled = true) =>
-  render(<CurrencyProvider><AiProvider enabled={enabled}>{ui}</AiProvider></CurrencyProvider>);
+  render(<MemoryRouter><CurrencyProvider><AiProvider enabled={enabled}>{ui}</AiProvider></CurrencyProvider></MemoryRouter>);
 
 beforeEach(() => {
   localStorage.clear();
@@ -75,7 +76,7 @@ describe('AskAiButton', () => {
   });
 
   it('renders nothing outside the tools shell rather than opening nothing', () => {
-    render(<CurrencyProvider><AskAiButton focus={{ kind: 'heatmap' }} /></CurrencyProvider>);
+    render(<MemoryRouter><CurrencyProvider><AskAiButton focus={{ kind: 'heatmap' }} /></CurrencyProvider></MemoryRouter>);
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 });
