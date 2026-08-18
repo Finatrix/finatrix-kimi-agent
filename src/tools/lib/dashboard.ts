@@ -17,6 +17,7 @@ import { loadExpenses, migrateCategory, ET_CATS } from './expense';
 import { computeGoalPlanner } from './goals';
 import { computeInvestMatch, IM_DEFAULTS, IM_RL, type ImAnswers } from './investmatch';
 import { readActivity } from './activity';
+import { changeBetween, computeNetWorth, loadAccounts, netWorthSeries, type Change } from './netWorth';
 
 export type PillarId = 'budget' | 'expenses' | 'goals' | 'investmatch' | 'parksmart' | 'peercompare' | 'lifemap';
 
@@ -54,6 +55,22 @@ export interface DashboardSnapshot {
   savingsRatePct: number | null;
 
   goal: { name: string; target: number; years: number; monthlySip: number; progressPct: number } | null;
+  /**
+   * The current balance sheet, or null when nothing has been recorded.
+   *
+   * Deliberately NOT a pillar and not part of the health score: those two
+   * describe how much of the journey has been set up, and quietly adding an
+   * eighth area would change what every existing score meant without anything
+   * about the user's finances having changed.
+   */
+  netWorth: {
+    month: string;
+    net: number;
+    assets: number;
+    liabilities: number;
+    /** Against the previous month, when there is one to compare with. */
+    change: Change | null;
+  } | null;
   invest: { profile: string; monthly: number; projected: number; years: number; alloc: Array<{ label: string; pct: number }> } | null;
   topCategories: SpendSlice[];
 
@@ -77,6 +94,7 @@ const ACTIVITY_META: Record<string, { label: string; href: string }> = {
   fx_parksmart: { label: 'ParkSmart', href: '/tools/parksmart' },
   fx_peercompare: { label: 'PeerCompare', href: '/tools/peercompare' },
   fx_lifemap: { label: 'LifeMap', href: '/tools/lifemap' },
+  fx_networth: { label: 'Net Worth', href: '/tools/networth' },
 };
 
 const GOAL_KEYS = { name: 'gp-name', target: 'gp-target', years: 'gp-years', existing: 'gp-existing', inflate: 'gp-inflate' } as const;
@@ -246,6 +264,26 @@ export function readDashboard(): DashboardSnapshot {
   const peerUsed = (() => { try { const s = getJSON<Record<string, string>>('fx_peercompare', {}); return Object.keys(s).length > 0; } catch { return false; } })();
   const lifeUsed = (() => { try { const s = getJSON<Record<string, unknown>>('fx_lifemap', {}); return Object.keys(s).length > 0; } catch { return false; } })();
 
+  // ── Net worth (read through the tool's own model, never re-derived) ──────
+  const netWorth = (() => {
+    try {
+      const accounts = loadAccounts();
+      if (!accounts.length) return null;
+      const snapshot = computeNetWorth(accounts, cm);
+      const series = netWorthSeries(accounts, cm);
+      const prior = series.length > 1 ? series[series.length - 2] : null;
+      return {
+        month: cm,
+        net: snapshot.net,
+        assets: snapshot.assets,
+        liabilities: snapshot.liabilities,
+        change: prior ? changeBetween(prior.net, snapshot.net) : null,
+      };
+    } catch {
+      return null;
+    }
+  })();
+
   // ── Pillars (the financial journey) ──────────────────────────────────────
   const pillars: Pillar[] = [
     { id: 'budget', label: 'Budget', href: '/tools/budget', done: budgetDone, detail: budgetDone && income ? 'Income & plan set' : 'Plan your 50/30/20' },
@@ -338,6 +376,7 @@ export function readDashboard(): DashboardSnapshot {
     savingsRatePct,
     goal,
     invest,
+    netWorth,
     topCategories,
     insights: insights.slice(0, 3),
     pillars,

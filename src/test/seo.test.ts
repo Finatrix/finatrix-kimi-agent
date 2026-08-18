@@ -64,7 +64,7 @@ describe('share cards', () => {
 
 describe('seoForPath', () => {
   // The regression this exists for: every SPA route was served index.html with a
-  // canonical of "/", so the seven calculator pages — the only URLs in
+  // canonical of "/", so the calculator pages — the only URLs in
   // sitemap.xml and the stated organic-acquisition surface — all told search
   // engines to consolidate them into the homepage.
   it('makes every public tool page self-canonical', () => {

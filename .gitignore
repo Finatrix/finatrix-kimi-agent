@@ -30,6 +30,9 @@ dist-verify
 # stray duplicate created during setup (safe to delete)
 /finatrix-kimi-agent
 
+# Python bytecode from the dev-only scripts in scripts/ (favicons, OG cards)
+__pycache__/
+
 # Supabase CLI local state
 supabase/.temp/
 .fuse_hidden*

@@ -1,5 +1,5 @@
 /**
- * The educational footer below each of the seven public calculators: how to use
+ * The educational footer below each public calculator: how to use
  * the tool, how it computes its answer, where its limits are, the FAQ, and links
  * to the related tools.
  *

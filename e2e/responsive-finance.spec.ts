@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { TOOL_IDS } from '../src/shared/routes';
 
 /**
  * Responsive audit for the whole Finance module.
@@ -19,16 +20,12 @@ test.describe.configure({ mode: 'parallel' });
 
 const WIDTHS = [320, 375, 390, 414, 768, 1024, 1280, 1440];
 
+// Derived from the route registry rather than hand-listed, so a calculator
+// added later is resized at every breakpoint on the commit that ships it.
 const TOOLS = [
   '/tools',
   '/tools/dashboard',
-  '/tools/budget',
-  '/tools/expenses',
-  '/tools/investmatch',
-  '/tools/parksmart',
-  '/tools/peercompare',
-  '/tools/goals',
-  '/tools/lifemap',
+  ...TOOL_IDS.map((id) => `/tools/${id}`),
   '/tools/reports',
   '/tools/calendar',
   '/tools/settings',

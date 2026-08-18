@@ -37,6 +37,7 @@ export const SYNC_KEYS = [
   'fx_parksmart',
   'fx_peercompare',
   'fx_goals',
+  'fx_networth',
 ];
 const LAST_UID_KEY = 'fx_last_uid';
 

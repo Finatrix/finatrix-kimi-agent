@@ -107,7 +107,7 @@ export interface Topic {
    * strip.
    *
    * Optional, and empty on most careers topics for an honest reason: none of the
-   * seven calculators computes anything about a resume or an interview, and
+   * calculators computes anything about a resume or an interview, and
    * pointing a reader at one that does not would be a link written for a crawler
    * rather than for them. `content.test.ts` requires every MONEY topic to name
    * at least one, and every careers topic to name at least one product page
@@ -312,7 +312,7 @@ export const TOPICS: readonly Topic[] = [
       'What counts as an asset, what counts as a liability, how to calculate net worth without flattering it, and what a reasonable trajectory looks like by decade.',
     heading: 'Net worth',
     lede: 'Net worth is the one number that summarises every financial decision you have made. It is also the easiest one to flatter.',
-    tools: ['lifemap', 'peercompare'],
+    tools: ['networth', 'lifemap', 'peercompare'],
     updated: REVIEWED,
   },
   {
@@ -1070,7 +1070,7 @@ export const ARTICLES: readonly Article[] = [
     crumb: 'Calculating net worth',
     published: REVIEWED,
     updated: REVIEWED,
-    tools: ['lifemap', 'peercompare'],
+    tools: ['networth', 'lifemap'],
     related: ['net-worth/net-worth-milestones', 'financial-independence/fi-number'],
   },
   {
@@ -1084,7 +1084,7 @@ export const ARTICLES: readonly Article[] = [
     crumb: 'Net worth milestones',
     published: REVIEWED,
     updated: REVIEWED,
-    tools: ['peercompare', 'lifemap'],
+    tools: ['networth', 'peercompare'],
     related: ['net-worth/calculate-net-worth', 'behavioural-finance/lifestyle-creep'],
   },
 
@@ -1590,7 +1590,7 @@ export function articlesInTopic(topicSlug: string): readonly Article[] {
  * Derived from each article's own `tools` list rather than curated separately,
  * which is what makes the tool→guide and guide→tool links two views of one
  * relationship instead of two lists to keep in sync. This is the link that
- * matters most in the whole knowledge layer: the seven calculator pages are the
+ * matters most in the whole knowledge layer: the calculator pages are the
  * primary organic-acquisition surface, and without it the articles would be
  * reachable only from the footer and the hub.
  */

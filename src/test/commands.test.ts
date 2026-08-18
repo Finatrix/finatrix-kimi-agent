@@ -15,7 +15,7 @@ describe('command registry', () => {
     const cmds = buildCommands(CTX);
     for (const name of [
       'Budget Builder', 'Expense Tracker', 'InvestMatch', 'ParkSmart',
-      'PeerCompare', 'Reverse Goal Planner', 'LifeMap',
+      'PeerCompare', 'Reverse Goal Planner', 'LifeMap', 'Net Worth',
     ]) {
       expect(titles(cmds)).toContain(name);
     }

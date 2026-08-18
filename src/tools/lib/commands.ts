@@ -109,7 +109,8 @@ const TOOL_KEYWORDS: Record<string, readonly string[]> = {
   parksmart: ['idle cash', 'fd', 'fixed deposit', 'liquid fund', 'savings account', 'post tax'],
   peercompare: ['benchmark', 'peers', 'percentile', 'average', 'how do i compare'],
   goals: ['target', 'sip', 'monthly saving', 'reverse', 'corpus', 'down payment'],
-  lifemap: ['simulate', 'projection', 'retirement', 'net worth', 'timeline', 'forecast'],
+  lifemap: ['simulate', 'projection', 'retirement', 'timeline', 'forecast'],
+  networth: ['assets', 'liabilities', 'debt', 'balance sheet', 'what i own', 'loans', 'wealth'],
 };
 
 /** The workspace screens that are not calculators. */

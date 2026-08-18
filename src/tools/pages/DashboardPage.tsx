@@ -458,6 +458,32 @@ export default function DashboardPage() {
         ) : (
           <SetupCard eyebrow="Spending" title="Track expenses" desc="Log spending in seconds and watch patterns surface across the month." href="/tools/expenses" cta="Open Expenses" />
         )}
+
+        {/* Net worth — the stock figure, where the four above are all flows. */}
+        {snap.netWorth ? (
+          <CardShell eyebrow="Net worth" href="/tools/networth" cta="Net Worth">
+            <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--ink)' }}>
+              {cfmt(snap.netWorth.net)}
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--ink2)', marginTop: 4 }}>
+              {cfmtSh(snap.netWorth.assets)} owned · {cfmtSh(snap.netWorth.liabilities)} owed
+            </div>
+            {snap.netWorth.change && (
+              <div
+                style={{
+                  fontSize: 12.5,
+                  marginTop: 10,
+                  color: snap.netWorth.change.abs >= 0 ? 'var(--green)' : 'var(--orange)',
+                }}
+              >
+                {snap.netWorth.change.abs >= 0 ? '+' : '−'}
+                {cfmtSh(Math.abs(snap.netWorth.change.abs))} since last month
+              </div>
+            )}
+          </CardShell>
+        ) : (
+          <SetupCard eyebrow="Net worth" title="Track what you own" desc="Record your accounts and your debts, and watch the one number that moves slowly and matters most." href="/tools/networth" cta="Open Net Worth" />
+        )}
       </div>
 
       {/* ── Customise dashboard ── */}

@@ -66,7 +66,7 @@ export interface ToolGuide {
    * Sibling tools worth visiting next, most relevant first.
    *
    * Hand-picked rather than "every other tool": a related-links block that lists
-   * all six siblings on all seven pages is a footer, not a recommendation, and
+   * every sibling on every tool page is a footer, not a recommendation, and
    * search engines read it as one too.
    */
   related: readonly ToolId[];
@@ -356,5 +356,49 @@ export const TOOL_GUIDES: Record<ToolId, ToolGuide> = {
       'Career growth multipliers are modelled averages for a field. Individual outcomes inside any field vary far more than the gap between fields.',
     ],
     related: ['goals', 'investmatch', 'peercompare'],
+  },
+  networth: {
+    purpose:
+      'Records what you own and what you owe, month by month, so the single number underneath every other decision — assets minus liabilities — stops being a guess.',
+    steps: [
+      'Add the accounts you can see today. One bank balance is a legitimate start; the rest can arrive over weeks.',
+      'For anything you owe, enter the outstanding amount from your latest statement — the balance, not the EMI.',
+      'Come back once a month and update only what actually moved. Everything else carries forward.',
+      'Read the trend rather than the total. The direction over six months is the finding; the figure on any one day is not.',
+    ],
+    method: [
+      'Net worth is one subtraction: the sum of all asset balances minus the sum of all liability balances, for the month you are looking at.',
+      'Balances carry forward. An account holds its most recently recorded value until you enter a new one, so a month you skipped does not read as a collapse.',
+      'An account contributes nothing to any month before its first recorded balance — a loan taken in March does not reach back and reduce February.',
+      'Liabilities are stored as positive amounts owed and subtracted, so a sign error cannot quietly invert the answer.',
+      'Nothing is projected, grown or inflation-adjusted. There is no market data feed and no bank connection: every figure is one you entered.',
+    ],
+    worked: {
+      title: 'A first month, four accounts',
+      rows: [
+        { label: 'Salary account', value: '₹1,40,000' },
+        { label: 'Equity mutual funds', value: '₹6,20,000' },
+        { label: 'EPF balance', value: '₹4,10,000' },
+        { label: 'Home loan outstanding', value: '₹32,00,000' },
+        { label: 'Flat, conservatively valued', value: '₹48,00,000' },
+        { label: 'Net worth', value: '₹27,70,000' },
+      ],
+      conclusion:
+        'Assets of ₹59,70,000 against liabilities of ₹32,00,000. Debt is 54% of assets, which is ordinary for a recent home purchase — and the number worth watching is not the ₹27.7 lakh but how the two sides move apart over the next twenty-four months.',
+    },
+    mistakes: [
+      'Counting the home loan but not the home, or the reverse. One of them alone is not a half-answer, it is a wrong one.',
+      'Valuing property or gold at what you hope it is worth. An optimistic valuation moves your net worth without anything having happened.',
+      'Recording the EMI instead of the outstanding balance. The EMI is a monthly payment; the balance is the debt.',
+      'Updating everything every month. You do not need to — carry-forward exists so you only touch what changed, and re-entering unchanged figures is how people stop doing this by month three.',
+      'Reading a single month. Net worth is a slow measure; a market dip or a bonus makes any one reading unrepresentative.',
+    ],
+    limits: [
+      'Every balance is entered by hand. There is no bank connection and no market feed, so the figure is exactly as current as your last update.',
+      'It values nothing for you. Property, gold, unlisted shares and vehicles are worth whatever you decide to record.',
+      'It does not project. There is no assumed return, no repayment schedule and no retirement date here — LifeMap is where that modelling lives.',
+      'It is a stock, not a flow. Net worth says what you hold, not what you earn or spend; Budget Builder and the Expense Tracker cover that side.',
+    ],
+    related: ['lifemap', 'goals', 'expenses'],
   },
 };

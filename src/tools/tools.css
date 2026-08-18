@@ -195,6 +195,7 @@
 .fx-tools .nav a[data-route="peercompare"]::before { background: #7C5CFF; opacity: .85; }
 .fx-tools .nav a[data-route="goals"]::before { background: #14B8A6; opacity: .85; }
 .fx-tools .nav a[data-route="lifemap"]::before { background: #D4AF37; opacity: .85; }
+.fx-tools .nav a[data-route="networth"]::before { background: #0EA5A5; opacity: .85; }
 .fx-tools .nav a[data-route="reports"]::before { background: #D4AF37; opacity: .85; }
 .fx-tools .nav a[data-route="calendar"]::before { background: #D4AF37; opacity: .85; }
 .fx-tools .nav a[data-route="careers"]::before { background: #D4AF37; opacity: .85; }

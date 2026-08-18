@@ -23,7 +23,7 @@ import { PUBLIC_PAGE_PATHS } from './publicPages';
  */
 export const CANONICAL_HOST = 'finatrix.co';
 
-/** The seven public calculators. Source of truth for the sitemap + edge 404s. */
+/** The public calculators. Source of truth for the sitemap + edge 404s. */
 export const TOOL_IDS = [
   'budget',
   'expenses',
@@ -32,6 +32,7 @@ export const TOOL_IDS = [
   'peercompare',
   'goals',
   'lifemap',
+  'networth',
 ] as const;
 
 export type ToolId = (typeof TOOL_IDS)[number];
@@ -82,7 +83,7 @@ export function isKnownRoute(pathname: string): boolean {
   const p = pathname.replace(/\/+$/, '') || '/';
   if (EXACT_ROUTES.has(p)) return true;
 
-  // /tools/<id>: the seven public calculators plus the signed-in app screens.
+  // /tools/<id>: the public calculators plus the signed-in app screens.
   const toolMatch = p.match(/^\/tools\/([^/]+)$/);
   if (toolMatch) {
     const id = toolMatch[1].toLowerCase(); // ToolRoute lower-cases the param

@@ -20,6 +20,7 @@ const HERO_CARDS: HeroCard[] = [
   { tool: byId('peercompare'), name: 'PeerCompare', sub: 'Compare, decide, stay ahead' },
   { tool: byId('goals'), name: 'Goals', sub: 'Set goals, achieve more' },
   { tool: byId('lifemap'), name: 'LifeMap', sub: 'Map your life, secure your future' },
+  { tool: byId('networth'), name: 'Net Worth', sub: 'Track what you own and owe' },
 ];
 
 const TRUST: string[] = [
@@ -67,17 +68,20 @@ function ToolCard({ card, i }: { card: HeroCard; i: number }) {
 }
 
 /**
- * FinatriX Careers occupies the eighth grid cell as a premium spotlight card —
- * deliberately styled apart from the seven finance tools (gold glow, AI badge)
- * rather than presented as just another tool tile.
+ * FinatriX Careers occupies the final grid cell as a premium spotlight card —
+ * deliberately styled apart from the finance tools (gold glow, AI badge) rather
+ * than presented as just another tool tile.
+ *
+ * It spans both columns on a phone, where the eight tools already fill four
+ * clean rows and a half-width ninth cell would leave an orphan beside a gap.
  */
 function CareersSpotlightCard() {
   return (
     <Link
       to="/careers"
       aria-label="FinatriX Careers — AI-powered resume intelligence, job search, ATS optimization and career coach"
-      style={{ animationDelay: `${0.28 + 7 * 0.06}s` }}
-      className="fx-in fx-card-hover group relative flex flex-col items-center gap-2 rounded-2xl border border-[#D4AF37]/45 px-3 py-4 sm:py-5 text-center backdrop-blur-sm transition-all duration-300 hover:border-[#D4AF37] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/70"
+      style={{ animationDelay: `${0.28 + HERO_CARDS.length * 0.06}s` }}
+      className="fx-in fx-card-hover group relative col-span-2 flex flex-col items-center gap-2 rounded-2xl border border-[#D4AF37]/45 px-3 py-4 sm:py-5 text-center backdrop-blur-sm transition-all duration-300 hover:border-[#D4AF37] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/70 lg:col-span-1"
     >
       <span
         className="pointer-events-none absolute inset-0 rounded-2xl transition-opacity duration-300"
@@ -158,7 +162,7 @@ export default function LandingHero() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:gap-3.5 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-3.5 lg:grid-cols-3">
           {HERO_CARDS.map((c, i) => (
             <ToolCard key={c.tool.id} card={c} i={i} />
           ))}
