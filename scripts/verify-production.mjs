@@ -88,16 +88,49 @@ const SUPABASE_URL = (process.env.VITE_SUPABASE_URL || dotEnvValue('VITE_SUPABAS
 const results = [];
 const record = (name, ok, detail) => results.push({ name, ok, detail });
 
+/**
+ * Every request identifies itself. An unnamed client is indistinguishable from
+ * a scraper to any edge bot defence, and when this verifier IS challenged the
+ * only way to recognise it in Cloudflare's Security Events is by its name.
+ */
+const USER_AGENT = 'FinatriX-deploy-verify/1.0 (+https://finatrix.co/; CI)';
+
 async function req(url, { method = 'GET', redirect = 'manual', headers } = {}) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
-    return await fetch(url, { method, redirect, headers, signal: ctrl.signal });
+    return await fetch(url, {
+      method,
+      redirect,
+      headers: { 'User-Agent': USER_AGENT, ...headers },
+      signal: ctrl.signal,
+    });
   } catch {
     return null;
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Did Cloudflare's edge answer instead of the Worker?
+ *
+ * A challenge (Bot Fight Mode, WAF, rate limiting) returns 403 from the edge
+ * before the request ever reaches the origin. Every content assertion below
+ * then reads that challenge page and reports something untrue but plausible:
+ * "no og:image", "no favicons", "soft-404", "no entry <script>". Thirty such
+ * lines look exactly like a broken deploy and are the single most expensive
+ * way this script can be wrong, so it is detected once, named, and reported
+ * as itself.
+ */
+function challengeReason(res) {
+  if (!res) return null;
+  const mitigated = res.headers.get('cf-mitigated');
+  if (mitigated) return `Cloudflare returned "cf-mitigated: ${mitigated}"`;
+  if ((res.status === 403 || res.status === 503) && res.headers.get('cf-ray')) {
+    return `Cloudflare answered HTTP ${res.status} at the edge (cf-ray present, no origin response)`;
+  }
+  return null;
 }
 
 /** Is the apex answering at all? Everything below is pointless if not. */
@@ -460,6 +493,23 @@ if (!(await isLive())) {
   console.log(`  – ${APEX} does not resolve or is not answering yet.`);
   console.log('    Nothing to verify. Re-run once DNS and the certificate are live.\n');
   process.exit(0);
+}
+
+const challenge = challengeReason(await req(`${ORIGIN}/`, { redirect: 'follow' }));
+if (challenge) {
+  console.error(`  ✗ blocked before the origin: ${challenge}.`);
+  console.error('');
+  console.error(`    ${ORIGIN} never saw these requests, so nothing below could be verified.`);
+  console.error('    This is an edge configuration problem, NOT a broken deploy — the same');
+  console.error('    URLs answer 200 from an ordinary browser.');
+  console.error('');
+  console.error('    Cloudflare → Security → Analytics → Events names the responsible product');
+  console.error('    in the "Service" column. Bot Fight Mode (Free plan) is the usual cause and');
+  console.error('    cannot be skipped by any rule: it runs outside the Ruleset Engine, so');
+  console.error('    custom-rule Skip/Bypass/Allow actions have no effect on it. The options are');
+  console.error('    to turn it off, or to move to Super Bot Fight Mode, which does support Skip.');
+  console.error('');
+  process.exit(1);
 }
 
 await checkRedirects();
