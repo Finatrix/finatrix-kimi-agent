@@ -49,6 +49,22 @@ the behaviour we want.
 
 After any domain change run `npm run verify:production`, which checks the live host end to end: redirect topology, HSTS, robots, every sitemap URL, JSON-LD and a real 404.
 
+> **If it reports `UNVERIFIED — blocked before the origin`,** the request never reached the Worker
+> and nothing was checked. It exits 0: this is inconclusive, not a failure, and it must not fail a
+> deploy that already shipped. Two causes, named separately in the output:
+>
+> * **Cloudflare** (`cf-mitigated`, or a 403/503 carrying `cf-ray`) — the edge challenged the
+>   caller. GitHub Actions runners get this intermittently on Azure IPs. **Bot Fight Mode cannot be
+>   skipped by a WAF rule** — it runs outside the Ruleset Engine, so Skip/Bypass/Allow have no
+>   effect. The only fixes are turning it off, or moving to Super Bot Fight Mode, which does support
+>   Skip. Both are dashboard actions (Security → Bots).
+> * **An intermediary** (403/503 with no `cf-ray`) — an egress proxy, allowlist or TLS intercept
+>   between the caller and the edge. `worker/index.ts` only ever answers 200, 301 or 404 on a
+>   document path, so any 403/503 is provably not ours. Re-run from a host that can reach the apex.
+>
+> Until the Cloudflare setting is changed, production verification is **skipped** on challenged runs
+> rather than failing them — so a green pipeline does not by itself prove the site was verified.
+
 ### CD via GitHub Actions
 `.github/workflows/deploy.yml` deploys on every push to `main` — but only once **all seven**
 repository secrets exist (Settings → Secrets and variables → Actions). Until then every run
@@ -143,6 +159,20 @@ npm run verify:deploy
 This re-downloads the live function source, diffs it against the working tree, and checks that
 every required database relation exists. It is the only check that can catch deployed-state
 drift — no test, lint or build can.
+
+**How it grades a mismatch.** `functions download` does not read back what
+`functions deploy` wrote straight away, so an immediate comparison reports every file of every
+function as differing. The check re-tries across a ~7 minute window, and after that:
+
+| Result | Verdict |
+|---|---|
+| A function has **no deployed source at all** | **fails the deploy** — unambiguous, and the exact failure this script exists for |
+| Files still differ textually | **warns**, printing an excerpt of the first difference; the deploy still passes |
+
+A surviving textual difference cannot be told apart from a download that is not byte-faithful, so
+it does not block a release that already shipped. Read the excerpt to settle it: stale but real
+code means the window is too short; reformatting means the round trip is lossy. Currency itself is
+enforced by `functions deploy`, which compares bundle hashes and fails on error.
 
 ### Secrets (edge functions)
 
