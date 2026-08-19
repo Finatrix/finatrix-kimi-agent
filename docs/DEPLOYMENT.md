@@ -160,19 +160,24 @@ This re-downloads the live function source, diffs it against the working tree, a
 every required database relation exists. It is the only check that can catch deployed-state
 drift — no test, lint or build can.
 
-**How it grades a mismatch.** `functions download` does not read back what
-`functions deploy` wrote straight away, so an immediate comparison reports every file of every
-function as differing. The check re-tries across a ~7 minute window, and after that:
+**How it grades a mismatch.** The deployed copy is **not byte-identical to the repo** and never
+will be: the bundler strips blank lines and trailing whitespace. Comparing raw bytes failed on
+every run for weeks, and was twice misdiagnosed as propagation lag — a 150s retry, then a ~7 minute
+one, both of which ran to exhaustion and still failed. The excerpt that finally settled it showed
+identical comments either side of a missing blank line.
+
+So the comparison ignores insignificant whitespace and keeps only a short (45s) window for a
+briefly stale read. After that:
 
 | Result | Verdict |
 |---|---|
 | A function has **no deployed source at all** | **fails the deploy** — unambiguous, and the exact failure this script exists for |
-| Files still differ textually | **warns**, printing an excerpt of the first difference; the deploy still passes |
+| Source still differs **in code** | **warns**, printing an excerpt of the first difference; the deploy still passes |
 
-A surviving textual difference cannot be told apart from a download that is not byte-faithful, so
-it does not block a release that already shipped. Read the excerpt to settle it: stale but real
-code means the window is too short; reformatting means the round trip is lossy. Currency itself is
-enforced by `functions deploy`, which compares bundle hashes and fails on error.
+Anything reaching that warning is a token-level difference rather than formatting, so read the
+excerpt: either the deploy is genuinely stale (redeploy), or the bundler has started applying a new
+transformation (widen `significantSource` to cover it). Currency itself is enforced by
+`functions deploy`, which compares bundle hashes and fails on error.
 
 ### Secrets (edge functions)
 
