@@ -137,7 +137,7 @@ self.addEventListener('message', (event) => {
 
   event.waitUntil((async () => {
     const cache = await caches.open(ASSET_CACHE);
-    await Promise.all(data.urls.slice(0, 120).map(async (url) => {
+    await Promise.all(data.urls.slice(0, 120).filter(isWarmable).map(async (url) => {
       try {
         if (await cache.match(url, MATCH)) return; // already held; don't refetch
         await cache.add(url);
@@ -147,6 +147,29 @@ self.addEventListener('message', (event) => {
     }));
   })());
 });
+
+/**
+ * Is this a URL the warm message is allowed to precache?
+ *
+ * The page already sends only same-origin `/assets/` entries, but the worker is
+ * the trust boundary: `postMessage` reaches it from ANY script running in the
+ * page, and `cache.add` on a cross-origin URL stores an OPAQUE response. Opaque
+ * entries are padded — browsers charge them megabytes each against the origin's
+ * quota regardless of their real size — so a few dozen would evict the app
+ * shell and switch offline support off, silently, with nothing to point at.
+ * They could never be SERVED (the fetch handler drops cross-origin requests
+ * before any lookup), so caching them can only ever cost.
+ */
+function isWarmable(url) {
+  if (typeof url !== 'string') return false;
+  try {
+    const u = new URL(url, self.location.origin);
+    return u.origin === self.location.origin
+      && IMMUTABLE_PREFIXES.some((p) => u.pathname.startsWith(p));
+  } catch {
+    return false;
+  }
+}
 
 function isImmutable(pathname) {
   return IMMUTABLE_PREFIXES.some((p) => pathname.startsWith(p));
@@ -184,18 +207,36 @@ async function cacheFirst(request, cacheName) {
   return res;
 }
 
-async function staleWhileRevalidate(request) {
+/**
+ * `event` is taken so the background revalidation can be kept alive. Without a
+ * `waitUntil`, the browser is free to terminate the worker the moment the
+ * response is returned — which is exactly when a cache hit returns — so the
+ * refresh that makes this "stale-WHILE-revalidate" was routinely killed before
+ * `cache.put` landed, leaving the first cached copy to be served forever.
+ */
+async function staleWhileRevalidate(event, request) {
   const cache = await caches.open(RUNTIME_CACHE);
   const hit = await cache.match(request, MATCH);
   const network = fetch(request)
-    .then((res) => {
+    .then(async (res) => {
       if (res && res.ok) {
-        cache.put(request, res.clone()).then(() => trim(RUNTIME_CACHE, RUNTIME_MAX_ENTRIES));
+        await cache.put(request, res.clone());
+        await trim(RUNTIME_CACHE, RUNTIME_MAX_ENTRIES);
       }
       return res;
     })
     .catch(() => undefined);
-  return hit || network || fetch(request);
+
+  if (hit) {
+    event.waitUntil(network);
+    return hit;
+  }
+  // Nothing cached, so the network is the only answer. When it fails there is
+  // nothing to serve — and resolving `respondWith` with `undefined` is not a
+  // valid answer: it surfaces as an opaque "FetchEvent resulted in a network
+  // error" instead of the ordinary failure the page would have seen with no
+  // worker installed at all. `Response.error()` IS that ordinary failure.
+  return (await network) || Response.error();
 }
 
 /**
@@ -257,5 +298,5 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(cacheFirst(request, ASSET_CACHE));
     return;
   }
-  event.respondWith(staleWhileRevalidate(request));
+  event.respondWith(staleWhileRevalidate(event, request));
 });

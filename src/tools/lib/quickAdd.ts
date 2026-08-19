@@ -23,7 +23,6 @@
  */
 import { ymdLocal } from '../../lib/date';
 import { evaluateFormula } from './formula';
-import { PAYMENT_METHODS } from './expense';
 
 export interface QuickAddResult {
   ok: boolean;
@@ -259,5 +258,3 @@ export function parseQuickAdd(
   };
 }
 
-/** Payment labels this parser can produce — kept honest against the source list. */
-export const QUICK_ADD_PAYMENTS: readonly string[] = PAYMENT_METHODS;
