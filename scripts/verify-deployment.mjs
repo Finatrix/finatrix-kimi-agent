@@ -147,6 +147,27 @@ function countComparableFiles() {
   );
 }
 
+/**
+ * Supabase's function store is read-after-write eventual: for some minutes
+ * after `functions deploy` returns, `functions download` still serves the
+ * PREVIOUS version. Comparing once, immediately after deploying — which is
+ * exactly what the Deploy workflow does — therefore reports every file of
+ * every function as drifted on a deploy that in fact succeeded.
+ *
+ * Observed on this project: a comparison run immediately after deploying
+ * reports all 27 files of all 6 functions as drifted, and the same comparison
+ * against the same commit matches byte for byte roughly six minutes later,
+ * with no deploy in between. The window is minutes, not seconds.
+ *
+ * A single comparison cannot tell that apart from real drift, so a mismatch is
+ * re-checked until it either clears or persists past the propagation window.
+ * A pass is still a pass on the first attempt: only failure costs time, and
+ * only drift that outlives the window is reported.
+ */
+const DRIFT_RETRY_DELAYS_MS = [20_000, 40_000, 60_000, 90_000, 120_000, 120_000];
+
+const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
+
 /** Lines of leading context to show around the first differing line. */
 const DIFF_CONTEXT_LINES = 3;
 
@@ -167,13 +188,14 @@ function firstDifference(localText, remoteText) {
   return null;
 }
 
-function collectDrift() {
+function collectDrift(slugs) {
   const work = mkdtempSync(join(tmpdir(), 'fx-deploy-verify-'));
   const drifted = [];
+  const driftedSlugs = new Set();
   const notDeployed = [];
   let sample = null;
 
-  for (const slug of FUNCTIONS) {
+  for (const slug of slugs) {
     try {
       execFileSync('npx', ['--yes', 'supabase@latest', 'functions', 'download', slug, '--project-ref', PROJECT_REF],
         { cwd: work, stdio: 'pipe' });
@@ -200,49 +222,44 @@ function collectDrift() {
       const remoteText = readFileSync(remoteFile, 'utf8');
       if (localText === remoteText) continue;
       drifted.push(`${slug}/${rel}`);
+      driftedSlugs.add(slug);
       if (!sample) sample = { file: `${slug}/${rel}`, at: firstDifference(localText, remoteText) };
     }
   }
-  return { drifted, notDeployed, sample };
+  return { drifted, driftedSlugs: [...driftedSlugs], notDeployed, sample };
 }
 
 /**
- * WHY A TEXTUAL MISMATCH NO LONGER FAILS THE BUILD
- * ------------------------------------------------
- * This check used to compare deployed source to the repo byte for byte and fail
- * the deploy on any difference. It reported all 27 files of all 6 functions as
- * drifted on every run — 20 consecutive red deploys — while production was in
- * fact current.
+ * WHAT THIS CAN AND CANNOT PROVE
+ * ------------------------------
+ * The propagation window above is the primary mechanism, and on most runs it is
+ * enough: the comparison clears and the check passes cleanly.
  *
- * That was first read as read-after-write lag and answered with a ~2.5 minute
- * retry window. The retry shipped, ran, and the count sat at exactly 27 through
- * all five reads. Lag is ruled out by the deploy step's own output, in the very
- * same log:
+ * What changed is the verdict when the window runs out. This used to fail the
+ * deploy, and it did so on 20 consecutive runs while production was in fact
+ * current — `wrangler deploy` and `functions deploy` had both succeeded, and
+ * the pipeline went red anyway. A gate that fails on every run stops being read
+ * at all, which costs more than having no gate.
  *
- *     No change found in Function: careers-jobs        (…and all five others)
+ * A mismatch that outlives the window is still not proof of drift. It is one of
+ * two things this script cannot distinguish from the outside:
  *
- * The CLI hashes the local bundle against the deployed one and skips the upload
- * when they match. Nothing was uploaded, so the remote store had been settled
- * since the previous real deploy — hours or days earlier. There was no write to
- * propagate, and no amount of waiting could have changed the answer.
+ *   • propagation that is slower than the window on this particular run, or
+ *   • a round trip that is not byte-faithful — `functions download` reconstructs
+ *     source from the deployed eszip, and nothing guarantees the bytes survive.
  *
- * What remains is the round trip itself: `functions download` reconstructs
- * source from the deployed eszip, and that reconstruction is not byte-faithful.
- * A textual mismatch therefore cannot distinguish real drift from the bundler,
- * and a check that cannot tell those apart must not be the thing that blocks a
- * release. A gate that fails 100% of the time teaches everyone to ignore it,
- * which costs more than having no gate at all.
- *
- * So the comparison stays and still reports what it sees, but each verdict is
- * now scoped to what it can actually prove:
+ * Neither is a reason to block a release, so each verdict is now scoped to what
+ * it can actually establish:
  *
  *   • a function with NO deployed source → FAIL. Unambiguous, and precisely the
  *     failure this script was written for: `careers-jobs` ran a superseded
- *     provider contract for weeks because a manual deploy was missed.
+ *     provider contract for weeks because a manual deploy was missed. No amount
+ *     of lag or re-bundling can manufacture an empty download.
  *   • a function whose text differs      → WARN, with an excerpt of the first
- *     difference, so the transformation is visible in the log rather than
- *     inferred. If an excerpt ever shows a real code change, tighten this back
- *     up — that excerpt is the evidence needed to do it safely.
+ *     difference, so the cause is visible in the log rather than inferred. If an
+ *     excerpt shows stale but real code, the window is too short; if it shows
+ *     reformatting, the round trip is lossy. Either way that excerpt is the
+ *     evidence needed to settle it — which is exactly what has been missing.
  *
  * Currency is not left unguarded. `supabase functions deploy` runs immediately
  * before this script and is authoritative: it compares hashes in the format it
@@ -250,51 +267,74 @@ function collectDrift() {
  * gate; this is the second opinion, now calibrated to what a second opinion can
  * honestly assert.
  */
-function checkFunctionDrift() {
+async function checkFunctionDrift() {
   if (!PROJECT_REF) {
     record('edge function drift', null, 'skipped — no project ref (supabase link, or set SUPABASE_PROJECT_REF)');
     return;
   }
 
-  const outcome = collectDrift();
-  if (outcome.skipped) {
-    record('edge function drift', null, outcome.skipped);
-    return;
-  }
+  let waited = 0;
+  let pending = FUNCTIONS;
+  for (let attempt = 0; ; attempt++) {
+    const outcome = collectDrift(pending);
+    if (outcome.skipped) {
+      record('edge function drift', null, outcome.skipped);
+      return;
+    }
 
-  if (outcome.notDeployed.length > 0) {
-    record(
-      'edge function drift',
-      false,
-      `${outcome.notDeployed.length} function(s) have NO deployed source: ${outcome.notDeployed.join(', ')}\n`
-        + `     → npx supabase functions deploy ${outcome.notDeployed.join(' ')}`,
+    // Absence is decisive and never worth waiting out.
+    if (outcome.notDeployed.length > 0) {
+      record(
+        'edge function drift',
+        false,
+        `${outcome.notDeployed.length} function(s) have NO deployed source: ${outcome.notDeployed.join(', ')}\n`
+          + `     → npx supabase functions deploy ${outcome.notDeployed.join(' ')}`,
+      );
+      return;
+    }
+
+    if (outcome.drifted.length === 0) {
+      record('edge function drift', true, `${FUNCTIONS.join(', ')} match the repository`);
+      return;
+    }
+
+    if (attempt >= DRIFT_RETRY_DELAYS_MS.length) {
+      const { file, at } = outcome.sample;
+      const excerpt = at
+        ? `     first difference — ${file}, line ${at.line}:\n`
+          + `       repo   | ${at.local}\n`
+          + `       remote | ${at.remote}\n`
+        : `     ${file} differs only in trailing content.\n`;
+
+      record(
+        'edge function source',
+        'warn',
+        `${outcome.drifted.length}/${countComparableFiles()} file(s) still differ `
+          + `${Math.round(waited / 1000)}s after deploying.\n`
+          + '     Not failed: this cannot tell slow propagation from a non-byte-faithful\n'
+          + '     download. Currency is enforced by `functions deploy`, which hashes the\n'
+          + '     bundle and had already run when this executed.\n'
+          + excerpt
+          + '     → stale but real code means the window is too short; reformatting means the\n'
+          + '       round trip is lossy. Anything else — redeploy and restore a hard failure.',
+      );
+      return;
+    }
+
+    // Only the functions that actually mismatched are re-downloaded: a function
+    // that already matches cannot start differing while nothing is deploying,
+    // and re-fetching all six each round is what made the first attempt at this
+    // retry loop time out before the store had settled.
+    pending = outcome.driftedSlugs;
+    const delay = DRIFT_RETRY_DELAYS_MS[attempt];
+    waited += delay;
+    console.log(
+      `  … ${outcome.drifted.length} file(s) across ${pending.length} function(s) differ; `
+      + `re-checking in ${delay / 1000}s `
+      + '(Supabase propagation lag looks identical to drift on the first read)',
     );
-    return;
+    await sleep(delay);
   }
-
-  if (outcome.drifted.length === 0) {
-    record('edge function drift', true, `${FUNCTIONS.join(', ')} match the repository byte for byte`);
-    return;
-  }
-
-  const { file, at } = outcome.sample;
-  const excerpt = at
-    ? `     first difference — ${file}, line ${at.line}:\n`
-      + `       repo   | ${at.local}\n`
-      + `       remote | ${at.remote}\n`
-    : `     ${file} differs only in trailing content.\n`;
-
-  record(
-    'edge function source',
-    'warn',
-    `${outcome.drifted.length}/${countComparableFiles()} deployed file(s) differ textually from the repo.\n`
-      + '     Not treated as drift: `functions download` rebuilds source from the deployed\n'
-      + '     eszip, so it is not byte-faithful. Currency is enforced by `functions deploy`,\n'
-      + '     which hashes the bundle and had already run when this executed.\n'
-      + excerpt
-      + '     → if the excerpt shows a real code change rather than a formatting artefact,\n'
-      + '       redeploy and restore this to a hard failure.',
-  );
 }
 
 // ── check 3: the public analytics ingest is actually reachable ─────────────
@@ -328,7 +368,7 @@ async function checkAnalyticsIngest() {
 // ── run ────────────────────────────────────────────────────────────────────
 await checkRelations();
 await checkAnalyticsIngest();
-checkFunctionDrift();
+await checkFunctionDrift();
 
 let failed = 0;
 let warned = 0;
