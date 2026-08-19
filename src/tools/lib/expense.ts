@@ -386,14 +386,26 @@ export interface DashResult {
   spendableSpent: number;
   /** `spendableBudget − spendableSpent`. Negative when overspent. */
   spendableRemaining: number;
-  healthPct: number;
   health: CatHealth;
   dailyAvg: number;
   txCount: number;
   sections: SectionSummary[];
   categories: DashCategory[];
   topCategories: DashCategory[];
-  recent: ExpenseItem[];
+  /*
+   * There is deliberately no `recent` here.
+   *
+   * It was an eight-row preview, computed on every call and consumed by
+   * nothing — and it had already caused one incident: the exporter reached for
+   * it and every report silently dropped everything past the eighth
+   * transaction (see expense.export.test.tsx). Its ordering was a second trap:
+   * the ledger is prepended on write, so "recent" meant most-recently-ENTERED,
+   * which a backdated transaction makes wrong. Anything wanting recency should
+   * sort by date through `sortTransactions`, deliberately.
+   *
+   * `healthPct` is gone for the same reason: nothing read it, and `tone` and
+   * `budgetUsedPct` are what the surfaces actually render.
+   */
   trend: TrendPoint[];
   /* ── Month pacing & cash-flow summary (V5 dashboard cards) ── */
   /** Presentation tone for the whole month's budget. */
@@ -499,7 +511,6 @@ export function computeDashboard(
 
   const monthlyBudget = categories.reduce((s, c) => s + c.budget, 0);
   const remaining = monthlyBudget - monthlySpent;
-  const healthPct = monthlyBudget > 0 ? (monthlySpent / monthlyBudget) * 100 : 0;
 
   const [sy, sm] = month.split('-').map(Number);
   const daysInMonth = new Date(sy, sm, 0).getDate();
@@ -512,7 +523,6 @@ export function computeDashboard(
     .filter((c) => c.spent > 0 && isSpendingCategory(c))
     .sort((a, b) => b.spent - a.spent)
     .slice(0, 5);
-  const recent = monthItems.slice(0, 8);
 
   // The spendable budget: savings, investments and transfers removed from BOTH
   // sides by the same predicate, so someone who has already made this month's
@@ -588,14 +598,12 @@ export function computeDashboard(
     spendableBudget,
     spendableSpent,
     spendableRemaining,
-    healthPct,
     health: healthOf(monthlyBudget, monthlySpent),
     dailyAvg,
     txCount: monthItems.length,
     sections,
     categories,
     topCategories,
-    recent,
     trend,
     tone: budgetTone(monthlyBudget, monthlySpent),
     daysInMonth,
