@@ -126,11 +126,25 @@ async function req(url, { method = 'GET', redirect = 'manual', headers } = {}) {
 function challengeReason(res) {
   if (!res) return null;
   const mitigated = res.headers.get('cf-mitigated');
-  if (mitigated) return `Cloudflare returned "cf-mitigated: ${mitigated}"`;
-  if ((res.status === 403 || res.status === 503) && res.headers.get('cf-ray')) {
-    return `Cloudflare answered HTTP ${res.status} at the edge (cf-ray present, no origin response)`;
+  if (mitigated) return { cloudflare: true, why: `Cloudflare returned "cf-mitigated: ${mitigated}"` };
+  if (res.status !== 403 && res.status !== 503) return null;
+  if (res.headers.get('cf-ray')) {
+    return {
+      cloudflare: true,
+      why: `Cloudflare answered HTTP ${res.status} at the edge (cf-ray present, no origin response)`,
+    };
   }
-  return null;
+  // No cf-ray, but worker/index.ts only ever answers 200, 301 or 404 on a
+  // document path — it has no code path that produces 403 or 503. So this did
+  // not come from our origin either: an egress proxy, a corporate TLS
+  // intercept, a sandboxed CI network. Requiring cf-ray here meant those cases
+  // fell through and every content assertion below graded the interceptor's
+  // error body instead, producing exactly the page of plausible, untrue
+  // failures this function exists to prevent.
+  return {
+    cloudflare: false,
+    why: `an intermediary answered HTTP ${res.status} (no cf-ray, and the Worker never returns ${res.status})`,
+  };
 }
 
 /** Is the apex answering at all? Everything below is pointless if not. */
@@ -495,21 +509,51 @@ if (!(await isLive())) {
   process.exit(0);
 }
 
+/**
+ * Being challenged means this script verified NOTHING — it is inconclusive, not
+ * a failure, and it exits 0.
+ *
+ * It used to exit 1, which contradicted the very sentence it printed ("NOT a
+ * broken deploy") and made every deploy hostage to a decision no one here
+ * controls: whether Cloudflare's bot scoring challenges the Azure IP that
+ * GitHub happened to hand this run. When it does, the challenge lands AFTER
+ * `wrangler deploy` has already shipped successfully — so the site is live and
+ * correct while the pipeline goes red, which is the most misleading outcome
+ * available. The block directly above already treats "cannot verify" (DNS not
+ * live yet) as exit 0; this is the same category and now matches it.
+ *
+ * The gate is not lost. Whenever the runner is not challenged — which is most
+ * runs — all eleven checks execute and still fail the deploy on a genuinely
+ * broken site. What is gone is failing on the days we are not allowed to look.
+ *
+ * The real fix is on the Cloudflare side and is a dashboard action, not a code
+ * one: turn Bot Fight Mode off, or move to Super Bot Fight Mode. It cannot be
+ * fixed with a WAF rule — Bot Fight Mode runs outside the Ruleset Engine, so
+ * Skip/Bypass/Allow have no effect on it. Until then this stays loud in the
+ * log and silent in the exit code.
+ */
 const challenge = challengeReason(await req(`${ORIGIN}/`, { redirect: 'follow' }));
 if (challenge) {
-  console.error(`  ✗ blocked before the origin: ${challenge}.`);
+  console.error(`  – UNVERIFIED — blocked before the origin: ${challenge.why}.`);
   console.error('');
-  console.error(`    ${ORIGIN} never saw these requests, so nothing below could be verified.`);
-  console.error('    This is an edge configuration problem, NOT a broken deploy — the same');
-  console.error('    URLs answer 200 from an ordinary browser.');
+  console.error(`    ${ORIGIN} never saw these requests, so nothing below could be checked.`);
+  console.error('    This is a network/edge problem, NOT a broken deploy — the same URLs');
+  console.error('    answer 200 from an ordinary browser, so the deploy is not failed for');
+  console.error('    it. Production has NOT been verified by this run.');
   console.error('');
-  console.error('    Cloudflare → Security → Analytics → Events names the responsible product');
-  console.error('    in the "Service" column. Bot Fight Mode (Free plan) is the usual cause and');
-  console.error('    cannot be skipped by any rule: it runs outside the Ruleset Engine, so');
-  console.error('    custom-rule Skip/Bypass/Allow actions have no effect on it. The options are');
-  console.error('    to turn it off, or to move to Super Bot Fight Mode, which does support Skip.');
+  if (challenge.cloudflare) {
+    console.error('    Cloudflare → Security → Analytics → Events names the responsible product');
+    console.error('    in the "Service" column. Bot Fight Mode (Free plan) is the usual cause and');
+    console.error('    cannot be skipped by any rule: it runs outside the Ruleset Engine, so');
+    console.error('    custom-rule Skip/Bypass/Allow actions have no effect on it. The options are');
+    console.error('    to turn it off, or to move to Super Bot Fight Mode, which does support Skip.');
+  } else {
+    console.error('    Nothing identifies this as Cloudflare, so the block is between this');
+    console.error('    machine and the edge: an egress proxy or allowlist, a TLS intercept, or a');
+    console.error('    sandboxed CI network. Re-run from a host that can reach the apex directly.');
+  }
   console.error('');
-  process.exit(1);
+  process.exit(0);
 }
 
 await checkRedirects();
