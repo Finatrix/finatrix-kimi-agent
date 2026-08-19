@@ -138,8 +138,14 @@ export function saveExpenses(items: ExpenseItem[]): void {
   setJSON('fx_expenses', items);
 }
 
-/** Local YYYY-MM-DD (V4: local time, not UTC). Re-exported from lib/date. */
-export { ymdLocal };
+/**
+ * Local YYYY-MM-DD for *today*.
+ *
+ * `ymdLocal` itself is no longer re-exported from here. A second import path
+ * for one helper is how a module ends up with two names for the same rule —
+ * exactly what `src/lib/date.ts` was created to stop — and every caller in the
+ * codebase now takes it from there.
+ */
 export function etToday(): string {
   return ymdLocal(new Date());
 }
@@ -394,7 +400,15 @@ export interface DashResult {
   tone: BudgetTone;
   daysInMonth: number;
   daysElapsed: number;
-  /** Days left in the month; 0 for a month that has already ended. */
+  /**
+   * Days left in the month, **today included**; 0 for a month that has already
+   * ended.
+   *
+   * "Today included" is the definition every surface now shares — this figure,
+   * `dailySafeSpend` below, and the commitments outlook's `daysLeft`
+   * (see `commitments.ts`). It is also what a person means by the words: on the
+   * 10th of a 31-day month there are 22 days left to spend in, not 21.
+   */
   daysRemaining: number;
   /** Share of the monthly budget consumed (0 when no budget is set). */
   budgetUsedPct: number;
@@ -508,7 +522,30 @@ export function computeDashboard(
   const spendableSpent = spendingCats.reduce((s, c) => s + c.spent, 0);
   const spendableRemaining = spendableBudget - spendableSpent;
 
-  const daysRemaining = isCurrentMonth ? Math.max(0, daysInMonth - now.getDate()) : 0;
+  /**
+   * Days left to spend in, TODAY INCLUDED.
+   *
+   * This used to be `daysInMonth - now.getDate()` — the days AFTER today — and
+   * that one-day gap was a real overspend, not a wording preference. Today's
+   * spending is counted in `spendableSpent`, so today is a day the remaining
+   * money still has to cover; dividing by the days after it hands out one extra
+   * day's allowance every single day of the month. On the 10th of a 31-day
+   * month with 8,000 left, the old figure said 381/day, and 381 spent on each
+   * of the 22 days that remain is 8,381 — over by exactly one day's allowance,
+   * every month, by construction.
+   *
+   * It was also visibly inconsistent: `computeCommitments` already divides by
+   * `daysInMonth - today + 1` and the card built on it says "today included"
+   * on screen, directly beside this figure. Two per-day numbers on one screen
+   * over two different day counts is the disagreement this codebase keeps
+   * eliminating; the commitments module had the honest definition, so that is
+   * the one that survives.
+   *
+   * Clamped at 1 rather than 0: on the last day of the month there is still one
+   * day to spend in. (The old `Math.max(1, …)` produced the correct answer on
+   * that one day and only that day, which is why the bug never looked like one.)
+   */
+  const daysRemaining = isCurrentMonth ? Math.max(1, daysInMonth - now.getDate() + 1) : 0;
   const budgetUsedPct = monthlyBudget > 0 ? (monthlySpent / monthlyBudget) * 100 : 0;
   // Pacing only means something while the month is still running, and only
   // against money that is actually free — see `spendableBudget`. Null when the
@@ -516,7 +553,7 @@ export function computeDashboard(
   // dressed up as an allowance would read as a bug.
   const dailySafeSpend =
     spendableBudget > 0 && isCurrentMonth
-      ? Math.max(0, spendableRemaining) / Math.max(1, daysRemaining)
+      ? Math.max(0, spendableRemaining) / daysRemaining
       : null;
   const monthlySavings = sections.find((s) => s.section === 'save')?.spent ?? 0;
 

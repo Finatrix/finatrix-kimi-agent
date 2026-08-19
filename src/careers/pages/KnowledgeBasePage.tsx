@@ -63,17 +63,17 @@ export default function KnowledgeBasePage() {
       <div className="card">
         <div className="panel-eyebrow" style={{ marginBottom: 12 }}>Add an item</div>
         <div className="grid2" style={{ marginBottom: 10 }}>
-          <input className="fi" placeholder="Title *" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
-          <select className="fs" value={form.kind} onChange={(e) => setForm((f) => ({ ...f, kind: e.target.value as KnowledgeKind }))}>
+          <input className="fi" placeholder="Title *" aria-label="Title (required)" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
+          <select className="fs" aria-label="Entry type" value={form.kind} onChange={(e) => setForm((f) => ({ ...f, kind: e.target.value as KnowledgeKind }))}>
             {KNOWLEDGE_KINDS.map((k) => <option key={k} value={k}>{k.replace('_', ' ')}</option>)}
           </select>
         </div>
-        <textarea className="fi" style={{ minHeight: 100, marginBottom: 10 }} placeholder="What happened — situation, action, result…" value={form.body} onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))} />
-        <input className="fi" style={{ marginBottom: 10 }} placeholder="Tags (comma separated)" value={form.tags} onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))} />
+        <textarea className="fi" style={{ minHeight: 100, marginBottom: 10 }} placeholder="What happened — situation, action, result…" aria-label="What happened — situation, action, result…" value={form.body} onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))} />
+        <input className="fi" style={{ marginBottom: 10 }} placeholder="Tags (comma separated)" aria-label="Tags (comma separated)" value={form.tags} onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))} />
         <button className={`btn ${saving ? 'btn-loading' : ''}`} disabled={saving} onClick={() => void add()}>Save</button>
       </div>
 
-      <input className="fi" style={{ maxWidth: 320, marginBottom: 10 }} placeholder="Search your knowledge base…" value={search} onChange={(e) => setSearch(e.target.value)} />
+      <input className="fi" style={{ maxWidth: 320, marginBottom: 10 }} placeholder="Search your knowledge base…" aria-label="Search your knowledge base…" value={search} onChange={(e) => setSearch(e.target.value)} />
 
       {!visible.length ? (
         <div className="card"><EmptyState icon="lifemap" title="Nothing saved yet">Add your first STAR story or achievement.</EmptyState></div>

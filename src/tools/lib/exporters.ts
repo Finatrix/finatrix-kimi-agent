@@ -587,7 +587,11 @@ export async function exportExpensePdf(e: ExpenseExport) {
     {
       label: e.budget > 0 && remaining < 0 ? 'Budget overrun' : 'Budget remaining',
       value: e.budget > 0 ? m(Math.abs(remaining)) : '—',
-      note: e.daysRemaining != null && e.daysRemaining > 0 ? `${e.daysRemaining} days left in month` : 'Month complete',
+      // `daysRemaining` counts today (see DashResult), so 1 is the last day
+      // rather than "none left" — singular, and never "0 days left".
+      note: e.daysRemaining != null && e.daysRemaining > 0
+        ? `${e.daysRemaining} day${e.daysRemaining === 1 ? '' : 's'} left in month, today included`
+        : 'Month complete',
       accent: remaining < 0 ? TONE_RGB.over : TONE_RGB.safe,
     },
     {

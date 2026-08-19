@@ -233,7 +233,14 @@ function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, onAg
           <div style={{ fontSize: 15, fontWeight: 700 }}>⏳ Travel through time</div>
           <div style={{ background: 'var(--gold)', color: '#0A0A0A', borderRadius: 980, padding: '5px 16px', fontSize: 14, fontWeight: 600 }}>Age {currentAge}</div>
         </div>
-        <input type="range" min={p.age} max={60} value={currentAge} onChange={(e) => onAge(parseInt(e.target.value))} style={{ width: '100%', accentColor: 'var(--gold)', height: 4, cursor: 'pointer' }} />
+        <input
+          type="range"
+          min={p.age}
+          max={60}
+          value={currentAge}
+          onChange={(e) => onAge(parseInt(e.target.value))}
+          aria-label="Travel through time — your age"
+          aria-valuetext={`Age ${currentAge}`} style={{ width: '100%', accentColor: 'var(--gold)', height: 4, cursor: 'pointer' }} />
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--ink3)', marginTop: 7 }}>{stops.map((s, i) => <span key={i}>{s}</span>)}</div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12, position: 'relative' }}>
           <div style={{ position: 'absolute', top: 8, left: 0, right: 0, height: 1, background: 'var(--hair2)' }} />
@@ -429,6 +436,7 @@ function SipDialog({ dialog, sh, onCancel, onChange, onConfirm }: {
           {isStart ? 'How much do you want to invest every month?' : `You invest ${sh(dialog.d.ca ?? 0)}/mo. How much extra do you want to add monthly?`}
         </div>
         <input className="fi" type="number" step="any" min={500} inputMode="decimal" autoFocus value={dialog.amt}
+          aria-label={isStart ? 'Monthly SIP amount' : 'Extra monthly SIP amount'}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') onConfirm(); else if (e.key === 'Escape') onCancel(); }}
           style={{ marginBottom: 16 }} />

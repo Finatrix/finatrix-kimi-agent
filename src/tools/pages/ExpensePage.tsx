@@ -34,6 +34,7 @@ import AuditTrail from '../ui/AuditTrail';
 import { QuickAddBar } from '../ui/QuickAddBar';
 import type { QuickAddResult } from '../lib/quickAdd';
 import { computeCommitments } from '../lib/commitments';
+import { ymdLocal } from '../../lib/date';
 import { haptic } from '../../lib/haptics';
 import { allCategories, SECTION_LABEL, type SectionedCats, type CatKey, type BudgetStore } from '../lib/budget';
 import { loadCatView } from '../lib/budgetCats';
@@ -188,7 +189,31 @@ export default function ExpensePage() {
     if (undoTimer.current) clearTimeout(undoTimer.current);
   }, []);
 
-  const now = new Date();
+  /**
+   * "Now", pinned to the calendar day.
+   *
+   * This was a bare `new Date()` evaluated on every render, and because a Date
+   * is an object it was a NEW IDENTITY every render — which silently disabled
+   * every `useMemo` downstream that takes it as a dependency: the generated
+   * insights, the logging streaks, the month-end forecast and the commitments
+   * outlook. The last of those runs `detectRecurring` over the WHOLE ledger, so
+   * a single keystroke in the amount field re-grouped every transaction the
+   * user has ever logged, four times over, before the character appeared.
+   *
+   * All five consumers — `computeDashboard`, `generateInsights`,
+   * `computeStreaks`, `computeMonthForecast` and `computeCommitments` — read it
+   * at day resolution only (`now.getDate()`, `ymdLocal`, `ymLocal`), so local
+   * midnight of today carries every bit of information any of them uses. That
+   * makes the identity stable for exactly as long as the answers are, and it
+   * still rolls over on its own at midnight in a tab left open, because
+   * `todayKey` is re-read on every render.
+   */
+  const todayKey = ymdLocal(new Date());
+  const now = useMemo(() => {
+    const [y, m, d] = todayKey.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }, [todayKey]);
+
   const r = computeDashboard(selMonth, items, cats, budget.vals, now, budget.income);
   const months = etMonthsWithData(items, currentMonth());
 
@@ -933,10 +958,14 @@ function OverviewTab({
           <AskAiButton focus={{ kind: 'overview' }} />
         </div>
         <div className="fx-metrics">
+          {/* `daysRemaining` counts today (see computeDashboard), so both this
+              tile and the allowance beside it describe the same span — and the
+              same span the commitments card below already labels "today
+              included". */}
           <Metric
             label="Days remaining"
             value={r.isCurrentMonth ? String(r.daysRemaining) : '0'}
-            note={r.isCurrentMonth ? `of ${r.daysInMonth} days` : 'Month complete'}
+            note={r.isCurrentMonth ? `of ${r.daysInMonth}, today included` : 'Month complete'}
             accent="var(--blue)"
           />
           <Metric
@@ -948,7 +977,7 @@ function OverviewTab({
                   : r.monthlyBudget > 0
                     ? 'Your budget is all savings'
                     : 'Set a budget to see this')
-              : r.daysRemaining === 0
+              : r.daysRemaining === 1
                 ? 'Left for today — the last day of the month'
                 : 'Per day, savings excluded'}
             accent={r.spendableRemaining >= 0 ? 'var(--green)' : 'var(--red)'}

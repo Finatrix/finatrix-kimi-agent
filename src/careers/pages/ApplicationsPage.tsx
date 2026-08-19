@@ -399,7 +399,7 @@ function ApplicationDetail({
               </label>
             ))}
             <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-              <input className="fi" style={{ padding: '10px 13px' }} placeholder="Add a task…" value={taskTitle}
+              <input className="fi" style={{ padding: '10px 13px' }} placeholder="Add a task…" aria-label="Add a task…" value={taskTitle}
                 onChange={(e) => setTaskTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void addTask()} />
               <button className="btn btn-ghost btn-sm" style={{ flexShrink: 0 }} onClick={() => void addTask()}>Add</button>
             </div>
@@ -416,7 +416,7 @@ function ApplicationDetail({
               </div>
             ))}
             <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-              <select className="fs" value={emailKind} onChange={(ev) => setEmailKind(ev.target.value as EmailKind)}>
+              <select className="fs" aria-label="Email type to generate" value={emailKind} onChange={(ev) => setEmailKind(ev.target.value as EmailKind)}>
                 {EMAIL_KINDS.map((k) => <option key={k} value={k}>{EMAIL_KIND_LABELS[k]}</option>)}
               </select>
               <button className={`btn btn-ghost btn-sm ${emailBusy ? 'btn-loading' : ''}`} disabled={emailBusy} style={{ flexShrink: 0 }} onClick={() => void generateWorkspaceEmail()}>

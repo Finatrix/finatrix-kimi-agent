@@ -31,6 +31,7 @@
  * Tracker's own model; nothing is re-derived here.
  */
 import type { IconName } from '../ui/Icon';
+import { ymLocal } from '../../lib/date';
 import { isSpendingCategory, type ExpenseItem } from './expense';
 import { detectRecurring, type CatMeta } from './expenseAnalytics';
 
@@ -84,8 +85,7 @@ export function computeCommitments(
   now: Date,
   remainingBudget: number | null,
 ): CommittedOutlook {
-  const curMonth = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
-  if (month !== curMonth) return EMPTY;
+  if (month !== ymLocal(now)) return EMPTY;
 
   const [y, mo] = month.split('-').map(Number);
   const daysInMonth = new Date(y, mo, 0).getDate();
@@ -99,8 +99,10 @@ export function computeCommitments(
   const loggedCategories = new Set(monthItems.map((e) => e.category));
 
   const bills: UpcomingBill[] = [];
+  // Every pattern `detectRecurring` produces is monthly (see RecurringPattern),
+  // so there is no frequency to filter on — the guard that used to sit here
+  // could never be false.
   for (const pattern of detectRecurring([...items], catMeta)) {
-    if (pattern.frequency !== 'monthly') continue;
     // Savings and transfers are already outside `remainingBudget` — see above.
     const section = catMeta.get(pattern.category)?.section ?? null;
     if (!isSpendingCategory({ k: pattern.category, section })) continue;
