@@ -8,6 +8,7 @@ const CATS = new Map<string, CatMeta>(
     { k: 'rent', l: 'Rent', ic: 'rent', section: 'needs' },
     { k: 'subs', l: 'Subscriptions', ic: 'subs', section: 'wants' },
     { k: 'eating_out', l: 'Eating Out', ic: 'dining', section: 'wants' },
+    { k: 'stocks', l: 'Stocks / Equity', ic: 'trending', section: 'save' },
   ] satisfies CatMeta[]).map((c) => [c.k, c]),
 );
 
@@ -99,6 +100,18 @@ describe('computeCommitments', () => {
     expect(out.applicable).toBe(true);
     expect(out.bills).toEqual([]);
     expect(out.free).toBe(40000);
+  });
+
+  it('does not treat a monthly SIP as a bill against the spendable budget', () => {
+    // The SIP looks exactly like a recurring bill to the detector, but its
+    // budget is already outside `remainingBudget` — counting it here would
+    // subtract the same money twice.
+    const items = [...monthlyBill('stocks', 15000, 20), ...monthlyBill('rent', 24000, 20)];
+    const out = computeCommitments(items, CATS, MONTH, NOW, 40000);
+
+    expect(out.bills.map((b) => b.label)).toEqual(['Rent']);
+    expect(out.committed).toBe(24000);
+    expect(out.free).toBe(16000);
   });
 
   it('clamps a bill dated the 31st into a shorter month', () => {

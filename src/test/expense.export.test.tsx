@@ -179,6 +179,41 @@ describe('dashboard summary metrics', () => {
     expect(r.tone).toBe('safe');
   });
 
+  it('keeps money budgeted for savings out of the daily safe spend', () => {
+    // 20k of the 30k budget is earmarked for investing. Only the 10k of real
+    // spending money should pace: 10000 − 3000 = 7000 over the 21 days left.
+    const items = [{ id: '1', amount: 3000, category: 'groceries', date: '2026-07-02' }];
+    const r = computeDashboard('2026-07', items, cats, { groceries: 10000, stocks: 20000 }, NOW);
+
+    expect(r.spendableBudget).toBe(10000);
+    expect(r.spendableRemaining).toBe(7000);
+    expect(r.dailySafeSpend).toBeCloseTo(7000 / 21, 6);
+    // The whole-budget figures are untouched — this is budget vs actual.
+    expect(r.monthlyBudget).toBe(30000);
+    expect(r.remaining).toBe(27000);
+  });
+
+  it('does not charge an investment twice once it has been made', () => {
+    // The SIP is now logged. It leaves the spendable side alone, so the daily
+    // figure is exactly what it was before the transfer.
+    const items = [
+      { id: '1', amount: 3000, category: 'groceries', date: '2026-07-02' },
+      { id: '2', amount: 20000, category: 'stocks', date: '2026-07-03' },
+    ];
+    const r = computeDashboard('2026-07', items, cats, { groceries: 10000, stocks: 20000 }, NOW);
+
+    expect(r.spendableSpent).toBe(3000);
+    expect(r.dailySafeSpend).toBeCloseTo(7000 / 21, 6);
+    expect(r.monthlySpent).toBe(23000);
+  });
+
+  it('reports no daily allowance when the whole budget is savings', () => {
+    const r = computeDashboard('2026-07', [], cats, { stocks: 20000 }, NOW);
+    expect(r.monthlyBudget).toBe(20000);
+    expect(r.spendableBudget).toBe(0);
+    expect(r.dailySafeSpend).toBeNull();
+  });
+
   it('reports no pacing (rather than a fake figure) without income or budget', () => {
     const r = computeDashboard('2026-07', [], cats, {}, NOW);
     expect(r.dailySafeSpend).toBeNull();

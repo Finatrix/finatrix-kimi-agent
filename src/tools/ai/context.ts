@@ -91,6 +91,9 @@ export interface FinanceSnapshot {
   totalBudget: number;
   totalSpent: number;
   remaining: number;
+  /** The budget excluding Savings and transfers — what `dailySafeSpend` paces. */
+  spendableBudget: number;
+  spendableRemaining: number;
   percentOfBudgetUsed: number | null;
   budgetStatus: string;
   savings: number;
@@ -216,6 +219,8 @@ export function buildSnapshot({
     totalBudget: money(dash.monthlyBudget),
     totalSpent: money(dash.monthlySpent),
     remaining: money(dash.remaining),
+    spendableBudget: money(dash.spendableBudget),
+    spendableRemaining: money(dash.spendableRemaining),
     percentOfBudgetUsed: dash.monthlyBudget > 0 ? Math.round(dash.budgetUsedPct) : null,
     budgetStatus: TONE_TEXT[dash.tone],
     savings: money(dash.monthlySavings),

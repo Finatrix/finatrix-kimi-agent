@@ -943,11 +943,15 @@ function OverviewTab({
             label="Daily safe spend"
             value={r.dailySafeSpend != null ? cfmt(r.dailySafeSpend) : '—'}
             note={r.dailySafeSpend == null
-              ? (r.monthlyBudget > 0 ? 'Month complete' : 'Set a budget to see this')
+              ? (r.spendableBudget > 0
+                  ? 'Month complete'
+                  : r.monthlyBudget > 0
+                    ? 'Your budget is all savings'
+                    : 'Set a budget to see this')
               : r.daysRemaining === 0
                 ? 'Left for today — the last day of the month'
-                : 'Per day to stay inside budget'}
-            accent={r.remaining >= 0 ? 'var(--green)' : 'var(--red)'}
+                : 'Per day, savings excluded'}
+            accent={r.spendableRemaining >= 0 ? 'var(--green)' : 'var(--red)'}
           />
           <Metric
             label="Monthly savings"
@@ -974,7 +978,7 @@ function OverviewTab({
         catMeta={catMeta}
         month={selMonth}
         now={now}
-        remainingBudget={r.monthlyBudget > 0 ? r.remaining : null}
+        remainingBudget={r.spendableBudget > 0 ? r.spendableRemaining : null}
         cfmt={cfmt}
       />
 
@@ -1593,8 +1597,8 @@ function Metric({ label, value, note, accent }: { label: string; value: string; 
  * "Still to come" — the recurring bills this month has not seen yet, and what
  * they leave genuinely free.
  *
- * The pacing card above divides the WHOLE remaining budget by the days left,
- * which quietly assumes none of it is spoken for. This is the counterweight:
+ * The pacing card above divides the remaining spendable budget by the days
+ * left, which quietly assumes none of it is spoken for. This is the counterweight:
  * it names what is still due and shows the smaller, truer number beside it. It
  * adds a figure rather than changing that one, because the gap between the two
  * is the thing worth learning.
@@ -1609,7 +1613,7 @@ function CommitmentsCard({
   catMeta: Map<string, CatMeta>;
   month: string;
   now: Date;
-  /** Budget − spent, or null when no budget is set. */
+  /** Spendable budget − spend against it, or null when none is set. */
   remainingBudget: number | null;
   cfmt: (n: number) => string;
 }) {

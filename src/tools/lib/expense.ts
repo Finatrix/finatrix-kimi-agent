@@ -366,6 +366,20 @@ export interface DashResult {
   monthlyBudget: number;
   monthlySpent: number;
   remaining: number;
+  /**
+   * The part of the budget that is meant to be spent — every category except
+   * Savings and internal movements (SIPs, emergency fund, transfers).
+   *
+   * Money earmarked for an investment is not free to spend, so pacing is
+   * measured against this rather than `monthlyBudget`. `monthlyBudget`,
+   * `monthlySpent` and `remaining` are unchanged: budget-vs-actual for the
+   * whole plan is still the whole plan.
+   */
+  spendableBudget: number;
+  /** Spend logged against those same spending categories. */
+  spendableSpent: number;
+  /** `spendableBudget − spendableSpent`. Negative when overspent. */
+  spendableRemaining: number;
   healthPct: number;
   health: CatHealth;
   dailyAvg: number;
@@ -486,11 +500,24 @@ export function computeDashboard(
     .slice(0, 5);
   const recent = monthItems.slice(0, 8);
 
+  // The spendable budget: savings, investments and transfers removed from BOTH
+  // sides by the same predicate, so someone who has already made this month's
+  // SIP is not charged for it twice.
+  const spendingCats = categories.filter(isSpendingCategory);
+  const spendableBudget = spendingCats.reduce((s, c) => s + c.budget, 0);
+  const spendableSpent = spendingCats.reduce((s, c) => s + c.spent, 0);
+  const spendableRemaining = spendableBudget - spendableSpent;
+
   const daysRemaining = isCurrentMonth ? Math.max(0, daysInMonth - now.getDate()) : 0;
   const budgetUsedPct = monthlyBudget > 0 ? (monthlySpent / monthlyBudget) * 100 : 0;
-  // Pacing only means something while the month is still running.
+  // Pacing only means something while the month is still running, and only
+  // against money that is actually free — see `spendableBudget`. Null when the
+  // whole budget is savings: there is no daily allowance to pace, and a zero
+  // dressed up as an allowance would read as a bug.
   const dailySafeSpend =
-    monthlyBudget > 0 && isCurrentMonth ? Math.max(0, remaining) / Math.max(1, daysRemaining) : null;
+    spendableBudget > 0 && isCurrentMonth
+      ? Math.max(0, spendableRemaining) / Math.max(1, daysRemaining)
+      : null;
   const monthlySavings = sections.find((s) => s.section === 'save')?.spent ?? 0;
 
   const warnings: BudgetWarning[] = categories
@@ -521,6 +548,9 @@ export function computeDashboard(
     monthlyBudget,
     monthlySpent,
     remaining,
+    spendableBudget,
+    spendableSpent,
+    spendableRemaining,
     healthPct,
     health: healthOf(monthlyBudget, monthlySpent),
     dailyAvg,
