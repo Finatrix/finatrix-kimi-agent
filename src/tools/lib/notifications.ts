@@ -66,6 +66,18 @@ export function buildNotifications(now = new Date()): FinNotification[] {
       icon: 'check', href: '/tools/budget', weight: 20,
     });
   }
+  // Saving more is worth telling someone about. Before this, the bell only
+  // ever mirrored the SPEND trend — and because that trend was computed from
+  // the raw outflow, a month of extra saving arrived as "Spending is up 43%".
+  // Now the two are separate signals and only one of them is a warning.
+  const saved = snap.insights.find((i) => /set aside .* more than last month/i.test(i.text));
+  if (saved) {
+    out.push({
+      id: `saved-${cm}`, tone: 'ok',
+      title: 'Saving is up', body: saved.text,
+      icon: 'check', href: '/tools/expenses', weight: 18,
+    });
+  }
   // Spend-trend notification mirrors the Dashboard insight (same wording source).
   const trend = snap.insights.find((i) => /vs last month/i.test(i.text));
   if (trend) {

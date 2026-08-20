@@ -63,7 +63,17 @@ describe('buildSnapshot — figures come from the engine, not from a second impl
   });
 
   it('compares against the previous month only when that month has data', () => {
-    expect(snapshot().previousMonth).toEqual({ month: '2026-02', label: 'February 2026', spent: 500 });
+    // The previous month is reported split, not as one number: `spent` is the
+    // whole outflow, and the two fields beside it say how much of that was
+    // consumed and how much was set aside. Answering "is my spending up?" from
+    // the total is what made a bigger SIP read as overspending.
+    expect(snapshot().previousMonth).toEqual({
+      month: '2026-02',
+      label: 'February 2026',
+      spent: 500,
+      spentOnNeedsAndWants: 500,
+      setAside: 0,
+    });
 
     const soloMonth = buildSnapshot({
       items: [tx('2026-03-02', 'groceries', 100)],
