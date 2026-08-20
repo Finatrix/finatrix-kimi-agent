@@ -9,7 +9,7 @@
  * Every function is pure and unit-testable.
  */
 import type { ExpenseItem, SectionSplit } from './expense';
-import { migrateCategory, splitBySection } from './expense';
+import { migrateCategory, splitBySection, splitOutflow } from './expense';
 import { ymdLocal, ymLocal } from '../../lib/date';
 import type { CatKey } from './budget';
 import type { IconName } from '../ui/Icon';
@@ -483,17 +483,35 @@ export function computeStreaks(items: ExpenseItem[], now: Date): SpendingStreak[
 export function generateInsights(
   items: ExpenseItem[],
   currentMonth: string,
-  monthlyBudget: number,
+  /**
+   * The budget that is meant to be SPENT — `DashResult.spendableBudget`, not
+   * `monthlyBudget`. Passing the whole budget is the bug this parameter is
+   * named to prevent: it includes the savings allocation on the limit side
+   * while the ledger includes the SIP on the used side, so a month spent
+   * entirely on saving reported "96% of your budget used" and told the user to
+   * slow down.
+   */
+  spendableBudget: number,
   catMeta: Map<string, CatMeta>,
   now: Date,
 ): SpendingInsight[] {
   const insights: SpendingInsight[] = [];
   const curItems = items.filter((e) => (e.date || '').startsWith(currentMonth));
-  const totalSpent = curItems.reduce((s, e) => s + e.amount, 0);
-
   if (curItems.length === 0) return insights;
 
   const validKeys = catKeys(catMeta);
+
+  /**
+   * Consumption and savings, separated before anything is judged.
+   *
+   * Every insight below that uses the word "spending" means `consumedTotal`.
+   * Money set aside is reported on its own terms, and never as a warning: a
+   * bigger SIP is the outcome this product exists to produce, and warning
+   * about it is worse than saying nothing.
+   */
+  const { consumed, consumedTotal, setAsideTotal } =
+    splitOutflow(curItems, validKeys, catMeta);
+
   /**
    * Is `currentMonth` the month that is actually running?
    *
@@ -505,12 +523,109 @@ export function generateInsights(
    */
   const isRunningMonth = currentMonth === ymLocal(now);
 
-  // 1. Weekend vs weekday spending
-  const weekendSpend = curItems
+  /* ── The previous month, split the same way ─────────────────────────────── */
+  const [cy, cm] = currentMonth.split('-').map(Number);
+  const prevMonthKey = ymLocal(new Date(cy, cm - 2, 1));
+  const prevItems = items.filter((e) => (e.date || '').startsWith(prevMonthKey));
+  const prev = splitOutflow(prevItems, validKeys, catMeta);
+  const prevLabel = monthLabel(prevMonthKey);
+
+  /* ═══ Money set aside — reported first, and only ever as good news ═══════ */
+
+  if (prev.setAsideTotal > 0 && setAsideTotal > 0) {
+    const savedChangePct = ((setAsideTotal - prev.setAsideTotal) / prev.setAsideTotal) * 100;
+    const consumedFlat =
+      prev.consumedTotal <= 0
+      || Math.abs((consumedTotal - prev.consumedTotal) / prev.consumedTotal) * 100 <= 10;
+
+    if (savedChangePct >= 15) {
+      insights.push({
+        id: 'savings_up',
+        tone: 'ok',
+        title: 'Saving more than last month',
+        // Named "set aside", not "spent". The whole point of this insight is
+        // that the figure which grew is not money gone.
+        body: consumedFlat
+          ? `You set aside ${Math.round(savedChangePct)}% more than ${prevLabel} while your spending held steady. That is exactly the shape you want.`
+          : `You set aside ${Math.round(savedChangePct)}% more than ${prevLabel}. That is money working for you, not money gone.`,
+        icon: 'check',
+      });
+    } else if (savedChangePct <= -25) {
+      // Deliberately `info`, never `warn`. A smaller month of saving has a
+      // hundred innocent explanations, and the product has no way to tell an
+      // emergency from a deliberate pause.
+      insights.push({
+        id: 'savings_down',
+        tone: 'info',
+        title: 'Saving less than last month',
+        body: `You set aside ${Math.round(Math.abs(savedChangePct))}% less than ${prevLabel}. Worth a look if that was not deliberate.`,
+        icon: 'trending',
+      });
+    }
+  }
+
+  /* ═══ Consumption — this, and only this, is judged as spending ═══════════ */
+
+  // 1. Budget pace. Only for the month that is running, and only against the
+  // budget that is meant to be spent.
+  if (spendableBudget > 0 && isRunningMonth) {
+    const [, mo] = currentMonth.split('-').map(Number);
+    const daysInMonth = new Date(cy, mo, 0).getDate();
+    const dayOfMonth = now.getDate();
+    const expectedPct = (dayOfMonth / daysInMonth) * 100;
+    const actualPct = (consumedTotal / spendableBudget) * 100;
+
+    if (actualPct > expectedPct + 15 && dayOfMonth > 5) {
+      insights.push({
+        id: 'pace_fast',
+        tone: 'warn',
+        title: 'Spending ahead of pace',
+        body: `You've used ${Math.round(actualPct)}% of your spending budget but only ${Math.round(expectedPct)}% of the month has passed. Savings are excluded — this is day-to-day money.`,
+        icon: 'warn',
+      });
+    } else if (actualPct < expectedPct - 20 && dayOfMonth > 10) {
+      insights.push({
+        id: 'pace_good',
+        tone: 'ok',
+        title: 'Under budget pace',
+        body: `You've used only ${Math.round(actualPct)}% of your spending budget with ${Math.round(100 - expectedPct)}% of the month left. Great discipline.`,
+        icon: 'check',
+      });
+    }
+  }
+
+  // 2. Month-over-month CONSUMPTION. A month where more money left the account
+  // because more of it went into savings is not a month of higher spending.
+  if (prev.consumedTotal > 0 && consumedTotal > 0) {
+    const changePct = ((consumedTotal - prev.consumedTotal) / prev.consumedTotal) * 100;
+    if (changePct > 25) {
+      insights.push({
+        id: 'mom_up',
+        tone: 'warn',
+        title: 'Spending up from last month',
+        body: `You're spending ${Math.round(changePct)}% more than ${prevLabel}, savings aside. Check if there's a one-off or a new pattern forming.`,
+        icon: 'arrow-up',
+      });
+    } else if (changePct < -15) {
+      insights.push({
+        id: 'mom_down',
+        tone: 'ok',
+        title: 'Spending down',
+        body: `You're spending ${Math.round(Math.abs(changePct))}% less than ${prevLabel}, savings aside. Keep it up.`,
+        icon: 'trending',
+      });
+    }
+  }
+
+  // Nothing below this line is meaningful without consumption to describe.
+  if (consumed.length === 0 || consumedTotal <= 0) return insights.slice(0, 4);
+
+  // 3. Weekend vs weekday consumption.
+  const weekendSpend = consumed
     .filter((e) => { const d = new Date(e.date + 'T00:00:00'); const dow = d.getDay(); return dow === 0 || dow === 6; })
     .reduce((s, e) => s + e.amount, 0);
-  const weekendPct = totalSpent > 0 ? (weekendSpend / totalSpent) * 100 : 0;
-  if (weekendPct > 40 && curItems.length >= 5) {
+  const weekendPct = (weekendSpend / consumedTotal) * 100;
+  if (weekendPct > 40 && consumed.length >= 5) {
     insights.push({
       id: 'weekend_heavy',
       tone: 'info',
@@ -520,110 +635,52 @@ export function generateInsights(
     });
   }
 
-  // 2. Largest single transaction
-  const maxTx = curItems.reduce((max, e) => e.amount > max.amount ? e : max, curItems[0]);
-  if (maxTx && totalSpent > 0 && (maxTx.amount / totalSpent) > 0.25) {
+  // 4. Largest single purchase. A SIP is not a "big ticket item" to reconsider,
+  // so this ranks consumption only.
+  const maxTx = consumed.reduce((max, e) => (e.amount > max.amount ? e : max), consumed[0]);
+  if (maxTx && (maxTx.amount / consumedTotal) > 0.25) {
+    const label = maxTx.merchant || maxTx.note
+      || catMeta.get(catKeyOf(maxTx.category, validKeys))?.l || 'Unknown';
     insights.push({
       id: 'large_tx',
       tone: 'info',
       title: 'Big ticket item',
-      body: `Your largest transaction (${maxTx.merchant || maxTx.note || catMeta.get(catKeyOf(maxTx.category, validKeys))?.l || 'Unknown'}) accounts for ${Math.round((maxTx.amount / totalSpent) * 100)}% of this month's spending.`,
+      body: `Your largest purchase (${label}) accounts for ${Math.round((maxTx.amount / consumedTotal) * 100)}% of this month's spending.`,
       icon: 'trending',
     });
   }
 
-  // 3. Category concentration
+  // 5. Category concentration, across spending categories only.
   const byCat: Record<string, number> = {};
-  curItems.forEach((e) => {
+  consumed.forEach((e) => {
     const k = catKeyOf(e.category, validKeys);
     byCat[k] = (byCat[k] || 0) + e.amount;
   });
   const catEntries = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
-  if (catEntries.length >= 3 && totalSpent > 0) {
-    const topPct = (catEntries[0][1] / totalSpent) * 100;
+  if (catEntries.length >= 3) {
+    const topPct = (catEntries[0][1] / consumedTotal) * 100;
     if (topPct > 50) {
-      const catLabel = catMeta.get(catEntries[0][0])?.l ?? catEntries[0][0];
       insights.push({
         id: 'concentrated',
         tone: 'info',
         title: 'Spending concentrated',
-        body: `${catLabel} makes up ${Math.round(topPct)}% of your monthly spend. Diversifying helps reduce vulnerability to single-category spikes.`,
+        body: `${catMeta.get(catEntries[0][0])?.l ?? catEntries[0][0]} makes up ${Math.round(topPct)}% of your monthly spend. Diversifying helps reduce vulnerability to single-category spikes.`,
         icon: 'pie',
       });
     }
   }
 
-  // 4. Budget pace. Only for the month that is running — "you have used 90% of
-  // your budget but only 61% of the month has passed" is a statement about a
-  // month in progress, and `now.getDate()` says nothing about any other one.
-  if (monthlyBudget > 0 && isRunningMonth) {
-    const [, mo] = currentMonth.split('-').map(Number);
-    const daysInMonth = new Date(Number(currentMonth.split('-')[0]), mo, 0).getDate();
-    const dayOfMonth = now.getDate();
-    const expectedPct = (dayOfMonth / daysInMonth) * 100;
-    const actualPct = (totalSpent / monthlyBudget) * 100;
-
-    if (actualPct > expectedPct + 15 && dayOfMonth > 5) {
-      insights.push({
-        id: 'pace_fast',
-        tone: 'warn',
-        title: 'Spending ahead of pace',
-        body: `You've used ${Math.round(actualPct)}% of your budget but only ${Math.round(expectedPct)}% of the month has passed. Consider slowing down.`,
-        icon: 'warn',
-      });
-    } else if (actualPct < expectedPct - 20 && dayOfMonth > 10) {
-      insights.push({
-        id: 'pace_good',
-        tone: 'ok',
-        title: 'Under budget pace',
-        body: `You've used only ${Math.round(actualPct)}% of your budget with ${Math.round(100 - expectedPct)}% of the month left. Great discipline.`,
-        icon: 'check',
-      });
-    }
-  }
-
-  // 5. Recurring expenses summary
-  const recurringItems = curItems.filter((e) => e.recurring);
-  if (recurringItems.length > 0) {
-    const recurringTotal = recurringItems.reduce((s, e) => s + e.amount, 0);
-    const recurringPct = totalSpent > 0 ? (recurringTotal / totalSpent) * 100 : 0;
-    if (recurringPct > 60) {
-      insights.push({
-        id: 'recurring_heavy',
-        tone: 'info',
-        title: 'Fixed costs dominant',
-        body: `${Math.round(recurringPct)}% of spending is recurring. Review subscriptions and contracts annually to catch unused services.`,
-        icon: 'refresh',
-      });
-    }
-  }
-
-  // 6. Month-over-month comparison
-  const [cy, cm] = currentMonth.split('-').map(Number);
-  const prevDate = new Date(cy, cm - 2, 1);
-  const prevMonthKey = ymLocal(prevDate);
-  const prevItems = items.filter((e) => (e.date || '').startsWith(prevMonthKey));
-  const prevTotal = prevItems.reduce((s, e) => s + e.amount, 0);
-
-  if (prevTotal > 0 && totalSpent > 0) {
-    const changePct = ((totalSpent - prevTotal) / prevTotal) * 100;
-    if (changePct > 25) {
-      insights.push({
-        id: 'mom_up',
-        tone: 'warn',
-        title: 'Spending up from last month',
-        body: `You're spending ${Math.round(changePct)}% more than ${monthLabel(prevMonthKey)}. Check if there's a one-off or a new pattern forming.`,
-        icon: 'arrow-up',
-      });
-    } else if (changePct < -15) {
-      insights.push({
-        id: 'mom_down',
-        tone: 'ok',
-        title: 'Spending down',
-        body: `You're spending ${Math.round(Math.abs(changePct))}% less than ${monthLabel(prevMonthKey)}. Keep it up.`,
-        icon: 'trending',
-      });
-    }
+  // 6. Fixed costs as a share of consumption. A recurring SIP is a commitment,
+  // not a fixed COST, so `setAside` is excluded from both sides.
+  const recurringTotal = consumed.filter((e) => e.recurring).reduce((s, e) => s + e.amount, 0);
+  if (recurringTotal > 0 && (recurringTotal / consumedTotal) * 100 > 60) {
+    insights.push({
+      id: 'recurring_heavy',
+      tone: 'info',
+      title: 'Fixed costs dominant',
+      body: `${Math.round((recurringTotal / consumedTotal) * 100)}% of your spending is recurring. Review subscriptions and contracts annually to catch unused services.`,
+      icon: 'refresh',
+    });
   }
 
   return insights.slice(0, 4);
@@ -724,7 +781,9 @@ export function computeMonthForecast(
   items: ExpenseItem[],
   month: string,
   now: Date,
-  monthlyBudget = 0,
+  /** `DashResult.spendableBudget` — the budget meant to be spent. See below. */
+  spendableBudget = 0,
+  catMeta: Map<string, CatMeta> = new Map(),
 ): MonthForecast {
   const nowMonth = ymLocal(now);
   const isCurrentMonth = month === nowMonth;
@@ -733,10 +792,25 @@ export function computeMonthForecast(
   const daysElapsed = isCurrentMonth ? Math.max(1, now.getDate()) : daysInMonth;
 
   const monthItems = items.filter((e) => (e.date || '').slice(0, 7) === month);
-  const spentSoFar = monthItems.reduce((s, e) => s + e.amount, 0);
+  /**
+   * Consumption only, on both sides.
+   *
+   * A run-rate projection assumes the days so far are representative of the
+   * days to come, and a savings transfer is the one outflow for which that is
+   * flatly untrue: a monthly SIP paid on the 2nd extrapolates to fifteen SIPs
+   * by month end. Against a budget that also included savings, that produced
+   * "On track to exceed your budget by A$50,000. Easing the daily pace keeps
+   * you within plan." — a red bar and an instruction to stop, generated
+   * entirely by the user doing the right thing on time.
+   *
+   * So the projection describes day-to-day spending, which really does accrue
+   * daily, and compares it to the budget for day-to-day spending.
+   */
+  const { consumedTotal } = splitOutflow(monthItems, new Set(catMeta.keys()), catMeta);
+  const spentSoFar = consumedTotal;
   const dailyRunRate = spentSoFar / daysElapsed;
   const projected = isCurrentMonth ? Math.round(dailyRunRate * daysInMonth) : Math.round(spentSoFar);
-  const vsBudgetPct = monthlyBudget > 0 ? Math.round((projected / monthlyBudget) * 100) : null;
+  const vsBudgetPct = spendableBudget > 0 ? Math.round((projected / spendableBudget) * 100) : null;
 
   return {
     isCurrentMonth,
@@ -746,6 +820,6 @@ export function computeMonthForecast(
     dailyRunRate,
     projected,
     vsBudgetPct,
-    overBudget: monthlyBudget > 0 && projected > monthlyBudget,
+    overBudget: spendableBudget > 0 && projected > spendableBudget,
   };
 }

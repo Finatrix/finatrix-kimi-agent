@@ -307,6 +307,71 @@ export function isSpendingCategory(c: { k: string; section: CatKey | null }): bo
   return !INTERNAL_MOVEMENT_KEYS.has(c.k);
 }
 
+/**
+ * A month's ledger, split into money CONSUMED and money SET ASIDE.
+ *
+ * WHY THIS IS THE MOST IMPORTANT DISTINCTION IN THE PRODUCT
+ * ---------------------------------------------------------
+ * The ledger records outflows, and two completely different things look
+ * identical in it: ₹5,000 of dinners and a ₹5,000 SIP are both "an amount, a
+ * category, a date". Only one of them is money gone.
+ *
+ * Treating them as one number is not a rounding error, it is the wrong advice.
+ * A user whose entire budget went into savings was shown "You've used 96% of
+ * your budget but only 65% of the month has passed. Consider slowing down." —
+ * telling someone doing the single best thing this product exists to encourage
+ * that they should stop. The same figure drove a "Spending up 43% vs last
+ * month" warning and a push notification, for a month in which their
+ * consumption had not moved at all and their saving had gone up by half.
+ *
+ * `computeDashboard` already made this split for the pacing figure
+ * (`spendableBudget` / `spendableSpent`). Everything else — the insights, the
+ * dashboard trend line, the notifications — kept summing the raw ledger. This
+ * helper is that one split, named once, so no surface can quietly go back to
+ * asking "how much left the account" when it means "how much did they spend".
+ *
+ * Classification is `isSpendingCategory`, resolved through `migrateCategory`
+ * exactly as `computeDashboard` resolves it, so a legacy key lands in the same
+ * bucket here as it does in the figures beside it.
+ */
+export interface OutflowSplit {
+  /** Needs and wants — money consumed. This, and only this, is "spending". */
+  consumed: ExpenseItem[];
+  /** Savings, investments and transfers — money moved, not spent. */
+  setAside: ExpenseItem[];
+  /** Sum of `consumed`. */
+  consumedTotal: number;
+  /** Sum of `setAside`. */
+  setAsideTotal: number;
+}
+
+export function splitOutflow(
+  items: readonly ExpenseItem[],
+  validKeys: ReadonlySet<string>,
+  meta: ReadonlyMap<string, { section: CatKey }>,
+): OutflowSplit {
+  const consumed: ExpenseItem[] = [];
+  const setAside: ExpenseItem[] = [];
+  let consumedTotal = 0;
+  let setAsideTotal = 0;
+
+  for (const e of items) {
+    const k = migrateCategory(e.category, validKeys);
+    // An unrecognised key has no section. It counts as consumption: the
+    // alternative is that a typo silently exempts spending from every warning
+    // the user relies on, which is the failure mode that matters.
+    const section = meta.get(k)?.section ?? null;
+    if (isSpendingCategory({ k, section })) {
+      consumed.push(e);
+      consumedTotal += e.amount;
+    } else {
+      setAside.push(e);
+      setAsideTotal += e.amount;
+    }
+  }
+  return { consumed, setAside, consumedTotal, setAsideTotal };
+}
+
 /** A category that needs attention this month — powers the dashboard warnings. */
 export interface BudgetWarning {
   k: string;

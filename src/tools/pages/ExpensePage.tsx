@@ -784,7 +784,7 @@ export default function ExpensePage() {
             recentCatKeys={recentCatKeys}
             addError={addError} amountRef={amountRef}
             date={date} setDate={setDate} note={note} setNote={setNote} justAdded={justAdded}
-            cfmt={cfmt} sym={sym} now={now} catMeta={catMeta} monthlyBudget={r.monthlyBudget}
+            cfmt={cfmt} sym={sym} now={now} catMeta={catMeta}
             addExpense={addExpense} addFromQuickAdd={addFromQuickAdd} quickSeed={quickSeed}
             openAdd={openAdd} openEdit={openEdit}
             duplicateTransaction={duplicateTransaction} deleteTransaction={deleteTransaction}
@@ -798,7 +798,7 @@ export default function ExpensePage() {
           <AnalyticsTab
             items={items} selMonth={selMonth} catMeta={catMeta}
             cfmt={cfmt} code={code} theme={theme} now={now}
-            monthlyBudget={r.monthlyBudget}
+            spendableBudget={r.spendableBudget}
             budgetTotalOf={budgetTotalOf}
             onStartLogging={startLogging}
           />
@@ -893,7 +893,7 @@ interface OverviewProps {
   note: string; setNote: (v: string) => void;
   justAdded: boolean;
   cfmt: (n: number) => string; sym: string; now: Date;
-  catMeta: Map<string, CatMeta>; monthlyBudget: number;
+  catMeta: Map<string, CatMeta>;
   addExpense: () => void;
   /** Commit a parsed one-line entry. False when it could not be logged. */
   addFromQuickAdd: (parsed: QuickAddResult) => boolean;
@@ -913,14 +913,17 @@ interface OverviewProps {
 function OverviewTab({
   r, items, monthTx, selMonth, flatCats, selKey, setSel, recentCatKeys,
   amount, setAmount, addError, amountRef, date, setDate, note, setNote, justAdded,
-  cfmt, sym, now, catMeta, monthlyBudget,
+  cfmt, sym, now, catMeta,
   addExpense, addFromQuickAdd, quickSeed, openAdd, openEdit, duplicateTransaction, deleteTransaction,
   bulkDelete, bulkDuplicate, bulkCategory, bulkAddTags, exportTransactions,
   code, listApi,
 }: OverviewProps) {
   const insights = useMemo(
-    () => generateInsights(items, selMonth, monthlyBudget, catMeta, now),
-    [items, selMonth, monthlyBudget, catMeta, now]
+    // `spendableBudget`, never `monthlyBudget`: the pace insight compares it
+    // against consumption, and the whole budget includes the savings
+    // allocation the ledger's SIP is booked against.
+    () => generateInsights(items, selMonth, r.spendableBudget, catMeta, now),
+    [items, selMonth, r.spendableBudget, catMeta, now]
   );
 
   const streaks = useMemo(() => computeStreaks(items, now), [items, now]);
@@ -1239,20 +1242,23 @@ function OverviewTab({
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function AnalyticsTab({
-  items, selMonth, catMeta, cfmt, code, theme, now, monthlyBudget, budgetTotalOf,
+  items, selMonth, catMeta, cfmt, code, theme, now, spendableBudget, budgetTotalOf,
   onStartLogging,
 }: {
   items: ExpenseItem[]; selMonth: string; catMeta: Map<string, CatMeta>;
   cfmt: (n: number) => string; code: string; theme: string | undefined; now: Date;
-  monthlyBudget: number;
+  /** The budget meant to be SPENT — savings excluded. See computeMonthForecast. */
+  spendableBudget: number;
   /** Total budget for any month, used by the timeline's 12-month view. */
   budgetTotalOf: (month: string) => number;
   /** Send the user to the place they can actually act — the add form. */
   onStartLogging: () => void;
 }) {
   const forecast = useMemo(
-    () => computeMonthForecast(items, selMonth, now, monthlyBudget),
-    [items, selMonth, now, monthlyBudget]
+    // Spendable budget + category sections: the projection is about day-to-day
+    // spending, not about money moved into savings on a fixed day each month.
+    () => computeMonthForecast(items, selMonth, now, spendableBudget, catMeta),
+    [items, selMonth, now, spendableBudget, catMeta]
   );
   const trend12 = useMemo(
     () => computeMonthlyTrend(items, selMonth, 12, catMeta),
@@ -1304,8 +1310,8 @@ function AnalyticsTab({
               </div>
               <div className="note" style={{ fontSize: 11.5, marginTop: 6 }}>
                 {forecast.overBudget
-                  ? `On track to exceed your budget by ${cfmt(forecast.projected - monthlyBudget)} (${forecast.vsBudgetPct}%). Easing the daily pace keeps you within plan.`
-                  : `Projected to use ${forecast.vsBudgetPct}% of your ${cfmt(monthlyBudget)} budget — comfortably on track.`}
+                  ? `On track to exceed your spending budget by ${cfmt(forecast.projected - spendableBudget)} (${forecast.vsBudgetPct}%). Savings are excluded — easing the daily pace keeps you within plan.`
+                  : `Projected to use ${forecast.vsBudgetPct}% of your ${cfmt(spendableBudget)} spending budget — comfortably on track.`}
               </div>
             </div>
           )}
