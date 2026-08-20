@@ -6,6 +6,7 @@ import ExpensePage from '../tools/pages/ExpensePage';
 import { buildExpenseExport } from '../tools/lib/reports';
 import { currentMonth } from '../tools/lib/month';
 import { computeDashboard } from '../tools/lib/expense';
+import { computeCommitments } from '../tools/lib/commitments';
 import { mergedCats } from '../tools/lib/budget';
 
 const CM = currentMonth();
@@ -172,22 +173,23 @@ describe('dashboard summary metrics', () => {
     const r = computeDashboard('2026-07', items, cats, { rent: 20000 }, NOW, 50000);
 
     expect(r.daysInMonth).toBe(31);
-    expect(r.daysRemaining).toBe(21);
+    // Today included: the 10th through the 31st is 22 days, not 21.
+    expect(r.daysRemaining).toBe(22);
     expect(r.budgetUsedPct).toBe(60);
-    expect(r.dailySafeSpend).toBeCloseTo(8000 / 21, 6);
+    expect(r.dailySafeSpend).toBeCloseTo(8000 / 22, 6);
     expect(r.netCashFlow).toBe(38000);
     expect(r.tone).toBe('safe');
   });
 
   it('keeps money budgeted for savings out of the daily safe spend', () => {
     // 20k of the 30k budget is earmarked for investing. Only the 10k of real
-    // spending money should pace: 10000 − 3000 = 7000 over the 21 days left.
+    // spending money should pace: 10000 − 3000 = 7000 over the 22 days left.
     const items = [{ id: '1', amount: 3000, category: 'groceries', date: '2026-07-02' }];
     const r = computeDashboard('2026-07', items, cats, { groceries: 10000, stocks: 20000 }, NOW);
 
     expect(r.spendableBudget).toBe(10000);
     expect(r.spendableRemaining).toBe(7000);
-    expect(r.dailySafeSpend).toBeCloseTo(7000 / 21, 6);
+    expect(r.dailySafeSpend).toBeCloseTo(7000 / 22, 6);
     // The whole-budget figures are untouched — this is budget vs actual.
     expect(r.monthlyBudget).toBe(30000);
     expect(r.remaining).toBe(27000);
@@ -203,8 +205,38 @@ describe('dashboard summary metrics', () => {
     const r = computeDashboard('2026-07', items, cats, { groceries: 10000, stocks: 20000 }, NOW);
 
     expect(r.spendableSpent).toBe(3000);
-    expect(r.dailySafeSpend).toBeCloseTo(7000 / 21, 6);
+    expect(r.dailySafeSpend).toBeCloseTo(7000 / 22, 6);
     expect(r.monthlySpent).toBe(23000);
+  });
+
+  /**
+   * The bug this pins: the allowance used to divide by the days AFTER today
+   * while today's spending was already counted against it, so spending the
+   * stated figure every remaining day overshot the budget by exactly one day's
+   * worth — every month, on every day but the last.
+   */
+  it('spends out exactly, not one day over, if the allowance is followed', () => {
+    const r = computeDashboard('2026-07', [], cats, { groceries: 11000 }, NOW);
+    expect(r.dailySafeSpend).not.toBeNull();
+    // Spend the stated allowance on each remaining day, today included.
+    const spentIfFollowed = r.dailySafeSpend! * r.daysRemaining;
+    expect(spentIfFollowed).toBeCloseTo(r.spendableRemaining, 6);
+  });
+
+  it('still hands the whole remainder to the last day of the month', () => {
+    const lastDay = new Date('2026-07-31T10:00:00');
+    const r = computeDashboard('2026-07', [], cats, { groceries: 900 }, lastDay);
+    expect(r.daysRemaining).toBe(1);
+    expect(r.dailySafeSpend).toBe(900);
+  });
+
+  it('agrees with the commitments card on how many days are left', () => {
+    // Both figures sit on the Overview tab, side by side. They divide by the
+    // same span or one of them is lying: `computeCommitments` counts today,
+    // and `daysRemaining` is what the pacing figure divides by.
+    const r = computeDashboard('2026-07', [], cats, { groceries: 10000 }, NOW);
+    const outlook = computeCommitments([], new Map(), '2026-07', NOW, r.spendableRemaining);
+    expect(r.daysRemaining).toBe(outlook.daysLeft);
   });
 
   it('reports no daily allowance when the whole budget is savings', () => {

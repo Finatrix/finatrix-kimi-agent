@@ -97,19 +97,19 @@ export default function OffersPage() {
       <div className="card">
         <div className="panel-eyebrow" style={{ marginBottom: 12 }}>New offer</div>
         <div className="grid3" style={{ marginBottom: 10 }}>
-          <input className="fi" placeholder="Company *" value={form.company_name} onChange={(e) => setForm((f) => ({ ...f, company_name: e.target.value }))} />
-          <input className="fi" placeholder="Job title *" value={form.job_title} onChange={(e) => setForm((f) => ({ ...f, job_title: e.target.value }))} />
-          <input className="fi" type="number" placeholder="Base salary / yr" value={form.base_salary} onChange={(e) => setForm((f) => ({ ...f, base_salary: e.target.value }))} />
+          <input className="fi" placeholder="Company *" aria-label="Company (required)" value={form.company_name} onChange={(e) => setForm((f) => ({ ...f, company_name: e.target.value }))} />
+          <input className="fi" placeholder="Job title *" aria-label="Job title (required)" value={form.job_title} onChange={(e) => setForm((f) => ({ ...f, job_title: e.target.value }))} />
+          <input className="fi" type="number" placeholder="Base salary / yr" aria-label="Base salary / yr" value={form.base_salary} onChange={(e) => setForm((f) => ({ ...f, base_salary: e.target.value }))} />
         </div>
         <div className="grid3" style={{ marginBottom: 10 }}>
-          <input className="fi" type="number" placeholder="Bonus" value={form.bonus} onChange={(e) => setForm((f) => ({ ...f, bonus: e.target.value }))} />
-          <input className="fi" placeholder="Equity" value={form.equity} onChange={(e) => setForm((f) => ({ ...f, equity: e.target.value }))} />
-          <input className="fi" placeholder="Currency" value={form.currency} onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))} />
+          <input className="fi" type="number" placeholder="Bonus" aria-label="Bonus" value={form.bonus} onChange={(e) => setForm((f) => ({ ...f, bonus: e.target.value }))} />
+          <input className="fi" placeholder="Equity" aria-label="Equity" value={form.equity} onChange={(e) => setForm((f) => ({ ...f, equity: e.target.value }))} />
+          <input className="fi" placeholder="Currency" aria-label="Currency" value={form.currency} onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))} />
         </div>
         <div className="grid3" style={{ marginBottom: 14 }}>
-          <input className="fi" placeholder="Work mode (onsite/hybrid/remote)" value={form.work_mode} onChange={(e) => setForm((f) => ({ ...f, work_mode: e.target.value }))} />
-          <input className="fi" placeholder="Visa sponsorship" value={form.visa_sponsorship} onChange={(e) => setForm((f) => ({ ...f, visa_sponsorship: e.target.value }))} />
-          <input className="fi" placeholder="Notice period" value={form.notice_period} onChange={(e) => setForm((f) => ({ ...f, notice_period: e.target.value }))} />
+          <input className="fi" placeholder="Work mode (onsite/hybrid/remote)" aria-label="Work mode (onsite/hybrid/remote)" value={form.work_mode} onChange={(e) => setForm((f) => ({ ...f, work_mode: e.target.value }))} />
+          <input className="fi" placeholder="Visa sponsorship" aria-label="Visa sponsorship" value={form.visa_sponsorship} onChange={(e) => setForm((f) => ({ ...f, visa_sponsorship: e.target.value }))} />
+          <input className="fi" placeholder="Notice period" aria-label="Notice period" value={form.notice_period} onChange={(e) => setForm((f) => ({ ...f, notice_period: e.target.value }))} />
         </div>
         <button className={`btn ${saving ? 'btn-loading' : ''}`} disabled={saving} onClick={() => void add()}>Add offer</button>
       </div>
@@ -137,6 +137,7 @@ export default function OffersPage() {
           <div className="card" key={o.id} style={{ padding: 16, marginBottom: 10 }}>
             <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
               <input type="checkbox" style={{ marginTop: 4 }} checked={compareIds.includes(o.id)}
+                aria-label={`Compare offer: ${o.job_title} at ${o.company_name}`}
                 onChange={(e) => setCompareIds((ids) => e.target.checked ? [...ids, o.id] : ids.filter((x) => x !== o.id))} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <b>{o.job_title}</b> — {o.company_name}
@@ -147,7 +148,7 @@ export default function OffersPage() {
                   <span>Received {formatDate(o.received_at)}</span>
                 </div>
               </div>
-              <select className="fs" style={{ width: 'auto' }} value={o.status} onChange={(e) => { if (user) void setOfferStatus(user.id, o.id, e.target.value as OfferStatus).then(load); }}>
+              <select className="fs" style={{ width: 'auto' }} aria-label={`Status of offer: ${o.job_title} at ${o.company_name}`} value={o.status} onChange={(e) => { if (user) void setOfferStatus(user.id, o.id, e.target.value as OfferStatus).then(load); }}>
                 {(['received', 'negotiating', 'accepted', 'declined', 'expired'] as OfferStatus[]).map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
               <button className="icon-btn danger" aria-label={`Delete offer ${o.job_title}`} onClick={() => { if (user) void deleteOffer(user.id, o.id).then(load); }}>✕</button>

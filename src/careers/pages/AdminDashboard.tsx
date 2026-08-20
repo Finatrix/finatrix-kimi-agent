@@ -344,13 +344,13 @@ export default function AdminDashboard() {
               </div>
             ))}
             <div className="grid3" style={{ marginTop: 14 }}>
-              <input className="fi" placeholder="Flag name" value={flagForm.flag} onChange={(e) => setFlagForm((f) => ({ ...f, flag: e.target.value }))} />
-              <select className="fs" value={flagForm.scope} onChange={(e) => setFlagForm((f) => ({ ...f, scope: e.target.value as typeof f.scope }))}>
+              <input className="fi" placeholder="Flag name" aria-label="Flag name" value={flagForm.flag} onChange={(e) => setFlagForm((f) => ({ ...f, flag: e.target.value }))} />
+              <select className="fs" aria-label="Flag scope" value={flagForm.scope} onChange={(e) => setFlagForm((f) => ({ ...f, scope: e.target.value as typeof f.scope }))}>
                 <option value="user">User</option>
                 <option value="org">Organization</option>
                 <option value="plan">Plan</option>
               </select>
-              <input className="fi" placeholder="Scope id" value={flagForm.scopeId} onChange={(e) => setFlagForm((f) => ({ ...f, scopeId: e.target.value }))} />
+              <input className="fi" placeholder="Scope id" aria-label="Scope id" value={flagForm.scopeId} onChange={(e) => setFlagForm((f) => ({ ...f, scopeId: e.target.value }))} />
             </div>
             <label className="note" style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0' }}>
               <input type="checkbox" checked={flagForm.killSwitch} onChange={(e) => setFlagForm((f) => ({ ...f, killSwitch: e.target.checked }))} />
@@ -378,8 +378,8 @@ export default function AdminDashboard() {
         <>
           <div className="card">
             <div className="panel-eyebrow" style={{ marginBottom: 8 }}>New announcement</div>
-            <input className="fi" style={{ marginBottom: 8 }} placeholder="Title" value={annForm.title} onChange={(e) => setAnnForm((f) => ({ ...f, title: e.target.value }))} />
-            <textarea className="fi" style={{ minHeight: 70, marginBottom: 8 }} placeholder="Body" value={annForm.body} onChange={(e) => setAnnForm((f) => ({ ...f, body: e.target.value }))} />
+            <input className="fi" style={{ marginBottom: 8 }} placeholder="Title" aria-label="Title" value={annForm.title} onChange={(e) => setAnnForm((f) => ({ ...f, title: e.target.value }))} />
+            <textarea className="fi" style={{ minHeight: 70, marginBottom: 8 }} placeholder="Body" aria-label="Body" value={annForm.body} onChange={(e) => setAnnForm((f) => ({ ...f, body: e.target.value }))} />
             <button className="btn btn-sm" onClick={() => void addAnnouncement()}>Publish</button>
           </div>
           <div className="card">
@@ -406,7 +406,7 @@ export default function AdminDashboard() {
           {tickets.map((t) => (
             <div className="act-row" key={t.id}>
               <div style={{ flex: 1 }}><b>{t.subject}</b><div className="note">{t.body.slice(0, 100)}</div></div>
-              <select className="fs" style={{ width: 'auto' }} value={t.status} onChange={(e) => {
+              <select className="fs" style={{ width: 'auto' }} aria-label={`Status of ticket: ${t.subject}`} value={t.status} onChange={(e) => {
                 const status = e.target.value as TicketStatus;
                 void setTicketStatus(t.id, status).then(() => {
                   if (user) logAudit(user.id, 'support_ticket.status_changed', { type: 'support_ticket', id: t.id }, { status });

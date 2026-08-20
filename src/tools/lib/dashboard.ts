@@ -9,6 +9,7 @@
  * reports `done: false`, and the UI shows a guiding empty state instead of a
  * fabricated figure. Pure/read-only; no writes, no side effects.
  */
+import { ymLocal } from '../../lib/date';
 import { store, getJSON } from './storage';
 import { currentMonth } from './month';
 import { computeBudget, allCategories, type BudgetStore } from './budget';
@@ -180,7 +181,7 @@ export function readDashboard(): DashboardSnapshot {
       // Previous calendar month (YYYY-MM) — for an honest spend-trend signal.
       const [cy, cmo] = cm.split('-').map(Number);
       const pd = new Date(cy, (cmo - 1) - 1, 1);
-      const prevKey = `${pd.getFullYear()}-${String(pd.getMonth() + 1).padStart(2, '0')}`;
+      const prevKey = ymLocal(pd);
       const prevItems = items.filter((e) => (e.date || '').slice(0, 7) === prevKey);
       if (prevItems.length > 0) prevMonthSpend = prevItems.reduce((s, e) => s + num(e.amount), 0);
       // Keys are migrated before summing, exactly as computeDashboard does, so a

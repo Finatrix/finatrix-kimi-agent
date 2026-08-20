@@ -89,21 +89,21 @@ export default function AssessmentsPage() {
       <div className="card">
         <div className="panel-eyebrow" style={{ marginBottom: 12 }}>New assessment</div>
         <div className="grid3" style={{ marginBottom: 10 }}>
-          <input className="fi" placeholder="Title *" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
-          <select className="fs" value={form.kind} onChange={(e) => setForm((f) => ({ ...f, kind: e.target.value as AssessmentKind }))}>
+          <input className="fi" placeholder="Title *" aria-label="Title (required)" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
+          <select className="fs" aria-label="Assessment type" value={form.kind} onChange={(e) => setForm((f) => ({ ...f, kind: e.target.value as AssessmentKind }))}>
             {ASSESSMENT_KINDS.map((k) => <option key={k} value={k}>{k.replace('_', ' ')}</option>)}
           </select>
-          <select className="fs" value={form.applicationId} onChange={(e) => setForm((f) => ({ ...f, applicationId: e.target.value }))}>
+          <select className="fs" aria-label="Linked application" value={form.applicationId} onChange={(e) => setForm((f) => ({ ...f, applicationId: e.target.value }))}>
             <option value="">No linked application</option>
             {applications.map((a) => <option key={a.id} value={a.id}>{a.job_title} — {a.company_name}</option>)}
           </select>
         </div>
         <div className="grid3" style={{ marginBottom: 10 }}>
-          <input className="fi" placeholder="Provider (e.g. HackerRank)" value={form.provider} onChange={(e) => setForm((f) => ({ ...f, provider: e.target.value }))} />
-          <input className="fi" placeholder="Link" value={form.link} onChange={(e) => setForm((f) => ({ ...f, link: e.target.value }))} />
-          <input className="fi" type="datetime-local" value={form.dueAt} onChange={(e) => setForm((f) => ({ ...f, dueAt: e.target.value }))} />
+          <input className="fi" placeholder="Provider (e.g. HackerRank)" aria-label="Provider (e.g. HackerRank)" value={form.provider} onChange={(e) => setForm((f) => ({ ...f, provider: e.target.value }))} />
+          <input className="fi" placeholder="Link" aria-label="Link" value={form.link} onChange={(e) => setForm((f) => ({ ...f, link: e.target.value }))} />
+          <input className="fi" type="datetime-local" aria-label="Due date and time" value={form.dueAt} onChange={(e) => setForm((f) => ({ ...f, dueAt: e.target.value }))} />
         </div>
-        <textarea className="fi" style={{ minHeight: 60, marginBottom: 10 }} placeholder="Prep notes" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
+        <textarea className="fi" style={{ minHeight: 60, marginBottom: 10 }} placeholder="Prep notes" aria-label="Prep notes" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
         <button className={`btn ${saving ? 'btn-loading' : ''}`} disabled={saving} onClick={() => void add()}>Add assessment</button>
       </div>
 

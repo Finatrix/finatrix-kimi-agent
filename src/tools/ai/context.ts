@@ -85,6 +85,7 @@ export interface FinanceSnapshot {
   isCurrentMonth: boolean;
   daysInMonth: number;
   daysElapsed: number;
+  /** Days left in the month, today included — what `dailySafeSpend` divides by. */
   daysRemaining: number;
 
   income: number | null;

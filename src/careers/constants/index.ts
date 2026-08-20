@@ -1,8 +1,5 @@
 /** FinatriX Careers — module-wide constants. */
 
-/** Careers brand accent (matches the gold-forward FinatriX palette). */
-export const CAREERS_COLOR = '#D4AF37';
-
 export const CAREERS_ROUTES = {
   /**
    * The PUBLIC Careers landing page — marketing, indexable, no auth. It is not

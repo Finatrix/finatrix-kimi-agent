@@ -8,6 +8,7 @@
  * link 404s in production.
  */
 import { describe, it, expect } from 'vitest';
+import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { CANONICAL_HOST, TOOL_IDS } from '../shared/routes';
@@ -285,6 +286,42 @@ describe('deploy configuration', () => {
     // self-hosted OCR worker (workers read CSP from their own response).
     const starBlock = headers.split(/^\/(?:\S*)$/m)[1] ?? '';
     expect(starBlock).not.toContain('Content-Security-Policy');
+  });
+
+  /**
+   * The inline theme-boot script is allowed by a sha256 hash, and the hash is
+   * maintained BY HAND in two places (the meta CSP in index.html and both
+   * header blocks in _headers).
+   *
+   * Nothing else can catch this drifting. The script sets `data-theme` before
+   * first paint; blocked, it does not throw, does not fail a build, does not
+   * fail a unit test and does not fail a deploy — every visitor simply gets a
+   * flash of the wrong theme and a wrong `theme-color`, on every load, and the
+   * only symptom is a CSP violation in a console nobody is watching. So the
+   * hash is recomputed here from the bytes that actually ship.
+   */
+  it('allows the inline theme-boot script by a hash that matches its bytes', () => {
+    const html = read('index.html');
+    const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+    // One inline script, and it is the theme boot. A second one would need its
+    // own hash and would otherwise be silently blocked.
+    expect(inline).toHaveLength(1);
+    expect(inline[0]).toContain("setAttribute('data-theme'");
+
+    const digest = createHash('sha256').update(inline[0], 'utf8').digest('base64');
+    const expected = `'sha256-${digest}'`;
+
+    const policies = [
+      /http-equiv="Content-Security-Policy"\s+content="([^"]+)"/.exec(html)?.[1] ?? '',
+      ...[...read('public/_headers').matchAll(/^\s*Content-Security-Policy: (.+)$/gm)].map((m) => m[1]),
+    ];
+    expect(policies).toHaveLength(3);
+    for (const policy of policies) {
+      expect(
+        policy,
+        `script-src must carry ${expected} — recompute it after editing the boot script in index.html`,
+      ).toContain(expected);
+    }
   });
 });
 

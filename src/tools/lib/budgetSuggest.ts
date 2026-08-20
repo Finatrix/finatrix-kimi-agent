@@ -19,6 +19,7 @@
  */
 
 import type { IconName } from '../ui/Icon';
+import { ymLocal } from '../../lib/date';
 import { allCategories, type SectionedCats, type CatKey } from './budget';
 import { migrateCategory, type ExpenseItem } from './expense';
 
@@ -93,7 +94,7 @@ export function monthsBefore(month: string, count: number): string[] {
   const out: string[] = [];
   for (let i = count; i >= 1; i--) {
     const d = new Date(y, m - 1 - i, 1);
-    out.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'));
+    out.push(ymLocal(d));
   }
   return out;
 }

@@ -98,22 +98,22 @@ export default function TasksPage() {
       <div className="card">
         <div className="panel-eyebrow" style={{ marginBottom: 12 }}>New task</div>
         <div className="grid3" style={{ marginBottom: 10 }}>
-          <input className="fi" placeholder="Task title *" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
-          <select className="fs" value={form.kind} onChange={(e) => setForm((f) => ({ ...f, kind: e.target.value as TaskKind }))}>
+          <input className="fi" placeholder="Task title *" aria-label="Task title (required)" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
+          <select className="fs" aria-label="Task type" value={form.kind} onChange={(e) => setForm((f) => ({ ...f, kind: e.target.value as TaskKind }))}>
             {TASK_KINDS.map((k) => <option key={k} value={k}>{k.replace('_', ' ')}</option>)}
           </select>
-          <select className="fs" value={form.applicationId} onChange={(e) => setForm((f) => ({ ...f, applicationId: e.target.value }))}>
+          <select className="fs" aria-label="Linked application" value={form.applicationId} onChange={(e) => setForm((f) => ({ ...f, applicationId: e.target.value }))}>
             <option value="">No linked application</option>
             {applications.map((a) => <option key={a.id} value={a.id}>{a.job_title} — {a.company_name}</option>)}
           </select>
         </div>
         <div className="grid3" style={{ marginBottom: 14 }}>
-          <select className="fs" value={form.priority} onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value as TaskPriority }))}>
+          <select className="fs" aria-label="Priority" value={form.priority} onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value as TaskPriority }))}>
             <option value="low">Low priority</option>
             <option value="medium">Medium priority</option>
             <option value="high">High priority</option>
           </select>
-          <input className="fi" type="datetime-local" value={form.dueAt} onChange={(e) => setForm((f) => ({ ...f, dueAt: e.target.value }))} />
+          <input className="fi" type="datetime-local" aria-label="Due date and time" value={form.dueAt} onChange={(e) => setForm((f) => ({ ...f, dueAt: e.target.value }))} />
           <button className={`btn ${adding ? 'btn-loading' : ''}`} disabled={adding} onClick={() => void add()}>Add task</button>
         </div>
       </div>

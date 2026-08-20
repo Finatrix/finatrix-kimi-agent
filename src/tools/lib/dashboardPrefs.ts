@@ -41,10 +41,6 @@ export function saveDashPrefs(prefs: DashPrefs): void {
   setJSON(KEY, { order: prefs.order, hidden: prefs.hidden });
 }
 
-export function isHidden(id: DashSectionId): boolean {
-  return getDashPrefs().hidden.includes(id);
-}
-
 /** Show/hide a section; returns the updated prefs. */
 export function toggleSection(id: DashSectionId): DashPrefs {
   const p = getDashPrefs();

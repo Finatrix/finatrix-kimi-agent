@@ -9,7 +9,8 @@
  * Every function is pure and unit-testable.
  */
 import type { ExpenseItem, SectionSplit } from './expense';
-import { ymdLocal, migrateCategory, splitBySection } from './expense';
+import { migrateCategory, splitBySection } from './expense';
+import { ymdLocal, ymLocal } from '../../lib/date';
 import type { CatKey } from './budget';
 import type { IconName } from '../ui/Icon';
 import { monthLabel } from './month';
@@ -29,9 +30,20 @@ import { monthLabel } from './month';
  * That is not cosmetic in this file. These are the figures behind "your biggest
  * category", the month-over-month comparison and the generated insights — a
  * split bucket understates a category and can flip a comparison's direction.
+ *
+ * Takes the live key SET rather than the map, so callers build it once instead
+ * of once per transaction. The previous signature took the map and rebuilt
+ * `new Set(catMeta.keys())` on every single call — inside `computeMonthlyTrend`
+ * that is one set of every category allocated per transaction per month, twelve
+ * times over, on a page that re-renders while the user types.
  */
-function catKeyOf(category: string, catMeta: Map<string, CatMeta>): string {
-  return migrateCategory(category, new Set(catMeta.keys()));
+function catKeyOf(category: string, validKeys: ReadonlySet<string>): string {
+  return migrateCategory(category, validKeys);
+}
+
+/** The user's live category keys — the migration table `catKeyOf` resolves against. */
+function catKeys(catMeta: Map<string, CatMeta>): ReadonlySet<string> {
+  return new Set(catMeta.keys());
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -84,16 +96,32 @@ export interface RecurringPattern {
   icon: IconName;
   merchant: string | null;
   avgAmount: number;
-  frequency: 'monthly' | 'weekly';
+  /**
+   * Only ever `'monthly'`. The union used to also offer `'weekly'`, which
+   * `detectRecurring` has no branch that can produce — so every consumer's
+   * "is this monthly?" guard was a test that could not fail, and the type
+   * described a capability the code does not have.
+   */
+  frequency: 'monthly';
   monthsDetected: number;
   lastDate: string;
   estimatedMonthly: number;
 }
 
+/**
+ * A run of consecutive days that reaches the present.
+ *
+ * There is deliberately no `longest`. The field existed and was a fiction in
+ * both directions: the logging scan stopped at the first boundary it hit, so
+ * "longest" could only ever equal `current`, and the no-spend value was
+ * assigned `current` outright under a comment admitting it. Nothing rendered
+ * either. A number nobody entered is a number nobody should be shown — and an
+ * unrendered wrong one is worse, because it is waiting to be believed.
+ */
 export interface SpendingStreak {
   type: 'no_spend' | 'under_budget' | 'logging';
-  current: number;     // consecutive days
-  longest: number;
+  /** Consecutive days, ending today or (for logging) yesterday. */
+  current: number;
   label: string;
 }
 
@@ -154,13 +182,14 @@ export function computeMonthlyTrend(
 ): MonthlyTrend[] {
   const [ey, em] = endMonth.split('-').map(Number);
   const trend: MonthlyTrend[] = [];
-  // Hoisted: `catKeyOf` rebuilds this set per call, which inside a 12-month
-  // loop over every transaction is the same allocation many times over.
-  const validKeys = new Set(catMeta.keys());
+  // Hoisted once for the whole 12-month sweep: both `catKeyOf` and
+  // `splitBySection` resolve against it, and rebuilding it per transaction is
+  // the allocation this function used to make thousands of times.
+  const validKeys = catKeys(catMeta);
 
   for (let i = months - 1; i >= 0; i--) {
     const d = new Date(ey, em - 1 - i, 1);
-    const mk = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    const mk = ymLocal(d);
     const monthItems = items.filter((e) => (e.date || '').startsWith(mk));
     const spent = monthItems.reduce((s, e) => s + e.amount, 0);
     const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
@@ -168,7 +197,7 @@ export function computeMonthlyTrend(
     // Top category
     const byCat: Record<string, number> = {};
     monthItems.forEach((e) => {
-      const k = catKeyOf(e.category, catMeta);
+      const k = catKeyOf(e.category, validKeys);
       byCat[k] = (byCat[k] || 0) + e.amount;
     });
     const sorted = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
@@ -200,19 +229,20 @@ export function computeCategoryComparison(
 ): CategoryComparison[] {
   const [y, m] = currentMonth.split('-').map(Number);
   const prevDate = new Date(y, m - 2, 1);
-  const prevMonth = prevDate.getFullYear() + '-' + String(prevDate.getMonth() + 1).padStart(2, '0');
+  const prevMonth = ymLocal(prevDate);
 
   const curItems = items.filter((e) => (e.date || '').startsWith(currentMonth));
   const prevItems = items.filter((e) => (e.date || '').startsWith(prevMonth));
 
+  const validKeys = catKeys(catMeta);
   const curByCat: Record<string, number> = {};
   const prevByCat: Record<string, number> = {};
   curItems.forEach((e) => {
-    const k = catKeyOf(e.category, catMeta);
+    const k = catKeyOf(e.category, validKeys);
     curByCat[k] = (curByCat[k] || 0) + e.amount;
   });
   prevItems.forEach((e) => {
-    const k = catKeyOf(e.category, catMeta);
+    const k = catKeyOf(e.category, validKeys);
     prevByCat[k] = (prevByCat[k] || 0) + e.amount;
   });
 
@@ -307,21 +337,31 @@ export function detectRecurring(
   items: ExpenseItem[],
   catMeta: Map<string, CatMeta>,
 ): RecurringPattern[] {
-  // Group by (category, merchant|null) and look for monthly patterns
-  const groups = new Map<string, ExpenseItem[]>();
+  // Group by (category, merchant|null) and look for monthly patterns.
+  //
+  // The group's identity is carried as FIELDS, not re-parsed out of the key.
+  // `key.split('::')` took the first two segments, so a merchant that contains
+  // "::" — pasted from a statement, or typed — silently lost everything after
+  // it and was matched against a truncated name for the rest of its life.
+  interface Group { cat: string; merchant: string; txs: ExpenseItem[] }
+  const groups = new Map<string, Group>();
+  const validKeys = catKeys(catMeta);
 
   items.forEach((e) => {
     // Only consider items explicitly marked recurring OR with merchant+category pattern
     // Resolved, so a subscription logged before the merge and after it is ONE
     // recurring pattern rather than two half-confident ones.
-    const key = `${catKeyOf(e.category, catMeta)}::${e.merchant?.toLowerCase() || ''}`;
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key)!.push(e);
+    const cat = catKeyOf(e.category, validKeys);
+    const merchant = e.merchant?.toLowerCase() || '';
+    const key = `${cat}::${merchant}`;
+    const group = groups.get(key) ?? { cat, merchant, txs: [] };
+    group.txs.push(e);
+    groups.set(key, group);
   });
 
   const patterns: RecurringPattern[] = [];
 
-  for (const [key, txs] of groups) {
+  for (const { cat, merchant, txs } of groups.values()) {
     if (txs.length < 2) continue;
 
     // Check if explicitly recurring
@@ -334,6 +374,12 @@ export function detectRecurring(
     // Compute average amount
     const avgAmount = txs.reduce((s, t) => s + t.amount, 0) / txs.length;
 
+    // A pattern that averages zero or less is not a bill. It is a category
+    // whose refunds cancel its charges (or exceed them), and treating it as one
+    // would put a ₹0 line in "already spoken for" — or, with a negative
+    // average, ADD to the money reported as free to spend.
+    if (avgAmount <= 0) continue;
+
     // Check amount consistency (coefficient of variation < 0.3 for monthly)
     if (txs.length >= 3 && !hasRecurringFlag) {
       const mean = avgAmount;
@@ -342,7 +388,6 @@ export function detectRecurring(
       if (cv > 0.5) continue; // Too variable to be recurring
     }
 
-    const [cat, merchant] = key.split('::');
     const meta = catMeta.get(cat);
     const sortedDates = txs.map((t) => t.date).sort();
     const lastDate = sortedDates[sortedDates.length - 1];
@@ -367,53 +412,56 @@ export function detectRecurring(
    Spending streaks
    ══════════════════════════════════════════════════════════════════════════ */
 
+/** How far back a streak is looked for. Beyond this it is history, not a run. */
+const STREAK_WINDOW_DAYS = 365;
+/** A no-spend run is a shorter-horizon claim; past this it is just dormancy. */
+const NO_SPEND_WINDOW_DAYS = 90;
+
+/**
+ * The streaks shown on the Overview tab.
+ *
+ * A "current" streak must REACH the present, and that is the whole subtlety.
+ * The previous implementation walked backwards and reported the first run it
+ * found anywhere in the window, so a ledger last touched two hundred days ago
+ * for five days running was presented as "5 days logging" — a badge for a habit
+ * the user had already lost. Today or yesterday is the boundary: yesterday
+ * counts because someone who logs each evening has not broken anything by
+ * having logged nothing yet this morning.
+ */
 export function computeStreaks(items: ExpenseItem[], now: Date): SpendingStreak[] {
-  const today = ymdLocal(now);
   const txDates = new Set(items.map((e) => e.date));
   const streaks: SpendingStreak[] = [];
 
-  // Logging streak: consecutive days with at least one transaction (ending today or yesterday)
-  let loggingCurrent = 0;
-  let loggingLongest = 0;
-  let consecutive = 0;
-  const d = new Date(now);
-  for (let i = 0; i < 365; i++) {
-    const dateStr = ymdLocal(d);
-    if (txDates.has(dateStr)) {
-      consecutive++;
-      if (i === 0 || (i === 1 && !txDates.has(today))) {
-        // Still in current streak
-      }
-    } else {
-      if (i === 0) {
-        // Today has no transactions — check if yesterday started
-        // Continue loop
-      } else {
-        if (loggingCurrent === 0 && consecutive > 0) loggingCurrent = consecutive;
-        loggingLongest = Math.max(loggingLongest, consecutive);
-        consecutive = 0;
-        if (loggingCurrent > 0) break; // Found the current streak boundary
-      }
+  /** Days with at least one transaction, counted back from `from`. */
+  const runEndingAt = (from: Date, limit: number): number => {
+    const d = new Date(from);
+    let run = 0;
+    while (run < limit && txDates.has(ymdLocal(d))) {
+      run += 1;
+      d.setDate(d.getDate() - 1);
     }
-    d.setDate(d.getDate() - 1);
-  }
-  loggingLongest = Math.max(loggingLongest, consecutive);
-  if (loggingCurrent === 0) loggingCurrent = consecutive;
+    return run;
+  };
+
+  // Anchored at today, or at yesterday when today is simply not logged yet.
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const loggingCurrent = txDates.has(ymdLocal(now))
+    ? runEndingAt(now, STREAK_WINDOW_DAYS)
+    : runEndingAt(yesterday, STREAK_WINDOW_DAYS);
 
   streaks.push({
     type: 'logging',
     current: loggingCurrent,
-    longest: loggingLongest,
     label: loggingCurrent > 0
       ? `${loggingCurrent} day${loggingCurrent > 1 ? 's' : ''} logging`
       : 'Start logging daily',
   });
 
-  // No-spend streak: consecutive days without spending
+  // No-spend streak: consecutive days, ending today, with nothing logged.
   let noSpendCurrent = 0;
   const d2 = new Date(now);
-  for (let i = 0; i < 90; i++) {
-    if (txDates.has(ymdLocal(d2))) break;
+  while (noSpendCurrent < NO_SPEND_WINDOW_DAYS && !txDates.has(ymdLocal(d2))) {
     noSpendCurrent++;
     d2.setDate(d2.getDate() - 1);
   }
@@ -421,7 +469,6 @@ export function computeStreaks(items: ExpenseItem[], now: Date): SpendingStreak[
     streaks.push({
       type: 'no_spend',
       current: noSpendCurrent,
-      longest: noSpendCurrent, // Would need full history for true longest
       label: `${noSpendCurrent} no-spend day${noSpendCurrent > 1 ? 's' : ''}`,
     });
   }
@@ -446,6 +493,18 @@ export function generateInsights(
 
   if (curItems.length === 0) return insights;
 
+  const validKeys = catKeys(catMeta);
+  /**
+   * Is `currentMonth` the month that is actually running?
+   *
+   * The caller passes the month the user is LOOKING at, which is routinely a
+   * past one. Only the pacing insight below cares, and it cared silently: it
+   * compared a finished month's total against `now.getDate() / daysInMonth`,
+   * so opening June in August told the user they were "spending ahead of pace"
+   * with "only 61% of the month" gone — of a month that ended weeks ago.
+   */
+  const isRunningMonth = currentMonth === ymLocal(now);
+
   // 1. Weekend vs weekday spending
   const weekendSpend = curItems
     .filter((e) => { const d = new Date(e.date + 'T00:00:00'); const dow = d.getDay(); return dow === 0 || dow === 6; })
@@ -468,7 +527,7 @@ export function generateInsights(
       id: 'large_tx',
       tone: 'info',
       title: 'Big ticket item',
-      body: `Your largest transaction (${maxTx.merchant || maxTx.note || catMeta.get(catKeyOf(maxTx.category, catMeta))?.l || 'Unknown'}) accounts for ${Math.round((maxTx.amount / totalSpent) * 100)}% of this month's spending.`,
+      body: `Your largest transaction (${maxTx.merchant || maxTx.note || catMeta.get(catKeyOf(maxTx.category, validKeys))?.l || 'Unknown'}) accounts for ${Math.round((maxTx.amount / totalSpent) * 100)}% of this month's spending.`,
       icon: 'trending',
     });
   }
@@ -476,7 +535,7 @@ export function generateInsights(
   // 3. Category concentration
   const byCat: Record<string, number> = {};
   curItems.forEach((e) => {
-    const k = catKeyOf(e.category, catMeta);
+    const k = catKeyOf(e.category, validKeys);
     byCat[k] = (byCat[k] || 0) + e.amount;
   });
   const catEntries = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
@@ -494,8 +553,10 @@ export function generateInsights(
     }
   }
 
-  // 4. Budget pace
-  if (monthlyBudget > 0) {
+  // 4. Budget pace. Only for the month that is running — "you have used 90% of
+  // your budget but only 61% of the month has passed" is a statement about a
+  // month in progress, and `now.getDate()` says nothing about any other one.
+  if (monthlyBudget > 0 && isRunningMonth) {
     const [, mo] = currentMonth.split('-').map(Number);
     const daysInMonth = new Date(Number(currentMonth.split('-')[0]), mo, 0).getDate();
     const dayOfMonth = now.getDate();
@@ -540,7 +601,7 @@ export function generateInsights(
   // 6. Month-over-month comparison
   const [cy, cm] = currentMonth.split('-').map(Number);
   const prevDate = new Date(cy, cm - 2, 1);
-  const prevMonthKey = prevDate.getFullYear() + '-' + String(prevDate.getMonth() + 1).padStart(2, '0');
+  const prevMonthKey = ymLocal(prevDate);
   const prevItems = items.filter((e) => (e.date || '').startsWith(prevMonthKey));
   const prevTotal = prevItems.reduce((s, e) => s + e.amount, 0);
 
@@ -610,9 +671,10 @@ export function computeAnalyticsSummary(
     : null;
 
   // Top category
+  const validKeys = catKeys(catMeta);
   const byCat: Record<string, number> = {};
   items.forEach((e) => {
-    const k = catKeyOf(e.category, catMeta);
+    const k = catKeyOf(e.category, validKeys);
     byCat[k] = (byCat[k] || 0) + e.amount;
   });
   const topCatEntry = Object.entries(byCat).sort((a, b) => b[1] - a[1])[0];
@@ -620,13 +682,11 @@ export function computeAnalyticsSummary(
     ? { key: topCatEntry[0], label: catMeta.get(topCatEntry[0])?.l ?? topCatEntry[0], total: topCatEntry[1] }
     : null;
 
-  // Recurring monthly estimate
-  const recurringMonthly = items
-    .filter((e) => e.recurring)
-    .reduce((s, e) => {
-      // Estimate monthly: if there are multiple months, average; otherwise use amount
-      return s + e.amount;
-    }, 0) / Math.max(monthsTracked, 1);
+  // Recurring monthly estimate: everything flagged recurring, averaged over the
+  // months the ledger actually covers. `monthsTracked` is already floored at 1
+  // above, so there is nothing further to guard against here.
+  const recurringMonthly =
+    items.filter((e) => e.recurring).reduce((s, e) => s + e.amount, 0) / monthsTracked;
 
   return {
     totalAllTime,
@@ -666,7 +726,7 @@ export function computeMonthForecast(
   now: Date,
   monthlyBudget = 0,
 ): MonthForecast {
-  const nowMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const nowMonth = ymLocal(now);
   const isCurrentMonth = month === nowMonth;
   const [y, mo] = month.split('-').map(Number);
   const daysInMonth = new Date(y, mo, 0).getDate();
