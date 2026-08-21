@@ -91,7 +91,7 @@ export default function RecruitersPage() {
       {(ctxError || loadError) && <ErrorCard error={(ctxError ?? loadError)!} onRetry={() => { void refresh(); void load(); }} />}
 
       <div className="lib-toolbar">
-        <input className="fi" style={{ maxWidth: 320 }} placeholder="Search recruiters…" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <input className="fi" style={{ maxWidth: 320 }} placeholder="Search recruiters…" aria-label="Search recruiters…" value={search} onChange={(e) => setSearch(e.target.value)} />
         <button className="btn btn-sm" style={{ width: 'auto' }} onClick={() => { setForm({ ...EMPTY_FORM }); setEditOpen(true); }}>+ Add recruiter</button>
       </div>
 
@@ -120,14 +120,14 @@ export default function RecruitersPage() {
         <ModalShell label="Add recruiter" onClose={() => setEditOpen(false)}>
             <h3>Add recruiter</h3>
             <div className="grid2" style={{ marginTop: 12 }}>
-              <input className="fi" placeholder="Name *" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
-              <input className="fi" placeholder="Role" value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} />
-              <input className="fi" placeholder="Company" value={form.company_name} onChange={(e) => setForm((f) => ({ ...f, company_name: e.target.value }))} />
-              <input className="fi" placeholder="Email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
-              <input className="fi" placeholder="Phone" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
-              <input className="fi" placeholder="LinkedIn URL" value={form.linkedin_url} onChange={(e) => setForm((f) => ({ ...f, linkedin_url: e.target.value }))} />
+              <input className="fi" placeholder="Name *" aria-label="Name (required)" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+              <input className="fi" placeholder="Role" aria-label="Role" value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} />
+              <input className="fi" placeholder="Company" aria-label="Company" value={form.company_name} onChange={(e) => setForm((f) => ({ ...f, company_name: e.target.value }))} />
+              <input className="fi" placeholder="Email" aria-label="Email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
+              <input className="fi" placeholder="Phone" aria-label="Phone" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
+              <input className="fi" placeholder="LinkedIn URL" aria-label="LinkedIn URL" value={form.linkedin_url} onChange={(e) => setForm((f) => ({ ...f, linkedin_url: e.target.value }))} />
             </div>
-            <textarea className="fi" style={{ minHeight: 80, marginTop: 10 }} placeholder="Notes" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
+            <textarea className="fi" style={{ minHeight: 80, marginTop: 10 }} placeholder="Notes" aria-label="Notes" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
             <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
               <button className="btn btn-sm" onClick={() => void save()}>Save</button>
               <button className="btn btn-ghost btn-sm" onClick={() => setEditOpen(false)}>Cancel</button>
@@ -141,7 +141,7 @@ export default function RecruitersPage() {
             {detail.notes && <p className="note" style={{ marginTop: 8 }}>{detail.notes}</p>}
             <div className="panel-eyebrow" style={{ marginTop: 16 }}>Log a contact</div>
             <div className="grid2" style={{ marginTop: 8 }}>
-              <select className="fs" value={logKind} onChange={(e) => setLogKind(e.target.value as InteractionKind)}>
+              <select className="fs" aria-label="Contact type" value={logKind} onChange={(e) => setLogKind(e.target.value as InteractionKind)}>
                 <option value="note">Note</option>
                 <option value="email">Email</option>
                 <option value="call">Call</option>
@@ -150,7 +150,7 @@ export default function RecruitersPage() {
               </select>
               <button className="btn btn-sm" onClick={() => void logNow()}>Log</button>
             </div>
-            <textarea className="fi" style={{ minHeight: 60, marginTop: 8 }} placeholder="What happened?" value={logBody} onChange={(e) => setLogBody(e.target.value)} />
+            <textarea className="fi" style={{ minHeight: 60, marginTop: 8 }} placeholder="What happened?" aria-label="What happened?" value={logBody} onChange={(e) => setLogBody(e.target.value)} />
             <div className="panel-eyebrow" style={{ marginTop: 16 }}>History</div>
             {interactions.map((i) => (
               <div className="act-row" key={i.id}>

@@ -34,6 +34,7 @@ import AuditTrail from '../ui/AuditTrail';
 import { QuickAddBar } from '../ui/QuickAddBar';
 import type { QuickAddResult } from '../lib/quickAdd';
 import { computeCommitments } from '../lib/commitments';
+import { ymdLocal } from '../../lib/date';
 import { haptic } from '../../lib/haptics';
 import { allCategories, SECTION_LABEL, type SectionedCats, type CatKey, type BudgetStore } from '../lib/budget';
 import { loadCatView } from '../lib/budgetCats';
@@ -188,7 +189,31 @@ export default function ExpensePage() {
     if (undoTimer.current) clearTimeout(undoTimer.current);
   }, []);
 
-  const now = new Date();
+  /**
+   * "Now", pinned to the calendar day.
+   *
+   * This was a bare `new Date()` evaluated on every render, and because a Date
+   * is an object it was a NEW IDENTITY every render — which silently disabled
+   * every `useMemo` downstream that takes it as a dependency: the generated
+   * insights, the logging streaks, the month-end forecast and the commitments
+   * outlook. The last of those runs `detectRecurring` over the WHOLE ledger, so
+   * a single keystroke in the amount field re-grouped every transaction the
+   * user has ever logged, four times over, before the character appeared.
+   *
+   * All five consumers — `computeDashboard`, `generateInsights`,
+   * `computeStreaks`, `computeMonthForecast` and `computeCommitments` — read it
+   * at day resolution only (`now.getDate()`, `ymdLocal`, `ymLocal`), so local
+   * midnight of today carries every bit of information any of them uses. That
+   * makes the identity stable for exactly as long as the answers are, and it
+   * still rolls over on its own at midnight in a tab left open, because
+   * `todayKey` is re-read on every render.
+   */
+  const todayKey = ymdLocal(new Date());
+  const now = useMemo(() => {
+    const [y, m, d] = todayKey.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }, [todayKey]);
+
   const r = computeDashboard(selMonth, items, cats, budget.vals, now, budget.income);
   const months = etMonthsWithData(items, currentMonth());
 
@@ -759,7 +784,7 @@ export default function ExpensePage() {
             recentCatKeys={recentCatKeys}
             addError={addError} amountRef={amountRef}
             date={date} setDate={setDate} note={note} setNote={setNote} justAdded={justAdded}
-            cfmt={cfmt} sym={sym} now={now} catMeta={catMeta} monthlyBudget={r.monthlyBudget}
+            cfmt={cfmt} sym={sym} now={now} catMeta={catMeta}
             addExpense={addExpense} addFromQuickAdd={addFromQuickAdd} quickSeed={quickSeed}
             openAdd={openAdd} openEdit={openEdit}
             duplicateTransaction={duplicateTransaction} deleteTransaction={deleteTransaction}
@@ -773,7 +798,7 @@ export default function ExpensePage() {
           <AnalyticsTab
             items={items} selMonth={selMonth} catMeta={catMeta}
             cfmt={cfmt} code={code} theme={theme} now={now}
-            monthlyBudget={r.monthlyBudget}
+            spendableBudget={r.spendableBudget}
             budgetTotalOf={budgetTotalOf}
             onStartLogging={startLogging}
           />
@@ -868,7 +893,7 @@ interface OverviewProps {
   note: string; setNote: (v: string) => void;
   justAdded: boolean;
   cfmt: (n: number) => string; sym: string; now: Date;
-  catMeta: Map<string, CatMeta>; monthlyBudget: number;
+  catMeta: Map<string, CatMeta>;
   addExpense: () => void;
   /** Commit a parsed one-line entry. False when it could not be logged. */
   addFromQuickAdd: (parsed: QuickAddResult) => boolean;
@@ -888,14 +913,17 @@ interface OverviewProps {
 function OverviewTab({
   r, items, monthTx, selMonth, flatCats, selKey, setSel, recentCatKeys,
   amount, setAmount, addError, amountRef, date, setDate, note, setNote, justAdded,
-  cfmt, sym, now, catMeta, monthlyBudget,
+  cfmt, sym, now, catMeta,
   addExpense, addFromQuickAdd, quickSeed, openAdd, openEdit, duplicateTransaction, deleteTransaction,
   bulkDelete, bulkDuplicate, bulkCategory, bulkAddTags, exportTransactions,
   code, listApi,
 }: OverviewProps) {
   const insights = useMemo(
-    () => generateInsights(items, selMonth, monthlyBudget, catMeta, now),
-    [items, selMonth, monthlyBudget, catMeta, now]
+    // `spendableBudget`, never `monthlyBudget`: the pace insight compares it
+    // against consumption, and the whole budget includes the savings
+    // allocation the ledger's SIP is booked against.
+    () => generateInsights(items, selMonth, r.spendableBudget, catMeta, now),
+    [items, selMonth, r.spendableBudget, catMeta, now]
   );
 
   const streaks = useMemo(() => computeStreaks(items, now), [items, now]);
@@ -933,21 +961,29 @@ function OverviewTab({
           <AskAiButton focus={{ kind: 'overview' }} />
         </div>
         <div className="fx-metrics">
+          {/* `daysRemaining` counts today (see computeDashboard), so both this
+              tile and the allowance beside it describe the same span — and the
+              same span the commitments card below already labels "today
+              included". */}
           <Metric
             label="Days remaining"
             value={r.isCurrentMonth ? String(r.daysRemaining) : '0'}
-            note={r.isCurrentMonth ? `of ${r.daysInMonth} days` : 'Month complete'}
+            note={r.isCurrentMonth ? `of ${r.daysInMonth}, today included` : 'Month complete'}
             accent="var(--blue)"
           />
           <Metric
             label="Daily safe spend"
             value={r.dailySafeSpend != null ? cfmt(r.dailySafeSpend) : '—'}
             note={r.dailySafeSpend == null
-              ? (r.monthlyBudget > 0 ? 'Month complete' : 'Set a budget to see this')
-              : r.daysRemaining === 0
+              ? (r.spendableBudget > 0
+                  ? 'Month complete'
+                  : r.monthlyBudget > 0
+                    ? 'Your budget is all savings'
+                    : 'Set a budget to see this')
+              : r.daysRemaining === 1
                 ? 'Left for today — the last day of the month'
-                : 'Per day to stay inside budget'}
-            accent={r.remaining >= 0 ? 'var(--green)' : 'var(--red)'}
+                : 'Per day, savings excluded'}
+            accent={r.spendableRemaining >= 0 ? 'var(--green)' : 'var(--red)'}
           />
           <Metric
             label="Monthly savings"
@@ -974,7 +1010,7 @@ function OverviewTab({
         catMeta={catMeta}
         month={selMonth}
         now={now}
-        remainingBudget={r.monthlyBudget > 0 ? r.remaining : null}
+        remainingBudget={r.spendableBudget > 0 ? r.spendableRemaining : null}
         cfmt={cfmt}
       />
 
@@ -1206,20 +1242,23 @@ function OverviewTab({
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function AnalyticsTab({
-  items, selMonth, catMeta, cfmt, code, theme, now, monthlyBudget, budgetTotalOf,
+  items, selMonth, catMeta, cfmt, code, theme, now, spendableBudget, budgetTotalOf,
   onStartLogging,
 }: {
   items: ExpenseItem[]; selMonth: string; catMeta: Map<string, CatMeta>;
   cfmt: (n: number) => string; code: string; theme: string | undefined; now: Date;
-  monthlyBudget: number;
+  /** The budget meant to be SPENT — savings excluded. See computeMonthForecast. */
+  spendableBudget: number;
   /** Total budget for any month, used by the timeline's 12-month view. */
   budgetTotalOf: (month: string) => number;
   /** Send the user to the place they can actually act — the add form. */
   onStartLogging: () => void;
 }) {
   const forecast = useMemo(
-    () => computeMonthForecast(items, selMonth, now, monthlyBudget),
-    [items, selMonth, now, monthlyBudget]
+    // Spendable budget + category sections: the projection is about day-to-day
+    // spending, not about money moved into savings on a fixed day each month.
+    () => computeMonthForecast(items, selMonth, now, spendableBudget, catMeta),
+    [items, selMonth, now, spendableBudget, catMeta]
   );
   const trend12 = useMemo(
     () => computeMonthlyTrend(items, selMonth, 12, catMeta),
@@ -1271,8 +1310,8 @@ function AnalyticsTab({
               </div>
               <div className="note" style={{ fontSize: 11.5, marginTop: 6 }}>
                 {forecast.overBudget
-                  ? `On track to exceed your budget by ${cfmt(forecast.projected - monthlyBudget)} (${forecast.vsBudgetPct}%). Easing the daily pace keeps you within plan.`
-                  : `Projected to use ${forecast.vsBudgetPct}% of your ${cfmt(monthlyBudget)} budget — comfortably on track.`}
+                  ? `On track to exceed your spending budget by ${cfmt(forecast.projected - spendableBudget)} (${forecast.vsBudgetPct}%). Savings are excluded — easing the daily pace keeps you within plan.`
+                  : `Projected to use ${forecast.vsBudgetPct}% of your ${cfmt(spendableBudget)} spending budget — comfortably on track.`}
               </div>
             </div>
           )}
@@ -1593,8 +1632,8 @@ function Metric({ label, value, note, accent }: { label: string; value: string; 
  * "Still to come" — the recurring bills this month has not seen yet, and what
  * they leave genuinely free.
  *
- * The pacing card above divides the WHOLE remaining budget by the days left,
- * which quietly assumes none of it is spoken for. This is the counterweight:
+ * The pacing card above divides the remaining spendable budget by the days
+ * left, which quietly assumes none of it is spoken for. This is the counterweight:
  * it names what is still due and shows the smaller, truer number beside it. It
  * adds a figure rather than changing that one, because the gap between the two
  * is the thing worth learning.
@@ -1609,7 +1648,7 @@ function CommitmentsCard({
   catMeta: Map<string, CatMeta>;
   month: string;
   now: Date;
-  /** Budget − spent, or null when no budget is set. */
+  /** Spendable budget − spend against it, or null when none is set. */
   remainingBudget: number | null;
   cfmt: (n: number) => string;
 }) {

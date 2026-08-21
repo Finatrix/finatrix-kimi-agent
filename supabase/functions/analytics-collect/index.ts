@@ -91,8 +91,22 @@ Deno.serve(async (req) => {
     return new Response(null, { status: 429, headers: CORS });
   }
 
+  // Refuse an oversized body BEFORE reading it. `await req.text()` pulls the
+  // whole stream into this isolate's memory, so checking the length afterwards
+  // means the cost has already been paid — the check only stopped the parse.
+  // A missing or lying Content-Length is still bounded by the length check
+  // below, which is why both exist.
+  const declared = Number(req.headers.get('content-length') ?? '');
+  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
+    return new Response(null, { status: 413, headers: CORS });
+  }
+
   const raw = await req.text();
-  if (raw.length > MAX_BODY_BYTES) return new Response(null, { status: 413, headers: CORS });
+  // Bytes, not UTF-16 code units: `raw.length` counts the latter, so a body of
+  // multi-byte characters passed a check it was up to three times over.
+  if (new TextEncoder().encode(raw).length > MAX_BODY_BYTES) {
+    return new Response(null, { status: 413, headers: CORS });
+  }
 
   let body: { sid?: unknown; events?: unknown };
   try {

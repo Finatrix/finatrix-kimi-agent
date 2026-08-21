@@ -138,8 +138,14 @@ export function saveExpenses(items: ExpenseItem[]): void {
   setJSON('fx_expenses', items);
 }
 
-/** Local YYYY-MM-DD (V4: local time, not UTC). Re-exported from lib/date. */
-export { ymdLocal };
+/**
+ * Local YYYY-MM-DD for *today*.
+ *
+ * `ymdLocal` itself is no longer re-exported from here. A second import path
+ * for one helper is how a module ends up with two names for the same rule —
+ * exactly what `src/lib/date.ts` was created to stop — and every caller in the
+ * codebase now takes it from there.
+ */
 export function etToday(): string {
   return ymdLocal(new Date());
 }
@@ -301,6 +307,71 @@ export function isSpendingCategory(c: { k: string; section: CatKey | null }): bo
   return !INTERNAL_MOVEMENT_KEYS.has(c.k);
 }
 
+/**
+ * A month's ledger, split into money CONSUMED and money SET ASIDE.
+ *
+ * WHY THIS IS THE MOST IMPORTANT DISTINCTION IN THE PRODUCT
+ * ---------------------------------------------------------
+ * The ledger records outflows, and two completely different things look
+ * identical in it: ₹5,000 of dinners and a ₹5,000 SIP are both "an amount, a
+ * category, a date". Only one of them is money gone.
+ *
+ * Treating them as one number is not a rounding error, it is the wrong advice.
+ * A user whose entire budget went into savings was shown "You've used 96% of
+ * your budget but only 65% of the month has passed. Consider slowing down." —
+ * telling someone doing the single best thing this product exists to encourage
+ * that they should stop. The same figure drove a "Spending up 43% vs last
+ * month" warning and a push notification, for a month in which their
+ * consumption had not moved at all and their saving had gone up by half.
+ *
+ * `computeDashboard` already made this split for the pacing figure
+ * (`spendableBudget` / `spendableSpent`). Everything else — the insights, the
+ * dashboard trend line, the notifications — kept summing the raw ledger. This
+ * helper is that one split, named once, so no surface can quietly go back to
+ * asking "how much left the account" when it means "how much did they spend".
+ *
+ * Classification is `isSpendingCategory`, resolved through `migrateCategory`
+ * exactly as `computeDashboard` resolves it, so a legacy key lands in the same
+ * bucket here as it does in the figures beside it.
+ */
+export interface OutflowSplit {
+  /** Needs and wants — money consumed. This, and only this, is "spending". */
+  consumed: ExpenseItem[];
+  /** Savings, investments and transfers — money moved, not spent. */
+  setAside: ExpenseItem[];
+  /** Sum of `consumed`. */
+  consumedTotal: number;
+  /** Sum of `setAside`. */
+  setAsideTotal: number;
+}
+
+export function splitOutflow(
+  items: readonly ExpenseItem[],
+  validKeys: ReadonlySet<string>,
+  meta: ReadonlyMap<string, { section: CatKey }>,
+): OutflowSplit {
+  const consumed: ExpenseItem[] = [];
+  const setAside: ExpenseItem[] = [];
+  let consumedTotal = 0;
+  let setAsideTotal = 0;
+
+  for (const e of items) {
+    const k = migrateCategory(e.category, validKeys);
+    // An unrecognised key has no section. It counts as consumption: the
+    // alternative is that a typo silently exempts spending from every warning
+    // the user relies on, which is the failure mode that matters.
+    const section = meta.get(k)?.section ?? null;
+    if (isSpendingCategory({ k, section })) {
+      consumed.push(e);
+      consumedTotal += e.amount;
+    } else {
+      setAside.push(e);
+      setAsideTotal += e.amount;
+    }
+  }
+  return { consumed, setAside, consumedTotal, setAsideTotal };
+}
+
 /** A category that needs attention this month — powers the dashboard warnings. */
 export interface BudgetWarning {
   k: string;
@@ -366,21 +437,55 @@ export interface DashResult {
   monthlyBudget: number;
   monthlySpent: number;
   remaining: number;
-  healthPct: number;
+  /**
+   * The part of the budget that is meant to be spent — every category except
+   * Savings and internal movements (SIPs, emergency fund, transfers).
+   *
+   * Money earmarked for an investment is not free to spend, so pacing is
+   * measured against this rather than `monthlyBudget`. `monthlyBudget`,
+   * `monthlySpent` and `remaining` are unchanged: budget-vs-actual for the
+   * whole plan is still the whole plan.
+   */
+  spendableBudget: number;
+  /** Spend logged against those same spending categories. */
+  spendableSpent: number;
+  /** `spendableBudget − spendableSpent`. Negative when overspent. */
+  spendableRemaining: number;
   health: CatHealth;
   dailyAvg: number;
   txCount: number;
   sections: SectionSummary[];
   categories: DashCategory[];
   topCategories: DashCategory[];
-  recent: ExpenseItem[];
+  /*
+   * There is deliberately no `recent` here.
+   *
+   * It was an eight-row preview, computed on every call and consumed by
+   * nothing — and it had already caused one incident: the exporter reached for
+   * it and every report silently dropped everything past the eighth
+   * transaction (see expense.export.test.tsx). Its ordering was a second trap:
+   * the ledger is prepended on write, so "recent" meant most-recently-ENTERED,
+   * which a backdated transaction makes wrong. Anything wanting recency should
+   * sort by date through `sortTransactions`, deliberately.
+   *
+   * `healthPct` is gone for the same reason: nothing read it, and `tone` and
+   * `budgetUsedPct` are what the surfaces actually render.
+   */
   trend: TrendPoint[];
   /* ── Month pacing & cash-flow summary (V5 dashboard cards) ── */
   /** Presentation tone for the whole month's budget. */
   tone: BudgetTone;
   daysInMonth: number;
   daysElapsed: number;
-  /** Days left in the month; 0 for a month that has already ended. */
+  /**
+   * Days left in the month, **today included**; 0 for a month that has already
+   * ended.
+   *
+   * "Today included" is the definition every surface now shares — this figure,
+   * `dailySafeSpend` below, and the commitments outlook's `daysLeft`
+   * (see `commitments.ts`). It is also what a person means by the words: on the
+   * 10th of a 31-day month there are 22 days left to spend in, not 21.
+   */
   daysRemaining: number;
   /** Share of the monthly budget consumed (0 when no budget is set). */
   budgetUsedPct: number;
@@ -471,7 +576,6 @@ export function computeDashboard(
 
   const monthlyBudget = categories.reduce((s, c) => s + c.budget, 0);
   const remaining = monthlyBudget - monthlySpent;
-  const healthPct = monthlyBudget > 0 ? (monthlySpent / monthlyBudget) * 100 : 0;
 
   const [sy, sm] = month.split('-').map(Number);
   const daysInMonth = new Date(sy, sm, 0).getDate();
@@ -484,13 +588,48 @@ export function computeDashboard(
     .filter((c) => c.spent > 0 && isSpendingCategory(c))
     .sort((a, b) => b.spent - a.spent)
     .slice(0, 5);
-  const recent = monthItems.slice(0, 8);
 
-  const daysRemaining = isCurrentMonth ? Math.max(0, daysInMonth - now.getDate()) : 0;
+  // The spendable budget: savings, investments and transfers removed from BOTH
+  // sides by the same predicate, so someone who has already made this month's
+  // SIP is not charged for it twice.
+  const spendingCats = categories.filter(isSpendingCategory);
+  const spendableBudget = spendingCats.reduce((s, c) => s + c.budget, 0);
+  const spendableSpent = spendingCats.reduce((s, c) => s + c.spent, 0);
+  const spendableRemaining = spendableBudget - spendableSpent;
+
+  /**
+   * Days left to spend in, TODAY INCLUDED.
+   *
+   * This used to be `daysInMonth - now.getDate()` — the days AFTER today — and
+   * that one-day gap was a real overspend, not a wording preference. Today's
+   * spending is counted in `spendableSpent`, so today is a day the remaining
+   * money still has to cover; dividing by the days after it hands out one extra
+   * day's allowance every single day of the month. On the 10th of a 31-day
+   * month with 8,000 left, the old figure said 381/day, and 381 spent on each
+   * of the 22 days that remain is 8,381 — over by exactly one day's allowance,
+   * every month, by construction.
+   *
+   * It was also visibly inconsistent: `computeCommitments` already divides by
+   * `daysInMonth - today + 1` and the card built on it says "today included"
+   * on screen, directly beside this figure. Two per-day numbers on one screen
+   * over two different day counts is the disagreement this codebase keeps
+   * eliminating; the commitments module had the honest definition, so that is
+   * the one that survives.
+   *
+   * Clamped at 1 rather than 0: on the last day of the month there is still one
+   * day to spend in. (The old `Math.max(1, …)` produced the correct answer on
+   * that one day and only that day, which is why the bug never looked like one.)
+   */
+  const daysRemaining = isCurrentMonth ? Math.max(1, daysInMonth - now.getDate() + 1) : 0;
   const budgetUsedPct = monthlyBudget > 0 ? (monthlySpent / monthlyBudget) * 100 : 0;
-  // Pacing only means something while the month is still running.
+  // Pacing only means something while the month is still running, and only
+  // against money that is actually free — see `spendableBudget`. Null when the
+  // whole budget is savings: there is no daily allowance to pace, and a zero
+  // dressed up as an allowance would read as a bug.
   const dailySafeSpend =
-    monthlyBudget > 0 && isCurrentMonth ? Math.max(0, remaining) / Math.max(1, daysRemaining) : null;
+    spendableBudget > 0 && isCurrentMonth
+      ? Math.max(0, spendableRemaining) / daysRemaining
+      : null;
   const monthlySavings = sections.find((s) => s.section === 'save')?.spent ?? 0;
 
   const warnings: BudgetWarning[] = categories
@@ -521,14 +660,15 @@ export function computeDashboard(
     monthlyBudget,
     monthlySpent,
     remaining,
-    healthPct,
+    spendableBudget,
+    spendableSpent,
+    spendableRemaining,
     health: healthOf(monthlyBudget, monthlySpent),
     dailyAvg,
     txCount: monthItems.length,
     sections,
     categories,
     topCategories,
-    recent,
     trend,
     tone: budgetTone(monthlyBudget, monthlySpent),
     daysInMonth,

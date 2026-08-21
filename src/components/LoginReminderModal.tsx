@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { useDialogFocus } from '../hooks/useDialogFocus';
 import { track } from '../lib/analytics';
 import Button from './Button';
 import { RESET_PASSWORD_PATH } from '../shared/routes';
@@ -46,6 +47,7 @@ export default function LoginReminderModal() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+  const autofocusRef = useRef<HTMLButtonElement>(null);
   const visitedTools = useRef<Set<string>>(new Set());
 
   const dismiss = useCallback(() => {
@@ -78,9 +80,14 @@ export default function LoginReminderModal() {
 
   useBodyScrollLock(open);
 
+  // Focus goes into the dialog, stays there while it is open, and returns to
+  // whatever the guest was on when it closes. Without the trap, `aria-modal`
+  // was an assertion the browser did not honour: Tab walked straight out into
+  // the tool page behind, which assistive technology had been told is inert.
+  useDialogFocus({ containerRef: cardRef, open, initialFocusRef: autofocusRef });
+
   useEffect(() => {
     if (!open) return;
-    cardRef.current?.querySelector<HTMLElement>('[data-autofocus]')?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') dismiss();
     };
@@ -143,7 +150,7 @@ export default function LoginReminderModal() {
           <Button
             variant="gold"
             onClick={() => go('/signup')}
-            data-autofocus
+            ref={autofocusRef}
             className="w-full font-mono text-[12px] uppercase tracking-[0.1em] py-3.5 rounded-full"
           >
             Create account

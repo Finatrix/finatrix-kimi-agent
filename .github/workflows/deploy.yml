@@ -146,9 +146,9 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
-          # Not needed to deploy, but `verify:deploy` at the end of this job
-          # cannot check anything without it — and a verification step that
-          # cannot run is worth knowing about now rather than after the deploy.
+          # Not needed to deploy, but `verify:deploy` — which runs below,
+          # before the deploy steps — cannot check anything without it, and a
+          # verification step that cannot run is worth knowing about up front.
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: |

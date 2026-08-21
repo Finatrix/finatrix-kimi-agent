@@ -4,6 +4,7 @@ import { PageHead, ToolFoot, MethodologyNote } from '../ui/common';
 import { Icon } from '../ui/Icon';
 import { MonthNav } from '../ui/MonthNav';
 import { useCurrency } from '../CurrencyContext';
+import { ymdLocal, ymLocal } from '../../lib/date';
 import { currentMonth, monthLabel } from '../lib/month';
 import { getMonthEvents, type FinEvent, type FinEventType } from '../lib/calendar';
 
@@ -17,7 +18,7 @@ function monthWindow(): string[] {
   const now = new Date();
   for (let i = -1; i <= 4; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-    out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    out.push(ymLocal(d));
   }
   return out;
 }
@@ -43,7 +44,7 @@ export default function CalendarPage() {
   const [y, mo] = selMonth.split('-').map(Number);
   const firstWeekday = new Date(y, mo - 1, 1).getDay();
   const daysInMonth = new Date(y, mo, 0).getDate();
-  const todayStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
+  const todayStr = ymdLocal(new Date());
 
   const cells: (number | null)[] = [
     ...Array.from({ length: firstWeekday }, () => null),

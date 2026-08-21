@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { ComponentPropsWithRef, ReactNode } from 'react';
 
 /**
  * Button primitive — the one place button *variants* are defined.
@@ -19,7 +19,16 @@ const VARIANT_CLASS: Record<ButtonVariant, string> = {
   plain: '',
 };
 
-export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+/**
+ * `ComponentPropsWithRef` rather than `ButtonHTMLAttributes`, so `ref` is part
+ * of the surface. React 19 passes `ref` to a function component as an ordinary
+ * prop, so it simply rides through the spread below — but the old type omitted
+ * it, which made a button that cannot be focused programmatically. That is not
+ * a stylistic limit: a dialog has to be able to move focus to its primary
+ * action when it opens, and the workaround was a `[data-autofocus]` attribute
+ * and a `querySelector`, i.e. a second, weaker ref system.
+ */
+export interface ButtonProps extends ComponentPropsWithRef<'button'> {
   variant?: ButtonVariant;
   children?: ReactNode;
 }

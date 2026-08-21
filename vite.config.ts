@@ -2,6 +2,7 @@ import fs from "fs"
 import path from "path"
 import react from "@vitejs/plugin-react"
 import { loadEnv, type Plugin } from "vite"
+import { stripHtmlComments } from "./scripts/strip-html-comments"
 import { defineConfig } from "vitest/config"
 
 /**
@@ -86,13 +87,24 @@ function stampServiceWorker(): Plugin {
   };
 }
 
+function stripIndexHtmlComments(): Plugin {
+  return {
+    name: "fx-strip-html-comments",
+    apply: "build",
+    transformIndexHtml: {
+      order: "post",
+      handler: stripHtmlComments,
+    },
+  };
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ command, mode }) => {
   if (command === "build") assertDeployableClientConfig(mode);
 
   return {
     base: '/',
-    plugins: [react(), stampServiceWorker()],
+    plugins: [react(), stampServiceWorker(), stripIndexHtmlComments()],
     server: {
       // Honour an externally assigned port (e.g. preview harnesses); default 3000.
       port: Number(process.env.PORT) || 3000,

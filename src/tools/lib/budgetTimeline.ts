@@ -27,7 +27,7 @@
  */
 
 import type { ExpenseItem } from './expense';
-import { ymdLocal } from './expense';
+import { ymdLocal, ymLocal } from '../../lib/date';
 import { monthLabel } from './month';
 
 export type Granularity = 'daily' | 'weekly' | 'monthly';
@@ -94,7 +94,7 @@ function dayKey(month: string, day: number): string {
 function addMonths(month: string, delta: number): string {
   const [y, m] = month.split('-').map(Number);
   const d = new Date(y, m - 1 + delta, 1);
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  return ymLocal(d);
 }
 
 /** Whole days from `from` to `to`, inclusive of both ends. */

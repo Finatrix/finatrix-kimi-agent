@@ -27,6 +27,7 @@ import { sanitizeField } from '../../lib/sanitize';
 import { allCategories, type BudgetStore, type SectionedCats } from '../lib/budget';
 import {
   computeDashboard, isSpendingCategory, migrateCategory, type ExpenseItem,
+  splitOutflow,
 } from '../lib/expense';
 import {
   computeMonthlyTrend, detectRecurring, computeMonthForecast,
@@ -85,12 +86,16 @@ export interface FinanceSnapshot {
   isCurrentMonth: boolean;
   daysInMonth: number;
   daysElapsed: number;
+  /** Days left in the month, today included — what `dailySafeSpend` divides by. */
   daysRemaining: number;
 
   income: number | null;
   totalBudget: number;
   totalSpent: number;
   remaining: number;
+  /** The budget excluding Savings and transfers — what `dailySafeSpend` paces. */
+  spendableBudget: number;
+  spendableRemaining: number;
   percentOfBudgetUsed: number | null;
   budgetStatus: string;
   savings: number;
@@ -99,8 +104,26 @@ export interface FinanceSnapshot {
   dailySafeSpend: number | null;
   projectedMonthEnd: number | null;
 
-  previousMonth: { month: string; label: string; spent: number } | null;
+  /**
+   * Needs + wants only — what the word "spending" means. `totalSpent` above is
+   * the whole outflow and INCLUDES money moved into savings, so it is the
+   * wrong figure to answer "am I spending more?" with.
+   */
+  spentOnNeedsAndWants: number;
+  /** Money moved into savings, investments or transfers this month. */
+  setAsideThisMonth: number;
+  previousMonth: {
+    month: string;
+    label: string;
+    /** Whole outflow, for continuity with `totalSpent`. */
+    spent: number;
+    spentOnNeedsAndWants: number;
+    setAside: number;
+  } | null;
+  /** Change in CONSUMPTION vs last month. Savings movements do not affect it. */
   changeVsPreviousMonthPct: number | null;
+  /** Change in money SET ASIDE vs last month. A rise here is good news. */
+  savingsChangeVsPreviousMonthPct: number | null;
 
   categories: CategoryPoint[];
   largestTransactions: TransactionPoint[];
@@ -144,13 +167,27 @@ export function buildSnapshot({
 
   // The dashboard's own numbers, not a second implementation of them.
   const dash = computeDashboard(month, items, cats, budgetVals, now, income);
-  const forecast = computeMonthForecast(items, month, now, dash.monthlyBudget);
+  const forecast = computeMonthForecast(items, month, now, dash.spendableBudget, catMeta);
 
   const prev = prevMonth(month);
-  const prevSpent = items
-    .filter((e) => (e.date || '').slice(0, 7) === prev)
-    .reduce((s, e) => s + e.amount, 0);
-  const prevHasData = items.some((e) => (e.date || '').slice(0, 7) === prev);
+  const prevItems = items.filter((e) => (e.date || '').slice(0, 7) === prev);
+  const prevHasData = prevItems.length > 0;
+
+  /**
+   * This month and last, each split into money consumed and money set aside.
+   *
+   * The snapshot used to offer only `totalSpent` (the whole outflow) and a
+   * month-over-month delta computed from it, while the system prompt told the
+   * model never to describe savings as spending. Those two instructions cannot
+   * both be followed: a user who doubled their SIP was handed a "+43%" and the
+   * word "spending" attached to it. The model now gets the split, so the
+   * honest answer — "your spending held steady, your saving went up" — is
+   * available in the data rather than needing to be inferred from it.
+   */
+  const thisSplit = splitOutflow(
+    items.filter((e) => (e.date || '').slice(0, 7) === month), validKeys, catMeta,
+  );
+  const prevSplit = splitOutflow(prevItems, validKeys, catMeta);
 
   const categories: CategoryPoint[] = dash.categories
     .filter((c) => c.budget > 0 || c.spent > 0)
@@ -216,6 +253,8 @@ export function buildSnapshot({
     totalBudget: money(dash.monthlyBudget),
     totalSpent: money(dash.monthlySpent),
     remaining: money(dash.remaining),
+    spendableBudget: money(dash.spendableBudget),
+    spendableRemaining: money(dash.spendableRemaining),
     percentOfBudgetUsed: dash.monthlyBudget > 0 ? Math.round(dash.budgetUsedPct) : null,
     budgetStatus: TONE_TEXT[dash.tone],
     savings: money(dash.monthlySavings),
@@ -224,11 +263,22 @@ export function buildSnapshot({
     dailySafeSpend: dash.dailySafeSpend == null ? null : money(dash.dailySafeSpend),
     projectedMonthEnd: forecast.isCurrentMonth ? money(forecast.projected) : null,
 
+    spentOnNeedsAndWants: money(thisSplit.consumedTotal),
+    setAsideThisMonth: money(thisSplit.setAsideTotal),
     previousMonth: prevHasData
-      ? { month: prev, label: monthLabel(prev), spent: money(prevSpent) }
+      ? {
+          month: prev,
+          label: monthLabel(prev),
+          spent: money(prevSplit.consumedTotal + prevSplit.setAsideTotal),
+          spentOnNeedsAndWants: money(prevSplit.consumedTotal),
+          setAside: money(prevSplit.setAsideTotal),
+        }
       : null,
-    changeVsPreviousMonthPct: prevSpent > 0
-      ? Math.round(((dash.monthlySpent - prevSpent) / prevSpent) * 100)
+    changeVsPreviousMonthPct: prevSplit.consumedTotal > 0
+      ? Math.round(((thisSplit.consumedTotal - prevSplit.consumedTotal) / prevSplit.consumedTotal) * 100)
+      : null,
+    savingsChangeVsPreviousMonthPct: prevSplit.setAsideTotal > 0
+      ? Math.round(((thisSplit.setAsideTotal - prevSplit.setAsideTotal) / prevSplit.setAsideTotal) * 100)
       : null,
 
     categories,

@@ -329,8 +329,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // The provider can unmount while the import is in flight; without this the
       // subscription would outlive it, holding a reference to a dead
       // component's setState.
-      if (mounted.current) unsubscribe.current = () => sub.subscription.unsubscribe();
-      else sub.subscription.unsubscribe();
+      if (mounted.current) {
+        unsubscribe.current = () => sub.subscription.unsubscribe();
+      } else {
+        sub.subscription.unsubscribe();
+        // …and release the latch. It was set at the top of this block, and the
+        // cleanup that ran while the import was in flight cleared it before
+        // this code existed to set it again — so it was left standing with no
+        // live subscription behind it. The next mount would see `subscribed`
+        // and skip listening entirely: `getSession()` would still restore the
+        // stored session, so the app looked fine, while every later sign-in,
+        // sign-out, token refresh and PASSWORD_RECOVERY went unobserved.
+        subscribed.current = false;
+      }
     }
     return supabase;
   }, []);

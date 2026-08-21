@@ -22,7 +22,6 @@
  * appear on any statement. Ordered most-specific first; the first match wins.
  */
 
-import type { BudgetCat, CatKey } from '../budget';
 
 export interface MerchantRule {
   /** Matched against the upper-cased description. */
@@ -195,7 +194,3 @@ export function matchRule(
   return null;
 }
 
-/** Flat key set for the categories this user actually has. */
-export function liveKeys(cats: Array<BudgetCat & { section: CatKey }>): Set<string> {
-  return new Set(cats.map((c) => c.k));
-}

@@ -77,8 +77,6 @@ export function allCategories(cats: SectionedCats): Array<BudgetCat & { section:
   );
 }
 
-export const BB_ALL: BudgetCat[] = [...BB_NEEDS, ...BB_WANTS, ...BB_SAVE];
-
 export type BudgetVals = Record<string, number>;
 
 /** Original `num()` semantics: finite → max(0, v), else 0. */

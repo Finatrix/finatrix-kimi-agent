@@ -9,11 +9,12 @@
  * reports `done: false`, and the UI shows a guiding empty state instead of a
  * fabricated figure. Pure/read-only; no writes, no side effects.
  */
+import { ymLocal } from '../../lib/date';
 import { store, getJSON } from './storage';
 import { currentMonth } from './month';
 import { computeBudget, allCategories, type BudgetStore } from './budget';
 import { loadCatView } from './budgetCats';
-import { loadExpenses, migrateCategory, ET_CATS } from './expense';
+import { loadExpenses, migrateCategory, splitOutflow, ET_CATS } from './expense';
 import { computeGoalPlanner } from './goals';
 import { computeInvestMatch, IM_DEFAULTS, IM_RL, type ImAnswers } from './investmatch';
 import { readActivity } from './activity';
@@ -167,7 +168,12 @@ export function readDashboard(): DashboardSnapshot {
 
   // ── Expenses ────────────────────────────────────────────────────────────
   let monthlySpend: number | null = null;
-  let prevMonthSpend: number | null = null;
+  /** Needs + wants only — what the trend insight is allowed to call "spending". */
+  let thisMonthConsumed: number | null = null;
+  let prevMonthConsumed: number | null = null;
+  /** Savings, investments and transfers — reported, never warned about. */
+  let thisMonthSetAside: number | null = null;
+  let prevMonthSetAside: number | null = null;
   let expensesDone = false;
   let expenseScore = 0;
   const topCategories: SpendSlice[] = [];
@@ -180,9 +186,24 @@ export function readDashboard(): DashboardSnapshot {
       // Previous calendar month (YYYY-MM) — for an honest spend-trend signal.
       const [cy, cmo] = cm.split('-').map(Number);
       const pd = new Date(cy, (cmo - 1) - 1, 1);
-      const prevKey = `${pd.getFullYear()}-${String(pd.getMonth() + 1).padStart(2, '0')}`;
+      const prevKey = ymLocal(pd);
       const prevItems = items.filter((e) => (e.date || '').slice(0, 7) === prevKey);
-      if (prevItems.length > 0) prevMonthSpend = prevItems.reduce((s, e) => s + num(e.amount), 0);
+
+      // The trend insight below compares CONSUMPTION, not outflow. `monthlySpend`
+      // stays the whole outflow because the KPI it feeds is labelled "spent
+      // this month" against the whole budget — but a month where more money
+      // left the account because more of it went into savings is not a month of
+      // higher spending, and saying so drove a warning and a push notification
+      // at a user whose day-to-day spending had not moved.
+      const sectionOf = new Map(flatCats.map((c) => [c.k, { section: c.section }]));
+      const thisSplit = splitOutflow(monthItems, validCatKeys, sectionOf);
+      thisMonthConsumed = thisSplit.consumedTotal;
+      thisMonthSetAside = thisSplit.setAsideTotal;
+      if (prevItems.length > 0) {
+        const prevSplit = splitOutflow(prevItems, validCatKeys, sectionOf);
+        prevMonthConsumed = prevSplit.consumedTotal;
+        prevMonthSetAside = prevSplit.setAsideTotal;
+      }
       // Keys are migrated before summing, exactly as computeDashboard does, so a
       // legacy `food` row and a current `eating_out` row are one slice rather
       // than two competing ones.
@@ -323,9 +344,19 @@ export function readDashboard(): DashboardSnapshot {
     if (netCashflow < 0) insights.push({ tone: 'warn', text: 'You spent more than you earned this month. Trimming one want gets you back to positive.' });
     else if (netCashflow > 0 && income) insights.push({ tone: 'ok', text: `Positive cashflow this month — ${Math.round((netCashflow / income) * 100)}% of income is unspent.` });
   }
-  // Spend trend vs last month — honest, only when both months have data.
-  if (monthlySpend != null && prevMonthSpend != null && prevMonthSpend > 0 && insights.length < 3) {
-    const deltaPct = Math.round(((monthlySpend - prevMonthSpend) / prevMonthSpend) * 100);
+  // Saving more is good news, and it is reported before any spend trend so it
+  // cannot be crowded out by the three-insight cap.
+  if (thisMonthSetAside != null && prevMonthSetAside != null && prevMonthSetAside > 0
+      && thisMonthSetAside > 0 && insights.length < 3) {
+    const savedPct = Math.round(((thisMonthSetAside - prevMonthSetAside) / prevMonthSetAside) * 100);
+    if (savedPct >= 15) {
+      insights.push({ tone: 'ok', text: `You set aside ${savedPct}% more than last month — money working for you, not money gone.` });
+    }
+  }
+  // Spend trend vs last month — CONSUMPTION only, and only when both months
+  // have data. Comparing raw outflow made a bigger SIP read as overspending.
+  if (thisMonthConsumed != null && prevMonthConsumed != null && prevMonthConsumed > 0 && insights.length < 3) {
+    const deltaPct = Math.round(((thisMonthConsumed - prevMonthConsumed) / prevMonthConsumed) * 100);
     if (deltaPct >= 15) insights.push({ tone: 'warn', text: `Spending is up ${deltaPct}% vs last month — worth a quick look at what changed.` });
     else if (deltaPct <= -15) insights.push({ tone: 'ok', text: `Spending is down ${Math.abs(deltaPct)}% vs last month — nice discipline.` });
   }
