@@ -36,6 +36,15 @@ import { join, relative } from 'node:path';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 
+/**
+ * Which checkout the deployed functions are compared against.
+ *
+ * Defaults to this repository. The Deploy workflow points it at the PREVIOUS
+ * commit's `supabase/functions`, because it runs this check BEFORE deploying:
+ * see the note on the drift check below.
+ */
+const SOURCE_ROOT = process.env.FX_FUNCTIONS_ROOT || ROOT;
+
 /** Relations the application depends on at runtime. */
 const REQUIRED_RELATIONS = [
   'provider_cache',
@@ -138,23 +147,26 @@ function tsFilesUnder(dir) {
 }
 
 /**
- * Supabase's function store is read-after-write eventual: for a minute or so
- * after `functions deploy` returns, `functions download` still serves the
- * PREVIOUS version. Comparing once, immediately after deploying — which is
- * exactly what the Deploy workflow does — therefore reports every file of
- * every function as drifted on a deploy that in fact succeeded.
+ * Supabase's function store is read-after-write eventual, by minutes.
  *
- * Observed on this project: a comparison run immediately after deploying
- * reports all 27 files of all 6 functions as drifted, and the same comparison
- * against the same commit matches byte for byte roughly six minutes later,
- * with no deploy in between. The window is minutes, not seconds.
+ * Measured on this project: `functions download` run immediately after a
+ * successful `functions deploy` returns the PREVIOUS version, and keeps doing
+ * so for a long time — a comparison that was still reporting all 27 files of
+ * all 6 functions as drifted 450 seconds after deploying passed on its FIRST
+ * attempt, against the same commit with no deploy in between, a few minutes
+ * later. Two attempts to size a wait window (150s, then 450s) both undershot.
  *
- * A single comparison cannot tell that apart from real drift, so a mismatch is
- * re-checked until it either clears or persists past the propagation window.
- * A pass is still a pass on the first attempt: only failure costs time, and
- * only drift that outlives the window is reported.
+ * So this check no longer races the store. The Deploy workflow runs it BEFORE
+ * deploying, against the previous commit's sources (FX_FUNCTIONS_ROOT), which
+ * asks the question that actually matters — "did the last deploy land, or have
+ * the functions been quietly drifting from main?" — with no write in flight.
+ * A deploy that fails to land is caught on the next run rather than never.
+ *
+ * The retries below survive the one case that can still race: two pushes close
+ * enough together that the previous run's deploy is still propagating. They
+ * cost nothing on the overwhelmingly common path, where the first read matches.
  */
-const DRIFT_RETRY_DELAYS_MS = [20_000, 40_000, 60_000, 90_000, 120_000, 120_000];
+const DRIFT_RETRY_DELAYS_MS = [30_000, 60_000, 90_000];
 
 const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
 
@@ -169,7 +181,7 @@ function collectDrift(slugs) {
     } catch (e) {
       return { skipped: `skipped — could not download ${slug} (needs SUPABASE_ACCESS_TOKEN): ${String(e.message).slice(0, 120)}` };
     }
-    const localDir = join(ROOT, 'supabase/functions', slug);
+    const localDir = join(SOURCE_ROOT, 'supabase/functions', slug);
     const remoteDir = join(work, 'supabase/functions', slug);
     for (const localFile of tsFilesUnder(localDir)) {
       const rel = relative(localDir, localFile);
