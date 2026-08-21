@@ -413,12 +413,39 @@ describe('deploy workflow preflight', () => {
    * post-processing pass over a string, not a guarantee — so secrets are read
    * through `env:` and referenced by NAME in the script.
    */
+  /**
+   * A `run: |` block ends at the step's next key (`env:`, 8 spaces) or at the
+   * next step (`- `, 6 spaces), whichever comes first. Stopping only at the
+   * next step swallows the step's own `env:` block — and since passing secrets
+   * through `env:` is exactly the safe pattern this test exists to encourage,
+   * that made the test fail on correct code the moment a `run: |` step needed
+   * credentials.
+   */
   it('never expands a secret value into a logged command line', () => {
-    const runScripts = [...workflow.matchAll(/run: \|([\s\S]*?)(?=\n {6}[-a-z])/g)].map((m) => m[1]);
+    const runScripts = [...workflow.matchAll(/run: \|([\s\S]*?)(?=\n {8}[a-z]+:|\n {6}[-a-z])/g)]
+      .map((m) => m[1]);
     expect(runScripts.length).toBeGreaterThan(0);
     for (const script of runScripts) {
       expect(script, 'a run: script interpolates a secret').not.toMatch(/\$\{\{\s*secrets\./);
     }
+  });
+
+  /**
+   * The regex above is only meaningful if it still catches the thing it was
+   * written for, so this proves it does rather than assuming it.
+   */
+  it('would catch a secret interpolated directly into a run script', () => {
+    const bad = [
+      '      - name: Careless',
+      '        run: |',
+      '          echo "${{ secrets.SUPABASE_ACCESS_TOKEN }}"',
+      '        env:',
+      '          SAFE: ${{ secrets.SUPABASE_PROJECT_REF }}',
+      '      - run: echo done',
+    ].join('\n');
+    const scripts = [...bad.matchAll(/run: \|([\s\S]*?)(?=\n {8}[a-z]+:|\n {6}[-a-z])/g)].map((m) => m[1]);
+    expect(scripts).toHaveLength(1);
+    expect(scripts[0]).toMatch(/\$\{\{\s*secrets\./);
   });
 
   /**

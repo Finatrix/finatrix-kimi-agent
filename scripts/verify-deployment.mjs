@@ -38,6 +38,15 @@ import { join, relative } from 'node:path';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 
+/**
+ * Which checkout the deployed functions are compared against.
+ *
+ * Defaults to this repository. The Deploy workflow points it at the PREVIOUS
+ * commit's `supabase/functions`, because it runs this check BEFORE deploying:
+ * see the note on the drift check below.
+ */
+const SOURCE_ROOT = process.env.FX_FUNCTIONS_ROOT || ROOT;
+
 /** Relations the application depends on at runtime. */
 const REQUIRED_RELATIONS = [
   'provider_cache',
@@ -142,29 +151,32 @@ function tsFilesUnder(dir) {
 /** Total local files this check is capable of comparing — context for the ratio. */
 function countComparableFiles() {
   return FUNCTIONS.reduce(
-    (total, slug) => total + tsFilesUnder(join(ROOT, 'supabase/functions', slug)).length,
+    (total, slug) => total + tsFilesUnder(join(SOURCE_ROOT, 'supabase/functions', slug)).length,
     0,
   );
 }
 
 /**
- * Supabase's function store is read-after-write eventual: for some minutes
- * after `functions deploy` returns, `functions download` still serves the
- * PREVIOUS version. Comparing once, immediately after deploying — which is
- * exactly what the Deploy workflow does — therefore reports every file of
- * every function as drifted on a deploy that in fact succeeded.
+ * Supabase's function store is read-after-write eventual, by minutes.
  *
- * Observed on this project: a comparison run immediately after deploying
- * reports all 27 files of all 6 functions as drifted, and the same comparison
- * against the same commit matches byte for byte roughly six minutes later,
- * with no deploy in between. The window is minutes, not seconds.
+ * Measured on this project: `functions download` run immediately after a
+ * successful `functions deploy` returns the PREVIOUS version, and keeps doing
+ * so for a long time — a comparison that was still reporting all 27 files of
+ * all 6 functions as drifted 450 seconds after deploying passed on its FIRST
+ * attempt, against the same commit with no deploy in between, a few minutes
+ * later. Two attempts to size a wait window (150s, then 450s) both undershot.
  *
- * A single comparison cannot tell that apart from real drift, so a mismatch is
- * re-checked until it either clears or persists past the propagation window.
- * A pass is still a pass on the first attempt: only failure costs time, and
- * only drift that outlives the window is reported.
+ * So this check no longer races the store. The Deploy workflow runs it BEFORE
+ * deploying, against the previous commit's sources (FX_FUNCTIONS_ROOT), which
+ * asks the question that actually matters — "did the last deploy land, or have
+ * the functions been quietly drifting from main?" — with no write in flight.
+ * A deploy that fails to land is caught on the next run rather than never.
+ *
+ * The retries below survive the one case that can still race: two pushes close
+ * enough together that the previous run's deploy is still propagating. They
+ * cost nothing on the overwhelmingly common path, where the first read matches.
  */
-const DRIFT_RETRY_DELAYS_MS = [20_000, 40_000, 60_000, 90_000, 120_000, 120_000];
+const DRIFT_RETRY_DELAYS_MS = [30_000, 60_000, 90_000];
 
 const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
 
@@ -202,7 +214,7 @@ function collectDrift(slugs) {
     } catch (e) {
       return { skipped: `skipped — could not download ${slug} (needs SUPABASE_ACCESS_TOKEN): ${String(e.message).slice(0, 120)}` };
     }
-    const localDir = join(ROOT, 'supabase/functions', slug);
+    const localDir = join(SOURCE_ROOT, 'supabase/functions', slug);
     const remoteDir = join(work, 'supabase/functions', slug);
 
     // Nothing came back at all: the function has never been deployed. This is
@@ -232,8 +244,10 @@ function collectDrift(slugs) {
 /**
  * WHAT THIS CAN AND CANNOT PROVE
  * ------------------------------
- * The propagation window above is the primary mechanism, and on most runs it is
- * enough: the comparison clears and the check passes cleanly.
+ * The check now runs BEFORE the deploy steps, against the previous commit's
+ * sources, so on the ordinary path there is no write in flight and the first
+ * read is exact. The window below only covers pushes landing close enough
+ * together that the previous run's deploy is still settling.
  *
  * What changed is the verdict when the window runs out. This used to fail the
  * deploy, and it did so on 20 consecutive runs while production was in fact
@@ -241,14 +255,15 @@ function collectDrift(slugs) {
  * the pipeline went red anyway. A gate that fails on every run stops being read
  * at all, which costs more than having no gate.
  *
- * A mismatch that outlives the window is still not proof of drift. It is one of
- * two things this script cannot distinguish from the outside:
+ * A mismatch that outlives the window is still not proof of drift. Moving the
+ * check off the write path removes the dominant explanation — slow propagation
+ * — but one remains that this script cannot rule out from the outside: a round
+ * trip that is not byte-faithful, since `functions download` reconstructs
+ * source from the deployed eszip and nothing guarantees the bytes survive.
+ * (Repeated downloads with nothing deploying have matched all 27 files exactly,
+ * which is evidence for faithfulness, not proof of it.)
  *
- *   • propagation that is slower than the window on this particular run, or
- *   • a round trip that is not byte-faithful — `functions download` reconstructs
- *     source from the deployed eszip, and nothing guarantees the bytes survive.
- *
- * Neither is a reason to block a release, so each verdict is now scoped to what
+ * That is not a reason to block a release, so each verdict stays scoped to what
  * it can actually establish:
  *
  *   • a function with NO deployed source → FAIL. Unambiguous, and precisely the
@@ -262,10 +277,11 @@ function collectDrift(slugs) {
  *     evidence needed to settle it — which is exactly what has been missing.
  *
  * Currency is not left unguarded. `supabase functions deploy` runs immediately
- * before this script and is authoritative: it compares hashes in the format it
+ * AFTER this script and is authoritative: it compares hashes in the format it
  * owns, uploads when they differ, and fails the step on error. That is the real
  * gate; this is the second opinion, now calibrated to what a second opinion can
- * honestly assert.
+ * honestly assert — and asked at the one moment when nothing is in flight to
+ * confuse it.
  */
 async function checkFunctionDrift() {
   if (!PROJECT_REF) {

@@ -20,7 +20,16 @@ const CASES: [string, string | RegExp][] = [
   ['/', 'Real-time calculations'],
   ['/login', 'Welcome back'],
   ['/signup', 'Create your account'],
-  ['/reset-password', 'Choose a new password'],
+  // Both titles are correct states of this route, and which one renders depends
+  // on the environment rather than on the code being right: with Supabase
+  // configured and no recovery session in the URL — a visitor who opens the
+  // page directly — it correctly says the link didn't work; without credentials
+  // (CI has no .env) it renders the "backend isn't configured" state, which
+  // still carries the heading. Asserting only the latter meant this case passed
+  // on CI purely because CI has no credentials, and could never have caught a
+  // regression in what a real visitor sees. `auth.pages.test.tsx` pins each
+  // state deliberately; this file only asks that the route renders.
+  ['/reset-password', /Choose a new password|That link didn't work/],
   ['/profile', 'Your profile'],
   ['/privacy', 'Privacy Policy'],
   ['/terms', 'Terms & Conditions'],
