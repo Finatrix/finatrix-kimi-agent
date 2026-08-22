@@ -10,6 +10,7 @@ import {
   ROUTE_SCHEMA_ID,
   structuredDataForPath,
   serialiseJsonLd,
+  INDEXABLE,
 } from '../lib/seo';
 import { existsSync } from 'node:fs';
 import { CANONICAL_HOST, TOOL_IDS } from '../shared/routes';
@@ -62,6 +63,38 @@ describe('share cards', () => {
   });
 });
 
+/**
+ * The `max-*` directives, pinned by their literal text.
+ *
+ * Every other assertion in this file compares against `INDEXABLE`, which is
+ * exactly what makes them blind to this: shortening the constant back to a bare
+ * `index, follow` would keep all of them green while quietly handing Google
+ * back its default ceilings on image size and snippet length. So this one test
+ * spells the directives out. It is the only place in the suite that should.
+ */
+describe('the indexable robots directive', () => {
+  it('grants the large image preview and the uncapped snippet', () => {
+    expect(INDEXABLE).toContain('index, follow');
+    expect(INDEXABLE).toContain('max-image-preview:large');
+    expect(INDEXABLE).toContain('max-snippet:-1');
+    expect(INDEXABLE).toContain('max-video-preview:-1');
+  });
+
+  /**
+   * The shell's static tag is what a crawler sees before any JavaScript runs,
+   * and on a route the edge Worker's rewrite does not reach it is the ONLY
+   * value that is ever read. It has to be the same grant.
+   */
+  it('is what index.html ships statically', () => {
+    const html = readFileSync(join(process.cwd(), 'index.html'), 'utf8');
+    const content = /<meta name="robots" content="([^"]+)"/.exec(html)?.[1];
+    expect(
+      content,
+      'index.html\'s robots meta must be byte-identical to INDEXABLE in src/lib/seo.ts',
+    ).toBe(INDEXABLE);
+  });
+});
+
 describe('seoForPath', () => {
   // The regression this exists for: every SPA route was served index.html with a
   // canonical of "/", so the calculator pages — the only URLs in
@@ -71,7 +104,7 @@ describe('seoForPath', () => {
     for (const id of TOOL_IDS) {
       const seo = seoForPath(`/tools/${id}`);
       expect(seo.canonical).toBe(`${CANONICAL_ORIGIN}/tools/${id}`);
-      expect(seo.robots).toBe('index, follow');
+      expect(seo.robots).toBe(INDEXABLE);
     }
   });
 
@@ -237,6 +270,32 @@ describe('structuredDataForPath', () => {
     }
   });
 
+  /**
+   * The homepage list of tools.
+   *
+   * It exists to teach a crawler the site's seven principal entry points from
+   * its most authoritative URL — the input Google uses to pick sitelinks. That
+   * only holds while the list matches the tools, so an eighth calculator that
+   * never reaches this markup should fail here rather than quietly leave the
+   * homepage describing a six-sevenths version of the product.
+   */
+  it('names every calculator in the homepage ItemList, in order', () => {
+    const graph = structuredDataForPath('/')!['@graph'] as Array<Record<string, unknown>>;
+    const list = graph.find((n) => n['@type'] === 'ItemList') as
+      | { numberOfItems: number; itemListElement: Array<{ position: number; url: string }> }
+      | undefined;
+
+    expect(list, 'the homepage graph must carry an ItemList of the tools').toBeTruthy();
+    expect(list!.numberOfItems).toBe(TOOL_IDS.length);
+    expect(list!.itemListElement.map((i) => i.url)).toEqual(
+      TOOL_IDS.map((id) => `${CANONICAL_ORIGIN}/tools/${id}`),
+    );
+    // Positions are 1-based and dense — a gap makes the ordering meaningless.
+    expect(list!.itemListElement.map((i) => i.position)).toEqual(
+      TOOL_IDS.map((_, i) => i + 1),
+    );
+  });
+
   it('serialises to JSON that survives embedding in a script element', () => {
     const raw = serialiseJsonLd(structuredDataForPath('/tools/budget'));
     // A literal "<" in a data block can terminate the element early.
@@ -253,7 +312,7 @@ describe('structuredDataForPath', () => {
     for (const loc of locs) {
       const path = new URL(loc).pathname;
       const seo = seoForPath(path);
-      expect(seo.robots, `${path} must be indexable`).toBe('index, follow');
+      expect(seo.robots, `${path} must be indexable`).toBe(INDEXABLE);
       expect(seo.canonical, `${path} must be self-canonical`).toBe(`${CANONICAL_ORIGIN}${path === '/' ? '/' : path.replace(/\/+$/, '')}`);
     }
   });
@@ -315,7 +374,7 @@ describe('applySeo', () => {
     expect(document.querySelector('meta[property="og:url"]')!.getAttribute('content'))
       .toBe(`${CANONICAL_ORIGIN}/tools/budget`);
     expect(document.querySelector('meta[name="robots"]')!.getAttribute('content'))
-      .toBe('index, follow');
+      .toBe(INDEXABLE);
   });
 
   it('marks a private page noindex without self-canonicalising it', () => {
@@ -330,7 +389,7 @@ describe('applySeo', () => {
     applySeo('/careers/jobs');
     applySeo('/privacy');
     expect(document.querySelector('meta[name="robots"]')!.getAttribute('content'))
-      .toBe('index, follow');
+      .toBe(INDEXABLE);
     expect(document.querySelector('link[rel="canonical"]')!.getAttribute('href'))
       .toBe(`${CANONICAL_ORIGIN}/privacy`);
   });

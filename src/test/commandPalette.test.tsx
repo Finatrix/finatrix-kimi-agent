@@ -54,6 +54,20 @@ describe('CommandPalette', () => {
     expect(within(list!).getAllByRole('option').length).toBeGreaterThan(0);
   });
 
+  /**
+   * The palette portals to <body>, so it leaves the `.fx-tools` element that
+   * declares --card-solid, --hair, --ink3 and --gold-bg. Without the scope
+   * classes the panel's background resolved to `transparent`: hidden by the
+   * scrim on dark, and on light the page read straight through it.
+   */
+  it('renders its portal inside the tools token scope', () => {
+    renderPalette();
+    const overlay = screen.getByRole('dialog', { name: 'Command palette' }).parentElement!;
+    expect(overlay).toHaveClass('fx-tools');
+    expect(overlay).toHaveClass('fx-scope');
+    expect(overlay.parentElement).toBe(document.body);
+  });
+
   it('offers a useful resting list before anything is typed', () => {
     renderPalette();
     expect(screen.getByRole('option', { name: /Log a spend/ })).toBeInTheDocument();

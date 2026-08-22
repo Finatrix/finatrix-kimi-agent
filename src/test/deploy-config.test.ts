@@ -186,10 +186,47 @@ describe('deploy configuration', () => {
       'Referrer-Policy: strict-origin-when-cross-origin',
       'Strict-Transport-Security:',
       'Permissions-Policy:',
+      'Origin-Agent-Cluster: ?1',
+      'X-Permitted-Cross-Domain-Policies: none',
     ]) {
       expect(headers).toContain(h);
     }
     expect(headers).toContain('Cache-Control: public, max-age=31536000, immutable');
+  });
+
+  /**
+   * The four directives that permit nothing.
+   *
+   * They are easy to read as noise and delete in a tidy-up, which is exactly
+   * why they are pinned. `worker-src` is the one that matters most and is the
+   * least obvious: workers fall back through `child-src` to **script-src**, not
+   * to `default-src`, so without it the two workers this app runs (pdf.js,
+   * Tesseract) are governed by whatever `script-src` grows to allow — and
+   * `script-src` is the line most likely to gain a `blob:` or an `'unsafe-eval'`
+   * for some future inline need. pdf.js is also the app's hostile-binary parser,
+   * which makes "what may be spawned as a worker" a question worth answering
+   * once, here, rather than inheriting.
+   */
+  it('pins the CSP directives that exist to deny rather than to permit', () => {
+    const policies = [
+      /http-equiv="Content-Security-Policy"\s+content="([^"]+)"/.exec(read('index.html'))?.[1] ?? '',
+      ...[...read('public/_headers').matchAll(/^\s*Content-Security-Policy: (.+)$/gm)].map((m) => m[1]),
+    ];
+    expect(policies).toHaveLength(3);
+    for (const policy of policies) {
+      // Workers are same-origin scripts; nothing is framed; there is no media.
+      expect(policy).toContain("worker-src 'self'");
+      expect(policy).toContain("manifest-src 'self'");
+      expect(policy).toContain("frame-src 'none'");
+      expect(policy).toContain("media-src 'none'");
+      // The three that were already load-bearing, restated so a rewrite of the
+      // policy string cannot drop one while adding the four above.
+      expect(policy).toContain("object-src 'none'");
+      expect(policy).toContain("base-uri 'self'");
+      expect(policy).toContain("form-action 'self'");
+      // Never: eval is what makes a pdf.js font bug arbitrary code execution.
+      expect(policy).not.toContain('unsafe-eval');
+    }
   });
 
   // OAuth here is a full-page redirect (`signInWithOAuth({ redirectTo })`), so

@@ -195,7 +195,20 @@ export default function CommandPalette({
     .sort((a, b) => a.items[0].index - b.items[0].index);
 
   return createPortal(
-    <div className="fx-cmdk-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}>
+    <div
+      // `fx-tools fx-scope` is not decoration: this element is portaled to
+      // <body>, and custom properties inherit down the DOM tree, not the React
+      // tree. Without the token scope every `var(--card-solid)`,
+      // `var(--hair)`, `var(--ink3)`, `var(--gold-bg)` and `var(--fill-05)`
+      // below resolved to nothing. Colour is inherited, so the muted text
+      // silently rendered at full ink — but `background` is not, so the panel
+      // itself computed to `transparent`: on dark the overlay's own scrim hid
+      // it, and on light the page read straight through the palette. See the
+      // "Portaled token scope" note in tools.css; every other portal in the app
+      // already carries this pair.
+      className="fx-tools fx-scope fx-cmdk-overlay"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}
+    >
       <style>{STYLES}</style>
       <div
         className="fx-cmdk"
@@ -276,12 +289,22 @@ export default function CommandPalette({
 }
 
 const STYLES = `
-.fx-cmdk-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.5);
+/* z-index from the canonical ladder rather than a hand-typed 200. Same painting
+   order as before against everything the palette can currently overlap — it is
+   the one place in tools/ that had not moved onto the scale, and this is the
+   dialog rung the transaction sheet already uses. (The floating AI launcher and
+   the undo bar sit ABOVE every dialog rung, 310 and 320, so they paint over
+   this scrim — true of TransactionModal too. Systemic, and not this file's to
+   fix.) */
+.fx-cmdk-overlay{position:fixed;inset:0;z-index:var(--z-modal,300);background:rgba(0,0,0,.5);
   backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
   display:flex;align-items:flex-start;justify-content:center;padding:10vh 16px 16px;}
 .fx-cmdk{width:min(640px,100%);max-height:min(70vh,560px);display:flex;flex-direction:column;
   background:var(--card-solid);border:1px solid var(--hair);border-radius:16px;
-  box-shadow:0 24px 60px -20px rgba(0,0,0,.6);overflow:hidden;
+  /* Themed elevation. A flat 60%-black drop shadow is right on obsidian and
+     far too heavy on warm paper; --shadow-3 is the raised-surface rung and
+     carries the light theme's softer, warmer value. */
+  box-shadow:var(--shadow-3);overflow:hidden;
   animation:fx-cmdk-in .16s var(--ease-in-out) both;}
 @keyframes fx-cmdk-in{from{opacity:0;transform:translateY(-6px) scale(.99)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.fx-cmdk{animation:none}}

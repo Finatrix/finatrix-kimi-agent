@@ -12,6 +12,27 @@
 # would enforce their intersection). frame-ancestors exists only here — meta
 # CSP cannot express it. If the theme-boot script in index.html changes,
 # recompute its sha256 in BOTH places.
+#
+# On the four directives that are NOT there to permit something:
+#
+#   worker-src 'self'    Workers fall back through child-src to SCRIPT-src, not
+#                        to default-src — so before this they were governed by
+#                        the script-src line, and any future 'unsafe-eval' or
+#                        blob: added there for a script would have silently
+#                        widened what can be spawned as a worker too. The app
+#                        runs two (pdf.js, Tesseract) and both are same-origin.
+#   manifest-src 'self'  Same shape of argument: the manifest names the app's
+#                        icons, name and start_url — the installed-PWA identity.
+#   media-src 'none'     No <audio> or <video> anywhere. Stated so that adding
+#                        one is a deliberate edit here rather than a silent
+#                        inheritance from default-src.
+#   frame-src 'none'     Nothing is framed, and the app is not an embedder.
+#                        With object-src 'none' already set, this closes the
+#                        other half of "load a document inside this one".
+#
+# Each is a tightening on today's effective policy or a pin at it. Verified
+# against the codebase first — a directive here for something the app DOES use
+# is an outage, not a hardening.
 
 /*
   X-Content-Type-Options: nosniff
@@ -32,12 +53,23 @@
   # is an outage, not a hardening. `camera` stays disabled despite the resume
   # OCR flow: Tesseract reads uploaded files, never a live capture.
   Permissions-Policy: accelerometer=(), autoplay=(), bluetooth=(), browsing-topics=(), camera=(), display-capture=(), encrypted-media=(), geolocation=(), gyroscope=(), hid=(), idle-detection=(), magnetometer=(), microphone=(), midi=(), payment=(), serial=(), usb=(), xr-spatial-tracking=()
+  # Asks for a dedicated agent cluster — origin-keyed rather than site-keyed —
+  # so this origin gets its own process where the browser can manage it. Cheap
+  # Spectre-class isolation for a page that holds a signed-in session, and inert
+  # where it is not supported. Safe because nothing here sets `document.domain`
+  # (a synchronous-access trick this header disables); a grep confirms it.
+  Origin-Agent-Cluster: ?1
+  # Refuses the Adobe crossdomain.xml/clientaccesspolicy.xml grant model outright.
+  # No such file is served, but the header is what stops a future one — dropped
+  # into the asset root by a build step or a misconfigured host — from silently
+  # granting a legacy plugin read access to authenticated responses.
+  X-Permitted-Cross-Domain-Policies: none
 
 /
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-8sIkMSAQhH4cmqemj6kE1Bs/6aBQrXGsMGgKxYpye5g='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; frame-ancestors 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-8sIkMSAQhH4cmqemj6kE1Bs/6aBQrXGsMGgKxYpye5g='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; media-src 'none'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self'; manifest-src 'self'; frame-src 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; frame-ancestors 'self'
 
 /index.html
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-8sIkMSAQhH4cmqemj6kE1Bs/6aBQrXGsMGgKxYpye5g='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; frame-ancestors 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-8sIkMSAQhH4cmqemj6kE1Bs/6aBQrXGsMGgKxYpye5g='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; media-src 'none'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self'; manifest-src 'self'; frame-src 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; frame-ancestors 'self'
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable

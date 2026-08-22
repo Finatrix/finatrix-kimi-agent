@@ -43,7 +43,7 @@ import { COMPANY_CAVEAT, COMPANY_COPY, companyCopyFor } from '../content/compani
 import { LEARN_ROOT, articleFor, contentLinkFor } from '../shared/content';
 import { PUBLIC_PAGE_PATHS, publicPageFor } from '../shared/publicPages';
 import { isKnownRoute } from '../shared/routes';
-import { CANONICAL_ORIGIN, seoForPath, structuredDataForPath } from '../lib/seo';
+import { CANONICAL_ORIGIN, seoForPath, structuredDataForPath, INDEXABLE } from '../lib/seo';
 
 const APP_TSX = readFileSync(join(__dirname, '..', 'App.tsx'), 'utf8');
 
@@ -66,7 +66,7 @@ describe('money-tool comparisons', () => {
       expect(publicPageFor(path), path).not.toBeNull();
       expect(publicPageFor(path)!.parent, `${path} parent`).toBe(COMPARE_ROOT);
       expect(isKnownRoute(path), path).toBe(true);
-      expect(seoForPath(path).robots, path).toBe('index, follow');
+      expect(seoForPath(path).robots, path).toBe(INDEXABLE);
       expect(seoForPath(path).canonical, path).toBe(`${CANONICAL_ORIGIN}${path}`);
     }
     expect(APP_TSX).toContain('path="/compare"');
@@ -164,7 +164,7 @@ describe('company intelligence', () => {
       expect(publicPageFor(path), path).not.toBeNull();
       expect(publicPageFor(path)!.parent, `${path} parent`).toBe(COMPANIES_ROOT);
       expect(isKnownRoute(path), path).toBe(true);
-      expect(seoForPath(path).robots, path).toBe('index, follow');
+      expect(seoForPath(path).robots, path).toBe(INDEXABLE);
       expect(seoForPath(path).canonical, path).toBe(`${CANONICAL_ORIGIN}${path}`);
     }
     expect(APP_TSX).toContain('path="/companies"');
@@ -212,7 +212,7 @@ describe('company intelligence', () => {
           .not.toBeNull();
         const path = `${LEARN_ROOT}/${key}`;
         expect(contentLinkFor(path), `${c.slug} → ${path}`).not.toBeNull();
-        expect(seoForPath(path).robots, `${c.slug} → ${path} is noindex`).toBe('index, follow');
+        expect(seoForPath(path).robots, `${c.slug} → ${path} is noindex`).toBe(INDEXABLE);
       }
     }
   });

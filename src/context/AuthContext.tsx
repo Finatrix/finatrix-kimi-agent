@@ -12,6 +12,7 @@ import type { Session, User } from '@supabase/supabase-js';
 import { isSupabaseConfigured } from '../lib/supabaseConfig';
 import { RESET_PASSWORD_PATH } from '../shared/routes';
 import { track } from '../lib/analytics';
+import { safeInternalPath } from '../lib/safePath';
 
 /**
  * `@supabase/supabase-js` is 54 KB gzipped — 38% of the landing page's entire
@@ -434,10 +435,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!isSupabaseConfigured) return { error: 'Backend not configured yet.' };
     const supabase = await ensureClient();
     // Belt and braces on top of the caller's own check: anything that is not a
-    // same-site absolute path is discarded rather than sent to GoTrue, so no
-    // future caller can turn this into an open redirect by passing a value it
-    // read straight from a query string.
-    const target = next.startsWith('/') && !next.startsWith('//') ? next : '/tools';
+    // same-site path is discarded rather than sent to GoTrue, so no future
+    // caller can turn this into an open redirect by passing a value it read
+    // straight from a query string. Same gate as Login.tsx — one implementation,
+    // so the two cannot drift into disagreeing about what "same-site" means.
+    const target = safeInternalPath(next, '/tools');
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {

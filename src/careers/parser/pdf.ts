@@ -16,10 +16,30 @@ export interface PdfExtraction {
   pages: number;
 }
 
+/**
+ * Page ceiling for a résumé. Deliberately far tighter than the statement
+ * importer's 500: `numPages` comes from the file's own page tree, so a few
+ * kilobytes of PDF can declare tens of thousands of pages and freeze the tab on
+ * a document a user was invited to upload. No real CV is close to 60 pages, and
+ * a portfolio that is gets an honest message rather than a hung browser.
+ */
+const MAX_RESUME_PAGES = 60;
+
 async function openDocument(bytes: ArrayBuffer) {
   try {
-    return await pdfjs.getDocument({ data: bytes.slice(0) }).promise;
+    const doc = await pdfjs.getDocument({ data: bytes.slice(0) }).promise;
+    if (doc.numPages > MAX_RESUME_PAGES) {
+      void doc.loadingTask.destroy();
+      throw new CareersError(
+        'validation',
+        `This PDF has ${doc.numPages} pages. Please upload a résumé of ${MAX_RESUME_PAGES} pages or fewer.`,
+      );
+    }
+    return doc;
   } catch (e) {
+    // A page-count rejection is already the right answer for the user; the
+    // catch below exists to translate pdf.js failures, not to re-label ours.
+    if (e instanceof CareersError) throw e;
     const name = (e as { name?: string })?.name ?? '';
     if (name === 'PasswordException') {
       throw new CareersError('validation', 'This PDF is password-protected. Please remove the password and upload again.');

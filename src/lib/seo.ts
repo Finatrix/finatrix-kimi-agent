@@ -109,11 +109,49 @@ function ogImageFor(key: string | null): string {
 /** The default/homepage card, also used by every route without one of its own. */
 export const OG_IMAGE = ogImageFor(null);
 
+/**
+ * `<meta name="robots">` for a page that should rank.
+ *
+ * `index, follow` is the permission. The three `max-*` directives are the
+ * PRESENTATION, and they are not defaults — omit them and Google applies its
+ * own conservative ceilings to how much of the page it may show:
+ *
+ *   max-image-preview:large   Without it a result gets a thumbnail-sized image
+ *                             or none at all, and the page is not eligible for
+ *                             the large-card treatment in Discover. For a
+ *                             calculator competing on a results page against
+ *                             six other calculators, the image is most of what
+ *                             distinguishes the row.
+ *   max-snippet:-1            Lifts the cap on snippet length, so Google may
+ *                             quote as much of the answer as it judges useful.
+ *                             This is also what the AI answer surfaces read
+ *                             when deciding how much of a page they may show.
+ *   max-video-preview:-1      No video today; stated for the same reason as the
+ *                             others — the default is a limit, not "unset", and
+ *                             a page that later gains a demo clip should not
+ *                             need this discovered a second time.
+ *
+ * All three are permissions granted to the crawler, not claims made to it, so
+ * there is nothing here that can become untrue about the page.
+ *
+ * Exported because it is a VALUE the tests compare against. Written out as one
+ * constant, so widening or narrowing what Google may show is a one-line change
+ * with one place to read the reasoning.
+ */
+export const INDEXABLE =
+  'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1';
+
+/**
+ * `<meta name="robots">` for everything private or without standalone search
+ * value. Paired with no canonical, and with `null` structured data.
+ */
+export const NOINDEX = 'noindex, nofollow';
+
 export interface RouteSeo {
   /** Absolute canonical URL, or null when the page must not be indexed. */
   canonical: string | null;
   /** Value for `<meta name="robots">`. */
-  robots: 'index, follow' | 'noindex, nofollow';
+  robots: typeof INDEXABLE | typeof NOINDEX;
   /** Full `<title>` text, already suffixed with the brand. */
   title: string;
   /** `<meta name="description">` — the search-result snippet. */
@@ -327,7 +365,7 @@ export function seoForPath(pathname: string): RouteSeo {
   if (p === '/' || p === '/home') {
     return {
       canonical: `${CANONICAL_ORIGIN}/`,
-      robots: 'index, follow',
+      robots: INDEXABLE,
       title: DEFAULT_TITLE,
       description: DEFAULT_DESCRIPTION,
       socialDescription: DEFAULT_SOCIAL_DESCRIPTION,
@@ -344,7 +382,7 @@ export function seoForPath(pathname: string): RouteSeo {
   if (page) {
     return {
       canonical: `${CANONICAL_ORIGIN}${p}`,
-      robots: 'index, follow',
+      robots: INDEXABLE,
       title: page.title,
       description: page.description,
       socialDescription: page.description,
@@ -371,7 +409,7 @@ export function seoForPath(pathname: string): RouteSeo {
             };
     return {
       canonical: `${CANONICAL_ORIGIN}${p}`,
-      robots: 'index, follow',
+      robots: INDEXABLE,
       title: copy.title,
       description: copy.description,
       socialDescription: copy.description,
@@ -395,7 +433,7 @@ export function seoForPath(pathname: string): RouteSeo {
   if (tool) {
     return {
       canonical: `${CANONICAL_ORIGIN}${p}`,
-      robots: 'index, follow',
+      robots: INDEXABLE,
       title: TOOL_SEO[tool].title,
       description: TOOL_SEO[tool].description,
       socialDescription: TOOL_SEO[tool].description,
@@ -410,7 +448,7 @@ export function seoForPath(pathname: string): RouteSeo {
   const label = PRIVATE_TITLES[p];
   return {
     canonical: null,
-    robots: 'noindex, nofollow',
+    robots: NOINDEX,
     title: label ? `${label} — ${SITE_NAME}` : DEFAULT_TITLE,
     description: DEFAULT_DESCRIPTION,
     socialDescription: DEFAULT_SOCIAL_DESCRIPTION,
@@ -729,18 +767,60 @@ export function structuredDataForPath(
 ): JsonLd | null {
   const p = normalisePath(pathname);
   const seo = seoForPath(p);
-  if (seo.robots !== 'index, follow' || !seo.canonical) return null;
+  if (seo.robots !== INDEXABLE || !seo.canonical) return null;
 
   const url = seo.canonical;
 
-  // The homepage: a WebPage plus the SearchAction that lets Google offer a
-  // sitelinks search box. The target is the tools hub because that is the only
-  // place a query can currently land — there is no site-wide search endpoint to
-  // point at, and inventing one would advertise a 404.
+  /**
+   * The homepage: a WebPage, plus an ItemList naming the seven calculators.
+   *
+   * The list is the addition worth explaining. `LandingShowcase` renders one
+   * card per tool — name, blurb and a link to its own page — so the markup
+   * describes content a visitor actually sees, which is the same standard
+   * `faqPage` is held to. What it buys is that a crawler learns the site's
+   * seven principal entry points, with their names and order, from the URL that
+   * carries the most authority, instead of inferring them from anchor text.
+   * That is the input Google uses to choose sitelinks, and sitelinks are how a
+   * brand result stops being one row and starts being a block.
+   *
+   * `TOOL_SEO` supplies the names and descriptions, so a tool renamed there is
+   * renamed here, in the visible cards, and in its own page's title, from one
+   * edit. `seo.test.ts` asserts the list stays in step with `TOOL_IDS`.
+   *
+   * NOT included, deliberately: `WebSite.potentialAction` / `SearchAction`.
+   * A sitelinks search box has to name a URL that accepts a query string and
+   * returns results. FinatriX has no such endpoint — ⌘K is a client-side
+   * palette with no addressable results page — so pointing one at `/tools`
+   * would advertise a search that does not exist. This comment previously
+   * claimed the node was here; it never was.
+   */
   if (p === '/' || p === '/home') {
     return {
       '@context': 'https://schema.org',
-      '@graph': [webPage(url, seo, { '@id': `${CANONICAL_ORIGIN}/#webpage` })],
+      '@graph': [
+        webPage(url, seo, {
+          '@id': `${CANONICAL_ORIGIN}/#webpage`,
+          mainEntity: { '@id': `${CANONICAL_ORIGIN}/#tools` },
+        }),
+        {
+          '@type': 'ItemList',
+          '@id': `${CANONICAL_ORIGIN}/#tools`,
+          name: 'The FinatriX toolkit',
+          description: 'Seven free, education-first money calculators for India.',
+          numberOfItems: TOOL_IDS.length,
+          // The cards are rendered in TOOL_IDS order, so the list is ordered
+          // and says so. An unordered list of the same items would be a
+          // slightly different, and slightly less true, claim.
+          itemListOrder: 'https://schema.org/ItemListOrderAscending',
+          itemListElement: TOOL_IDS.map((id, i) => ({
+            '@type': 'ListItem',
+            position: i + 1,
+            name: TOOL_SEO[id].name,
+            description: TOOL_SEO[id].description,
+            url: `${CANONICAL_ORIGIN}/tools/${id}`,
+          })),
+        },
+      ],
     };
   }
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
+import { safeInternalPath } from '../lib/safePath';
 import AuthShell, {
   Field,
   PrimaryButton,
@@ -15,16 +16,16 @@ const DEFAULT_DESTINATION = '/tools';
 /**
  * The post-sign-in destination, taken from `?next=` when it is safe to honour.
  *
- * Restricted to same-site absolute paths on purpose. `?next=https://evil.example`
- * would make this page an open redirector — a link that reads as finatrix.co,
- * lands on a real sign-in form, and forwards to somebody else's site the moment
- * it succeeds. `//evil.example` is the same attack written to survive a naive
- * "starts with /" check, which is why the second character is tested too.
+ * Restricted to same-site paths on purpose. `?next=https://evil.example` would
+ * make this page an open redirector — a link that reads as finatrix.co, lands
+ * on a real sign-in form, and forwards to somebody else's site the moment it
+ * succeeds. The decision is `safeInternalPath`'s, which resolves the candidate
+ * the way a browser will rather than testing its first two characters: `/\`,
+ * `/<TAB>/` and `/<LF>/` are all the same attack written to survive a prefix
+ * check. See src/lib/safePath.ts.
  */
 function safeDestination(search: string): string {
-  const next = new URLSearchParams(search).get('next');
-  if (!next || !next.startsWith('/') || next.startsWith('//')) return DEFAULT_DESTINATION;
-  return next;
+  return safeInternalPath(new URLSearchParams(search).get('next'), DEFAULT_DESTINATION);
 }
 
 export default function Login() {

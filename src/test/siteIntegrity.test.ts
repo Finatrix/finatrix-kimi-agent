@@ -56,7 +56,7 @@ import { isKnownRoute, TOOL_IDS } from '../shared/routes';
 import { sitemapEntries } from '../shared/sitemap';
 import { TOOL_GUIDES } from '../shared/toolGuides';
 import { TOOL_FAQ } from '../shared/toolFaq';
-import { CANONICAL_ORIGIN, seoForPath, structuredDataForPath } from '../lib/seo';
+import { CANONICAL_ORIGIN, seoForPath, structuredDataForPath, INDEXABLE } from '../lib/seo';
 
 const SRC = join(__dirname, '..');
 const FOOTER = readFileSync(join(SRC, 'sections', 'LandingFooter.tsx'), 'utf8');
@@ -176,8 +176,8 @@ describe('the site graph', () => {
 
   it('never links from an indexable page to a noindex one', () => {
     const leaks = EDGES.filter(
-      (e) => seoForPath(e.from).robots === 'index, follow'
-        && seoForPath(e.to).robots !== 'index, follow',
+      (e) => seoForPath(e.from).robots === INDEXABLE
+        && seoForPath(e.to).robots !== INDEXABLE,
     );
     expect(
       leaks.map((e) => `${e.from} → ${e.to}`),
@@ -273,7 +273,7 @@ describe('no soft 404s on any parameterised namespace', () => {
     ];
     for (const p of real) {
       expect(isKnownRoute(p), p).toBe(true);
-      expect(seoForPath(p).robots, p).toBe('index, follow');
+      expect(seoForPath(p).robots, p).toBe(INDEXABLE);
     }
   });
 });
@@ -377,6 +377,38 @@ describe('structured data, on every URL', () => {
         expect(id.startsWith(CANONICAL_ORIGIN), `${p} node @id "${id}" is off-origin`).toBe(true);
       }
     }
+  });
+
+  /**
+   * `Organization.knowsAbout` must name topics the site actually publishes.
+   *
+   * It is an expertise claim — the property a search engine reads to decide
+   * what this brand is an authority ON, which for a YMYL finance site is
+   * exactly the signal that is weighed hardest. So it has to be earned by a
+   * real hub page with real articles behind it, not asserted.
+   *
+   * The list is hand-written in index.html because that block is static JSON
+   * with no build step to import the registry from; this test is what makes
+   * the duplication safe. Equality is asserted in BOTH directions on purpose:
+   * a stale entry is a claim to expertise the site no longer has, and a missing
+   * one is expertise it has and is not declaring.
+   */
+  it('claims expertise in exactly the topics the knowledge layer covers', () => {
+    const html = readFileSync(join(__dirname, '..', '..', 'index.html'), 'utf8');
+    const block = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(html)?.[1];
+    expect(block, 'index.html must carry the site-level JSON-LD block').toBeTruthy();
+
+    const graph = JSON.parse(block!)['@graph'] as Array<Record<string, unknown>>;
+    const org = graph.find((n) => n['@type'] === 'Organization');
+    expect(org, 'the site-level graph must carry an Organization node').toBeTruthy();
+
+    expect(
+      org!.knowsAbout,
+      'index.html\'s Organization.knowsAbout has drifted from TOPICS in '
+        + 'src/shared/content.ts. Every entry must be a topic with a real hub page: '
+        + 'a stale name claims expertise the site no longer publishes, and a missing '
+        + 'one leaves real expertise undeclared.',
+    ).toEqual(TOPICS.map((t) => t.name));
   });
 
   it('serialises to valid JSON with no unescaped script terminator', () => {

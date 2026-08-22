@@ -21,6 +21,45 @@ import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
 pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
+/**
+ * A NOTE ON `isEvalSupported`, so nobody has to rediscover this.
+ *
+ * pdf.js used to JIT-compile two things a HOSTILE file controls — PostScript
+ * Type 4 shading functions and font charstring programs — through
+ * `new Function`, and that path is what CVE-2024-4367 / GHSA-hq66-cqwq-w95j
+ * turned into arbitrary script execution from a crafted font. The documented
+ * mitigation was `getDocument({ isEvalSupported: false })`.
+ *
+ * That option does not exist here and must not be added back: pdf.js v5 deleted
+ * `PostScriptCompiler` and the flag along with it, and pdfjs-dist 6.2.108
+ * contains no `new Function` or `eval(` in either `pdf.mjs` or
+ * `pdf.worker.mjs`. Passing it is a type error and a runtime no-op — the class
+ * of bug is gone from the library rather than switched off in it.
+ *
+ * Worth knowing because the CSP is NOT the backstop it looks like. `script-src`
+ * names no `'unsafe-eval'`, but pdf.js parses inside a dedicated Worker served
+ * from `/assets/*`, and `public/_headers` deliberately attaches no policy to
+ * that prefix (a blanket one would block WASM in the Tesseract worker). So if
+ * an eval path ever returns to this dependency, nothing in the deployment
+ * stops it — re-check this on any pdfjs major, and pin the flag again the day
+ * it exists again. `src/test/uploadParsingHardening.test.ts` fails if it silently does.
+ */
+
+/**
+ * Page ceiling for a single document.
+ *
+ * `numPages` is read from the file's own page tree, so it is attacker-chosen:
+ * a few kilobytes of PDF can declare tens of thousands of pages, and the loop
+ * below allocates per page. Unbounded, that is a frozen tab from a file the
+ * user was invited to upload.
+ *
+ * 500 is far above any real input — a year of bank statements runs to tens of
+ * pages, a résumé to a handful — and the limit REFUSES rather than truncating.
+ * Silently returning the first N pages of a statement would drop transactions
+ * and quietly produce a wrong ledger, which is worse than not importing at all.
+ */
+export const MAX_PDF_PAGES = 500;
+
 /** Why a PDF could not be read, in terms the caller can act on. */
 export type PdfFailure =
   /** Encrypted; a password is required and none was supplied. */
@@ -29,6 +68,8 @@ export type PdfFailure =
   | 'password-wrong'
   /** Structurally invalid or truncated. */
   | 'corrupt'
+  /** More pages than this app will process in one go. */
+  | 'too-many-pages'
   /** Opened, but anything else went wrong while reading. */
   | 'unreadable';
 
@@ -60,6 +101,13 @@ export async function extractPdfText(bytes: ArrayBuffer, password?: string): Pro
   const task = pdfjs.getDocument({ data: bytes.slice(0), password });
   const doc = await open(task, password);
   try {
+    if (doc.numPages > MAX_PDF_PAGES) {
+      throw new PdfError(
+        'too-many-pages',
+        `This PDF has ${doc.numPages} pages, which is more than FinatriX will read in one import `
+          + `(the limit is ${MAX_PDF_PAGES}). Please split it, or download a shorter date range from your bank.`,
+      );
+    }
     const pages: string[] = [];
     for (let p = 1; p <= doc.numPages; p++) {
       const page = await doc.getPage(p);
