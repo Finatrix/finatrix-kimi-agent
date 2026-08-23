@@ -37,7 +37,7 @@ const CASES: [string, string | RegExp][] = [
   ['/tools/expenses', 'Your money, tracked and understood.'],
   ['/tools/investmatch', 'A portfolio shaped to you.'],
   ['/tools/parksmart', "Idle money shouldn't idle."],
-  ['/tools/peercompare', 'How do you really stack up?'],
+  ['/tools/peercompare', 'How does your money compare?'],
   ['/tools/goals', 'Start at the dream. Work backwards.'],
   ['/tools/lifemap', 'Simulate your entire financial life.'],
   ['/tools/reports', 'Your finances, ready to share.'],

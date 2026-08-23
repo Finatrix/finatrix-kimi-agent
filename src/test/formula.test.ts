@@ -142,8 +142,11 @@ describe('spreadsheet-style = prefix', () => {
   });
 
   it('accepts a bare number and a negative behind the prefix', () => {
-    expect(evaluateFormula('=250')).toMatchObject({ ok: true, value: 250 });
-    expect(evaluateFormula('=-500')).toMatchObject({ ok: true, value: -500 });
+    // `isExpression` asserted explicitly: `toMatchObject` ignored it, which is
+    // how it stayed wrong. The `=` prefix is the signal, so `=250` IS an
+    // expression even though what follows is a bare number.
+    expect(evaluateFormula('=250')).toMatchObject({ ok: true, value: 250, isExpression: true });
+    expect(evaluateFormula('=-500')).toMatchObject({ ok: true, value: -500, isExpression: true });
   });
 
   it('tolerates whitespace around the prefix', () => {
@@ -197,6 +200,32 @@ describe('formulaSignedAmount', () => {
   it('behaves like formulaAmount for everything non-negative', () => {
     for (const input of ['120/4', '42', 'nonsense', '', '0']) {
       expect(formulaSignedAmount(input), input).toBe(formulaAmount(input));
+    }
+  });
+});
+
+describe('isExpression reports the original input, not the stripped body', () => {
+  it('is true for arithmetic, with or without the = prefix', () => {
+    for (const input of ['10+5', '120/4', '(100-25)/5', '=10+5', '=1200/4']) {
+      expect(evaluateFormula(input), input).toMatchObject({ ok: true, isExpression: true });
+    }
+  });
+
+  it('is true for an = prefix on a bare number', () => {
+    expect(evaluateFormula('=250')).toMatchObject({ isExpression: true });
+    expect(evaluateFormula('  =42  ')).toMatchObject({ isExpression: true });
+  });
+
+  it('is false for a plain number or a bare sign', () => {
+    for (const input of ['250', '  42 ', '-500', '+30', '12.5']) {
+      expect(evaluateFormula(input), input).toMatchObject({ ok: true, isExpression: false });
+    }
+  });
+
+  it('agrees with isFormula on the same input', () => {
+    for (const input of ['250', '=250', '10+5', '=10+5', '-500', '(4)']) {
+      const r = evaluateFormula(input);
+      if (r.ok) expect(r.isExpression, input).toBe(isFormula(input));
     }
   });
 });

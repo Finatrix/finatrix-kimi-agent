@@ -107,10 +107,14 @@ function ToolTabs({ activeTool }: { activeTool: string }) {
         aria-label="Tools"
         style={{ maxWidth: 'none', margin: 0, flex: '1 1 auto', minWidth: 0, padding: '10px 8px' }}
       >
+        {/* aria-current on every tab, not just the mobile bar. The gold pill
+            is the only signal a sighted user needs; a screen-reader user got
+            nothing at all from it. */}
         <Link
           to="/tools/dashboard"
           data-route="dashboard"
           className={activeTool === 'dashboard' ? 'on' : undefined}
+          aria-current={activeTool === 'dashboard' ? 'page' : undefined}
         >
           Dashboard
         </Link>
@@ -120,6 +124,7 @@ function ToolTabs({ activeTool }: { activeTool: string }) {
             to={t.href}
             data-route={t.id}
             className={activeTool === t.id ? 'on' : undefined}
+            aria-current={activeTool === t.id ? 'page' : undefined}
           >
             {t.name}
           </Link>
@@ -128,6 +133,7 @@ function ToolTabs({ activeTool }: { activeTool: string }) {
           to="/tools/reports"
           data-route="reports"
           className={activeTool === 'reports' ? 'on' : undefined}
+          aria-current={activeTool === 'reports' ? 'page' : undefined}
         >
           Reports
         </Link>
@@ -135,6 +141,7 @@ function ToolTabs({ activeTool }: { activeTool: string }) {
           to="/tools/calendar"
           data-route="calendar"
           className={activeTool === 'calendar' ? 'on' : undefined}
+          aria-current={activeTool === 'calendar' ? 'page' : undefined}
         >
           Calendar
         </Link>

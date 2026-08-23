@@ -3,10 +3,18 @@ import { TOOLS, type Tool } from '../lib/tools';
 import { ToolIcon } from '../components/ToolIcon';
 import { BrandLogo } from '../components/BrandLogo';
 import { CURRENCY_COUNT } from '../tools/lib/format';
+import { TOOL_COUNT_WORD_CAP } from '../shared/toolCount';
 
 const byId = (id: string) => TOOLS.find((t) => t.id === id)!;
 
-// Display name + one-line subtitle for each hero card (matches the design).
+/**
+ * Display name + one-line subtitle for each hero card.
+ *
+ * The subtitles describe what the tool does, which two of them did not: on a
+ * personal-finance site "Smart parking made simple" reads as an app for finding
+ * parking spaces, and PeerCompare's "Compare, decide, stay ahead" survived a
+ * rebuild that changed what it compares you against.
+ */
 interface HeroCard {
   tool: Tool;
   name: string;
@@ -16,19 +24,28 @@ const HERO_CARDS: HeroCard[] = [
   { tool: byId('budget'), name: 'Budget', sub: 'Plan smart, spend better' },
   { tool: byId('expenses'), name: 'Expenses', sub: 'Track everything, stay on budget' },
   { tool: byId('investmatch'), name: 'InvestMatch', sub: 'Find the right investments' },
-  { tool: byId('parksmart'), name: 'ParkSmart', sub: 'Smart parking made simple' },
-  { tool: byId('peercompare'), name: 'PeerCompare', sub: 'Compare, decide, stay ahead' },
+  { tool: byId('parksmart'), name: 'ParkSmart', sub: 'Best post-tax home for idle cash' },
+  { tool: byId('peercompare'), name: 'PeerCompare', sub: 'Measure against national benchmarks' },
   { tool: byId('goals'), name: 'Goals', sub: 'Set goals, achieve more' },
   { tool: byId('lifemap'), name: 'LifeMap', sub: 'Map your life, secure your future' },
   { tool: byId('networth'), name: 'Net Worth', sub: 'Track what you own and owe' },
 ];
 
+/**
+ * The trust strip.
+ *
+ * "Free forever" used to sit here unqualified, on the same viewport as the
+ * gold Careers card selling a ₹199–₹2,499/month subscription. Scoped to the
+ * money tools it is true and worth saying; unscoped, beside a paid upsell, it
+ * is the kind of claim India's CCPA misleading-advertisement rules exist for.
+ * The qualifier is three words and costs nothing.
+ */
 const TRUST: string[] = [
   `${CURRENCY_COUNT} currencies`,
   'Made in India 🇮🇳',
   'Privacy first',
   'Education first',
-  'Free forever',
+  'Money tools free forever',
   'Real-time calculations',
 ];
 
@@ -196,18 +213,36 @@ export default function LandingHero() {
 
       {/* ── Wordmark + CTAs ── */}
       <div className="relative z-10 mt-9 sm:mt-10 text-center max-w-[720px]">
-        <h1
-          className="fx-in font-extrabold italic tracking-[-0.035em] leading-[0.95] text-ink"
-          style={{ fontSize: 'clamp(44px,9vw,102px)', animationDelay: '0.78s', paddingRight: '0.16em', paddingBottom: '0.06em', overflow: 'visible' }}
-        >
-          Finatri<span className="fx-gold-text">X</span>
+        {/*
+          The h1 carries the proposition, not just the brand.
+
+          It used to be the single word "FinatriX" — the strongest heading
+          signal on the highest-authority page of the site, saying nothing about
+          money, India, budgeting or anything a person searches for. The
+          wordmark is still the visual anchor; the line under it is now inside
+          the heading rather than a separate <p>, so the h1 has real text.
+
+          It also no longer carries `fx-in`. `animation-fill-mode: backwards`
+          held it at opacity 0 through a 0.78s stagger delay before a 0.62s
+          fade — and at clamp(44px, 9vw, 102px) this element is almost
+          certainly the LCP. That was ~1.4s of Largest Contentful Paint spent on
+          choreography. The cards above still stagger; the headline paints
+          immediately.
+        */}
+        <h1 className="font-extrabold tracking-[-0.035em] leading-[0.95] text-ink">
+          <span
+            className="block italic"
+            style={{ fontSize: 'clamp(44px,9vw,102px)', paddingRight: '0.16em', paddingBottom: '0.06em', overflow: 'visible' }}
+          >
+            Finatri<span className="fx-gold-text">X</span>
+          </span>
+          <span className="mt-4 block text-[13.5px] font-medium not-italic tracking-normal leading-snug text-ink-2 sm:text-[15px]">
+            {TOOL_COUNT_WORD_CAP} free money tools for India — budgeting, investing, benchmarking
+            and a lifelong wealth simulation.
+          </span>
         </h1>
 
-        <p className="fx-in mt-4 text-[13.5px] sm:text-[15px] text-ink-2" style={{ animationDelay: '0.86s' }}>
-          A complete money toolkit — refined into one premium experience.
-        </p>
-
-        <div className="fx-in mt-8 flex flex-wrap items-center justify-center gap-3" style={{ animationDelay: '0.94s' }}>
+        <div className="fx-in mt-8 flex flex-wrap items-center justify-center gap-3" style={{ animationDelay: '0.34s' }}>
           <Link to="/tools" className="fx-btn-gold group inline-flex items-center gap-2 font-mono text-[12px] uppercase tracking-[0.1em] px-7 py-3.5 rounded-full">
             Launch the tools
             <span className="transition-transform group-hover:translate-x-0.5">→</span>
@@ -218,7 +253,7 @@ export default function LandingHero() {
         </div>
 
         {/* trust strip */}
-        <div className="fx-in mt-11 flex flex-wrap items-center justify-center gap-2 sm:gap-2.5" style={{ animationDelay: '1.04s' }}>
+        <div className="fx-in mt-11 flex flex-wrap items-center justify-center gap-2 sm:gap-2.5" style={{ animationDelay: '0.42s' }}>
           {TRUST.map((label, i) => (
             <span key={i} className="inline-flex items-center gap-1.5 rounded-full border border-hairline bg-[var(--tile-bg)] px-3 py-1.5 backdrop-blur-sm">
               <span className="h-1 w-1 rounded-full bg-[#D4AF37]" aria-hidden="true" />

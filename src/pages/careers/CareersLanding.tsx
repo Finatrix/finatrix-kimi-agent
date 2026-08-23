@@ -20,6 +20,7 @@ import MarketingPage from '../../marketing/MarketingPage';
 import { Card, Facts, Faq, Grid, P, RelatedPages, Section, UL } from '../../marketing/ui';
 import { CAREERS_FROM_PRICE, formatInr } from '../../shared/plans';
 import { publicPageFor, RIVALS } from '../../shared/publicPages';
+import { TOOL_COUNT_WORD } from '../../shared/toolCount';
 
 const PATH = '/careers';
 
@@ -200,7 +201,7 @@ export default function CareersLanding() {
         <P>
           Plans start at {formatInr(CAREERS_FROM_PRICE)} a month. Each purchase is a single payment
           covering one billing period — nothing auto-renews, and no mandate is stored against your
-          card. The seven FinatriX money tools stay free whether or not you ever use Careers.
+          card. The {TOOL_COUNT_WORD} FinatriX money tools stay free whether or not you ever use Careers.
         </P>
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <Link

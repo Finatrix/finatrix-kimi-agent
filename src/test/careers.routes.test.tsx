@@ -20,8 +20,8 @@ function renderAt(path: string) {
 //
 // `/careers` is deliberately absent: it is no longer the workspace. It renders
 // the public marketing landing page, which is covered by
-// `careersPublic.test.tsx` — and the whole point of that change is that it does
-// NOT render a tab bar or hit an auth gate.
+// `marketingRoutes.test.tsx` — and the whole point of that change is that it
+// does NOT render a tab bar or hit an auth gate.
 const CASES: [string, string | RegExp][] = [
   ['/careers/dashboard', 'Resume Library'],
   ['/careers/upload', 'Career Coach'],

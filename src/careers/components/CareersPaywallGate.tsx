@@ -2,10 +2,22 @@
  * Careers subscription gate — UX layer only. Signed-in users without a paid
  * plan see CareersProPaywall instead of the requested Careers page.
  *
- * NOT the security boundary: server-side RLS on subscriptions/billing_history
- * (own-row-or-admin) and per-feature quota checks (checkQuota) remain the
- * actual enforcement. This gate can fail open in a UI sense (a bug here shows
- * the wrong screen) but can never grant data access — that's Postgres's job.
+ * NOT the security boundary. What this comment used to claim, and what is
+ * actually true, differ enough to be worth stating plainly:
+ *
+ *   • It named `checkQuota` as "the actual enforcement". `checkQuota` is a pure
+ *     function in `services/subscriptions.ts` whose only production caller is
+ *     `BillingPage`, where it renders a usage bar. It gates nothing, anywhere.
+ *   • It named own-row RLS on `subscriptions` as the other half. Own-row RLS is
+ *     what lets a user write their OWN subscription row — including `plan_id`.
+ *     "You may only edit your own subscription" is not the same claim as "you
+ *     may not grant yourself one", and this gate reads `plan_id` from exactly
+ *     that row.
+ *
+ * So: this gate decides which screen you see, and nothing server-side currently
+ * re-checks the plan before spending money on AI. Treat it as UX until the
+ * `subscriptions` UPDATE policy constrains `plan_id` and `careers-ai` checks
+ * entitlement — see docs/SECURITY-TODO.md.
  *
  * Re-checks on every /careers/* navigation (not just once per mount) rather
  * than caching for the session: the one path this matters is landing back

@@ -9,6 +9,7 @@
  */
 
 import { LEARN_ROOT, isContentPath } from './content';
+import { TOOL_IDS } from './toolCount';
 import { PUBLIC_PAGE_PATHS } from './publicPages';
 
 /**
@@ -23,19 +24,19 @@ import { PUBLIC_PAGE_PATHS } from './publicPages';
  */
 export const CANONICAL_HOST = 'finatrix.co';
 
-/** The public calculators. Source of truth for the sitemap + edge 404s. */
-export const TOOL_IDS = [
-  'budget',
-  'expenses',
-  'investmatch',
-  'parksmart',
-  'peercompare',
-  'goals',
-  'lifemap',
-  'networth',
-] as const;
-
-export type ToolId = (typeof TOOL_IDS)[number];
+/**
+ * The public calculators, and the prose forms of their count, re-exported from
+ * the leaf module that owns them (`toolCount.ts`). They live there rather than
+ * here so page registries can read the count without closing an import cycle
+ * through `publicPages.ts` below.
+ */
+export {
+  TOOL_IDS,
+  TOOL_COUNT,
+  TOOL_COUNT_WORD,
+  TOOL_COUNT_WORD_CAP,
+  type ToolId,
+} from './toolCount';
 
 /**
  * Signed-in `/tools/*` pages that are NOT public calculators: the personalised

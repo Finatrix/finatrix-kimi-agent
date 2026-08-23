@@ -7,15 +7,21 @@ import {
   CANONICAL_ORIGIN,
   DEFAULT_TITLE,
   DEFAULT_DESCRIPTION,
+  DEFAULT_SOCIAL_DESCRIPTION,
   ROUTE_SCHEMA_ID,
   structuredDataForPath,
   serialiseJsonLd,
   INDEXABLE,
 } from '../lib/seo';
 import { existsSync } from 'node:fs';
-import { CANONICAL_HOST, TOOL_IDS } from '../shared/routes';
-import { PUBLIC_PAGE_PATHS } from '../shared/publicPages';
+import { CANONICAL_HOST, TOOL_COUNT_WORD, TOOL_COUNT_WORD_CAP, TOOL_IDS } from '../shared/routes';
+import { PUBLIC_PAGES as PUBLIC_PAGES_JSON, PUBLIC_PAGE_PATHS } from '../shared/publicPages';
 import { CONTENT_PATHS } from '../shared/content';
+
+/** Every count word the copy could plausibly carry, for the drift check below. */
+const NUMBER_WORDS_FOR_TEST = [
+  'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve',
+];
 
 /**
  * Every indexable URL on the site, for the assertions that must hold across all
@@ -92,6 +98,64 @@ describe('the indexable robots directive', () => {
       content,
       'index.html\'s robots meta must be byte-identical to INDEXABLE in src/lib/seo.ts',
     ).toBe(INDEXABLE);
+  });
+});
+
+/**
+ * The homepage copy that names how many calculators there are.
+ *
+ * `DEFAULT_TITLE` and `DEFAULT_DESCRIPTION` carried a comment claiming this
+ * file already asserted they matched `index.html`. It did not — only the robots
+ * meta was checked — and in that gap the shell shipped "Seven free … money
+ * tools" across the meta description, both social cards, the `ItemList` JSON-LD
+ * and the "What is FinatriX?" answer, while `TOOL_IDS` held eight and the hero
+ * rendered eight cards. These are the assertions that comment described.
+ */
+describe('homepage copy agrees with itself and with TOOL_IDS', () => {
+  const html = () => readFileSync(join(process.cwd(), 'index.html'), 'utf8');
+
+  it('index.html ships the same title as DEFAULT_TITLE', () => {
+    expect(/<title>([^<]+)<\/title>/.exec(html())?.[1]).toBe(DEFAULT_TITLE);
+  });
+
+  it('index.html ships DEFAULT_DESCRIPTION in the meta, og and twitter tags', () => {
+    const doc = html();
+    const found = [
+      /<meta\s+name="description"\s+content="([^"]+)"/s.exec(doc)?.[1],
+      /<meta\s+property="og:description"\s+content="([^"]+)"/s.exec(doc)?.[1],
+      /<meta\s+name="twitter:description"\s+content="([^"]+)"/s.exec(doc)?.[1],
+      // The multi-line form Prettier produces for the long values.
+      ...[...doc.matchAll(/content="([^"]*education-first money tools[^"]*)"/g)].map((m) => m[1]),
+    ].filter(Boolean);
+    expect(found.length, 'expected the shell to carry the homepage description').toBeGreaterThan(0);
+    for (const value of found) expect(value).toBe(DEFAULT_DESCRIPTION);
+  });
+
+  it('spells the tool count from TOOL_IDS rather than hardcoding it', () => {
+    expect(TOOL_COUNT_WORD_CAP.toLowerCase()).toBe(TOOL_COUNT_WORD);
+    expect(DEFAULT_DESCRIPTION.startsWith(`${TOOL_COUNT_WORD_CAP} free`)).toBe(true);
+    expect(html()).toContain(`${TOOL_COUNT_WORD_CAP} free`);
+  });
+
+  /**
+   * The failure this catches is drift, not a typo: any registry string that
+   * spells a count which is no longer `TOOL_IDS.length`.
+   */
+  it('no registry string names a stale tool count', () => {
+    const stale = NUMBER_WORDS_FOR_TEST.filter((w) => w !== TOOL_COUNT_WORD);
+    const surfaces: [string, string][] = [
+      ['index.html', html()],
+      ['DEFAULT_DESCRIPTION', DEFAULT_DESCRIPTION],
+      ['DEFAULT_SOCIAL_DESCRIPTION', DEFAULT_SOCIAL_DESCRIPTION],
+      ['publicPages FAQ', JSON.stringify(PUBLIC_PAGES_JSON)],
+      ['tools JSON-LD', JSON.stringify(structuredDataForPath('/'))],
+    ];
+    for (const [name, text] of surfaces) {
+      for (const word of stale) {
+        const re = new RegExp(`\\b${word} free\\b`, 'i');
+        expect(re.test(text), `${name} claims "${word} free" but there are ${TOOL_IDS.length} tools`).toBe(false);
+      }
+    }
   });
 });
 

@@ -1,109 +1,40 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import toolsHtml from './__fixtures__/original-tools-app.html?raw';
-import { extractFnSource, extractConstSource, evalOriginalConst, compileScope } from './harness';
-import {
-  PC_CITIES, PC_BENCH, pcBracket, pcPct, computePeerCompare, type PeerInput,
-} from '../../tools/lib/peercompare';
-import { fmt } from '../../tools/lib/format';
+import { evalOriginalConst } from './harness';
+import { PC_CITIES } from '../../tools/lib/peercompare';
 
-beforeAll(() => {
-  (window as unknown as { scrollTo: () => void }).scrollTo = () => {};
-});
-
-describe('peercompare parity — data + pure fns', () => {
-  it('PC_CITIES / PC_BENCH match the source', () => {
+/**
+ * PeerCompare parity — retired, except for the city table.
+ *
+ * This file used to hold the fullest parity suite in the project: `PC_BENCH`
+ * pinned to the fixture, `pcBracket`/`pcPct` compared across grids, and 40
+ * rendered-output comparisons against the original `pcCompare()` DOM. All of it
+ * has gone, deliberately, because the behaviour it was protecting was wrong:
+ *
+ *   • `PC_BENCH` was 126 hand-written "averages" by age bracket and city tier,
+ *     presented as sourced to "RBI, PLFS & survey data". They were not, and
+ *     could not be — MoSPI publishes no earnings breakdown by age, and no
+ *     official Indian series reports household savings, investments or net
+ *     worth by age and city tier. The table is gone; `benchmarks.ts` carries
+ *     what is actually publishable, with publisher, period and URL.
+ *   • `pcPct` was rendered as a percentile in both the code and the UI. It is a
+ *     logistic curve over a ratio, not a percentile. Renamed `comparisonIndex`.
+ *   • `dti` was `debt / (income * 12)` — total outstanding debt over annual
+ *     income — labelled "Debt-to-income" and thresholded at 40%, which is the
+ *     conventional limit for the monthly-payment ratio. Replaced by a real
+ *     debt-service ratio computed from a new EMI input.
+ *
+ * Holding any of that to the fixture meant CI would fail the moment somebody
+ * fixed it, which is precisely what kept it shipped. Correctness assertions
+ * now live in `peercompare.test.ts`, checked against published figures and
+ * stated guidelines rather than against the previous implementation.
+ *
+ * The city table survives here because it genuinely is unchanged data, and
+ * because pinning it proves the rewrite did not quietly edit the one part it
+ * had no reason to touch.
+ */
+describe('peercompare parity — the city table is unchanged', () => {
+  it('PC_CITIES still matches the source', () => {
     expect(PC_CITIES).toEqual(evalOriginalConst(toolsHtml, 'PC_CITIES'));
-    expect(PC_BENCH).toEqual(evalOriginalConst(toolsHtml, 'PC_BENCH'));
-  });
-  it('pcBracket + pcPct match across grids', () => {
-    const oBr = compileScope<(a: number) => string>([extractFnSource(toolsHtml, 'pcBracket')], 'pcBracket');
-    for (let age = 16; age <= 75; age++) expect(pcBracket(age)).toBe(oBr(age));
-    const oPct = compileScope<(r: number) => number>([extractFnSource(toolsHtml, 'pcPct')], 'pcPct');
-    for (const ratio of [-1, 0, 0.1, 0.5, 0.8, 1, 1.25, 2, 3.7, 10, 100, NaN, Infinity]) {
-      expect(pcPct(ratio)).toBe(oPct(ratio));
-    }
   });
 });
-
-const IDS = ['pc-age', 'pc-city', 'pc-income', 'pc-savings', 'pc-invest', 'pc-debt', 'pc-rate', 'pc-expenses'];
-const TEMPLATE = IDS.map((id) => `<input id="${id}">`).join('') + `<div id="pc-input"></div><div id="pc-result" class="hidden"></div>`;
-
-const runner = new Function(
-  'P',
-  `
-  ${extractConstSource(toolsHtml, 'PC_CITIES')}
-  ${extractConstSource(toolsHtml, 'PC_BENCH')}
-  ${extractFnSource(toolsHtml, 'fmt')}
-  ${extractFnSource(toolsHtml, 'num')}
-  ${extractFnSource(toolsHtml, 'pcBracket')}
-  ${extractFnSource(toolsHtml, 'pcPct')}
-  document.getElementById('pc-age').value = String(P.age);
-  document.getElementById('pc-city').value = P.cityKey;
-  document.getElementById('pc-income').value = String(P.income);
-  document.getElementById('pc-savings').value = String(P.savings);
-  document.getElementById('pc-invest').value = String(P.invest);
-  document.getElementById('pc-debt').value = String(P.debt);
-  document.getElementById('pc-rate').value = String(P.rate);
-  document.getElementById('pc-expenses').value = String(P.expenses);
-  ${extractFnSource(toolsHtml, 'pcCompare')}
-  pcCompare();
-  const res = document.getElementById('pc-result');
-  const scoreEl = res.querySelector('[style*="42px"]');
-  const metricCards = Array.from(res.querySelectorAll('.card')).filter((c) => /\\d+th percentile ·/.test(c.textContent));
-  const metricPcts = metricCards.map((c) => {
-    const m = c.textContent.match(/(\\d+)th percentile · (Ahead|On track|Behind)/);
-    return { pct: Number(m[1]), label: m[2] };
-  });
-  const statsCard = Array.from(res.querySelectorAll('.card')).find((c) => /Additional stats/.test(c.textContent));
-  const stats = statsCard ? Array.from(statsCard.querySelector('.grid2').children).map((d) => d.firstElementChild.textContent) : [];
-  const tips = Array.from(res.querySelectorAll('.tip')).map((t) => ({
-    warn: t.className.includes('tip-warn'),
-    title: t.querySelector('b') ? t.querySelector('b').textContent : '',
-  }));
-  return { score: scoreEl ? scoreEl.textContent : null, metricPcts, stats, tips };
-`
-) as (p: PeerInput) => {
-  score: string | null;
-  metricPcts: { pct: number; label: string }[];
-  stats: string[];
-  tips: { warn: boolean; title: string }[];
-};
-
-const LABEL = { ahead: 'Ahead', ontrack: 'On track', behind: 'Behind' } as const;
-
-const PROFILES: Omit<PeerInput, 'age' | 'cityKey'>[] = [
-  { income: 50000, savings: 200000, invest: 100000, debt: 0, rate: 20, expenses: 30000 },
-  { income: 300000, savings: 5000000, invest: 8000000, debt: 0, rate: 40, expenses: 80000 },
-  { income: 15000, savings: 5000, invest: 0, debt: 500000, rate: 5, expenses: 20000 },
-  { income: 0, savings: 0, invest: 0, debt: 0, rate: 0, expenses: 0 },
-  { income: 55000.5, savings: 123456.75, invest: 98765.25, debt: 12000.5, rate: 22.5, expenses: 31000.75 },
-];
-
-describe('peercompare parity — pcCompare rendered figures', () => {
-  for (const age of [22, 27, 34, 50]) {
-    for (const cityKey of ['mumbai', 'tier3']) {
-      for (let p = 0; p < PROFILES.length; p++) {
-        const input: PeerInput = { age, cityKey, ...PROFILES[p] };
-        it(`age=${age} city=${cityKey} profile#${p}`, () => {
-          const r = computePeerCompare(input);
-          const dom = runOriginal(input);
-          expect(dom.score).toBe(String(r.score));
-          expect(dom.metricPcts).toEqual(r.metrics.map((m) => ({ pct: m.pct, label: LABEL[m.status] })));
-          expect(dom.stats).toEqual([
-            r.eMonths >= 99 ? '∞' : String(r.eMonths),
-            `${r.dti}%`,
-            fmt(r.nw),
-            `${r.investedRatio}%`,
-          ]);
-          expect(dom.tips).toEqual(r.tips.map((t) => ({ warn: t[0] === 'warn', title: t[1] })));
-        });
-      }
-    }
-  }
-});
-
-function runOriginal(input: PeerInput) {
-  document.body.innerHTML = TEMPLATE;
-  document.getElementById('pc-result')!.classList.add('hidden');
-  return runner(input);
-}

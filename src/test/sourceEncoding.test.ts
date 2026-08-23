@@ -1,0 +1,58 @@
+/**
+ * Source files must be text, so git can diff them.
+ *
+ * A single NUL byte anywhere in a file makes git classify it as binary. It
+ * still compiles, still deploys, still passes every other test — and every
+ * future `git diff`, `git log -p` and pull-request view for it renders
+ * "Binary files differ" instead of a reviewable diff.
+ *
+ * This shipped: `supabase/functions/careers-ai/index.ts` used two raw U+0000
+ * characters as a hash field separator inside a template literal, which made
+ * the most security-sensitive file in the backend — the one holding the auth
+ * check, the rate limits and the API-key path — invisible to code review. The
+ * fix is a unicode escape sequence, which produces the identical byte at
+ * runtime and leaves the source readable.
+ *
+ * The check is deliberately whole-tree rather than a regression guard on the
+ * one file: the failure mode is silent everywhere it can occur.
+ */
+
+import { describe, it, expect } from 'vitest';
+import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+const ROOT = join(__dirname, '..', '..');
+
+/** Every text-ish source file git tracks. Binary assets are excluded by extension. */
+const BINARY_EXT =
+  /\.(png|jpe?g|gif|webp|avif|ico|svg|woff2?|ttf|otf|eot|pdf|docx?|xlsx?|zip|gz|mp4|webm|wasm)$/i;
+
+function trackedSourceFiles(): string[] {
+  const out = execFileSync('git', ['ls-files', '-z'], { cwd: ROOT, encoding: 'utf8' });
+  return out
+    .split('\0')
+    .filter(Boolean)
+    .filter((p) => !BINARY_EXT.test(p));
+}
+
+describe('source files are text, not binary', () => {
+  it('no tracked source file contains a NUL byte', () => {
+    const offenders: string[] = [];
+    for (const rel of trackedSourceFiles()) {
+      const buf = readFileSync(join(ROOT, rel));
+      const at = buf.indexOf(0);
+      if (at !== -1) {
+        const line = buf.subarray(0, at).toString('utf8').split('\n').length;
+        offenders.push(`${rel}:${line}`);
+      }
+    }
+    expect(
+      offenders,
+      `\nThese files contain a raw NUL byte and git will treat them as binary,\n` +
+        `so their diffs are unreviewable. Use the \\u0000 escape instead:\n` +
+        offenders.map((o) => `  • ${o}`).join('\n') +
+        '\n',
+    ).toEqual([]);
+  });
+});
