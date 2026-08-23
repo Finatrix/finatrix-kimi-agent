@@ -45,3 +45,4 @@ supabase/.temp/
 
 # Wrangler local dev state (created by `wrangler dev`).
 .wrangler/
+playwright.sandbox.config.ts

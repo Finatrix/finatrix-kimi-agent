@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { CONTENT_PATHS } from '../src/shared/content';
 import { PUBLIC_PAGE_PATHS } from '../src/shared/publicPages';
 import { TOOL_IDS } from '../src/shared/routes';
+import { INDEXABLE } from '../src/lib/seo';
 
 /**
  * A real browser visits every public URL and checks the things that only exist
@@ -107,7 +108,13 @@ test.describe('every public page, in a browser', () => {
 
       expect(head.title.length, `${path} title`).toBeGreaterThan(10);
       expect(head.description.length, `${path} description`).toBeGreaterThan(50);
-      expect(head.robots, `${path} robots`).toBe('index, follow');
+      // Compared against INDEXABLE, not a copy of it. This assertion held the
+      // literal 'index, follow' and went stale the moment the constant gained
+      // its max-image-preview / max-snippet / max-video-preview directives —
+      // the commit that added them updated seo.ts, seo.test.ts and index.html
+      // and missed this file, which turned CI red on main for every one of the
+      // 36 indexable pages and stayed that way.
+      expect(head.robots, `${path} robots`).toBe(INDEXABLE);
       expect(head.canonical, `${path} canonical`).toBe(
         `https://finatrix.co${path === '/' ? '/' : path}`,
       );
