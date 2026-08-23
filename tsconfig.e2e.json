@@ -1,0 +1,47 @@
+{
+  /*
+   * The Playwright specs, type-checked.
+   *
+   * `tsconfig.app.json` includes only `src`, so until this project existed
+   * nothing type-checked `e2e/` — the 998 assertions that gate every push were
+   * the ONLY thing that could discover a bad import or a renamed export in
+   * them, and discovering it costs a 21-minute browser run. A spec that cannot
+   * even load reads in CI as a failed test suite, which is the most expensive
+   * way to be told about a typo.
+   *
+   * The options mirror tsconfig.app.json, with two differences the specs
+   * genuinely need: `node` types, because they read `process.env.CI`, and the
+   * DOM lib, because the bodies of `page.evaluate()` callbacks are browser code
+   * compiled here.
+   */
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.e2e.tsbuildinfo",
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "types": ["node", "vite/client"],
+    "skipLibCheck": true,
+
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true
+  },
+  "include": ["e2e", "playwright.config.ts"]
+}

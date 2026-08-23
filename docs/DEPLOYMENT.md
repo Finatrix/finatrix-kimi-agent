@@ -6,14 +6,31 @@
 
 ## 1. Frontend — Cloudflare Workers
 
-Config: `wrangler.jsonc` (worker `finatrix`, serves `./dist`, `not_found_handling: none`). The SPA fallback is gone: `worker/index.ts` owns status codes, returning 200 for real client routes and a genuine 404 otherwise, using `isKnownRoute` from `src/shared/routes.ts` — add any new route there or the edge will 404 it. Security and caching headers: `public/_headers` (copied into `dist/` by Vite; honoured only from `compatibility_date` 2025-04-01 onward). CSP is delivered **both** as a `<meta http-equiv>` in `index.html` and as an HTTP header on document responses in `_headers`; the two must stay byte-identical apart from `frame-ancestors`, which meta CSP cannot express. `deploy-config.test.ts` enforces that.
+Config: `wrangler.jsonc` (worker `finatrix-co`, serves `./dist`, `not_found_handling: none`). The SPA fallback is gone: `worker/index.ts` owns status codes, returning 200 for real client routes and a genuine 404 otherwise, using `isKnownRoute` from `src/shared/routes.ts` — add any new route there or the edge will 404 it. Security and caching headers: `public/_headers` (copied into `dist/` by Vite; honoured only from `compatibility_date` 2025-04-01 onward). CSP is delivered **both** as a `<meta http-equiv>` in `index.html` and as an HTTP header on document responses in `_headers`; the two must stay byte-identical apart from `frame-ancestors`, which meta CSP cannot express. `deploy-config.test.ts` enforces that.
 
 ```bash
 npm run build          # tsc -b && vite build
-npx wrangler deploy    # deploys dist/ to the finatrix worker
+npx wrangler deploy    # deploys dist/ to the finatrix-co worker
 ```
 
 Rollback: `npx wrangler deployments list` → `npx wrangler rollback [version-id]`.
+
+**wrangler is a devDependency, deliberately.** `npx wrangler` with wrangler absent from
+`package.json` runs whatever the npm registry calls latest at that moment — so the program
+that ships this site could differ between two deploys of the same commit, and a CLI release
+could turn a green pipeline red with nothing in the diff. That is the hardest kind of failure
+to diagnose, because everything that normally explains a failure (the commit, the config, the
+secrets) is unchanged. Now `npx wrangler` resolves the version in `package-lock.json`, and CI
+and a laptop run the same one. `src/test/deploy-config.test.ts` fails if it is removed.
+
+Bump it like any other dependency, and validate the bump without deploying:
+
+```bash
+npm run build && npx wrangler deploy --dry-run --outdir /tmp/wrangler-dry
+```
+
+That parses `wrangler.jsonc`, bundles `worker/index.ts` and reads `dist/` exactly as a real
+deploy does, needs no credentials, and uploads nothing.
 
 ### Domains
 
@@ -89,6 +106,52 @@ is one round trip rather than one push per missing name. Neither job blocks the 
 `.github/workflows/ci.yml` runs type-check → lint → test → build on every push/PR to any
 branch, and needs no secrets: its build sets `FX_ALLOW_UNCONFIGURED_BUILD=1` because it is a
 compile check whose `dist/` is discarded. The deploy job deliberately does not.
+
+Both workflows read their Node version from `.node-version`, so the runtime that builds
+production and the one every gate runs on are one decision in one file.
+
+### When the Deploy workflow goes red
+
+Read the failed **step name** first — the job's gates are four separate steps
+(type-check / lint / test / dependency audit) rather than one `&&` chain, so the run list
+already tells you which one stopped, without opening a log.
+
+Then place the failure in one of three categories, because they need opposite responses:
+
+| Failed step | What it means | What to do |
+|---|---|---|
+| Preflight, type-check, lint, test, dependency audit, build | The commit is not deployable. Nothing was shipped. | Fix the commit. |
+| **Deploy to Cloudflare Workers** | The upload was refused **three times**, 15s and 30s apart. | Real. Read the last attempt's output. |
+| **Verify production domain** | The upload succeeded; the live site then failed a check. | Read the check name — the site is live and wrong, or the verifier could not see it. |
+
+The middle two are the ones that used to lie, and both now sample more than once before they
+accuse anyone:
+
+* **The deploy step retries three times.** A wrong token, a script name that belongs to
+  another Worker, a hostname another Worker already owns — those are *answers*, and they come
+  back identically on all three attempts, so retrying costs 45 seconds and tells you the same
+  thing. A reset connection or a 5xx from the Cloudflare API is not an answer, it is the
+  absence of one, and failing a commit for it records it as undeployed when nothing about it
+  was ever assessed. Publishing a Worker version is idempotent, so the worst case of a retry
+  is the same bundle uploaded twice.
+
+* **`verify:production` retries each request three times** (500ms, then 2s) before treating it
+  as a failure, and retries 5xx for the same reason — Cloudflare's own 52x family is emitted
+  at the edge for conditions that clear in seconds. It makes ~150 sequential requests to a
+  live edge from whichever runner the job landed on; at that volume one TCP reset used to be
+  enough to report a healthy production as broken. A genuinely broken origin still fails every
+  attempt, so the gate keeps its teeth. **4xx is never retried** — those are answers too, and
+  two checks depend on reading them verbatim (`checkSoft404` wants a real 404, and the
+  edge-challenge detector wants the 403).
+
+* **Being challenged is not a failure.** If Cloudflare's bot protection blocks the runner, the
+  verifier says `UNVERIFIED`, explains that production was never reached, and **exits 0**. It
+  is inconclusive, not a red site. The permanent fix is a dashboard action: Bot Fight Mode
+  runs outside the Ruleset Engine, so no WAF Skip rule can exempt CI — turn it off, or move to
+  Super Bot Fight Mode.
+
+A `wrangler deploy` that exits 0 only means an upload succeeded. `npm run verify:production`
+is what says the apex is serving it.
 
 ---
 

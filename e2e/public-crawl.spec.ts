@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { CONTENT_PATHS } from '../src/shared/content';
 import { PUBLIC_PAGE_PATHS } from '../src/shared/publicPages';
 import { TOOL_IDS } from '../src/shared/routes';
+import { CANONICAL_ORIGIN, INDEXABLE } from '../src/lib/seo';
 
 /**
  * A real browser visits every public URL and checks the things that only exist
@@ -107,11 +108,19 @@ test.describe('every public page, in a browser', () => {
 
       expect(head.title.length, `${path} title`).toBeGreaterThan(10);
       expect(head.description.length, `${path} description`).toBeGreaterThan(50);
-      expect(head.robots, `${path} robots`).toBe('index, follow');
+      // Compared against the module the app and the edge Worker both read, not
+      // against a copy of its current value. A literal here is a second source
+      // of truth for the same string: widening the robots grant to
+      // `max-image-preview:large, max-snippet:-1, max-video-preview:-1` was a
+      // correct change to seo.ts that this line then failed on 290 times, on a
+      // commit whose 2,330 unit tests were green — because every one of those
+      // compares against INDEXABLE and only this file spelled it out.
+      expect(head.robots, `${path} robots`).toBe(INDEXABLE);
       expect(head.canonical, `${path} canonical`).toBe(
-        `https://finatrix.co${path === '/' ? '/' : path}`,
+        `${CANONICAL_ORIGIN}${path === '/' ? '/' : path}`,
       );
-      expect(head.ogImage, `${path} og:image`).toMatch(/^https:\/\/finatrix\.co\/images\/.+\?v=\d+$/);
+      expect(head.ogImage, `${path} og:image`).toMatch(/^https:\/\/.+\/images\/.+\?v=\d+$/);
+      expect(new URL(head.ogImage).origin, `${path} og:image origin`).toBe(CANONICAL_ORIGIN);
 
       // The JSON-LD must parse and describe THIS url.
       expect(head.schema.length, `${path} has no structured data`).toBeGreaterThan(0);

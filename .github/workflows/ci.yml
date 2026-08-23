@@ -14,13 +14,17 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # One source of truth for the runtime, shared with the deploy
+          # workflow — a gate that runs on a different Node from the one that
+          # builds production is not the same gate.
+          node-version-file: .node-version
           cache: npm
 
       - name: Install dependencies
@@ -67,13 +71,16 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
+    # ~21 minutes of real browser work at full green; the ceiling is here so a
+    # hung browser is reported as one instead of burning six hours of runner.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: .node-version
           cache: npm
 
       - name: Install dependencies

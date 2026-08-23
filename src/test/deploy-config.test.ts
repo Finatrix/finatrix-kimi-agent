@@ -440,8 +440,27 @@ describe('deploy workflow preflight', () => {
         workflow.indexOf('npm ci', workflow.indexOf(`- name: ${step}`)),
       );
     }
-    // Nothing may run before them inside their job.
-    expect(workflow).toMatch(/deploy:\n\s+runs-on: ubuntu-latest\n\s+steps:\n(\s*#[^\n]*\n)*\s*- name: Preflight — deploy secrets/);
+
+    /**
+     * Nothing may run before them inside their job — expressed as "the first
+     * step of the job", not as one literal pattern spanning `runs-on:` through
+     * `steps:`.
+     *
+     * That pattern proved to assert more than it meant: adding
+     * `timeout-minutes:` to a job — a job-level key, which cannot run before
+     * anything because it is not a step at all — broke it. A test that fails on
+     * a change it has no opinion about teaches people to edit the test, which
+     * is precisely how it stops guarding the thing it was written for.
+     */
+    const firstStepOf = (job: string) => {
+      const jobAt = workflow.indexOf(`\n  ${job}:\n`);
+      expect(jobAt, `no job named "${job}"`).toBeGreaterThan(-1);
+      const stepsAt = workflow.indexOf('\n    steps:\n', jobAt);
+      expect(stepsAt, `job "${job}" declares no steps`).toBeGreaterThan(-1);
+      return /\n {6}- (?:name: )?(.+)/.exec(workflow.slice(stepsAt))?.[1] ?? '';
+    };
+    expect(firstStepOf('deploy')).toBe('Preflight — deploy secrets');
+    expect(firstStepOf('edge-functions')).toBe('Preflight — Supabase secrets');
   });
 
   /**
@@ -494,6 +513,53 @@ describe('deploy workflow preflight', () => {
    */
   it('gives the production verifier the credential its auth checks need', () => {
     expect(stepScript('Verify production domain')).toContain('VITE_SUPABASE_URL');
+  });
+});
+
+/**
+ * The programs that perform the deploy are pinned, and stay pinned.
+ *
+ * `npx wrangler deploy` with wrangler absent from package.json does not run a
+ * version this repository has ever seen: npx fetches whatever the registry
+ * calls latest at the moment the job runs. The deploy step is therefore the one
+ * place in the pipeline that can change behaviour with no commit behind it —
+ * the same SHA green on Monday and red on Tuesday — and that failure is
+ * indistinguishable from a broken repository, so it gets diagnosed as one.
+ *
+ * Pinning is only worth anything if it survives the next edit, which is what
+ * these two tests are for.
+ */
+describe('deploy toolchain pinning', () => {
+  const workflow = read('.github/workflows/deploy.yml');
+  const pkg = JSON.parse(read('package.json')) as {
+    devDependencies?: Record<string, string>;
+  };
+
+  it('resolves wrangler from the lockfile rather than from the registry', () => {
+    expect(
+      Object.keys(pkg.devDependencies ?? {}),
+      'wrangler must be a devDependency — `npx wrangler` then runs the version in '
+        + 'package-lock.json, which is also the one a manual `npx wrangler deploy` gets',
+    ).toContain('wrangler');
+  });
+
+  it('names an exact Supabase CLI version, and uses it for every function deploy', () => {
+    expect(
+      workflow,
+      'deploy.yml must pin SUPABASE_CLI to an exact version',
+    ).toMatch(/SUPABASE_CLI:\s*supabase@\d+\.\d+\.\d+/);
+
+    // Comments may show the unpinned command as the thing a human types; a
+    // step may not run it.
+    const executed = workflow
+      .split('\n')
+      .filter((line) => !line.trimStart().startsWith('#'));
+    for (const line of executed) {
+      expect(
+        line,
+        'an unpinned `npx supabase` deploys whatever the registry shipped that day',
+      ).not.toMatch(/npx\s+supabase\b/);
+    }
   });
 });
 

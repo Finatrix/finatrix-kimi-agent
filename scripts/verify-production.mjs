@@ -54,6 +54,8 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { sampleUntilAnswered } from './lib/retry.mjs';
+
 const ROOT = new URL('..', import.meta.url).pathname;
 
 const ORIGIN = (process.env.ORIGIN || 'https://finatrix.co').replace(/\/+$/, '');
@@ -95,7 +97,7 @@ const record = (name, ok, detail) => results.push({ name, ok, detail });
  */
 const USER_AGENT = 'FinatriX-deploy-verify/1.0 (+https://finatrix.co/; CI)';
 
-async function req(url, { method = 'GET', redirect = 'manual', headers } = {}) {
+async function fetchOnce(url, { method = 'GET', redirect = 'manual', headers } = {}) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
@@ -110,6 +112,19 @@ async function req(url, { method = 'GET', redirect = 'manual', headers } = {}) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * One request, sampled more than once before it is allowed to fail a deploy.
+ *
+ * The reasoning, and what is deliberately NOT retried, live in
+ * scripts/lib/retry.mjs beside the code — and are pinned by
+ * src/test/deployRetry.test.mjs, because this is the single decision that
+ * separates "production is broken" from "the runner had a bad second", and
+ * getting it wrong in either direction is expensive.
+ */
+async function req(url, options = {}) {
+  return sampleUntilAnswered(() => fetchOnce(url, options));
 }
 
 /**

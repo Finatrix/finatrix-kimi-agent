@@ -21,6 +21,18 @@
 #   npm run build && npx wrangler deploy
 #   npx supabase functions deploy careers-jobs careers-ai
 #
+# THE DEPLOY TOOLCHAIN IS PINNED, and that is not housekeeping. `npx wrangler`
+# with wrangler absent from package.json resolves whatever the registry calls
+# latest at the moment the job runs, so the program that ships this site could
+# change between two deploys of the same commit — a green pipeline on Monday and
+# a red one on Tuesday with nothing in the diff, which is indistinguishable from
+# a broken repository and is the hardest kind of failure to argue with. wrangler
+# is now a devDependency, so `npx wrangler` resolves the version in
+# package-lock.json — the same one a developer running the manual command above
+# gets. The Supabase CLI is pinned inline for the same reason (it ships a
+# platform binary, so making every `npm ci` in every job pay for it would be the
+# wrong trade).
+#
 # The preflight step in each job names EVERY missing secret in one run, and does
 # it before `npm ci`. Both properties were learned the hard way: the checks used
 # to be split across three steps in two jobs, the first of which bailed on
@@ -49,6 +61,10 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # A deploy that has not finished in half an hour is wedged, not slow. The
+    # default is six hours, which holds the `deploy-production` concurrency
+    # group — and therefore every later push to main — behind it.
+    timeout-minutes: 30
     steps:
       # Everything this job cannot succeed without, checked in one pass, before
       # any minutes are spent installing or testing.
@@ -86,7 +102,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Read from .node-version rather than repeated here, so the runtime
+          # that builds production and the one a contributor gets are one
+          # decision recorded in one file.
+          node-version-file: .node-version
           cache: npm
       - run: npm ci --no-audit --no-fund
       # Deploy only what passed the gates.
@@ -96,7 +115,18 @@ jobs:
       # shipping. The dependency audit is part of that gate for the same reason
       # — it is the only workflow that reaches production, and it previously
       # shipped without ever checking advisories at all.
-      - run: npx tsc -b && npx eslint . --max-warnings 0 && npx vitest run && npm run audit:prod
+      #
+      # Four steps rather than one `&&` chain: the failed step is named in the
+      # job summary, so "the deploy failed" is answerable from the run list
+      # instead of only by opening the log and finding where the chain stopped.
+      - name: Type-check
+        run: npx tsc -b
+      - name: Lint
+        run: npx eslint . --max-warnings 0
+      - name: Test
+        run: npx vitest run
+      - name: Dependency audit (production)
+        run: npm run audit:prod
       # The build-time client config was verified by the preflight step above,
       # before any of this ran. `vite.config.ts` re-checks it as the build's own
       # last line of defence — that guard is what covers the manual
@@ -116,11 +146,35 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_ANALYTICS_URL: ${{ secrets.VITE_ANALYTICS_URL }}
+      # `npx wrangler` resolves the devDependency pinned in package-lock.json.
+      #
+      # Retried, because the two things that can go wrong here fail differently
+      # and only one of them is this repository's fault. A wrong token, a name
+      # that belongs to another script, a hostname another Worker owns: those
+      # are answers, and they come back identically on every attempt, so three
+      # tries cost 45 seconds and report the same thing. A reset connection or a
+      # 5xx from the Cloudflare API is not an answer — it is the absence of one,
+      # and failing the pipeline for it marks a commit as undeployed when
+      # nothing about it was ever assessed. Uploading a version is idempotent,
+      # so a retry cannot half-apply: the worst case is the same bundle
+      # published twice.
       - name: Deploy to Cloudflare Workers
-        run: npx wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          for attempt in 1 2 3; do
+            if npx wrangler deploy; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              delay=$((attempt * 15))
+              echo "::warning::wrangler deploy failed (attempt $attempt of 3) — retrying in ${delay}s"
+              sleep "$delay"
+            fi
+          done
+          echo "::error::wrangler deploy failed on all 3 attempts. The output above is the last one. A configuration error (token, script name, hostname already owned) reads the same on every attempt; a transient one does not."
+          exit 1
       # Proves the deploy is actually live and canonical on the real domain:
       # HTTPS, HSTS, the www → apex 301, self-canonical tags, robots, sitemap
       # and honest 404s. A green `wrangler deploy` only says the upload
@@ -141,6 +195,14 @@ jobs:
 
   edge-functions:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Pinned for the same reason wrangler is (see the header). Kept out of
+      # package.json deliberately: this package downloads a platform binary in
+      # its install script, and adding it as a devDependency would make every
+      # `npm ci` in every job — including the two that never touch Supabase —
+      # pay for a download that is not cached with the npm tarballs.
+      SUPABASE_CLI: supabase@2.115.0
     steps:
       - name: Preflight — Supabase secrets
         env:
@@ -172,7 +234,7 @@ jobs:
           fetch-depth: 2
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: .node-version
           cache: npm
       - run: npm ci --no-audit --no-fund
       # The provider suite is the only automated check these functions have.
@@ -208,7 +270,7 @@ jobs:
       # reads the caller's identity from their Authorization header to decide
       # who the subscription is for.
       - name: Deploy authenticated edge functions
-        run: npx supabase functions deploy careers-jobs careers-ai careers-email careers-billing-checkout --project-ref "$SUPABASE_PROJECT_REF"
+        run: npx --yes "$SUPABASE_CLI" functions deploy careers-jobs careers-ai careers-email careers-billing-checkout --project-ref "$SUPABASE_PROJECT_REF"
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
@@ -220,7 +282,7 @@ jobs:
       # Stripe-Signature HMAC (supabase/functions/careers-billing-webhook/
       # signature.ts), which is unit-tested including the secret-rotation case.
       - name: Deploy Stripe webhook (no JWT gate — see comment)
-        run: npx supabase functions deploy careers-billing-webhook --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF"
+        run: npx --yes "$SUPABASE_CLI" functions deploy careers-billing-webhook --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF"
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
@@ -232,7 +294,7 @@ jobs:
       # bounded by per-IP rate limiting, strict allowlist validation, and a
       # table no client can read.
       - name: Deploy public analytics ingest (no JWT gate — see comment)
-        run: npx supabase functions deploy analytics-collect --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF"
+        run: npx --yes "$SUPABASE_CLI" functions deploy analytics-collect --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF"
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
