@@ -19,7 +19,8 @@ import {
   publicPageFor,
   rivalFor,
 } from '../shared/publicPages';
-import { CAREERS_HIDDEN_SECTIONS, CAREERS_NAV } from '../careers/constants';
+import { CAREERS_ALL_SECTIONS, CAREERS_ROUTES } from '../careers/constants';
+import { CAREERS_FEATURES } from '../shared/careersFeatures';
 import { isKnownRoute } from '../shared/routes';
 import { seoForPath, structuredDataForPath, CANONICAL_ORIGIN, INDEXABLE } from '../lib/seo';
 
@@ -86,7 +87,7 @@ describe('public page registry', () => {
   // signed-in workspace's namespace. If a future Careers section ever takes a
   // path a marketing page already owns, one of them silently stops resolving.
   it('never collides with a Careers workspace section', () => {
-    const appSections = [...CAREERS_NAV, ...CAREERS_HIDDEN_SECTIONS].map((s) => s.href);
+    const appSections = CAREERS_ALL_SECTIONS.map((s) => s.href);
     for (const p of PUBLIC_PAGE_PATHS) {
       expect(appSections, `${p} is both a public page and a Careers app section`)
         .not.toContain(p);
@@ -190,5 +191,46 @@ describe('comparison rivals', () => {
       expect(r.ourStrengths.length, r.name).toBeGreaterThanOrEqual(3);
       expect(r.verdict.length, r.name).toBeGreaterThan(40);
     }
+  });
+});
+
+/**
+ * The features page, against reality.
+ *
+ * `careersFeatures.ts` has always carried a comment saying this file checks
+ * every advertised `section` against `CAREERS_ROUTES` — "which is what stops
+ * the marketing page describing a feature that was never built or one that has
+ * since been removed". It did not; there was no such assertion anywhere. A
+ * comment describing a safety net you cannot find is worse than no comment,
+ * because it stops the next person looking. These are the checks it described.
+ */
+describe('the advertised Careers features exist', () => {
+  it('points every feature at a real Careers route', () => {
+    for (const f of CAREERS_FEATURES) {
+      const href = `/careers/${f.section}`;
+      const known = Object.values(CAREERS_ROUTES).includes(href as never);
+      expect(known, `"${f.name}" advertises ${href}, which is not a Careers route`).toBe(true);
+    }
+  });
+
+  it('keeps every advertised feature reachable from navigation', () => {
+    const navigable = new Set(CAREERS_ALL_SECTIONS.map((s) => s.href));
+    for (const f of CAREERS_FEATURES) {
+      const href = `/careers/${f.section}`;
+      expect(navigable.has(href), `"${f.name}" is advertised but not in any nav group`).toBe(true);
+    }
+  });
+
+  it('states a boundary for every feature, as the house rule requires', () => {
+    for (const f of CAREERS_FEATURES) {
+      expect(f.limit.length, `${f.name} needs a stated limit`).toBeGreaterThan(30);
+      expect(f.what.length, f.name).toBeGreaterThan(30);
+      expect(f.why.length, f.name).toBeGreaterThan(20);
+    }
+  });
+
+  it('does not advertise the same section twice', () => {
+    const sections = CAREERS_FEATURES.map((f) => f.section);
+    expect(new Set(sections).size).toBe(sections.length);
   });
 });

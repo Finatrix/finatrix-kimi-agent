@@ -59,7 +59,16 @@ export async function ensureFreeSubscription(userId: string): Promise<Subscripti
   return data as SubscriptionRow;
 }
 
-/** Change plan (upgrade or downgrade) — takes effect immediately, no proration logic yet. */
+/**
+ * Change plan (upgrade or downgrade) — takes effect immediately, no proration.
+ *
+ * Currently UNCALLED in production, and deliberately left that way: it writes
+ * `plan_id` to the subscriptions row straight from the browser, and the RLS
+ * policy permits that, so it is a working self-upgrade path. It stays exported
+ * because a payment webhook running as the service role will need exactly this
+ * mutation — but the policy has to constrain `plan_id` first. See
+ * docs/SECURITY-TODO.md.
+ */
 export async function changePlan(userId: string, subscriptionId: string, planId: PlanId | string, trialDays = 0): Promise<SubscriptionRow> {
   const patch: Partial<SubscriptionRow> = {
     plan_id: planId,
@@ -229,7 +238,17 @@ export async function incrementUsage(userId: string, kind: QuotaKind, by = 1): P
   if (error) throw mapSupabaseError(error, 'Recording usage');
 }
 
-/** Deterministic quota check — no AI, used to gate features before they run. */
+/**
+ * Deterministic quota check: how much of a plan's allowance is used.
+ *
+ * The docstring here used to say "used to gate features before they run". It
+ * is not, and cannot be — it runs in the browser, and its only production
+ * caller is `BillingPage`, which uses it to draw a usage bar. Nothing calls it
+ * before doing the work. Server-side enforcement of the per-plan quotas
+ * advertised on /pricing does not exist yet (see docs/SECURITY-TODO.md); until
+ * it does, this is a display helper and the name of what it returns should not
+ * suggest otherwise.
+ */
 export function checkQuota(kind: QuotaKind, plan: SubscriptionPlanRow, usage: UsageCounterRow): QuotaCheck {
   const limitMap: Record<QuotaKind, number | null> = {
     ai_calls: plan.ai_quota_monthly,

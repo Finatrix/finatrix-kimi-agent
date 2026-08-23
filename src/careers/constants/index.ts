@@ -37,10 +37,20 @@ export const CAREERS_ROUTES = {
 } as const;
 
 /**
- * Primary tab bar — intentionally kept to 7 items (master context, 2026-07-04):
- * the platform should focus on one thing, getting users interviews and jobs.
- * Every other routable section still exists and works; it's just not in the
- * main nav. See CAREERS_HIDDEN_SECTIONS.
+ * Primary tab bar — deliberately seven items (master context, 2026-07-04): the
+ * platform should focus on one thing, getting users interviews and jobs.
+ *
+ * "Not in the primary tab bar" used to mean "not in navigation at all". The
+ * other fourteen sections were reachable only by typing the URL or by finding a
+ * "More tools" list inside Settings, which meant a Professional subscriber
+ * bought "AI outreach drafting and offer analysis" and could not find either
+ * page, and Billing — where you manage the subscription you are paying for —
+ * was not linked from anywhere in the shell. That is not focus; it is hiding a
+ * product somebody paid for.
+ *
+ * Focus is now expressed as hierarchy rather than concealment: seven primary
+ * tabs, and every remaining section grouped under a "More" menu that is present
+ * in the tab bar, in the mobile drawer and in the command palette.
  */
 export const CAREERS_NAV = [
   { id: 'dashboard', name: 'Dashboard', href: CAREERS_ROUTES.dashboard },
@@ -52,30 +62,81 @@ export const CAREERS_NAV = [
   { id: 'settings', name: 'Settings', href: CAREERS_ROUTES.settings },
 ] as const;
 
+export interface CareersSection {
+  id: string;
+  name: string;
+  href: string;
+}
+
 /**
- * Routable sections not shown in the tab bar (breadcrumb/back-link names).
- * Still fully functional — reachable by direct URL and linked from Settings
- * ("More tools") — just decluttered from primary navigation.
+ * The secondary sections, grouped so the "More" menu reads as a structure
+ * rather than a list of fourteen links.
+ *
+ * `companyProfile` is deliberately absent: it is the detail view reached from
+ * Company Intelligence, not a destination of its own, and listing it would put
+ * the same name in the menu twice. `admin` is absent because it is RBAC-gated
+ * and appended separately for the accounts that have it.
  */
-export const CAREERS_HIDDEN_SECTIONS = [
-  { id: 'upload', name: 'Upload', href: CAREERS_ROUTES.upload },
-  { id: 'profile', name: 'Career Profile', href: CAREERS_ROUTES.profile },
-  // Kept out of the 7-item tab bar per the focus decision above; entered from
-  // Job Search and the dashboard rather than by URL.
-  { id: 'queue', name: 'Match Queue', href: CAREERS_ROUTES.queue },
-  { id: 'tasks', name: 'Tasks', href: CAREERS_ROUTES.tasks },
-  { id: 'companies', name: 'Companies', href: CAREERS_ROUTES.companies },
-  { id: 'intelligence', name: 'Company Intelligence', href: CAREERS_ROUTES.intelligence },
+export const CAREERS_SECTION_GROUPS: readonly { label: string; items: readonly CareersSection[] }[] = [
+  {
+    label: 'Pipeline',
+    items: [
+      { id: 'queue', name: 'Match Queue', href: CAREERS_ROUTES.queue },
+      { id: 'tasks', name: 'Tasks', href: CAREERS_ROUTES.tasks },
+      { id: 'assessments', name: 'Assessments', href: CAREERS_ROUTES.assessments },
+      { id: 'offers', name: 'Offers', href: CAREERS_ROUTES.offers },
+    ],
+  },
+  {
+    label: 'Research',
+    items: [
+      { id: 'companies', name: 'Companies', href: CAREERS_ROUTES.companies },
+      { id: 'intelligence', name: 'Company Intelligence', href: CAREERS_ROUTES.intelligence },
+      { id: 'recruiters', name: 'Recruiters', href: CAREERS_ROUTES.recruiters },
+      { id: 'network', name: 'Network', href: CAREERS_ROUTES.network },
+    ],
+  },
+  {
+    label: 'Your profile',
+    items: [
+      { id: 'upload', name: 'Upload', href: CAREERS_ROUTES.upload },
+      { id: 'profile', name: 'Career Profile', href: CAREERS_ROUTES.profile },
+      { id: 'knowledge', name: 'Knowledge Base', href: CAREERS_ROUTES.knowledge },
+    ],
+  },
+  {
+    label: 'Account',
+    items: [
+      { id: 'billing', name: 'Billing', href: CAREERS_ROUTES.billing },
+    ],
+  },
+] as const;
+
+/**
+ * Every secondary section, flat. Retains the old name's role as "the sections
+ * that are not primary tabs" — but they are no longer hidden, which is why the
+ * comment above no longer says they are.
+ */
+export const CAREERS_SECONDARY_SECTIONS: readonly CareersSection[] =
+  CAREERS_SECTION_GROUPS.flatMap((g) => g.items);
+
+/**
+ * Sections that are routable and named but never listed in navigation: a detail
+ * view entered from its parent, and the RBAC-gated admin console which the
+ * shell appends for admins only. Kept separate so `sectionName` can still label
+ * a breadcrumb for them.
+ */
+export const CAREERS_UNLISTED_SECTIONS: readonly CareersSection[] = [
   { id: 'companyProfile', name: 'Company Intelligence', href: CAREERS_ROUTES.companyProfile },
-  { id: 'recruiters', name: 'Recruiters', href: CAREERS_ROUTES.recruiters },
-  { id: 'network', name: 'Network', href: CAREERS_ROUTES.network },
-  { id: 'assessments', name: 'Assessments', href: CAREERS_ROUTES.assessments },
-  { id: 'offers', name: 'Offers', href: CAREERS_ROUTES.offers },
-  { id: 'knowledge', name: 'Knowledge Base', href: CAREERS_ROUTES.knowledge },
-  { id: 'billing', name: 'Billing', href: CAREERS_ROUTES.billing },
-  // Admin is additionally RBAC-gated (shown conditionally in the nav for admins only).
   { id: 'admin', name: 'Admin Dashboard', href: CAREERS_ROUTES.admin },
 ] as const;
+
+/** Every routable Careers section, for breadcrumbs and the command palette. */
+export const CAREERS_ALL_SECTIONS: readonly CareersSection[] = [
+  ...CAREERS_NAV,
+  ...CAREERS_SECONDARY_SECTIONS,
+  ...CAREERS_UNLISTED_SECTIONS,
+];
 
 // ─────────────────────────── uploads ───────────────────────────
 

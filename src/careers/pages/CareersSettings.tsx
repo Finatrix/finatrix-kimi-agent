@@ -10,7 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
 import { ConfirmDialog, ErrorCard, PageLoading } from '../components/states';
-import { AI_MODEL_OPTIONS, CAREERS_HIDDEN_SECTIONS } from '../constants';
+import { AI_MODEL_OPTIONS, CAREERS_SECTION_GROUPS } from '../constants';
 import { useCareers } from '../context/CareersContext';
 import { getAggregates, getAiUsageToday, type CareersAggregates } from '../services/analytics';
 import { ALERT_KINDS, alertEnabled, listAlerts, setAlert } from '../services/notifications';
@@ -21,7 +21,12 @@ import { deleteResume } from '../services/resumes';
 import { toCareersError } from '../utils/errors';
 
 /** Hidden nav sections worth surfacing here — excludes upload/profile (linked elsewhere) and admin (RBAC-gated, shown in the nav for admins only). */
-const MORE_TOOLS = CAREERS_HIDDEN_SECTIONS.filter((s) => !['upload', 'profile', 'admin'].includes(s.id));
+/**
+ * The secondary sections, still listed here as a convenience — but no longer
+ * the ONLY way to reach them. They are now in the tab bar's "More" menu and in
+ * the mobile drawer, which is where someone looks for navigation.
+ */
+const MORE_SECTION_GROUPS = CAREERS_SECTION_GROUPS;
 
 function Toggle({
   checked,
@@ -287,18 +292,23 @@ export default function CareersSettings() {
       )}
 
       <div className="card">
-        <div className="panel-eyebrow">More tools</div>
+        <div className="panel-eyebrow">All sections</div>
         <p className="note" style={{ margin: '8px 0 12px' }}>
-          Kept off the main nav to keep it focused on getting you interviews — everything below
-          still works exactly as before.
+          The main tab bar stays focused on getting you interviews. Everything else lives under
+          &ldquo;More&rdquo; in that tab bar and in the mobile menu — and is listed here too.
         </p>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {MORE_TOOLS.map((t) => (
-            <Link key={t.id} to={t.href} className="btn btn-ghost btn-sm" style={{ width: 'auto', textDecoration: 'none' }}>
-              {t.name}
-            </Link>
-          ))}
-        </div>
+        {MORE_SECTION_GROUPS.map((group) => (
+          <div key={group.label} style={{ marginBottom: 12 }}>
+            <div className="note" style={{ marginBottom: 6 }}>{group.label}</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {group.items.map((t) => (
+                <Link key={t.id} to={t.href} className="btn btn-ghost btn-sm" style={{ width: 'auto', textDecoration: 'none' }}>
+                  {t.name}
+                </Link>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
 
       <ConfirmDialog

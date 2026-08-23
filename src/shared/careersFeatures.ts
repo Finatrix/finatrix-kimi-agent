@@ -2,7 +2,7 @@
  * What the public `/careers/features` page advertises, as data.
  *
  * Separate from the component so it can be asserted against reality:
- * `careersPublic.test.tsx` checks that every `section` here is a real route in
+ * `publicPages.test.ts` checks that every `section` here is a real route in
  * `CAREERS_ROUTES`, which is what stops the marketing page describing a feature
  * that was never built or one that has since been removed. A features page is
  * the easiest page on a site to let drift, because nothing breaks when it does.

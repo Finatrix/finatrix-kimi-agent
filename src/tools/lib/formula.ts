@@ -19,7 +19,20 @@
 export interface FormulaOk {
   ok: true;
   value: number;
-  /** True when the input was more than a bare number — drives the live preview. */
+  /**
+   * True when the input was more than a bare number.
+   *
+   * Documented for years as "drives the live preview". It does not: `AmountInput`
+   * calls `isFormula` on the raw string instead, and this field has no callers
+   * at all. It was also computed wrongly — from the body AFTER the leading `=`
+   * was stripped, so `evaluateFormula('=250').isExpression` was `false`,
+   * contradicting the note on `isFormula` three functions below saying the `=`
+   * prefix is itself the signal. `toMatchObject` in the tests never asserted it,
+   * so nothing caught either problem.
+   *
+   * Now computed from the original input, so it means what it says if anyone
+   * does reach for it.
+   */
   isExpression: boolean;
 }
 export interface FormulaError {
@@ -234,7 +247,9 @@ export function evaluateFormula(input: string): FormulaResult {
   // float-precision artefact.
   if (Math.abs(rounded) > 1e12) return { ok: false, error: ERR.range };
 
-  return { ok: true, value: rounded, isExpression: isFormula(body) };
+  // `src`, not `body`: the leading `=` is itself the signal, and stripping it
+  // first is what made `=250` report as a bare number.
+  return { ok: true, value: rounded, isExpression: isFormula(src.trim()) };
 }
 
 /**

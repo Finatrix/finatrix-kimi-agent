@@ -23,7 +23,7 @@
  * through the existing path — the palette never writes a transaction itself.
  */
 import { TOOLS } from '../../lib/tools';
-import { CAREERS_HIDDEN_SECTIONS, CAREERS_NAV } from '../../careers/constants';
+import { CAREERS_ALL_SECTIONS, CAREERS_NAV } from '../../careers/constants';
 import { TOPICS, ARTICLES, topicPath, articlePath } from '../../shared/content';
 import { CURRENCY_CODES, currencySym } from './format';
 import { parseQuickAdd } from './quickAdd';
@@ -172,7 +172,7 @@ const CAREERS_KEYWORDS: Record<string, readonly string[]> = {
  * `intelligence` and is entered from it, so listing both would put two
  * identical rows in the results.
  */
-const CAREERS_SECTIONS = [...CAREERS_NAV, ...CAREERS_HIDDEN_SECTIONS].filter(
+const CAREERS_SECTIONS = [...CAREERS_ALL_SECTIONS].filter(
   (s) => s.id !== 'companyProfile',
 );
 

@@ -1,8 +1,8 @@
 # FinatriX
 
 Education-first personal-finance tools for India — Budget Builder, Expense Tracker,
-InvestMatch, ParkSmart, PeerCompare, Reverse Goal Planner and LifeMap. Free, no ads,
-no trackers. **Educational tools, not financial advice.**
+InvestMatch, ParkSmart, PeerCompare, Reverse Goal Planner, LifeMap and Net Worth
+Tracker. Free, no ads, no trackers. **Educational tools, not financial advice.**
 
 A React + TypeScript + Vite single-page app with a marketing landing page and an
 authenticated tools workspace. Accounts, email verification and cross-device sync are
@@ -66,8 +66,9 @@ public/
 ```
 
 > Every calculator is a **first-class React route** under `/tools/*` — the list lives in
-> `src/shared/routes.ts`. There is no `tools-app.html` and no iframe in the running
-> application.
+> `src/shared/toolCount.ts` (re-exported from `src/shared/routes.ts`), which is also
+> where the prose tool count is derived from so no page can advertise a stale number.
+> There is no `tools-app.html` and no iframe in the running application.
 
 ## Deployment
 

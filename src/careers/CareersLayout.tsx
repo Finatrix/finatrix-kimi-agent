@@ -4,7 +4,7 @@
  * Careers section, so entering /careers feels like the rest of FinatriX.
  */
 
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect, useId, useRef, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { useMobileDrawer } from '../hooks/useMobileDrawer';
@@ -16,7 +16,13 @@ import { Breadcrumb } from '../components/Breadcrumb';
 import { TOOLS } from '../lib/tools';
 import { ToastProvider } from '../tools/ui/Toast';
 import { IconSprite } from '../tools/ui/Icon';
-import { CAREERS_HIDDEN_SECTIONS, CAREERS_NAV, CAREERS_ROUTES } from './constants';
+import {
+  CAREERS_ALL_SECTIONS,
+  CAREERS_NAV,
+  CAREERS_ROUTES,
+  CAREERS_SECONDARY_SECTIONS,
+  CAREERS_SECTION_GROUPS,
+} from './constants';
 import { NotificationsBell } from './components/NotificationsBell';
 import { CareersProvider } from './context/CareersContext';
 import { CareersGate } from './components/states';
@@ -39,16 +45,152 @@ function useActiveCareersTab(): string {
   const { pathname } = useLocation();
   const m = /^\/careers\/?([a-z]*)/i.exec(pathname);
   const seg = m?.[1]?.toLowerCase() || 'dashboard';
-  if (CAREERS_NAV.some((n) => n.id === seg)) return seg;
-  if (CAREERS_HIDDEN_SECTIONS.some((n) => n.id === seg)) return seg;
+  if (CAREERS_ALL_SECTIONS.some((n) => n.id === seg)) return seg;
   return 'dashboard';
 }
 
 function sectionName(id: string): string {
+  return CAREERS_ALL_SECTIONS.find((n) => n.id === id)?.name ?? 'Careers';
+}
+
+/** True when the active section lives under "More" rather than a primary tab. */
+function isSecondary(id: string): boolean {
+  return CAREERS_SECONDARY_SECTIONS.some((n) => n.id === id);
+}
+
+/**
+ * The "More" menu in the Careers tab bar.
+ *
+ * Exists because the fourteen non-primary sections previously had no entry
+ * point in the shell at all — they were reachable by typing the URL, or via a
+ * list buried in Settings. Paid features (Offers, Network, Recruiters) and
+ * Billing itself were among them.
+ *
+ * A disclosure button rather than a hover menu: hover has no touch equivalent,
+ * and this is the one control that has to work on a phone as well as a laptop.
+ */
+function MoreSectionsMenu({ active }: { active: string }) {
+  const [open, setOpen] = useState(false);
+  const id = useId();
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const activeIsHere = isSecondary(active);
+
+  // Close on outside click and on Escape — both expected of a disclosure.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
   return (
-    CAREERS_NAV.find((n) => n.id === id)?.name ??
-    CAREERS_HIDDEN_SECTIONS.find((n) => n.id === id)?.name ??
-    'Careers'
+    <div ref={wrapRef} style={{ position: 'relative', display: 'inline-flex' }}>
+      <button
+        type="button"
+        data-route="careers"
+        className={activeIsHere ? 'on' : undefined}
+        aria-expanded={open}
+        aria-haspopup="true"
+        aria-controls={id}
+        onClick={() => setOpen((v) => !v)}
+      >
+        More
+        <span aria-hidden="true" style={{ marginLeft: 6, fontSize: 9 }}>▾</span>
+      </button>
+      {open && (
+        <div
+          id={id}
+          className="fx-careers-more"
+          role="group"
+          aria-label="More Careers sections"
+        >
+          {CAREERS_SECTION_GROUPS.map((group) => (
+            <div key={group.label}>
+              <div className="fx-careers-more-label">{group.label}</div>
+              {group.items.map((item) => (
+                <Link
+                  key={item.id}
+                  to={item.href}
+                  onClick={() => setOpen(false)}
+                  className={active === item.id ? 'is-active' : undefined}
+                  aria-current={active === item.id ? 'page' : undefined}
+                >
+                  {item.name}
+                </Link>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Mobile bottom navigation for Careers (<768px).
+ *
+ * The Careers shell had none. `.fx-tools #mainNav` is `display: none` below
+ * 768px, and only the Tools shell replaced it with a thumb-reachable bar — so
+ * on a phone the paid product's entire navigation was one hamburger, while the
+ * free calculators kept a persistent bottom bar. Same pattern, same five slots.
+ */
+const CAREERS_BOTTOM_NAV = ['dashboard', 'jobs', 'applications'] as const;
+
+function CareersMobileTabBar({
+  active, onMore, drawerOpen, drawerId,
+}: { active: string; onMore: () => void; drawerOpen: boolean; drawerId: string }) {
+  const items = CAREERS_BOTTOM_NAV.map((id) => CAREERS_NAV.find((n) => n.id === id)!);
+  const moreActive = !items.some((i) => i.id === active);
+  return (
+    <nav className="fx-mobnav md:hidden" aria-label="Careers quick navigation">
+      {items.map((item) => {
+        const on = active === item.id;
+        return (
+          <Link
+            key={item.id}
+            to={item.href}
+            className={`fx-mobnav-item${on ? ' on' : ''}`}
+            aria-current={on ? 'page' : undefined}
+          >
+            <span className="fx-mobnav-dot" aria-hidden="true" />
+            <span>{item.name}</span>
+          </Link>
+        );
+      })}
+      <Link
+        to={CAREERS_ROUTES.coach}
+        className={`fx-mobnav-item${active === 'coach' ? ' on' : ''}`}
+        aria-current={active === 'coach' ? 'page' : undefined}
+      >
+        <span className="fx-mobnav-dot" aria-hidden="true" />
+        <span>Coach</span>
+      </Link>
+      <button
+        type="button"
+        onClick={onMore}
+        className={`fx-mobnav-item${moreActive && active !== 'coach' ? ' on' : ''}`}
+        aria-haspopup="dialog"
+        aria-expanded={drawerOpen}
+        aria-controls={drawerId}
+        aria-label="More Careers sections and menu"
+      >
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true">
+          <circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none" />
+          <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
+          <circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none" />
+        </svg>
+        <span>More</span>
+      </button>
+    </nav>
   );
 }
 
@@ -142,12 +284,22 @@ export default function CareersLayout() {
                 to={item.href}
                 data-route="careers"
                 className={active === item.id ? 'on' : undefined}
+                // Was conveyed by the gold pill alone. Colour is not an
+                // accessible name: without this a screen-reader user cannot
+                // tell which section they are in.
+                aria-current={active === item.id ? 'page' : undefined}
               >
                 {item.name}
               </Link>
             ))}
+            <MoreSectionsMenu active={active} />
             {isAdmin && (
-              <Link to={CAREERS_ROUTES.admin} data-route="careers" className={active === 'admin' ? 'on' : undefined}>
+              <Link
+                to={CAREERS_ROUTES.admin}
+                data-route="careers"
+                className={active === 'admin' ? 'on' : undefined}
+                aria-current={active === 'admin' ? 'page' : undefined}
+              >
                 Admin
               </Link>
             )}
@@ -167,6 +319,14 @@ export default function CareersLayout() {
             </CareersPaywallGate>
           </CareersGate>
         </div>
+
+        {/* Mobile bottom navigation (<768px) — the Careers shell had none. */}
+        <CareersMobileTabBar
+          active={active}
+          onMore={() => setDrawerOpen(true)}
+          drawerOpen={drawerOpen}
+          drawerId={DRAWER_ID}
+        />
 
         {/* Mobile navigation drawer (<768px) */}
         <MobileDrawer
@@ -209,6 +369,7 @@ export default function CareersLayout() {
               key={item.id}
               to={item.href}
               onClick={() => setDrawerOpen(false)}
+              aria-current={active === item.id ? 'page' : undefined}
               className={`flex items-center gap-3 px-5 py-2.5 text-[15px] hover:bg-hairline-2 ${
                 active === item.id ? 'text-accent-text' : 'text-ink'
               }`}
@@ -216,6 +377,30 @@ export default function CareersLayout() {
               <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: '#D4AF37' }} />
               {item.name}
             </Link>
+          ))}
+          {/* The secondary sections. Their absence here is what made Offers,
+              Network, Recruiters and Billing unreachable on a phone — while the
+              eight free money tools below were all listed. */}
+          {CAREERS_SECTION_GROUPS.map((group) => (
+            <div key={group.label}>
+              <div className="mt-1 mb-1 px-5 text-[10px] uppercase tracking-[0.12em] text-ink-3 font-mono">
+                {group.label}
+              </div>
+              {group.items.map((item) => (
+                <Link
+                  key={item.id}
+                  to={item.href}
+                  onClick={() => setDrawerOpen(false)}
+                  aria-current={active === item.id ? 'page' : undefined}
+                  className={`flex items-center gap-3 px-5 py-2.5 text-[15px] hover:bg-hairline-2 ${
+                    active === item.id ? 'text-accent-text' : 'text-ink'
+                  }`}
+                >
+                  <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: 'var(--hairline)' }} />
+                  {item.name}
+                </Link>
+              ))}
+            </div>
           ))}
           {isAdmin && (
             <Link

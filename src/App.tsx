@@ -174,7 +174,9 @@ export default function App() {
               not children, so they never enter the auth/paywall gates. React
               Router ranks by specificity rather than order, and the layout has
               no matching child for any of these paths, so there is no ambiguity
-              to resolve — `careers.publicRoutes.test.tsx` pins that behaviour. */}
+              to resolve — `marketingRoutes.test.tsx` pins that behaviour by
+              rendering each of these paths through the real App and asserting
+              the marketing page, not a gate, comes back. */}
           <Route path="/careers" element={<CareersLanding />} />
           <Route path="/careers/features" element={<CareersFeatures />} />
           <Route path="/careers/compare" element={<CareersCompareIndex />} />
