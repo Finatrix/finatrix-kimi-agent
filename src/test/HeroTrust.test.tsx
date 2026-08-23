@@ -13,7 +13,10 @@ describe('LandingHero — V4 trust strip', () => {
     expect(screen.getByText('Made in India 🇮🇳')).toBeInTheDocument();
     expect(screen.getByText('Privacy first')).toBeInTheDocument();
     expect(screen.getByText('Education first')).toBeInTheDocument();
-    expect(screen.getByText('Free forever')).toBeInTheDocument();
+    // Scoped, not bare: the same viewport sells a paid Careers subscription,
+    // so an unqualified "Free forever" would read as covering it too.
+    expect(screen.getByText('Money tools free forever')).toBeInTheDocument();
+    expect(screen.queryByText('Free forever')).not.toBeInTheDocument();
     expect(screen.getByText('Real-time calculations')).toBeInTheDocument();
   });
 

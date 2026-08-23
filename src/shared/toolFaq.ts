@@ -79,15 +79,19 @@ export const TOOL_FAQ: Record<ToolId, readonly FaqEntry[]> = {
   peercompare: [
     {
       q: 'Who am I being compared against?',
-      a: 'A modelled benchmark for your income bracket and city tier, adjusted for local cost of living across 14 Indian cities plus tier-2 and tier-3 groupings. It is a calibrated model, not a survey of real FinatriX users — nobody else’s data is read to produce your comparison.',
+      a: 'Published national figures, not other users and not a model of your age group. Income is compared against the PLFS all-India average monthly earnings for regular wage/salaried workers, and your savings rate against the RBI’s net household financial savings rate. Nobody else’s data is read to produce your comparison, and each figure is shown with its publisher and period on the page.',
+    },
+    {
+      q: 'Why is there no benchmark for my age or city?',
+      a: 'Because nobody publishes one. MoSPI does not release earnings broken down by age, and no official Indian series reports household savings, investments or net worth by age bracket and city tier. PeerCompare previously showed such a grid; it was invented, and it has been removed rather than re-decorated. Cost of living still adjusts the expense guideline, which is the one thing a cost index actually measures.',
+    },
+    {
+      q: 'Is the score a percentile?',
+      a: 'No. It is a 0–100 comparison index across the five measures, where 50 means you are level with the benchmark. A percentile would need a distribution of real people to rank you within, and there is none behind this tool. It was labelled a percentile before, which was wrong.',
     },
     {
       q: 'What should I do if I am below the benchmark?',
-      a: 'Treat it as a prompt, not a verdict. The benchmark knows nothing about your dependants, debt, health or where you started. The useful reading is which single metric — savings rate, emergency buffer, investment share — is furthest from the benchmark, because that is usually the one worth attention first.',
-    },
-    {
-      q: 'Does comparing myself to peers actually help?',
-      a: 'Only for calibration. A savings rate has no meaning in isolation, and a benchmark gives it one. Beyond that, comparison is a poor motivator — the emergency-buffer and savings-rate numbers on this page are more useful as absolutes than as a ranking.',
+      a: 'Treat it as a prompt, not a verdict. The income benchmark in particular is a national average across every occupation and location, so it says nothing about what your role should pay. The useful reading is which single measure — savings rate, emergency buffer, debt service — is furthest from its benchmark, because that is usually the one worth attention first.',
     },
   ],
   goals: [

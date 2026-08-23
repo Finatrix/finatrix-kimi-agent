@@ -1,9 +1,23 @@
 /**
- * ParkSmart — data + math, ported verbatim from PS_OPTS / PS_M / PS_DL and the
- * psTax()/psCalc() logic in tools-app.html. `psTax` and `computeParkSmart` are
- * pure and parity-checked against the source. ParkSmart renders with INR `fmt`.
+ * ParkSmart — where idle cash earns most after tax.
+ *
+ * Data tables (PS_OPTS / PS_M / PS_DL) are the ones ported from tools-app.html
+ * and stay parity-checked against it. `psTax` deliberately does NOT: the
+ * original pro-rated two statutory allowances by holding period, which is not
+ * how either of them works, and the parity fixture was locking the error in.
+ * See `psTax` for what changed and why.
  */
 import type { IconName } from '../ui/Icon';
+
+/**
+ * Which income-tax regime the user files under.
+ *
+ * ParkSmart needs this for exactly one reason: §80TTA is an old-regime-only
+ * deduction. The tool previously granted it to everyone, so every visitor on
+ * the new regime — the default since FY 2023-24 — was shown a savings account
+ * yielding more after tax than it really does.
+ */
+export type TaxRegime = 'new' | 'old';
 
 export interface ParkOption {
   n: string;
@@ -32,19 +46,68 @@ export const PS_OPTS: ParkOption[] = [
 export const PS_M: Record<string, number> = { '0-1': 0.5, '1-3': 2, '3-6': 4.5, '6-12': 9, '12+': 15 };
 export const PS_DL: Record<string, string> = { '0-1': 'under 1 month', '1-3': '1–3 months', '3-6': '3–6 months', '6-12': '6–12 months', '12+': 'over 1 year' };
 
-/** Post-tax return for an option (verbatim port of psTax). */
-export function psTax(opt: ParkOption, gross: number, months: number, slabPct: number, _amt: number): number {
-  void _amt;
+/**
+ * Statutory figures, named so the rules are legible and one edit moves them.
+ *
+ * All four are per FINANCIAL YEAR and per taxpayer — none of them scale with
+ * how long a particular holding was held, which is the bug this block replaces.
+ */
+export const TAX_RULES = {
+  /** §112A long-term capital gains exemption on listed equity. Per FY, per taxpayer. */
+  LTCG_EXEMPTION: 125000,
+  /** §112A rate above the exemption, from 23 July 2024. */
+  LTCG_RATE: 0.125,
+  /** §111A short-term rate on listed equity, from 23 July 2024. Flat, not slab. */
+  STCG_RATE: 0.2,
+  /** §80TTA savings-interest deduction. Per FY, aggregate across accounts, OLD REGIME ONLY. */
+  S80TTA_LIMIT: 10000,
+  /** Equity holding period that turns short-term into long-term, in months. */
+  LTCG_MONTHS: 12,
+} as const;
+
+/**
+ * Post-tax return for one option.
+ *
+ * Two corrections to the ported original, both of the same kind — it treated
+ * annual statutory allowances as if they accrued with the holding period:
+ *
+ *   • `125000 * (months / 12)` for the §112A LTCG exemption. The exemption is
+ *     ₹1.25 lakh per financial year, full stop. Pro-rating it granted
+ *     ₹1,56,250 on the 15-month "over 1 year" bucket — MORE than the law
+ *     allows, understating tax — and only ₹62,500 on a six-month holding,
+ *     which is moot anyway because six months is short-term.
+ *   • `10000 * (months / 12)` for §80TTA. Also ₹10,000 per financial year,
+ *     aggregate across every savings account. Pro-rating understated the
+ *     deduction on short holdings and overstated it beyond a year.
+ *
+ * §80TTA is additionally OLD-REGIME ONLY, which the original ignored: it was
+ * granted to every user, including the new-regime majority who cannot claim it.
+ * Hence the `regime` argument.
+ *
+ * Stated assumption, because it cannot be derived from the inputs: both
+ * allowances are shared across everything else the taxpayer earns in the same
+ * year, and ParkSmart can only see this one sum. It therefore models the
+ * allowance as fully available — the best case. The UI says so; a user with
+ * other capital gains or savings interest should read the result as a ceiling.
+ */
+export function psTax(
+  opt: ParkOption,
+  gross: number,
+  months: number,
+  slabPct: number,
+  regime: TaxRegime = 'new',
+): number {
+  const R = TAX_RULES;
   if (opt.tax === 'equity') {
-    if (months >= 12) {
-      const exempt = 125000 * (months / 12); // LTCG exemption pro-rated to holding period
-      const taxable = Math.max(0, gross - exempt);
-      return gross - taxable * 0.125; // LTCG 12.5%
+    // Equity taxation: long-term above 12 months, short-term below.
+    if (months >= R.LTCG_MONTHS) {
+      const taxable = Math.max(0, gross - R.LTCG_EXEMPTION);
+      return gross - taxable * R.LTCG_RATE;
     }
-    return gross * (1 - 0.2); // STCG 20%
+    return gross * (1 - R.STCG_RATE);
   }
   if (opt.tax === 'slab80tta') {
-    const exempt = 10000 * (months / 12); // 80TTA pro-rated (old regime)
+    const exempt = regime === 'old' ? R.S80TTA_LIMIT : 0;
     const taxable = Math.max(0, gross - exempt);
     return gross - taxable * slabPct;
   }
@@ -70,15 +133,25 @@ export interface ParkResult {
   split: SplitIdea | null;
 }
 
-/** Verbatim port of psCalc()'s ranking core. `amt < 1000` is invalid. */
-export function computeParkSmart(amt: number, dur: string, slabPct: number): ParkResult {
+/**
+ * Ranking core. `amt < 1000` is invalid.
+ *
+ * Unchanged from the port except that the caller's tax regime is threaded
+ * through to `psTax`, which needs it for §80TTA.
+ */
+export function computeParkSmart(
+  amt: number,
+  dur: string,
+  slabPct: number,
+  regime: TaxRegime = 'new',
+): ParkResult {
   if (amt < 1000) return { valid: false, ranked: [], best: null, maxNet: 1, split: null };
   const months = PS_M[dur];
 
   const ranked: RankedOption[] = PS_OPTS.filter((o) => months >= o.minM && (dur !== '0-1' || o.liquid))
     .map((o) => {
       const gross = amt * (o.rate / 100) * (months / 12);
-      const net = Math.max(0, psTax(o, gross, months, slabPct, amt));
+      const net = Math.max(0, psTax(o, gross, months, slabPct, regime));
       const effRate = amt > 0 && months > 0 ? (net / amt) * (12 / months) * 100 : 0;
       return { ...o, gross, net, effRate };
     })

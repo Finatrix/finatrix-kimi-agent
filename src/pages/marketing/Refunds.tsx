@@ -17,6 +17,7 @@ import MarketingPage from '../../marketing/MarketingPage';
 import { Faq, P, RelatedPages, Section, UL } from '../../marketing/ui';
 import { SUPPORT_EMAIL, SUPPORT_MAILTO } from '../../shared/brand';
 import { BILLING_FACTS, publicPageFor } from '../../shared/publicPages';
+import { TOOL_COUNT_WORD } from '../../shared/toolCount';
 
 const PATH = '/refunds';
 
@@ -42,7 +43,7 @@ export default function Refunds() {
         </UL>
         <P>
           The rest of this page is the same policy stated precisely enough to rely on. It applies to
-          FinatriX Careers plans, the only paid product on the site — the seven money tools are free
+          FinatriX Careers plans, the only paid product on the site — the {TOOL_COUNT_WORD} money tools are free
           and never charged for.
         </P>
       </Section>

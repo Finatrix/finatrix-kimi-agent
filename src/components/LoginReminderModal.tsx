@@ -171,7 +171,12 @@ export default function LoginReminderModal() {
           </Button>
         </div>
 
-        <p className="mt-4 text-[11px] text-ink-3">Free forever · Privacy first · No card required</p>
+        {/* Scoped like the landing trust strip: an account is free and the money
+            tools stay free, but Careers is a paid product and an unqualified
+            "free forever" here would read as covering it. */}
+        <p className="mt-4 text-[11px] text-ink-3">
+          Money tools free forever · Privacy first · No card required
+        </p>
       </div>
     </div>
   );

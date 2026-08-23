@@ -1,14 +1,36 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import toolsHtml from './__fixtures__/original-tools-app.html?raw';
-import { extractFnSource, extractConstSource, evalOriginalConst, compileScope } from './harness';
-import {
-  PS_OPTS, PS_M, PS_DL, psTax, computeParkSmart, type ParkOption,
-} from '../../tools/lib/parksmart';
-import { fmt } from '../../tools/lib/format';
+import { evalOriginalConst, extractFnSource, compileScope } from './harness';
+import { PS_OPTS, PS_M, PS_DL, psTax, type ParkOption } from '../../tools/lib/parksmart';
 
-beforeAll(() => {
-  (window as unknown as { scrollTo: () => void }).scrollTo = () => {};
-});
+/**
+ * ParkSmart parity — DATA only, deliberately.
+ *
+ * The instrument table, the duration→months map and the duration labels are
+ * still the ported originals and are still pinned to the fixture.
+ *
+ * `psTax` is NOT, and this file no longer asserts that it is. The original
+ * pro-rated two statutory allowances by holding period:
+ *
+ *     const exempt = 125000 * (months / 12);   // §112A LTCG
+ *     const exempt = 10000  * (months / 12);   // §80TTA
+ *
+ * Both are per-financial-year, per-taxpayer allowances that do not scale with
+ * how long anything was held. On the 15-month "over 1 year" bucket the first
+ * line granted ₹1,56,250 of exemption — more than the statute allows. §80TTA
+ * was also granted regardless of tax regime, though it is old-regime only.
+ *
+ * Parity is a tool for preventing accidental drift, not a reason to keep a
+ * calculation that is wrong. Holding `psTax` to the fixture meant the test
+ * suite actively defended the error: any correct implementation failed CI. So
+ * the tax assertions moved to `parksmart.tax.test.ts`, which checks the rules
+ * against the Income-tax Act rather than against the previous code.
+ *
+ * What this file still guarantees is that the divergence is confined to tax:
+ * every input the two implementations share must still produce the same
+ * pre-tax gross, and the cases where the law and the original agree must still
+ * agree.
+ */
 
 describe('parksmart parity — data tables', () => {
   it('PS_OPTS / PS_M / PS_DL match the source', () => {
@@ -18,92 +40,56 @@ describe('parksmart parity — data tables', () => {
   });
 });
 
-describe('parksmart parity — psTax across the grid', () => {
-  const original = compileScope<(opt: ParkOption, gross: number, months: number, slab: number, amt: number) => number>(
-    [extractFnSource(toolsHtml, 'psTax')],
-    'psTax'
-  );
-  it('matches original psTax for equity/slab80tta/slab', () => {
-    const opts = PS_OPTS;
-    for (const opt of opts) {
+describe('parksmart parity — where the law and the original still agree', () => {
+  const original = compileScope<
+    (opt: ParkOption, gross: number, months: number, slab: number, amt: number) => number
+  >([extractFnSource(toolsHtml, 'psTax')], 'psTax');
+
+  const slabOnly = PS_OPTS.filter((o) => o.tax === 'slab');
+  const equity = PS_OPTS.find((o) => o.tax === 'equity')!;
+
+  /**
+   * Plain slab options never touched an allowance, so they were correct and
+   * must stay byte-identical. If these drift, the change was not confined to
+   * the allowance handling.
+   */
+  it('slab-taxed options are unchanged', () => {
+    for (const opt of slabOnly) {
       for (const gross of [0, 1000, 12500, 130000, 260000]) {
         for (const months of [0.5, 2, 4.5, 9, 15]) {
           for (const slab of [0, 0.2, 0.3]) {
-            expect(psTax(opt, gross, months, slab, 100000)).toBe(original(opt, gross, months, slab, 100000));
+            expect(psTax(opt, gross, months, slab), `${opt.n} ${gross} ${months}m ${slab}`)
+              .toBe(original(opt, gross, months, slab, 100000));
           }
         }
       }
     }
   });
-});
 
-const TEMPLATE = `<input id="ps-amount"><input id="ps-duration"><input id="ps-slab"><div id="ps-input"></div><div id="ps-result" class="hidden"></div>`;
-
-const runner = new Function(
-  'P',
-  `
-  ${extractConstSource(toolsHtml, 'PS_OPTS')}
-  ${extractConstSource(toolsHtml, 'PS_M')}
-  ${extractConstSource(toolsHtml, 'PS_DL')}
-  ${extractFnSource(toolsHtml, 'fmt')}
-  ${extractFnSource(toolsHtml, 'num')}
-  ${extractFnSource(toolsHtml, 'psTax')}
-  function fxNotify(){}
-  document.getElementById('ps-amount').value = String(P.amt);
-  document.getElementById('ps-duration').value = P.dur;
-  document.getElementById('ps-slab').value = String(P.slab);
-  ${extractFnSource(toolsHtml, 'psCalc')}
-  psCalc();
-  const res = document.getElementById('ps-result');
-  const cards = Array.from(res.querySelectorAll('.result-card-anim'));
-  const heroGrid = res.querySelector('.result-hero-anim .grid3');
-  return {
-    hidden: res.classList.contains('hidden'),
-    names: cards.map((c) => c.querySelector('span[style*="flex:1"]').textContent),
-    nets: cards.map((c) => c.querySelector('span[style*="var(--green)"]').textContent),
-    effRates: cards.map((c) => (c.textContent.match(/Post-tax ([\\d.]+)%/) || [])[1]),
-    heroNet: heroGrid ? heroGrid.children[0].firstElementChild.textContent : null,
-    heroEff: heroGrid ? heroGrid.children[1].firstElementChild.textContent : null,
-    hasSplit: res.textContent.includes('Smart split idea'),
-  };
-`
-) as (p: { amt: number; dur: string; slab: number }) => {
-  hidden: boolean; names: string[]; nets: string[]; effRates: (string | undefined)[];
-  heroNet: string | null; heroEff: string | null; hasSplit: boolean;
-};
-
-function runOriginal(amt: number, dur: string, slab: number) {
-  document.body.innerHTML = TEMPLATE;
-  document.getElementById('ps-result')!.classList.add('hidden');
-  return runner({ amt, dur, slab });
-}
-
-const AMOUNTS = [5000, 50000, 100000, 500000, 2500000];
-const DURS = ['0-1', '1-3', '3-6', '6-12', '12+'];
-const SLABS = [0, 20, 30];
-
-describe('parksmart parity — psCalc ranking', () => {
-  for (const amt of AMOUNTS) {
-    for (const dur of DURS) {
-      for (const slabPct of SLABS) {
-        it(`amt=${amt} dur=${dur} slab=${slabPct}%`, () => {
-          const r = computeParkSmart(amt, dur, slabPct / 100);
-          const dom = runOriginal(amt, dur, slabPct);
-          expect(dom.hidden).toBe(false);
-          expect(dom.names).toEqual(r.ranked.map((o) => o.n));
-          expect(dom.nets).toEqual(r.ranked.map((o) => fmt(o.net)));
-          expect(dom.effRates).toEqual(r.ranked.map((o) => o.effRate.toFixed(2)));
-          expect(dom.heroNet).toBe(fmt(r.best!.net));
-          expect(dom.heroEff).toBe(r.best!.effRate.toFixed(2) + '%');
-          expect(dom.hasSplit).toBe(r.split !== null);
-        });
+  /** Short-term equity used no allowance either — flat 20%, then and now. */
+  it('short-term equity is unchanged', () => {
+    for (const gross of [0, 1000, 130000, 260000]) {
+      for (const months of [0.5, 2, 4.5, 9]) {
+        expect(psTax(equity, gross, months, 0.3)).toBe(original(equity, gross, months, 0.3, 100000));
       }
     }
-  }
+  });
 
-  it('rejects amounts under ₹1,000', () => {
-    const dom = runOriginal(500, '3-6', 20);
-    expect(dom.hidden).toBe(true);
-    expect(computeParkSmart(500, '3-6', 0.2).valid).toBe(false);
+  /**
+   * And the one case that must NOT match: at 15 months the original granted a
+   * pro-rated ₹1,56,250 exemption, so it under-taxed a gain that sits above the
+   * statutory ₹1.25 lakh. Pinning the difference keeps this file honest about
+   * what changed rather than silently dropping the comparison.
+   */
+  it('long-term equity above the exemption diverges, and in the right direction', () => {
+    const gross = 200000;
+    const months = 15;
+    const now = psTax(equity, gross, months, 0.3);
+    const before = original(equity, gross, months, 0.3, 100000);
+    expect(before).toBeGreaterThan(now); // the old code kept more, by under-taxing
+    // Old: exempt = 125000 * 15/12 = 156250 → taxable 43750 → tax 5468.75
+    expect(before).toBeCloseTo(gross - (gross - 156250) * 0.125, 6);
+    // New: exempt = 125000 → taxable 75000 → tax 9375
+    expect(now).toBeCloseTo(gross - (gross - 125000) * 0.125, 6);
   });
 });

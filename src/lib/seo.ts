@@ -3,11 +3,11 @@
  *
  * Every client route is served the same `index.html`, so its static head tags
  * described the HOMEPAGE on every URL — canonical, title, description, Open
- * Graph and Twitter alike. For the seven calculator pages, which are the primary
+ * Graph and Twitter alike. For the calculator pages, which are the primary
  * organic-acquisition surface and the only URLs in `sitemap.xml`, that meant:
  *
  *   • a canonical instructing search engines to consolidate them into `/`;
- *   • one identical title and description across all seven, so they compete for
+ *   • one identical title and description across all of them, so they compete for
  *     the same query and none describes what it actually does;
  *   • link unfurls (WhatsApp, Slack, X, LinkedIn) that render the landing card
  *     no matter which tool was shared.
@@ -29,7 +29,12 @@
  * the document.
  */
 
-import { CANONICAL_HOST, TOOL_IDS, type ToolId } from '../shared/routes';
+import {
+  CANONICAL_HOST,
+  TOOL_COUNT_WORD_CAP,
+  TOOL_IDS,
+  type ToolId,
+} from '../shared/routes';
 import { publicPageFor, type PublicPage } from '../shared/publicPages';
 import { TOOL_FAQ } from '../shared/toolFaq';
 import { readingMinutes, wordCount } from '../content/readingTime';
@@ -61,13 +66,18 @@ export const SITE_NAME = 'FinatriX';
 
 /**
  * Homepage title/description. Must stay byte-identical to the static tags in
- * `index.html` — that file is the shell every route is served from, and
- * `seo.test.ts` asserts the two agree, so a change here without a change there
- * fails the build rather than silently shipping two different homepages.
+ * `index.html` — that file is the shell every route is served from, so a change
+ * here without a change there ships two different homepages.
+ *
+ * `seo.test.ts` → "homepage copy agrees with itself and with TOOL_IDS" asserts
+ * that. It did not until now: the only index.html assertion in the suite
+ * covered the robots meta, and in that gap the shell shipped a tool count that
+ * had been wrong since the eighth calculator landed. The count word is derived
+ * from `TOOL_IDS` for the same reason.
  */
 export const DEFAULT_TITLE = 'FinatriX — Smart Money Tools for India';
 export const DEFAULT_DESCRIPTION =
-  'Seven free, education-first money tools for India: budgeting, expenses, investing, benchmarking and a lifelong wealth simulation. Not financial advice.';
+  `${TOOL_COUNT_WORD_CAP} free, education-first money tools for India: budgeting, expenses, investing, benchmarking and a lifelong wealth simulation. Not financial advice.`;
 
 /**
  * The homepage's social-card description, which is deliberately NOT the meta
@@ -78,7 +88,7 @@ export const DEFAULT_DESCRIPTION =
  * true rather than one.
  */
 export const DEFAULT_SOCIAL_DESCRIPTION =
-  'Seven free, education-first money tools for India — budgeting, investing, benchmarking and a full life-long wealth simulation.';
+  `${TOOL_COUNT_WORD_CAP} free, education-first money tools for India — budgeting, investing, benchmarking and a full life-long wealth simulation.`;
 
 /**
  * Cache-busting token for the share cards.
@@ -96,8 +106,8 @@ export const OG_VERSION = '3';
  * URL — a path-only `og:image` is simply dropped.
  *
  * Every page had ONE card before this: the wordmark on a black field, which told
- * a reader nothing about the link they had actually been sent. The seven
- * calculators now each get their own, generated from this module's own copy by
+ * a reader nothing about the link they had actually been sent. The calculators
+ * now each get their own, generated from this module's own copy by
  * `scripts/generate-og-images.py` so the card and the page's description cannot
  * disagree.
  */
@@ -223,9 +233,9 @@ const TOOL_SEO: Record<ToolId, ToolSeo> = {
   },
   peercompare: {
     name: 'PeerCompare',
-    title: 'PeerCompare — Benchmark Your Money Against Peers | FinatriX',
+    title: 'PeerCompare — Benchmark Your Money Against National Data | FinatriX',
     description:
-      'See how your savings rate, expenses, investments and emergency buffer compare with peers at a similar income in India. An educational benchmarking tool.',
+      'Compare your income, savings rate, expenses, emergency fund and debt service against published PLFS and RBI benchmarks for India. Every source shown on the page.',
     category: 'Benchmarking',
   },
   goals: {
@@ -343,7 +353,7 @@ function learnRouteFor(path: string): LearnRoute | null {
   return null;
 }
 
-/** The tool id for a `/tools/<id>` path, when it is one of the seven public ones. */
+/** The tool id for a `/tools/<id>` path, when it is one of the public ones. */
 function publicToolId(path: string): ToolId | null {
   const m = path.match(/^\/tools\/([^/]+)$/);
   if (!m) return null;
@@ -478,7 +488,7 @@ export function seoForPath(pathname: string): RouteSeo {
  * visible on the page, and emitting it otherwise invites a structured-data
  * manual action. That rule is enforced structurally rather than by review: the
  * markup is generated from the same array the component maps over — `TOOL_FAQ`
- * for the seven calculators, `PublicPage.faq` for the marketing pages — so
+ * for the calculators, `PublicPage.faq` for the marketing pages — so
  * markup without a visible FAQ is not a mistake anyone can make here.
  *
  * Still deliberately absent: `aggregateRating`, which needs real reviews to be
@@ -772,13 +782,13 @@ export function structuredDataForPath(
   const url = seo.canonical;
 
   /**
-   * The homepage: a WebPage, plus an ItemList naming the seven calculators.
+   * The homepage: a WebPage, plus an ItemList naming every calculator.
    *
    * The list is the addition worth explaining. `LandingShowcase` renders one
    * card per tool — name, blurb and a link to its own page — so the markup
    * describes content a visitor actually sees, which is the same standard
    * `faqPage` is held to. What it buys is that a crawler learns the site's
-   * seven principal entry points, with their names and order, from the URL that
+   * principal entry points, with their names and order, from the URL that
    * carries the most authority, instead of inferring them from anchor text.
    * That is the input Google uses to choose sitelinks, and sitelinks are how a
    * brand result stops being one row and starts being a block.
@@ -806,7 +816,7 @@ export function structuredDataForPath(
           '@type': 'ItemList',
           '@id': `${CANONICAL_ORIGIN}/#tools`,
           name: 'The FinatriX toolkit',
-          description: 'Seven free, education-first money calculators for India.',
+          description: `${TOOL_COUNT_WORD_CAP} free, education-first money calculators for India.`,
           numberOfItems: TOOL_IDS.length,
           // The cards are rendered in TOOL_IDS order, so the list is ordered
           // and says so. An unordered list of the same items would be a

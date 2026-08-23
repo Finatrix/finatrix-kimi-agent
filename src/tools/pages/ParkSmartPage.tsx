@@ -4,14 +4,14 @@ import { PageHead, ToolFoot } from '../ui/common';
 import { Icon } from '../ui/Icon';
 import { fmt } from '../lib/format';
 import { getJSON, setJSON } from '../lib/storage';
-import { computeParkSmart, PS_DL, type ParkResult } from '../lib/parksmart';
+import { computeParkSmart, PS_DL, type ParkResult, type TaxRegime } from '../lib/parksmart';
 import { track } from '../../lib/analytics';
 
 const QUICK: [number, string][] = [
   [25000, '₹25K'], [100000, '₹1L'], [500000, '₹5L'], [1000000, '₹10L'], [2500000, '₹25L'],
 ];
 
-interface Saved { 'ps-amount'?: string; 'ps-duration'?: string; 'ps-slab'?: string }
+interface Saved { 'ps-amount'?: string; 'ps-duration'?: string; 'ps-slab'?: string; 'ps-regime'?: string }
 
 export default function ParkSmartPage() {
   const { notify } = useToast();
@@ -19,10 +19,20 @@ export default function ParkSmartPage() {
   const [amount, setAmount] = useState(saved['ps-amount'] ?? '100000');
   const [dur, setDur] = useState(saved['ps-duration'] ?? '3-6');
   const [slab, setSlab] = useState(saved['ps-slab'] ?? '20');
+  /**
+   * Which regime the user files under. Asked for because §80TTA — the ₹10,000
+   * savings-interest deduction — exists only under the old regime, and the tool
+   * previously granted it to everyone. New is the default, as it is in law.
+   */
+  const [regime, setRegime] = useState<TaxRegime>(
+    saved['ps-regime'] === 'old' ? 'old' : 'new',
+  );
   const [result, setResult] = useState<ParkResult | null>(null);
 
   const persist = (next: Partial<Saved>) => {
-    setJSON('fx_parksmart', { 'ps-amount': amount, 'ps-duration': dur, 'ps-slab': slab, ...next });
+    setJSON('fx_parksmart', {
+      'ps-amount': amount, 'ps-duration': dur, 'ps-slab': slab, 'ps-regime': regime, ...next,
+    });
   };
 
   const submit = () => {
@@ -32,7 +42,7 @@ export default function ParkSmartPage() {
       return;
     }
     // computeParkSmart is synchronous — no artificial delay needed.
-    setResult(computeParkSmart(amt, dur, Number(slab) / 100));
+    setResult(computeParkSmart(amt, dur, Number(slab) / 100, regime));
     track('tool_completed', { tool: 'parksmart' });
   };
 
@@ -70,7 +80,7 @@ export default function ParkSmartPage() {
             <div className="fg">
               <label className="fl" htmlFor="ps-slab">Income-tax slab</label>
               <select className="fs" id="ps-slab" value={slab} onChange={(e) => { setSlab(e.target.value); persist({ 'ps-slab': e.target.value }); }}>
-                <option value="0">0% (income under ₹12L, new regime)</option>
+                <option value="0">0%</option>
                 <option value="5">5%</option>
                 <option value="10">10%</option>
                 <option value="15">15%</option>
@@ -78,6 +88,27 @@ export default function ParkSmartPage() {
                 <option value="25">25%</option>
                 <option value="30">30%</option>
               </select>
+            </div>
+          </div>
+          <div className="fg">
+            <label className="fl" htmlFor="ps-regime">Tax regime</label>
+            <select
+              className="fs"
+              id="ps-regime"
+              value={regime}
+              aria-describedby="ps-regime-hint"
+              onChange={(e) => {
+                const v = e.target.value === 'old' ? 'old' : 'new';
+                setRegime(v);
+                persist({ 'ps-regime': v });
+              }}
+            >
+              <option value="new">New regime (default)</option>
+              <option value="old">Old regime</option>
+            </select>
+            <div className="note" id="ps-regime-hint">
+              Only the old regime allows the §80TTA deduction of ₹10,000 a year on savings-account
+              interest, so this changes what a savings account is really worth to you.
             </div>
           </div>
           <button className="btn" onClick={submit}>
@@ -149,6 +180,16 @@ function ParkResultView({ result, amount, dur, onReset }: { result: ParkResult; 
 
       <div className="card" style={{ background: 'var(--gold-bg)' }}>
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Keep in mind</div>
+        {/* The limits belong in the body, not a footnote — a reader who does not
+            know them cannot use the answer. The first two are assumptions the
+            tool cannot derive from its inputs, so they have to be stated. */}
+        <div className="note">
+          <b>What this assumes.</b> The ₹1.25 lakh long-term capital-gains exemption and the ₹10,000
+          §80TTA deduction are annual, per-taxpayer allowances shared across everything else you earn
+          in the same financial year. ParkSmart can only see this one sum, so it assumes the full
+          allowance is available to it — if you have other capital gains or savings interest, treat
+          these post-tax figures as a ceiling. &ldquo;Over 1 year&rdquo; is modelled as 15 months.
+        </div>
         <div className="note">Returns are indicative category averages as of mid-2026 — actual fund and FD rates vary, so compare before committing. Arbitrage funds enjoy equity taxation (20% STCG, 12.5% LTCG beyond the exemption) which beats slab tax for higher earners. Debt funds bought after April 2023 are taxed at your slab with no indexation. Banks deduct TDS on FD interest above ₹50,000 a year. And whatever you choose, keep 3–6 months of expenses in something liquid.</div>
       </div>
       <button className="btn" onClick={onReset}>Try a different amount</button>

@@ -23,12 +23,21 @@ const HERO_CARDS: HeroCard[] = [
   { tool: byId('networth'), name: 'Net Worth', sub: 'Track what you own and owe' },
 ];
 
+/**
+ * The trust strip.
+ *
+ * "Free forever" used to sit here unqualified, on the same viewport as the
+ * gold Careers card selling a ₹199–₹2,499/month subscription. Scoped to the
+ * money tools it is true and worth saying; unscoped, beside a paid upsell, it
+ * is the kind of claim India's CCPA misleading-advertisement rules exist for.
+ * The qualifier is three words and costs nothing.
+ */
 const TRUST: string[] = [
   `${CURRENCY_COUNT} currencies`,
   'Made in India 🇮🇳',
   'Privacy first',
   'Education first',
-  'Free forever',
+  'Money tools free forever',
   'Real-time calculations',
 ];
 
