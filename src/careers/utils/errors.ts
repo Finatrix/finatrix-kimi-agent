@@ -12,7 +12,8 @@ export type CareersErrorCode =
   | 'database'        // supabase table error — retryable
   | 'not-setup'       // careers tables/bucket missing — needs setup, not retryable
   | 'ai'              // AI call failed — retryable
-  | 'ai-limit'        // daily AI limit reached — retry tomorrow
+  | 'ai-limit'        // AI quota reached — retry tomorrow / next month
+  | 'ai-entitlement'  // signed in, but the plan does not cover Careers AI — upgrade, not retry
   | 'ai-response'     // AI answered with something unusable — retryable
   | 'network'         // offline / fetch failed — retryable
   | 'rate-limit'      // too many requests — retry after a short wait
