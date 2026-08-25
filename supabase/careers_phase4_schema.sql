@@ -332,6 +332,14 @@ revoke execute on function public.validate_coupon(text) from public, anon;
 grant execute on function public.validate_coupon(text) to authenticated, service_role;
 
 -- subscriptions: own row select/insert/update; admins see/manage all.
+--
+-- "own row update" is NOT the same claim as "cannot grant yourself a plan", and
+-- for a long time this file read as though it were. RLS scopes updates to the
+-- caller's row; it says nothing about WHICH COLUMNS they may set, so `plan_id`
+-- was client-writable and the React paywall read that column to decide access.
+-- The column guard lives in migrations/20260825000100_paywall_enforcement.sql
+-- (a BEFORE UPDATE trigger, because `with check` cannot compare against OLD).
+-- Read that file before relying on these three policies for anything.
 drop policy if exists "subscriptions_select" on public.subscriptions;
 create policy "subscriptions_select" on public.subscriptions for select
   using (auth.uid() = user_id or public.is_platform_admin(auth.uid()));
@@ -350,7 +358,10 @@ drop policy if exists "billing_history_admin_write" on public.billing_history;
 create policy "billing_history_admin_write" on public.billing_history for insert
   with check (public.is_platform_admin(auth.uid()));
 
--- usage_counters: own row select; the client increments its own counters transactionally.
+-- usage_counters: own row select; the client increments its own counters.
+-- It may not DECREASE them — that guard is a trigger in
+-- migrations/20260825000100_paywall_enforcement.sql, since the policy below
+-- cannot express "not lower than before".
 drop policy if exists "usage_counters_select" on public.usage_counters;
 create policy "usage_counters_select" on public.usage_counters for select
   using (auth.uid() = user_id or public.is_platform_admin(auth.uid()));

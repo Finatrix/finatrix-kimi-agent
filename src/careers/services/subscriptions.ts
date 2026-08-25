@@ -14,7 +14,6 @@ import { logAudit } from './audit';
 import { mapSupabaseError } from '../utils/errors';
 import type {
   BillingHistoryRow,
-  PlanId,
   QuotaCheck,
   QuotaKind,
   SubscriptionPlanRow,
@@ -59,25 +58,22 @@ export async function ensureFreeSubscription(userId: string): Promise<Subscripti
   return data as SubscriptionRow;
 }
 
-/** Change plan (upgrade or downgrade) — takes effect immediately, no proration logic yet. */
-export async function changePlan(userId: string, subscriptionId: string, planId: PlanId | string, trialDays = 0): Promise<SubscriptionRow> {
-  const patch: Partial<SubscriptionRow> = {
-    plan_id: planId,
-    status: trialDays > 0 ? 'trialing' : 'active',
-    trial_ends_at: trialDays > 0 ? new Date(Date.now() + trialDays * 86_400_000).toISOString() : null,
-    cancel_at_period_end: false,
-  };
-  const { data, error } = await supabase
-    .from('subscriptions')
-    .update(patch)
-    .eq('user_id', userId)
-    .eq('id', subscriptionId)
-    .select()
-    .single();
-  if (error) throw mapSupabaseError(error, 'Changing your plan');
-  logAudit(userId, 'subscription.plan_changed', { type: 'subscription', id: subscriptionId }, { planId });
-  return data as SubscriptionRow;
-}
+/*
+ * `changePlan` used to live here.
+ *
+ * It wrote `plan_id`, `status` and `trial_ends_at` to the subscriptions row
+ * straight from the browser, and the RLS policy allowed it — so it was a
+ * working self-upgrade path to Premium, exported into the client bundle. It had
+ * no callers, which is the only reason it was never exploited by accident.
+ *
+ * It is deleted rather than left unused: the column guard added in
+ * migrations/20260825000100_paywall_enforcement.sql now rejects that update, so
+ * keeping it would mean shipping a function that can only throw.
+ *
+ * Plan changes belong to `careers-billing-webhook`, which runs as the service
+ * role — the one caller the guard lets through, and the only one holding
+ * evidence that payment actually happened.
+ */
 
 export async function cancelSubscription(userId: string, subscriptionId: string, immediately = false): Promise<SubscriptionRow> {
   const patch: Partial<SubscriptionRow> = immediately
