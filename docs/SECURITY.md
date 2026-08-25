@@ -41,11 +41,57 @@
 - **Client-side rate limiting** (`utils/rateLimit.ts`). A token-bucket limiter
   guards spammable UI actions (e.g. AI email generation, 10/minute). This is a
   UX safety net, not the security boundary — the real limits are server-side:
-  `careers-ai`'s per-user daily quota (`careers_ai_usage`, `CAREERS_AI_DAILY_LIMIT`)
-  and Supabase's own platform-level rate limiting.
+  `careers-ai`'s per-user daily quota, its per-plan MONTHLY quota
+  (`begin_ai_call_v2`, from `subscription_plans.ai_quota_monthly`), the daily
+  token budget, the global ceiling, and Supabase's own platform-level rate
+  limiting. See "Paywall enforcement" below.
 - **CSRF**: not applicable in the classic sense. Every authenticated request
   carries a bearer JWT in an `Authorization` header (never a cookie), so
   there's no ambient credential for a cross-site request to ride on.
+
+## Paywall enforcement (2026-08-25)
+
+Until this change the Careers paywall was enforced **only in React**, and two
+statements in this document were more optimistic than the code.
+
+**What was wrong**
+
+- `subscriptions_update` was `using (auth.uid() = user_id or is_admin)` with no
+  `with check` and no column guard. RLS scopes an update to the caller's own
+  row; it says nothing about *which columns* they may set. So `plan_id` was
+  client-writable, and `CareersPaywallGate` reads exactly that column to decide
+  access — one PostgREST call turned a free signup into a permanent Premium
+  account. The client bundle even exported the call (`changePlan`), unused.
+- `usage_counters_update` let a user reset their own consumption to zero.
+- `careers-ai` never read `subscriptions` at all. It applied one flat daily
+  ceiling from `CAREERS_AI_DAILY_LIMIT`, identical for every account, so a Free
+  user could spend paid inference and the per-plan quotas sold on /pricing were
+  enforced in neither direction.
+
+**What enforces it now** (`migrations/20260825000100_paywall_enforcement.sql`)
+
+- `guard_subscription_entitlements` (BEFORE UPDATE) and
+  `guard_subscription_insert` reject any client write to `plan_id`, `status`
+  (except to `canceled`), the period columns and the provider columns. A
+  `with check` cannot express this — it sees only the NEW row — hence triggers.
+  Both exempt anything whose `current_user` is not `authenticated`/`anon`, which
+  is what leaves `careers-billing-webhook` (service role) able to do its job.
+- `guard_usage_counter_decrease` permits counters to rise, never to fall.
+- `begin_ai_call_v2` adds the per-plan **monthly** quota to the existing daily
+  call, daily token and global ceilings, in the same atomic call. Sentinel `-4`
+  is the monthly quota. Executable by `service_role` only.
+- `careers-ai` now looks the plan up with the service role (never through the
+  caller's token) and refuses with **402** when a Careers task is requested on a
+  non-paid plan.
+
+**Why it is not simply "paid plans only".** `careers-ai` is the whole
+application's AI transport. The free money tools use it too — the calculators'
+assistant and the Expense Tracker's statement categoriser. The gate is therefore
+per *task*: `FREE_TIER_TASKS` in `supabase/functions/careers-ai/entitlement.ts`
+allowlists the money-tool tasks; everything else needs a paid plan. An allowlist
+rather than a Careers list, so a task nobody registered defaults to requiring
+payment. `careersAiEntitlement.test.ts` fails if a money tool starts sending a
+task that is not listed.
 
 ## Known gaps (not addressed this pass — need external services or infra)
 

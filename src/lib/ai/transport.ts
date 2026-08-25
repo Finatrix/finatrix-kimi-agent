@@ -58,6 +58,12 @@ export type AiFailureKind =
   | 'not-deployed'
   /** Could not reach the service at all. */
   | 'network'
+  /**
+   * The caller is signed in but their plan does not cover this task — a
+   * Careers task on a free account. Distinct from 'limit' (quota exhausted on a
+   * plan that does cover it) because the remedy is different: upgrade, not wait.
+   */
+  | 'entitlement'
   /** The model answered with nothing usable. */
   | 'empty'
   /** Anything else the server reported. */
@@ -93,6 +99,10 @@ async function classify(error: unknown): Promise<AiCompletionFailure> {
       /* non-JSON error body */
     }
     if (ctx.status === 401) return { ok: false, kind: 'auth', message };
+    // 402 is what careers-ai answers when the task needs a plan the caller does
+    // not have. Mapped before the generic branch so the UI can offer an upgrade
+    // rather than showing "something went wrong".
+    if (ctx.status === 402) return { ok: false, kind: 'entitlement', message };
     if (ctx.status === 429) return { ok: false, kind: 'limit', message };
     if (ctx.status === 404) return { ok: false, kind: 'not-deployed', message };
     return { ok: false, kind: 'failed', message };

@@ -25,7 +25,14 @@ function careersError(kind: AiFailureKind, message: string): CareersError {
     case 'auth':
       return new CareersError('auth', message || 'Sign in to use AI analysis.');
     case 'limit':
-      return new CareersError('ai-limit', message || 'Daily AI limit reached. Try again tomorrow.');
+      return new CareersError('ai-limit', message || 'AI limit reached. Try again later.');
+    // Distinct from 'limit': the quota is not exhausted, the plan does not
+    // include this. Telling someone to "try again tomorrow" would be false.
+    case 'entitlement':
+      return new CareersError(
+        'ai-entitlement',
+        message || 'FinatriX Careers AI needs a paid plan. See Pricing to upgrade.',
+      );
     case 'not-deployed':
       return new CareersError(
         'not-setup',
