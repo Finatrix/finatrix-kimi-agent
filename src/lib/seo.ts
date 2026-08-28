@@ -121,7 +121,7 @@ export const OG_IMAGE = ogImageFor(null);
  *                             or none at all, and the page is not eligible for
  *                             the large-card treatment in Discover. For a
  *                             calculator competing on a results page against
- *                             six other calculators, the image is most of what
+ *                             every other calculator, the image is most of what
  *                             distinguishes the row.
  *   max-snippet:-1            Lifts the cap on snippet length, so Google may
  *                             quote as much of the answer as it judges useful.
@@ -773,7 +773,7 @@ export function structuredDataForPath(
   const url = seo.canonical;
 
   /**
-   * The homepage: a WebPage, plus an ItemList naming the seven calculators.
+   * The homepage: a WebPage, plus an ItemList naming every calculator.
    *
    * The list is the addition worth explaining. `LandingShowcase` renders one
    * card per tool — name, blurb and a link to its own page — so the markup
