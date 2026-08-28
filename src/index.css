@@ -397,18 +397,20 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 2px 4px;
+  gap: 2px 3px;
   min-width: 0;
 }
 .fx-navpill {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   flex-shrink: 0;
   /* 32px tall — clears the WCAG 2.2 (2.5.8) 24px target minimum with room, and
-     matches the pill height the landing header already used. */
+     matches the pill height the landing header already used. The horizontal
+     padding is the one dimension tuned for the in-app bar, which carries twelve
+     pills to the landing page's nine and has to hold them on one line. */
   min-height: 32px;
-  padding: 6px 13px;
+  padding: 6px 10px;
   border-radius: 980px;
   font-size: 13px;
   font-weight: 500;

@@ -41,6 +41,22 @@ export function MobileDrawer({
     onCloseRef.current = onClose;
   });
 
+  /**
+   * Tell the document a drawer is open, so the floating docks get out of the way.
+   *
+   * The AI launcher and the Wallet are `position: fixed` at `--z-fab` (310) and
+   * portaled to `document.body`; this drawer sits at 40. So both pills painted
+   * ON TOP of an open drawer — over its links, catching taps meant for the
+   * navigation underneath. They are outside this component's subtree and
+   * outside the shell's, so a class on `document.body` is the one channel that
+   * reaches them (`tools.css` hides them under it).
+   */
+  useEffect(() => {
+    if (!open) return;
+    document.body.classList.add('fx-drawer-open');
+    return () => document.body.classList.remove('fx-drawer-open');
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const panel = panelRef.current;

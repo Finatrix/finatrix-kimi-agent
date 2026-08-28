@@ -28,27 +28,55 @@ export interface ScoreCardProps {
   result: ScoreResult;
   /** What the assistant should be pointed at when asked about this score. */
   focus?: AiFocus;
+  /**
+   * Drop the card chrome, the title and the grade pill.
+   *
+   * For a caller that is already a `PanelCard` — it supplies the card, the
+   * heading and the switch, and shows the grade as its badge, so repeating any
+   * of them here would put the same words on screen twice.
+   */
+  bare?: boolean;
 }
 
-export function ScoreCard({ title, caption, result, focus }: ScoreCardProps) {
+/** The grade pill, so a `PanelCard` can show it as its badge. */
+export function ScoreBadge({ result }: { result: ScoreResult }) {
+  const color = GRADE_COLOR[result.grade];
+  return (
+    <span
+      className="fx-score-grade"
+      style={{
+        color,
+        borderColor: `color-mix(in srgb, ${color} 32%, transparent)`,
+        background: `color-mix(in srgb, ${color} 10%, transparent)`,
+      }}
+    >
+      <style>{SCORE_STYLES}</style>
+      {result.gradeLabel}
+    </span>
+  );
+}
+
+export function ScoreCard({ title, caption, result, focus, bare = false }: ScoreCardProps) {
   const [open, setOpen] = useState(false);
   const detailId = `${useId()}-score-detail`;
   const color = GRADE_COLOR[result.grade];
 
   return (
-    <div className="card fx-score">
+    <div className={bare ? 'fx-score' : 'card fx-score'}>
       <style>{SCORE_STYLES}</style>
       <div className="fx-score-top">
         <Dial score={result.score} color={color} insufficient={result.insufficient} />
         <div className="fx-score-copy">
-          <div className="fx-score-hd">
-            <span className="fx-score-title">{title}</span>
-            <span className="fx-score-grade" style={{ color, borderColor: `color-mix(in srgb, ${color} 32%, transparent)`, background: `color-mix(in srgb, ${color} 10%, transparent)` }}>
-              {result.gradeLabel}
-            </span>
-          </div>
-          <p className="fx-score-caption">{caption}</p>
-          <p className="fx-score-headline">{result.headline}</p>
+          {!bare && (
+            <>
+              <div className="fx-score-hd">
+                <span className="fx-score-title">{title}</span>
+                <ScoreBadge result={result} />
+              </div>
+              <p className="fx-score-caption">{caption}</p>
+            </>
+          )}
+          <p className="fx-score-headline" style={bare ? { marginTop: 0 } : undefined}>{result.headline}</p>
           {result.nextStep && (
             <p className="fx-score-next">
               <Icon name="zap" size={13} style={{ color: 'var(--gold)', flexShrink: 0, marginTop: 1 }} />

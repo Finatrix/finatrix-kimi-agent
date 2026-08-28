@@ -22,7 +22,8 @@ import {
   type CatPrefs, type IncomeConfig, type IncomeSource,
 } from '../lib/budgetCats';
 import {
-  loadArrangement, saveArrangement, type MonthArrangement, type MonthCatEntry,
+  loadArrangement, loadMonthCatStore, saveArrangement, saveMonthCatStore, withoutMonthEntry,
+  type MonthArrangement, type MonthCatEntry,
 } from '../lib/budgetCatsMonth';
 import { budgetFillPct, budgetTone, TONE_COLOR, TONE_FILL, TONE_LABEL } from '../lib/budgetStatus';
 import { SECTION_COLOR, SECTION_FILL } from '../lib/sectionColors';
@@ -324,10 +325,29 @@ export default function BudgetPage() {
   /* ── Month planning ───────────────────────────────────────────────────── */
   const cur = currentMonth();
   const nextM = nextMonthUnclamped(cur);
+  /**
+   * How far ahead a budget can be planned: twelve months.
+   *
+   * It used to be exactly one. The next arrow stopped at `nextM`, so "plan next
+   * month" worked and "plan the month after" was unreachable — there was no
+   * control anywhere on the page that reached it. A year is the span an annual
+   * plan actually covers, and it matches the Expense Tracker's own horizon so
+   * a month you scheduled a spend into is a month you can also budget.
+   */
+  const planningHorizon = (() => {
+    let m = cur;
+    for (let i = 0; i < 12; i += 1) m = nextMonthUnclamped(m);
+    return m;
+  })();
   const monthSet = new Set(Object.keys(allRef.current));
   monthSet.add(cur);
-  if (pendingStart) monthSet.add(month);
+  // The month being viewed is always a chip, started or not — otherwise the
+  // one you are standing on is missing from the row you navigate with.
+  monthSet.add(month);
   const months = [...monthSet].sort();
+  /** A future month that has been started, and can therefore be discarded. */
+  const canDeletePlan = month > cur && !pendingStart
+    && Object.prototype.hasOwnProperty.call(allRef.current, month);
 
   /** Never overwrite: a start choice only ever writes a month that has none. */
   const startMonth = (mode: 'current' | 'previous' | 'empty') => {
@@ -343,6 +363,32 @@ export default function BudgetPage() {
     say(mode === 'empty'
       ? `${monthLabel(month)} started from scratch.`
       : `${monthLabel(month)} created from ${mode === 'current' ? monthLabel(cur) : monthLabel(prevMonth(month))}.`);
+  };
+
+  /**
+   * Discard a plan for a month that has not started.
+   *
+   * Deliberately restricted to FUTURE months. A past or current month is a
+   * record of what was actually planned, and the tracker's figures, the
+   * wallet's carry-over and the scores are all read against it — deleting one
+   * would not be tidying up, it would be rewriting history. A month that has
+   * not begun has no history to rewrite.
+   *
+   * The month's own category arrangement goes with it, so the month returns to
+   * inheriting rather than keeping a list nothing is budgeted under.
+   */
+  const deletePlan = () => {
+    if (!canDeletePlan) return;
+    delete allRef.current[month];
+    setJSON('fx_bb_data', allRef.current);
+    saveMonthCatStore(withoutMonthEntry(loadMonthCatStore(), month));
+    const next = loadArrangement(month);
+    arrangementRef.current = next;
+    setArrangement(next);
+    setPendingStart(true);
+    loadMonth(month);
+    forceMonths((n) => n + 1);
+    say(`${monthLabel(month)} plan deleted. Nothing else changed.`);
   };
 
   const setVal = (k: string, amount: number) =>
@@ -407,6 +453,17 @@ export default function BudgetPage() {
           <button type="button" className={month === nextM ? 'on' : ''} aria-pressed={month === nextM}
             onClick={() => switchMonth(nextM)}>Next month</button>
         </div>
+        {/* Only ever offered for a month that has not started — see deletePlan. */}
+        {canDeletePlan && (
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm bb-delplan"
+            onClick={deletePlan}
+          >
+            <Icon name="trash" size={14} />
+            Delete {monthLabel(month)} plan
+          </button>
+        )}
         <ExportMenu
           source="budget"
           label="Export budget"
@@ -438,7 +495,7 @@ export default function BudgetPage() {
           onSwitch={switchMonth}
           pastNote="Viewing past month"
           pastColor="var(--gold)"
-          maxMonth={nextM}
+          maxMonth={planningHorizon}
           futureNote="Planning ahead"
           futureColor="var(--blue)"
         />
@@ -1021,6 +1078,9 @@ const BUDGET_STYLES = `
    2px radius difference read as a mistake rather than as a distinction. */
 .fx-tools .bb-pct{height:var(--ctl-h-md);min-height:0;padding:0 12px;border-radius:var(--ctl-r-sm);
   text-align:center;font-size:18px;font-weight:700;letter-spacing:-.01em;}
+.fx-tools .bb-delplan{width:auto;gap:6px;margin-left:auto;}
+.fx-tools .bb-delplan:hover{color:var(--red);border-color:color-mix(in srgb,var(--red) 35%,transparent);}
+.fx-tools .bb-monthbar > .fx-seg + .bb-delplan{margin-left:0;}
 .fx-tools .bb-inherit{display:flex;align-items:flex-start;gap:8px;font-size:11.5px;color:var(--ink3);
   line-height:1.55;margin:0 0 12px;padding:9px 12px;border-radius:var(--ctl-r-md);background:var(--well);
   border:1px solid var(--well-border);}

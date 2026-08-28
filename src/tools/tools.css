@@ -189,11 +189,28 @@
    `.fx-tools`, where none of this file's colour tokens resolve, so a second
    copy scoped here is exactly how the two bars drifted apart in the first
    place. Only the container belongs to the shell. */
-.fx-tools .fx-toolbar { max-width: 1024px; margin: 0 auto; display: flex; align-items: center; gap: 10px; padding: 10px 16px; }
+/* 1280, not the 1024 the content column uses: this is a full-width bar, and at
+   1024 twelve pills plus the currency select cannot fit on one line. The
+   landing header is the same width for the same reason, so the two bars line
+   up as one design. */
+.fx-tools .fx-toolbar { max-width: 1280px; margin: 0 auto; display: flex; align-items: center; gap: 10px; padding: 8px 16px; }
 .fx-tools .fx-toolbar .fx-navpills { flex: 1 1 auto; min-width: 0; }
-/* Below md the bottom tab bar and the drawer own navigation, so the row is
-   hidden by NavPills' own `hideBelow` and the currency select keeps the row. */
-@media(max-width:767px){ .fx-tools .fx-toolbar { justify-content: flex-end; } }
+/* Below md the bottom tab bar and the drawer own navigation, so the pills are
+   hidden by NavPills' own `hideBelow` — and with the currency select moved into
+   the header, the bar has nothing left to show and collapses entirely rather
+   than leaving an empty strip under the header. */
+@media(max-width:767px){ .fx-tools .nav-wrap { display: none; } }
+/* The display currency: in the header on a real screen, in the drawer on a
+   phone. Two copies rather than one that moves, because the two live in
+   different DOM subtrees — and exactly one is ever rendered visible. */
+@media(max-width:639px){ .fx-tools .fx-cur-desktop { display: none; } }
+@media(min-width:640px){ .fx-tools .fx-cur-drawer { display: none; } }
+/* The floating docks stand down while the navigation drawer is open. Both are
+   portaled to document.body at --z-fab, well above the drawer's own stacking
+   level, so without this they paint over its links and swallow taps meant for
+   them. Set by MobileDrawer, which is the only thing that knows. */
+body.fx-drawer-open .fx-wallet-dock,
+body.fx-drawer-open .fx-ai-dock { display: none; }
 
 /* ---- Mobile bottom navigation (<768px) ---- */
 .fx-tools { --fx-bottomnav-h: 0px; }

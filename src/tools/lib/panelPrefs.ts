@@ -8,7 +8,11 @@
  * a person who opens the tracker forty times a month to log a coffee is
  * scrolling past four analytical panels to reach a form.
  *
- * So the analytical panels are switchable, and the switch is remembered.
+ * So the analytical panels are switchable, and the switch is remembered. The
+ * switch itself lives in the heading of the panel it governs (`ui/PanelCard`),
+ * not in a menu: the heading stays on screen when the body is collapsed, so a
+ * hidden panel is one visible tap from coming back rather than something the
+ * user has to remember exists.
  *
  * Deliberately NOT a synced key. This is a display preference about one screen
  * on one device — the same class as the category sort beside it — and syncing it
@@ -43,14 +47,6 @@ export const DEFAULT_PANELS: PanelPrefs = {
 };
 
 export type PanelKey = keyof PanelPrefs;
-
-/** Label shown on each switch. Order here is the order they render in. */
-export const PANEL_LABELS: ReadonlyArray<{ key: PanelKey; label: string; hint: string }> = [
-  { key: 'score', label: 'Month score', hint: 'How closely this month followed the plan' },
-  { key: 'insights', label: 'Spending insights', hint: 'Observations derived from this month' },
-  { key: 'trend', label: 'Monthly trend', hint: 'Six months of spending, split by section' },
-  { key: 'bank', label: 'Bank balance', hint: 'Opening and closing balance, reconciled' },
-];
 
 export function loadPanelPrefs(): PanelPrefs {
   const raw = getJSON<Partial<PanelPrefs>>(PANEL_PREFS_KEY, {});

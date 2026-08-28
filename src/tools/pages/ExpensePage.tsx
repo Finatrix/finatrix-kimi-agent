@@ -56,9 +56,9 @@ import {
 } from '../lib/expenseAnalytics';
 import { track } from '../../lib/analytics';
 import { WalletDock } from '../ui/WalletDock';
-import { ScoreCard } from '../ui/ScoreCard';
+import { ScoreCard, ScoreBadge } from '../ui/ScoreCard';
 import { BankBalanceCard } from '../ui/BankBalanceCard';
-import { PanelSwitches } from '../ui/PanelSwitches';
+import { PanelCard } from '../ui/PanelCard';
 import { computeExecutionScore, type ScoreResult } from '../lib/score';
 import {
   loadPanelPrefs, savePanelPrefs, togglePanel, type PanelKey, type PanelPrefs,
@@ -827,18 +827,16 @@ export default function ExpensePage() {
               futureColor="var(--blue)"
             />
           </div>
-          {/* The action group wraps INTERNALLY as well as dropping to its own
-              line. The row already gave the month nav a flex-basis it cannot
-              reach on a phone, so two buttons dropped below it and fitted;
-              adding a third put 23px of horizontal scroll on the whole tool at
-              320px, because the group itself could not break. Measured — this
-              is the same failure the statement importer shipped once already. */}
+          {/* Two controls, and it stays two: the panel switches that used to sit
+              here now live in the heading of the panel each one governs, which
+              is both where they belong and the only place that costs this row
+              nothing. A third button here put 23px of horizontal scroll on the
+              whole tool at 320px. The group still wraps, as insurance. */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: 10,
             marginLeft: 'auto', flexWrap: 'wrap', justifyContent: 'flex-end',
             minWidth: 0,
           }}>
-            <PanelSwitches prefs={panels} onToggle={flipPanel} />
             {/* Import sits beside Export because they are the same idea in two
                 directions, and someone looking for one looks here for the other. */}
             <button
@@ -893,6 +891,7 @@ export default function ExpensePage() {
             code={code} theme={theme}
             listApi={listApi}
             panels={panels}
+            onFlipPanel={flipPanel}
             score={monthScore}
             validKeys={validKeys}
             todayKey={todayKey}
@@ -1021,6 +1020,8 @@ interface OverviewProps {
   listApi: RefObject<TransactionListHandle | null>;
   /** Which optional panels this screen is showing. */
   panels: PanelPrefs;
+  /** Flip one panel. The switch lives in that panel's own heading. */
+  onFlipPanel: (key: PanelKey) => void;
   /** How well the month followed the plan. Computed by the page — see lib/score.ts. */
   score: ScoreResult;
   /** Live category keys, for consistent legacy-key resolution. */
@@ -1039,7 +1040,7 @@ function OverviewTab({
   cfmt, sym, now, catMeta,
   addExpense, addFromQuickAdd, quickSeed, openAdd, openEdit, duplicateTransaction, deleteTransaction,
   bulkDelete, bulkDuplicate, bulkCategory, bulkAddTags, exportTransactions,
-  code, listApi, panels, score, validKeys, todayKey, scheduleLimit, onGoToMonth,
+  code, listApi, panels, onFlipPanel, score, validKeys, todayKey, scheduleLimit, onGoToMonth,
 }: OverviewProps) {
   const insights = useMemo(
     // `spendableBudget`, never `monthlyBudget`: the pace insight compares it
@@ -1140,8 +1141,15 @@ function OverviewTab({
 
       {/* How the month is going against the plan — the one figure that answers
           "am I doing well?" without the user having to read six others. */}
-      {panels.score && (
+      <PanelCard
+        title="Month score"
+        subtitle={`How closely ${monthLabel(selMonth)} followed your plan`}
+        on={panels.score}
+        onToggle={() => onFlipPanel('score')}
+        badge={panels.score ? <ScoreBadge result={score} /> : undefined}
+      >
         <ScoreCard
+          bare
           title="Month score"
           caption={`How closely ${monthLabel(selMonth)} followed your plan`}
           result={score}
@@ -1150,16 +1158,22 @@ function OverviewTab({
             score: score.score, grade: score.gradeLabel, summary: score.headline,
           }}
         />
-      )}
+      </PanelCard>
 
-      {panels.bank && (
+      <PanelCard
+        title="Bank balance"
+        subtitle={`Opening and closing balance for ${monthLabel(selMonth)}, reconciled against the ledger`}
+        on={panels.bank}
+        onToggle={() => onFlipPanel('bank')}
+      >
         <BankBalanceCard
+          bare
           month={selMonth}
           items={items}
           income={r.income}
           validKeys={validKeys}
         />
-      )}
+      </PanelCard>
 
       {/* Spends the user has already dated forward. Separate from the recurring
           detector below: those are patterns FinatriX inferred, these are
@@ -1201,15 +1215,19 @@ function OverviewTab({
       )}
 
       {/* Spending insights */}
-      {panels.insights && insights.length > 0 && (
-        <div className="card" style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>Spending insights</div>
+      {insights.length > 0 && (
+        <PanelCard
+          title="Spending insights"
+          subtitle="What this month's figures actually say, and what to do about it"
+          on={panels.insights}
+          onToggle={() => onFlipPanel('insights')}
+        >
           <div style={{ display: 'grid', gap: 8 }}>
             {insights.map((ins) => (
               <InsightCard key={ins.id} insight={ins} />
             ))}
           </div>
-        </div>
+        </PanelCard>
       )}
 
       {/* Needs / Wants / Savings */}
@@ -1248,12 +1266,14 @@ function OverviewTab({
       </div>
 
       {/* Monthly trend */}
-      {panels.trend && (
-        <div className="card">
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Monthly trend</div>
-          <TrendChart trend={r.trend} cfmt={cfmt} code={code} />
-        </div>
-      )}
+      <PanelCard
+        title="Monthly trend"
+        subtitle="Six months of spending, split by Needs, Wants and Savings"
+        on={panels.trend}
+        onToggle={() => onFlipPanel('trend')}
+      >
+        <TrendChart trend={r.trend} cfmt={cfmt} code={code} />
+      </PanelCard>
 
       {/* Add expense — a real form, so Enter submits and the browser exposes
           the field/validation relationships to assistive tech. */}

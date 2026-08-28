@@ -111,12 +111,15 @@ export function AutoBudgetCard({
 
       {open && totalEnvelope > 0 && proposal?.empty !== false && (
         <p className="fx-auto-empty">
-          There is no logged spending in the months before {monthLabel(month)} to forecast from. Track a
-          month in the Expense Tracker and this fills itself in.
+          There is no logged spending before {monthLabel(month)} to forecast from. Track a month in the
+          Expense Tracker and this fills itself in.
         </p>
       )}
 
-      {open && proposal && !proposal.empty && (
+      {/* `totalEnvelope > 0` guards the table as well as the message above it.
+          Without it a month with no income yet rendered BOTH — "add your income
+          first" immediately above a full table proposing zero for every row. */}
+      {open && totalEnvelope > 0 && proposal && !proposal.empty && (
         <>
           <div className="fx-auto-controls">
             <fieldset className="fx-auto-look">
@@ -135,9 +138,16 @@ export function AutoBudgetCard({
                 ))}
               </div>
             </fieldset>
+            {/* Which months, by name, not just how many. The window reaches
+                past a gap to find real history — planning December in August
+                reads the summer, not three empty months — so saying "3 months"
+                without saying WHICH would quietly misdescribe the evidence. */}
             <span className="note">
-              Using {proposal.monthsUsed.length} month{proposal.monthsUsed.length === 1 ? '' : 's'} with
-              activity{proposal.partial ? ' — that is all the history there is' : ''}.
+              Reading {monthLabel(proposal.monthsUsed[0])}
+              {proposal.monthsUsed.length > 1 && (
+                <> to {monthLabel(proposal.monthsUsed[proposal.monthsUsed.length - 1])}</>
+              )}
+              {proposal.partial && ' — that is all the history there is'}.
             </span>
           </div>
 

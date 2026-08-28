@@ -152,11 +152,106 @@ describe('the plan score', () => {
   });
 });
 
+describe('planning months further out', () => {
+  it('reaches a year ahead, not one month', () => {
+    // The next arrow used to stop at `nextM`, so "plan next month" worked and
+    // "plan the month after" was unreachable from anywhere on the page.
+    renderPage();
+    const next = () => screen.getByRole('button', { name: 'Go to next month' });
+    for (let i = 0; i < 4; i += 1) {
+      expect(next()).not.toBeDisabled();
+      fireEvent.click(next());
+      const start = screen.queryByRole('button', { name: /Start empty/ });
+      if (start) fireEvent.click(start);
+    }
+    expect(document.querySelector('.fx-mnav-month')?.textContent).toBe('December 2026');
+    expect(document.querySelector('.fx-mnav-note')?.textContent).toBe('Planning ahead');
+  });
+
+  it('stops at twelve months out', () => {
+    renderPage();
+    for (let i = 0; i < 12; i += 1) {
+      const next = screen.getByRole('button', { name: 'Go to next month' });
+      if (next.hasAttribute('disabled')) break;
+      fireEvent.click(next);
+      const start = screen.queryByRole('button', { name: /Start empty/ });
+      if (start) fireEvent.click(start);
+    }
+    expect(screen.getByRole('button', { name: 'Go to next month' })).toBeDisabled();
+  });
+
+  it('forecasts from real history even when the months between are empty', () => {
+    // Planning four months out used to report "no logged spending to forecast
+    // from", because the window was the four (unlived) months immediately
+    // before the target. It now reaches back to the months that exist.
+    localStorage.setItem('fx_expenses', JSON.stringify([
+      { id: 'a', date: '2026-07-05', category: 'groceries', amount: 12_000 },
+      { id: 'b', date: '2026-06-05', category: 'groceries', amount: 11_000 },
+      { id: 'c', date: '2026-05-05', category: 'groceries', amount: 11_500 },
+    ]));
+    renderPage();
+    for (let i = 0; i < 4; i += 1) {
+      fireEvent.click(screen.getByRole('button', { name: 'Go to next month' }));
+      const start = screen.queryByRole('button', { name: /Start empty/ });
+      if (start) fireEvent.click(start);
+    }
+    // A month started empty has no income, and without envelopes there is
+    // nothing to divide — the card says so instead of proposing a table of
+    // zeros, so the forecast needs an income before it has anything to show.
+    const salary = screen.getByLabelText(/^Salary amount/);
+    fireEvent.focus(salary);
+    fireEvent.change(salary, { target: { value: '100000' } });
+    fireEvent.blur(salary);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Forecast' }));
+    expect(screen.queryByText(/no logged spending before/i)).not.toBeInTheDocument();
+    // …and it names the months it actually read, rather than implying they were
+    // the ones immediately before.
+    expect(screen.getByText(/Reading May 2026 to July 2026/)).toBeInTheDocument();
+  });
+});
+
+describe('deleting an upcoming plan', () => {
+  it('is offered only for a month that has not started', () => {
+    renderPage();
+    // Not for the current month.
+    expect(screen.queryByRole('button', { name: /Delete .* plan/ })).not.toBeInTheDocument();
+
+    goToNextMonth();
+    expect(screen.getByRole('button', { name: /Delete September 2026 plan/ })).toBeInTheDocument();
+  });
+
+  it('discards the plan and its categories, and touches nothing else', () => {
+    renderPage();
+    // Give August a plan and its own category, so there is something that must
+    // survive the deletion of September's.
+    fireEvent.click(within(needsCard()).getByText('+ Add Category'));
+    fireEvent.change(screen.getByDisplayValue('New category'), { target: { value: 'Gym' } });
+
+    goToNextMonth();
+    fireEvent.click(within(needsCard()).getByRole('button', { name: 'Organise' }));
+    fireEvent.click(within(needsCard()).getByRole('button', { name: 'Archive Transport' }));
+    expect(monthStore()[NEXT]).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: /Delete September 2026 plan/ }));
+
+    // September is back to "not started", and its own arrangement is gone.
+    expect(screen.getByText(/Plan September 2026/)).toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem('fx_bb_data') || '{}')[NEXT]).toBeUndefined();
+    expect(monthStore()[NEXT]).toBeUndefined();
+
+    // August is untouched — plan, income and its own category all intact.
+    fireEvent.click(screen.getByRole('button', { name: 'This month' }));
+    expect(JSON.parse(localStorage.getItem('fx_bb_data') || '{}')[CM].vals.rent).toBe(30_000);
+    expect(screen.getByDisplayValue('Gym')).toBeInTheDocument();
+  });
+});
+
 describe('the automatic budget', () => {
   it('says what it needs rather than proposing figures from nothing', () => {
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'Forecast' }));
-    expect(screen.getByText(/no logged spending in the months before/i)).toBeInTheDocument();
+    expect(screen.getByText(/no logged spending before/i)).toBeInTheDocument();
   });
 
   it('never writes an allocation without a press', () => {

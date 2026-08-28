@@ -66,14 +66,16 @@ const GOLD = '#D4AF37';
 export function NavPills({ variant, label = 'Tools', hideBelow, className }: NavPillsProps) {
   const { pathname } = useLocation();
 
+  // The SHORT form everywhere. The full names ("Reverse Goal Planner") pushed
+  // the in-app bar onto a second line at every realistic desktop width, which
+  // is the difference between a navigation and a paragraph of links. The short
+  // labels are what the landing page has always used, and using them in both
+  // places is what makes the two bars the same object rather than two bars that
+  // merely resemble each other.
   const tools: Pill[] = TOOLS.map((t) => ({
     key: t.id,
     to: t.href,
-    // The app bar has room for the full name and benefits from it — "Reverse
-    // Goal Planner" is not guessable from "Goals" when it is the page you are
-    // on. The marketing bar sits beside a brand cluster and a call to action,
-    // so it uses the short form the tool registry already defines.
-    label: variant === 'app' ? t.name : t.short,
+    label: t.short,
     color: t.color,
   }));
 

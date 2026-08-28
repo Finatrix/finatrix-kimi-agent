@@ -59,10 +59,17 @@ function useActiveTool(): string {
   return m ? m[1].toLowerCase() : '';
 }
 
-function CurrencySelect() {
+/**
+ * `className` exists so the header copy can be hidden on a phone without a
+ * Tailwind display utility: `tools.css` is loaded after `@tailwind utilities`,
+ * so at equal specificity a class defined there beats `.hidden`. The drawer
+ * carries its own copy below that breakpoint — see the note at the call site.
+ */
+function CurrencySelect({ className }: { className?: string } = {}) {
   const { code, setCode } = useCurrency();
   return (
     <select
+      className={className}
       value={code}
       onChange={(e) => setCode(e.target.value)}
       aria-label="Display currency"
@@ -102,7 +109,6 @@ function ToolTabs() {
   return (
     <div className="fx-toolbar">
       <NavPills variant="app" hideBelow="md" />
-      <CurrencySelect />
     </div>
   );
 }
@@ -382,6 +388,16 @@ export default function ToolsLayout() {
             <div className="relative flex items-center gap-2.5 sm:gap-4">
               <CommandPaletteTrigger onOpen={openPalette} />
               <NotificationsBell />
+              {/* Display currency sits with the other global display controls,
+                  not in the navigation row. It is the same kind of setting as
+                  the theme toggle beside it — and it was taking ~105px out of a
+                  row that has to hold twelve destinations on one line.
+
+                  Hidden on a phone, where this header already carries four
+                  controls and a sign-in button: measured, it pushed the
+                  document 97px wider than the viewport. The drawer below has
+                  the same control, so nothing is lost. */}
+              <CurrencySelect className="fx-cur-desktop" />
               <ThemeToggle />
               {user ? (
                 <>
@@ -476,6 +492,12 @@ export default function ToolsLayout() {
               </svg>
               Dashboard
             </Link>
+            {/* The phone's route to the display currency, which the header
+                cannot hold at this width. */}
+            <div className="flex items-center justify-between gap-3 px-5 py-3 fx-cur-drawer">
+              <span className="text-[15px] text-ink">Currency</span>
+              <CurrencySelect />
+            </div>
             <div className="mt-1 mb-1 px-5 text-[10px] uppercase tracking-[0.12em] text-ink-3 font-mono">Tools</div>
             {TOOLS.map((t) => (
               <Link

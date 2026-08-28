@@ -695,12 +695,35 @@ export interface CategoryHistory {
 }
 
 /**
- * Per-category spend across the `count` months immediately before `month`.
+ * How far back to look for months that actually have activity, beyond the
+ * requested window. Two years is long enough to reach real history from a
+ * budget planned a year ahead, and short enough that nothing prehistoric
+ * creeps into a forecast.
+ */
+const HISTORY_REACH = 24;
+
+/**
+ * Per-category spend across the most recent `count` months **with activity**
+ * before `month`.
  *
  * The denominator is *months the user logged anything at all*, not months in
  * which this category happened to appear. A month where groceries were logged
  * and travel was not is a genuine zero for travel, and averaging it in is what
  * stops one holiday becoming a permanent monthly allowance.
+ *
+ * WHY IT REACHES PAST THE WINDOW
+ * ------------------------------
+ * This used to read exactly the `count` calendar months before `month`. That is
+ * the same thing for a budget planned this month or next — and it returns
+ * NOTHING for one planned four months ahead, because the intervening months
+ * have not happened yet. Planning December in August produced "there is no
+ * logged spending to forecast from" while a year of history sat one month
+ * further back.
+ *
+ * So it walks back until it has `count` months that contain something, or until
+ * it has looked far enough that anything older would not be evidence about next
+ * month anyway. Callers report which months were used (`months`), so a window
+ * that skipped a gap is visible rather than implied.
  */
 export function monthlySpendByCategory(
   items: readonly ExpenseItem[],
@@ -709,21 +732,26 @@ export function monthlySpendByCategory(
   validKeys: ReadonlySet<string>,
 ): CategoryHistory {
   const [y, m] = month.split('-').map(Number);
-  const window: string[] = [];
-  for (let i = count; i >= 1; i -= 1) window.push(ymLocal(new Date(y, m - 1 - i, 1)));
-  const windowSet = new Set(window);
 
+  // Spend per (month, category) for everything strictly before `month`.
   const byMonth = new Map<string, Map<string, number>>();
   for (const e of items) {
     const mk = (e.date || '').slice(0, 7);
-    if (!windowSet.has(mk)) continue;
+    if (!mk || mk >= month) continue;
     const k = migrateCategory(e.category, validKeys);
     let row = byMonth.get(mk);
     if (!row) { row = new Map(); byMonth.set(mk, row); }
     row.set(k, (row.get(k) ?? 0) + e.amount);
   }
 
-  const months = window.filter((mk) => byMonth.has(mk));
+  // The most recent `count` months that have anything in them, newest first.
+  const picked: string[] = [];
+  for (let i = 1; i <= HISTORY_REACH && picked.length < count; i += 1) {
+    const mk = ymLocal(new Date(y, m - 1 - i, 1));
+    if (byMonth.has(mk)) picked.push(mk);
+  }
+  const months = picked.reverse(); // oldest first, as every caller expects
+
   const avg = new Map<string, number>();
   if (months.length > 0) {
     const keys = new Set<string>();

@@ -52,18 +52,18 @@ function renderPage() {
 }
 
 /**
- * Open the Panels menu, flip one switch, and close it again.
+ * Flip a panel from the switch in its own heading.
  *
- * Closing matters for the assertions that follow: the menu carries each
- * panel's NAME as its switch label, so a query for "Monthly trend" would find
- * the switch and report the panel as still on screen.
+ * There is no menu any more. The switch is a real checkbox named after the
+ * section it governs, so this is the same action a user performs.
  */
 function togglePanel(label: string) {
-  const trigger = screen.getByRole('button', { name: /Panels/ });
-  fireEvent.click(trigger);
-  fireEvent.click(screen.getByRole('checkbox', { name: new RegExp(label) }));
-  fireEvent.click(trigger);
+  fireEvent.click(screen.getByRole('checkbox', { name: label }));
 }
+
+/** The card a panel switch belongs to — the heading survives being switched off. */
+const panelCard = (label: string) =>
+  screen.getByRole('checkbox', { name: label }).closest('.fx-panelcard') as HTMLElement;
 
 const PLAN = { rent: 30_000, groceries: 12_000, eating_out: 6_000, emergency: 20_000 };
 const SPEND = [
@@ -109,36 +109,56 @@ describe('the month score', () => {
     expect(screen.getAllByText(/No income is recorded/).length).toBeGreaterThanOrEqual(1);
   });
 
-  it('can be switched off entirely', () => {
+  it('collapses to its heading, so it can be brought back in one tap', () => {
     seed(SPEND, PLAN);
     renderPage();
-    expect(screen.getByText('Month score')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show the working' })).toBeInTheDocument();
+
     togglePanel('Month score');
-    expect(screen.queryByText('Month score')).not.toBeInTheDocument();
+    // The body is gone…
+    expect(screen.queryByRole('button', { name: 'Show the working' })).not.toBeInTheDocument();
+    // …and the heading and its switch are not, which is the whole point: a
+    // hidden panel the user cannot see is a panel they have to remember.
+    expect(within(panelCard('Month score')).getByText('Month score')).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'Month score' })).not.toBeChecked();
+
+    togglePanel('Month score');
+    expect(screen.getByRole('button', { name: 'Show the working' })).toBeInTheDocument();
   });
 });
 
 describe('the panel switches', () => {
-  it('hides the monthly trend and remembers the choice', () => {
+  it('is a switch in the heading, not a control in a menu', () => {
     seed(SPEND, PLAN);
     renderPage();
-    expect(screen.getByText('Monthly trend')).toBeInTheDocument();
+    // The toolbar dropdown is gone — it cost a control in a row with no width
+    // to spare and hid the affordance from the panel it governed.
+    expect(screen.queryByRole('button', { name: /Panels/ })).not.toBeInTheDocument();
+    for (const label of ['Month score', 'Spending insights', 'Monthly trend', 'Bank balance']) {
+      expect(screen.getByRole('checkbox', { name: label })).toBeInTheDocument();
+    }
+  });
+
+  it('hides the monthly trend body and remembers the choice', () => {
+    seed(SPEND, PLAN);
+    renderPage();
+    expect(panelCard('Monthly trend').querySelector('.fx-panelcard-body')).toBeTruthy();
 
     togglePanel('Monthly trend');
-    expect(screen.queryByText('Monthly trend')).not.toBeInTheDocument();
+    expect(panelCard('Monthly trend').querySelector('.fx-panelcard-body')).toBeNull();
     expect(JSON.parse(localStorage.getItem('fx_exp_panels') || '{}').trend).toBe(false);
 
     // …and it stays hidden on the next visit.
     cleanup();
     renderPage();
-    expect(screen.queryByText('Monthly trend')).not.toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'Monthly trend' })).not.toBeChecked();
   });
 
   it('hides spending insights', () => {
     seed(SPEND, PLAN);
     renderPage();
     togglePanel('Spending insights');
-    expect(screen.queryByText('Spending insights')).not.toBeInTheDocument();
+    expect(panelCard('Spending insights').querySelector('.fx-insight-do')).toBeNull();
   });
 
   it('is a display preference, not synced data', async () => {

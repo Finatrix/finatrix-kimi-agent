@@ -44,9 +44,16 @@ export interface BankBalanceCardProps {
   income: number;
   /** Valid category keys, for consistent legacy-key resolution. */
   validKeys: ReadonlySet<string>;
+  /**
+   * Drop the card chrome and the heading — the caller is a `PanelCard` that
+   * already supplies both, plus the switch that turns this on and off.
+   */
+  bare?: boolean;
 }
 
-export function BankBalanceCard({ month, items, income, validKeys }: BankBalanceCardProps) {
+export function BankBalanceCard({
+  month, items, income, validKeys, bare = false,
+}: BankBalanceCardProps) {
   const { cfmt, sym } = useCurrency();
   const { notify } = useOptionalToast();
   const [store, setStore] = useState<BankStore>(loadBankStore);
@@ -105,18 +112,20 @@ export function BankBalanceCard({ month, items, income, validKeys }: BankBalance
   const significant = isSignificantDiscrepancy(rec.unrecorded, rec.outflow, rec.income);
 
   return (
-    <div className="card">
+    <div className={bare ? undefined : 'card'}>
       <style>{BANK_STYLES}</style>
-      <div className="fx-bank-hd">
-        <div>
-          <div className="fx-bank-title">Bank balance</div>
-          <p className="note" style={{ marginTop: 2 }}>
-            What was in the account at the start and end of {monthLabel(month)}. The closing balance
-            becomes {monthLabel(nextMonthUnclamped(month))}’s opening balance automatically.
-          </p>
+      {!bare && (
+        <div className="fx-bank-hd">
+          <div>
+            <div className="fx-bank-title">Bank balance</div>
+            <p className="note" style={{ marginTop: 2 }}>
+              What was in the account at the start and end of {monthLabel(month)}. The closing balance
+              becomes {monthLabel(nextMonthUnclamped(month))}’s opening balance automatically.
+            </p>
+          </div>
+          <Icon name="bank" size={18} style={{ color: 'var(--gold)', flexShrink: 0 }} />
         </div>
-        <Icon name="bank" size={18} style={{ color: 'var(--gold)', flexShrink: 0 }} />
-      </div>
+      )}
 
       <div className="fx-bank-fields">
         <div className="fg">
