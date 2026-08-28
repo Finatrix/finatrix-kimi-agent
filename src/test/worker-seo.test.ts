@@ -29,6 +29,7 @@ import {
   DEFAULT_TITLE,
   ROUTE_SCHEMA_ID,
   seoForPath,
+  INDEXABLE,
 } from '../lib/seo';
 
 const SHELL_BODY = '<!doctype html><html><head><title>FinatriX</title></head><body></body></html>';
@@ -122,7 +123,7 @@ describe('worker: server-side canonical + og:url', () => {
       const expected = `${CANONICAL_ORIGIN}/tools/${tool}`;
       expect(valueFor(applied, CANONICAL_SEL), tool).toBe(expected);
       expect(valueFor(applied, OG_URL_SEL), tool).toBe(expected);
-      expect(valueFor(applied, ROBOTS_SEL), tool).toBe('index, follow');
+      expect(valueFor(applied, ROBOTS_SEL), tool).toBe(INDEXABLE);
     }
   });
 
@@ -138,7 +139,7 @@ describe('worker: server-side canonical + og:url', () => {
       await get(p);
       expect(valueFor(applied, CANONICAL_SEL), p).toBe(`${CANONICAL_ORIGIN}${p}`);
       expect(valueFor(applied, OG_URL_SEL), p).toBe(`${CANONICAL_ORIGIN}${p}`);
-      expect(valueFor(applied, ROBOTS_SEL), p).toBe('index, follow');
+      expect(valueFor(applied, ROBOTS_SEL), p).toBe(INDEXABLE);
     }
   });
 

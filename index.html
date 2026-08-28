@@ -16,7 +16,7 @@
          two byte-identical: differing policies enforce their intersection. -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'sha256-8sIkMSAQhH4cmqemj6kE1Bs/6aBQrXGsMGgKxYpye5g='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'"
+      content="default-src 'self'; script-src 'self' 'sha256-8sIkMSAQhH4cmqemj6kE1Bs/6aBQrXGsMGgKxYpye5g='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; media-src 'none'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self'; manifest-src 'self'; frame-src 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
     />
 
     <!-- No-flash theme boot: set data-theme from saved preference or OS before
@@ -35,7 +35,12 @@
       content="Eight free, education-first money tools for India: budgeting, expenses, investing, benchmarking and a lifelong wealth simulation. Not financial advice."
     />
     <meta name="author" content="FinatriX" />
-    <meta name="robots" content="index, follow" />
+    <!-- The three max-* directives are permissions, not claims: without them
+         Google applies its own ceilings to image size, snippet length and
+         video preview. Must stay byte-identical to `INDEXABLE` in
+         src/lib/seo.ts — the edge Worker and `applySeo` both overwrite this
+         tag from that constant, and seo.test.ts fails if the two disagree. -->
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <link rel="canonical" href="https://finatrix.co/" />
 
     <!--
@@ -137,6 +142,41 @@
             "image": "https://finatrix.co/images/og-cover.jpg",
             "email": "finatrix.hub@gmail.com",
             "description": "Free, education-first personal-finance tools for India.",
+            "slogan": "A complete money toolkit — refined into one premium experience.",
+            "areaServed": { "@type": "Country", "name": "India" },
+            "knowsAbout": [
+              "Budgeting",
+              "Saving",
+              "Investing",
+              "Tax",
+              "Debt",
+              "Loans",
+              "Credit scores",
+              "Insurance",
+              "Retirement",
+              "EPF & NPS",
+              "Inflation",
+              "Behavioural finance",
+              "Cash flow",
+              "Net worth",
+              "Financial independence",
+              "Resume",
+              "ATS",
+              "Cover letters",
+              "Interview preparation",
+              "Behavioural interviews",
+              "Technical interviews",
+              "Graduate programs",
+              "Banking careers",
+              "Risk & compliance",
+              "AML & financial crime",
+              "Consulting careers",
+              "Networking",
+              "LinkedIn",
+              "Assessment centres",
+              "Salary negotiation",
+              "International students"
+            ],
             "contactPoint": {
               "@type": "ContactPoint",
               "contactType": "customer support",

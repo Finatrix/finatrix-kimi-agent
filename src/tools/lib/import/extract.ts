@@ -126,6 +126,10 @@ export async function extractStatement(
         if (e instanceof PdfError) {
           if (e.kind === 'password-required') throw new ImportError('password-required', e.message);
           if (e.kind === 'password-wrong') throw new ImportError('password-wrong', e.message);
+          // Same class of answer as the byte-size ceiling above — the file is
+          // simply bigger than one import — so it reuses that kind and keeps
+          // pdfText's own message, which names the actual page count.
+          if (e.kind === 'too-many-pages') throw new ImportError('too-large', e.message);
           throw new ImportError('unreadable', e.message);
         }
         throw e;

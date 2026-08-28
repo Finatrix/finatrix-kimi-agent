@@ -15,7 +15,7 @@ import { join } from 'node:path';
 import { buildSitemap } from '../shared/sitemap';
 import { PUBLIC_PAGE_PATHS } from '../shared/publicPages';
 import { TOOL_IDS } from '../shared/routes';
-import { CANONICAL_ORIGIN, seoForPath } from '../lib/seo';
+import { CANONICAL_ORIGIN, seoForPath, INDEXABLE } from '../lib/seo';
 
 const COMMITTED = readFileSync(join(__dirname, '..', '..', 'public', 'sitemap.xml'), 'utf8');
 const locs = () => [...COMMITTED.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
@@ -36,7 +36,7 @@ describe('sitemap.xml', () => {
     for (const loc of locs()) {
       const path = new URL(loc).pathname;
       const seo = seoForPath(path);
-      expect(seo.robots, `${path} must be indexable`).toBe('index, follow');
+      expect(seo.robots, `${path} must be indexable`).toBe(INDEXABLE);
       const expected = path === '/' ? `${CANONICAL_ORIGIN}/` : `${CANONICAL_ORIGIN}${path.replace(/\/+$/, '')}`;
       expect(seo.canonical, `${path} must be self-canonical`).toBe(expected);
     }

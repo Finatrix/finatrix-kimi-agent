@@ -49,7 +49,7 @@ import type { TopicContent } from '../content/types';
 import { internalTargets } from '../learn/inline';
 import { isKnownRoute, routeTemplate, TOOL_IDS } from '../shared/routes';
 import { publicPageFor } from '../shared/publicPages';
-import { CANONICAL_ORIGIN, seoForPath, structuredDataForPath } from '../lib/seo';
+import { CANONICAL_ORIGIN, seoForPath, structuredDataForPath, INDEXABLE } from '../lib/seo';
 
 const APP_TSX = readFileSync(join(__dirname, '..', 'App.tsx'), 'utf8');
 
@@ -126,7 +126,7 @@ describe('topic registry', () => {
     for (const t of TOPICS) {
       for (const path of t.product ?? []) {
         expect(publicPageFor(path), `${t.slug} → ${path}`).not.toBeNull();
-        expect(seoForPath(path).robots, `${t.slug} → ${path} is noindex`).toBe('index, follow');
+        expect(seoForPath(path).robots, `${t.slug} → ${path} is noindex`).toBe(INDEXABLE);
       }
       expect(productLinksFor(t).length, `${t.slug} product links`).toBe((t.product ?? []).length);
     }
@@ -347,7 +347,7 @@ describe('internal links inside article prose', () => {
             expect(
               seoForPath(href).robots,
               `${topicSlug}/${slug} links to ${href}, which is noindex`,
-            ).toBe('index, follow');
+            ).toBe(INDEXABLE);
           }
         }
       }
@@ -451,7 +451,7 @@ describe('metadata and structured data', () => {
   it('is indexable and self-canonical on every content URL', () => {
     for (const p of CONTENT_PATHS) {
       const seo = seoForPath(p);
-      expect(seo.robots, p).toBe('index, follow');
+      expect(seo.robots, p).toBe(INDEXABLE);
       expect(seo.canonical, p).toBe(`${CANONICAL_ORIGIN}${p}`);
       expect(seo.title.length, `${p} title`).toBeGreaterThan(10);
     }

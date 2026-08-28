@@ -21,7 +21,7 @@ import {
 } from '../shared/publicPages';
 import { CAREERS_HIDDEN_SECTIONS, CAREERS_NAV } from '../careers/constants';
 import { isKnownRoute } from '../shared/routes';
-import { seoForPath, structuredDataForPath, CANONICAL_ORIGIN } from '../lib/seo';
+import { seoForPath, structuredDataForPath, CANONICAL_ORIGIN, INDEXABLE } from '../lib/seo';
 
 const APP_TSX = readFileSync(join(__dirname, '..', 'App.tsx'), 'utf8');
 
@@ -57,7 +57,7 @@ describe('public page registry', () => {
   it('is indexable and self-canonical', () => {
     for (const p of PUBLIC_PAGE_PATHS) {
       const seo = seoForPath(p);
-      expect(seo.robots, p).toBe('index, follow');
+      expect(seo.robots, p).toBe(INDEXABLE);
       expect(seo.canonical, p).toBe(`${CANONICAL_ORIGIN}${p}`);
     }
   });
