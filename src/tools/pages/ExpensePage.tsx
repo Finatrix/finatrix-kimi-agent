@@ -827,7 +827,17 @@ export default function ExpensePage() {
               futureColor="var(--blue)"
             />
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto' }}>
+          {/* The action group wraps INTERNALLY as well as dropping to its own
+              line. The row already gave the month nav a flex-basis it cannot
+              reach on a phone, so two buttons dropped below it and fitted;
+              adding a third put 23px of horizontal scroll on the whole tool at
+              320px, because the group itself could not break. Measured — this
+              is the same failure the statement importer shipped once already. */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            marginLeft: 'auto', flexWrap: 'wrap', justifyContent: 'flex-end',
+            minWidth: 0,
+          }}>
             <PanelSwitches prefs={panels} onToggle={flipPanel} />
             {/* Import sits beside Export because they are the same idea in two
                 directions, and someone looking for one looks here for the other. */}
