@@ -17,7 +17,7 @@ import {
   exportExpenseCsv, exportExpenseXlsx, exportExpensePdf, exportAuditCsv,
   type ExpenseExport,
 } from '../lib/exporters';
-import { currentMonth, monthLabel, prevMonth } from '../lib/month';
+import { currentMonth, monthLabel, nextMonthUnclamped, prevMonth } from '../lib/month';
 import { getJSON, setJSON, onLocalWrite } from '../lib/storage';
 import {
   loadExpenses, saveExpenses, etToday, etMonthsWithData, computeDashboard, genExpenseId,
@@ -37,7 +37,7 @@ import { computeCommitments } from '../lib/commitments';
 import { ymdLocal } from '../../lib/date';
 import { haptic } from '../../lib/haptics';
 import { allCategories, SECTION_LABEL, type SectionedCats, type CatKey, type BudgetStore } from '../lib/budget';
-import { loadCatView } from '../lib/budgetCats';
+import { loadCatViewFor } from '../lib/budgetCatsMonth';
 import { budgetFillPct, budgetTone, TONE_COLOR, TONE_FILL, TONE_LABEL } from '../lib/budgetStatus';
 import { SECTION_COLOR, SECTION_FILL } from '../lib/sectionColors';
 import { useOptionalToast } from '../ui/Toast';
@@ -55,6 +55,14 @@ import {
   type CatMeta, type MonthlyTrend, type SpendingInsight,
 } from '../lib/expenseAnalytics';
 import { track } from '../../lib/analytics';
+import { WalletDock } from '../ui/WalletDock';
+import { ScoreCard } from '../ui/ScoreCard';
+import { BankBalanceCard } from '../ui/BankBalanceCard';
+import { PanelSwitches } from '../ui/PanelSwitches';
+import { computeExecutionScore, type ScoreResult } from '../lib/score';
+import {
+  loadPanelPrefs, savePanelPrefs, togglePanel, type PanelKey, type PanelPrefs,
+} from '../lib/panelPrefs';
 
 /* ── Design tokens ── */
 
@@ -108,18 +116,31 @@ export default function ExpensePage() {
   /** The change history. Written by `commit`, read only by the History tab. */
   const [audit, setAudit] = useState<AuditEntry[]>(() => loadAuditLog());
   const [selMonth, setSelMonth] = useState(currentMonth());
+  /**
+   * The month on screen, in a ref, so the `fx:write` subscription below always
+   * re-reads categories for the month being viewed without re-subscribing on
+   * every month change.
+   */
+  const selMonthRef = useRef(selMonth);
   // The user's own arrangement: archived categories are excluded everywhere,
   // so the picker, the totals and the reports always agree.
-  const [cats, setCats] = useState<SectionedCats>(() => loadCatView().active);
+  const [cats, setCats] = useState<SectionedCats>(() => loadCatViewFor(currentMonth()).active);
   // The whole Budget Builder store, not just the selected month: the timeline's
   // twelve-month view paces against each month's own plan, and re-parsing the
   // store per month inside a render loop would be twelve JSON.parse calls.
   const [budgetStore, setBudgetStore] = useState<BudgetStore>(() => getJSON<BudgetStore>('fx_bb_data', {}));
   const [tab, setTab] = useState<Tab>('overview');
+  /** Which optional panels this screen shows. Local display preference. */
+  const [panels, setPanels] = useState<PanelPrefs>(loadPanelPrefs);
+  const flipPanel = useCallback((key: PanelKey) => {
+    setPanels((p) => { const next = togglePanel(p, key); savePanelPrefs(next); return next; });
+  }, []);
   /** Lets the warnings panel drive the transaction list without owning its filters. */
   const listApi = useRef<TransactionListHandle | null>(null);
 
   const flatCats = useMemo(() => allCategories(cats), [cats]);
+  /** Live category keys — the reconciliation and the score resolve through these. */
+  const validKeys = useMemo(() => new Set(flatCats.map((c) => c.k)), [flatCats]);
   const [sel, setSel] = useState<string>(() => flatCats[0]?.k ?? '');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(etToday());
@@ -163,7 +184,9 @@ export default function ExpensePage() {
 
   useEffect(() => {
     const off = onLocalWrite((key) => {
-      if (key === 'fx_bb_cats' || key === 'fx_bb_catprefs') setCats(loadCatView().active);
+      if (key === 'fx_bb_cats' || key === 'fx_bb_catprefs' || key === 'fx_bb_cats_by_month') {
+        setCats(loadCatViewFor(selMonthRef.current).active);
+      }
       if (key === 'fx_bb_data') setBudgetStore(getJSON<BudgetStore>('fx_bb_data', {}));
     });
     return off;
@@ -215,14 +238,66 @@ export default function ExpensePage() {
   }, [todayKey]);
 
   const r = computeDashboard(selMonth, items, cats, budget.vals, now, budget.income);
-  const months = etMonthsWithData(items, currentMonth());
+  /**
+   * How well this month followed the plan.
+   *
+   * Deliberately outside `computeDashboard`: it is a judgement about the month,
+   * not one of its figures, and folding it in would mean every future dashboard
+   * field silently moved the score. See lib/score.ts for the components, and for
+   * why every input is a ratio rather than an amount.
+   */
+  const monthScore = useMemo(
+    () => computeExecutionScore({
+      month: selMonth, items, cats, budgetVals: budget.vals, income: budget.income, now,
+    }),
+    [selMonth, items, cats, budget.vals, budget.income, now],
+  );
+  /**
+   * How far ahead a spend can be scheduled: twelve months.
+   *
+   * Beyond a year a "scheduled expense" is a plan, not a commitment, and the
+   * month chips would run to a list nobody scrolls. Derived from `todayKey`
+   * rather than a bare `new Date()` so it rolls over with the calendar in a tab
+   * left open, like every other date on this page.
+   */
+  const planningHorizon = useMemo(() => {
+    let m = currentMonth();
+    for (let i = 0; i < 12; i += 1) m = nextMonthUnclamped(m);
+    return m;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-derived when the day rolls over
+  }, [todayKey]);
+  /**
+   * Month chips: every month with data, the current month, and — while the user
+   * is looking at one — the future month they navigated to, so the chip they
+   * are standing on is never missing from the row.
+   */
+  const months = useMemo(() => {
+    const set = new Set(etMonthsWithData(items, currentMonth()));
+    set.add(selMonth);
+    return [...set].sort();
+  }, [items, selMonth]);
+  /** The last day of the horizon month — what the date field will accept. */
+  const scheduleLimit = useMemo(() => {
+    const [y, m] = planningHorizon.split('-').map(Number);
+    return ymdLocal(new Date(y, m, 0));
+  }, [planningHorizon]);
 
   const monthTx = useMemo(
     () => items.filter((e) => (e.date || '').slice(0, 7) === selMonth),
     [items, selMonth]
   );
 
-  const switchMonth = (m: string) => setSelMonth(m);
+  /**
+   * Categories belong to the month (see lib/budgetCatsMonth.ts), so opening a
+   * different month re-reads the arrangement that month was planned with.
+   * Without this, September's transactions would be filed against December's
+   * category list.
+   */
+  const switchMonth = useCallback((m: string) => {
+    selMonthRef.current = m;
+    setSelMonth(m);
+    setCats(loadCatViewFor(m).active);
+  }, []);
 
   /**
    * The single write path for the ledger.
@@ -736,9 +811,24 @@ export default function ExpensePage() {
       {tab !== 'history' && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 240px', minWidth: 0 }}>
-            <MonthNav activeMonth={selMonth} months={months} onSwitch={switchMonth} pastNote="Viewing past month" pastColor="var(--orange)" />
+            {/* The next arrow used to stop at the current month, so a spend you
+                had already scheduled for next month was unreachable: you could
+                date a transaction forward, but there was no way to navigate to
+                the month it landed in. It now reaches a year ahead, which is as
+                far as a plan is worth making. */}
+            <MonthNav
+              activeMonth={selMonth}
+              months={months}
+              onSwitch={switchMonth}
+              pastNote="Viewing past month"
+              pastColor="var(--orange)"
+              maxMonth={planningHorizon}
+              futureNote="Planning ahead"
+              futureColor="var(--blue)"
+            />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto' }}>
+            <PanelSwitches prefs={panels} onToggle={flipPanel} />
             {/* Import sits beside Export because they are the same idea in two
                 directions, and someone looking for one looks here for the other. */}
             <button
@@ -792,6 +882,12 @@ export default function ExpensePage() {
             bulkAddTags={bulkAddTags} exportTransactions={exportTransactions}
             code={code} theme={theme}
             listApi={listApi}
+            panels={panels}
+            score={monthScore}
+            validKeys={validKeys}
+            todayKey={todayKey}
+            scheduleLimit={scheduleLimit}
+            onGoToMonth={switchMonth}
           />
         )}
         {tab === 'analytics' && (
@@ -868,6 +964,11 @@ export default function ExpensePage() {
         document.body
       )}
 
+      {/* The year's carry-over across every category, one tap from anywhere on
+          the page. Same store, same categories, so it can never disagree with
+          the month on screen. */}
+      <WalletDock items={items} cats={cats} budgetStore={budgetStore} month={selMonth} />
+
       <ToolFoot>
         Educational tools — not financial advice · <a href="/privacy" target="_top">Privacy</a> ·{' '}
         <a href="/terms" target="_top">Terms</a> · Built with care by <b>FinatriX</b>
@@ -908,6 +1009,18 @@ interface OverviewProps {
   code: string; theme: string | undefined;
   /** Imperative handle to the transaction list (used by the warnings panel). */
   listApi: RefObject<TransactionListHandle | null>;
+  /** Which optional panels this screen is showing. */
+  panels: PanelPrefs;
+  /** How well the month followed the plan. Computed by the page — see lib/score.ts. */
+  score: ScoreResult;
+  /** Live category keys, for consistent legacy-key resolution. */
+  validKeys: ReadonlySet<string>;
+  /** Today, `YYYY-MM-DD`. Anything after it is scheduled rather than spent. */
+  todayKey: string;
+  /** Last date a spend may be scheduled for — the same horizon the month nav reaches. */
+  scheduleLimit: string;
+  /** Open a month from a scheduled row. */
+  onGoToMonth: (month: string) => void;
 }
 
 function OverviewTab({
@@ -916,7 +1029,7 @@ function OverviewTab({
   cfmt, sym, now, catMeta,
   addExpense, addFromQuickAdd, quickSeed, openAdd, openEdit, duplicateTransaction, deleteTransaction,
   bulkDelete, bulkDuplicate, bulkCategory, bulkAddTags, exportTransactions,
-  code, listApi,
+  code, listApi, panels, score, validKeys, todayKey, scheduleLimit, onGoToMonth,
 }: OverviewProps) {
   const insights = useMemo(
     // `spendableBudget`, never `monthlyBudget`: the pace insight compares it
@@ -928,6 +1041,9 @@ function OverviewTab({
 
   const streaks = useMemo(() => computeStreaks(items, now), [items, now]);
 
+  /** A month that has not started. Every figure in it is a plan, not a record. */
+  const isFutureMonth = selMonth > todayKey.slice(0, 7);
+
   // Resolve the frequent-category keys to real categories for the quick-pick.
   const recentInline = useMemo(() => {
     const byKey = new Map(flatCats.map((c) => [c.k, c]));
@@ -936,18 +1052,26 @@ function OverviewTab({
 
   return (
     <>
-      {/* KPI strip */}
+      {/* KPI strip.
+          A month in the future holds only scheduled entries, so "Monthly spent"
+          and "Budget used" would both be lies there — nothing has been spent and
+          no budget has been used. The figures are identical; only the words
+          change, because the words are what make them true. */}
       <div className="dash-grid" style={{ marginBottom: 12 }}>
         <Kpi v={cfmt(r.monthlyBudget)} l="Monthly budget" />
-        <Kpi v={cfmt(r.monthlySpent)} l="Monthly spent" color="var(--orange)" />
+        <Kpi
+          v={cfmt(r.monthlySpent)}
+          l={isFutureMonth ? 'Scheduled' : 'Monthly spent'}
+          color="var(--orange)"
+        />
         <Kpi
           v={cfmt(Math.abs(r.remaining))}
-          l={r.remaining >= 0 ? 'Remaining budget' : 'Over budget by'}
+          l={r.remaining >= 0 ? (isFutureMonth ? 'Unscheduled budget' : 'Remaining budget') : 'Over budget by'}
           color={r.remaining >= 0 ? 'var(--green)' : 'var(--red)'}
         />
         <Kpi
           v={r.monthlyBudget > 0 ? `${Math.round(r.budgetUsedPct)}%` : '—'}
-          l="Budget used"
+          l={isFutureMonth ? 'Budget committed' : 'Budget used'}
           color={TONE_COLOR[r.tone]}
         />
       </div>
@@ -956,7 +1080,7 @@ function OverviewTab({
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
           <span style={{ fontSize: 14, fontWeight: 700 }}>
-            {r.isCurrentMonth ? 'Pacing & cash flow' : 'Month summary'}
+            {r.isCurrentMonth ? 'Pacing & cash flow' : isFutureMonth ? 'Month plan' : 'Month summary'}
           </span>
           <AskAiButton focus={{ kind: 'overview' }} />
         </div>
@@ -1004,6 +1128,41 @@ function OverviewTab({
         </div>
       </div>
 
+      {/* How the month is going against the plan — the one figure that answers
+          "am I doing well?" without the user having to read six others. */}
+      {panels.score && (
+        <ScoreCard
+          title="Month score"
+          caption={`How closely ${monthLabel(selMonth)} followed your plan`}
+          result={score}
+          focus={{
+            kind: 'score', scope: 'execution',
+            score: score.score, grade: score.gradeLabel, summary: score.headline,
+          }}
+        />
+      )}
+
+      {panels.bank && (
+        <BankBalanceCard
+          month={selMonth}
+          items={items}
+          income={r.income}
+          validKeys={validKeys}
+        />
+      )}
+
+      {/* Spends the user has already dated forward. Separate from the recurring
+          detector below: those are patterns FinatriX inferred, these are
+          entries the user made on purpose. */}
+      <ScheduledCard
+        items={items}
+        todayKey={todayKey}
+        catMeta={catMeta}
+        cfmt={cfmt}
+        onOpen={openEdit}
+        onGoToMonth={onGoToMonth}
+      />
+
       {/* What is already spoken for */}
       <CommitmentsCard
         items={items}
@@ -1032,7 +1191,7 @@ function OverviewTab({
       )}
 
       {/* Spending insights */}
-      {insights.length > 0 && (
+      {panels.insights && insights.length > 0 && (
         <div className="card" style={{ marginBottom: 14 }}>
           <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>Spending insights</div>
           <div style={{ display: 'grid', gap: 8 }}>
@@ -1079,10 +1238,12 @@ function OverviewTab({
       </div>
 
       {/* Monthly trend */}
-      <div className="card">
-        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Monthly trend</div>
-        <TrendChart trend={r.trend} cfmt={cfmt} code={code} />
-      </div>
+      {panels.trend && (
+        <div className="card">
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Monthly trend</div>
+          <TrendChart trend={r.trend} cfmt={cfmt} code={code} />
+        </div>
+      )}
 
       {/* Add expense — a real form, so Enter submits and the browser exposes
           the field/validation relationships to assistive tech. */}
@@ -1124,7 +1285,24 @@ function OverviewTab({
           </div>
           <div className="fg">
             <label className="fl" htmlFor="et-date">Date</label>
-            <input className="fi" type="date" id="et-date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <input
+              className="fi"
+              type="date"
+              id="et-date"
+              value={date}
+              max={scheduleLimit}
+              aria-describedby="et-date-hint"
+              onChange={(e) => setDate(e.target.value)}
+            />
+            {/* Future dates were always accepted and never advertised, so
+                nobody scheduled anything. The hint appears only once the date
+                actually is in the future, so it reads as confirmation rather
+                than as instructions for a field most people fill in once. */}
+            <p id="et-date-hint" className="note" style={{ marginTop: 5 }}>
+              {date > todayKey
+                ? `Scheduled for ${monthLabel(date.slice(0, 7))} — it will be waiting there, not counted as spent today.`
+                : 'Pick a future date to schedule a spend you know is coming.'}
+            </p>
           </div>
         </div>
         <label className="fl">Category (from Budget Builder)</label>
@@ -1608,6 +1786,106 @@ function RecurringTab({
    Shared sub-components
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/**
+ * Spends the user has dated forward.
+ *
+ * A future-dated transaction was always allowed and never surfaced anywhere:
+ * it disappeared into a month the tracker would not navigate to, and reappeared
+ * on the first of that month with no record of when it had been decided. This
+ * card is where a scheduled spend lives until its month arrives.
+ *
+ * It is deliberately NOT the recurring detector below. Those are patterns
+ * FinatriX inferred from history and might be wrong about; these are entries
+ * the user made on purpose, and they are already in the ledger — counted in
+ * their own month's totals, and in nobody else's. The card says so, because a
+ * figure that is "already counted, just not yet" is exactly the sort of thing a
+ * person needs told rather than left to work out.
+ */
+function ScheduledCard({
+  items, todayKey, catMeta, cfmt, onOpen, onGoToMonth,
+}: {
+  items: ExpenseItem[];
+  todayKey: string;
+  catMeta: Map<string, CatMeta>;
+  cfmt: (n: number) => string;
+  onOpen: (item: ExpenseItem) => void;
+  onGoToMonth: (month: string) => void;
+}) {
+  const scheduled = useMemo(
+    () => items
+      .filter((e) => (e.date || '') > todayKey)
+      .sort((a, b) => (a.date || '').localeCompare(b.date || '')),
+    [items, todayKey],
+  );
+
+  const byMonth = useMemo(() => {
+    const map = new Map<string, ExpenseItem[]>();
+    for (const e of scheduled) {
+      const m = (e.date || '').slice(0, 7);
+      const list = map.get(m);
+      if (list) list.push(e);
+      else map.set(m, [e]);
+    }
+    return [...map.entries()];
+  }, [scheduled]);
+
+  if (scheduled.length === 0) return null;
+
+  const total = scheduled.reduce((sum, e) => sum + e.amount, 0);
+
+  return (
+    <div className="card">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
+        <div style={{ fontSize: 14, fontWeight: 700 }}>Scheduled</div>
+        <span className="pill pill-mute">
+          {scheduled.length} {scheduled.length === 1 ? 'entry' : 'entries'} · {cfmt(total)}
+        </span>
+      </div>
+      <p className="note" style={{ marginBottom: 12 }}>
+        Dated ahead of today. Each one already counts toward its own month — never toward this one.
+      </p>
+
+      {byMonth.map(([month, rows]) => (
+        <div key={month} className="fx-sched-group">
+          <div className="fx-sched-mh">
+            <button
+              type="button"
+              className="fx-sched-mb"
+              onClick={() => onGoToMonth(month)}
+              aria-label={`Open ${monthLabel(month)}`}
+            >
+              {monthLabel(month)}
+            </button>
+            <span className="note">{cfmt(rows.reduce((sum, e) => sum + e.amount, 0))}</span>
+          </div>
+          {rows.map((e) => {
+            const meta = catMeta.get(e.category);
+            const label = e.merchant || e.note || meta?.l || 'Scheduled spend';
+            return (
+              <button
+                key={e.id}
+                type="button"
+                className="fx-sched-row"
+                onClick={() => onOpen(e)}
+                aria-label={`Edit ${label}, ${cfmt(e.amount)}, ${e.date}`}
+              >
+                <Icon
+                  name={meta?.ic ?? 'clock'}
+                  size={15}
+                  style={{ color: meta ? SECTION_COLOR[meta.section] : 'var(--ink3)', flexShrink: 0 }}
+                />
+                <span className="fx-sched-l">{label}</span>
+                <span className="fx-sched-d">{e.date.slice(8, 10)} {monthLabel(month).split(' ')[0].slice(0, 3)}</span>
+                <span className="fx-sched-a">{cfmt(e.amount)}</span>
+              </button>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function Kpi({ v, l, color }: { v: string; l: string; color?: string }) {
   return <div className="stat-cell"><div className="v" style={color ? { color } : undefined}>{v}</div><div className="l">{l}</div></div>;
 }
@@ -1794,11 +2072,22 @@ function InsightCard({ insight }: { insight: SpendingInsight }) {
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color, marginBottom: 2 }}>{insight.title}</div>
         <div style={{ fontSize: 12, color: 'var(--ink2)', lineHeight: 1.5 }}>{insight.body}</div>
-        {/* An observation is only half an insight — this is the other half.
-            Pulled left so the sparkle lines up with the body text above it. */}
+        {/* The takeaway, always on screen.
+            It used to be behind the assistant button below: the card stated an
+            observation and the "so what" cost a round trip, a daily quota and a
+            wait — so most people never read it. This line is derived from the
+            same figures as the body, so it is instant, offline and identical
+            every time. The button is now for going deeper, not for finishing
+            the sentence. */}
+        <div className="fx-insight-do">
+          <Icon name="zap" size={12} style={{ color, flexShrink: 0, marginTop: 2 }} />
+          <span>{insight.action}</span>
+        </div>
+        {/* Pulled left so the sparkle lines up with the body text above it. */}
         <div style={{ marginTop: 6, marginLeft: -10 }}>
           <AskAiButton
-            focus={{ kind: 'insight', id: insight.id, title: insight.title, body: insight.body }}
+            focus={{ kind: 'insight', id: insight.id, title: insight.title, body: `${insight.body} ${insight.action}` }}
+            label="Explain in more depth"
           />
         </div>
       </div>
@@ -2476,6 +2765,23 @@ const UNDO_STYLES = `
 /* ── Tab styles ── */
 
 const TAB_STYLES = `
+.fx-sched-group{margin-bottom:10px;}
+.fx-sched-group:last-child{margin-bottom:0;}
+.fx-sched-mh{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:6px 0;border-bottom:1px solid var(--hair2);}
+.fx-sched-mb{background:none;border:none;padding:0;font-family:inherit;font-size:11px;font-weight:700;
+  letter-spacing:.05em;text-transform:uppercase;color:var(--ink2);cursor:pointer;}
+.fx-sched-mb:hover{color:var(--gold);text-decoration:underline;}
+.fx-sched-row{display:flex;align-items:center;gap:10px;width:100%;padding:9px 6px;background:none;
+  border:none;border-bottom:1px solid var(--hair2);font-family:inherit;text-align:left;cursor:pointer;
+  color:var(--ink);border-radius:8px;}
+.fx-sched-row:last-child{border-bottom:none;}
+.fx-sched-row:hover{background:var(--fill-04);}
+.fx-sched-l{flex:1;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fx-sched-d{font-size:11px;color:var(--ink3);font-weight:600;flex-shrink:0;font-variant-numeric:tabular-nums;}
+.fx-sched-a{font-size:13px;font-weight:700;flex-shrink:0;font-variant-numeric:tabular-nums;}
+.fx-insight-do{display:flex;gap:6px;align-items:flex-start;font-size:12px;font-weight:600;
+  color:var(--ink);line-height:1.5;margin-top:7px;}
 .fx-tabs{display:flex;gap:4px;margin-bottom:14px;background:var(--well);border-radius:14px;padding:4px;border:1px solid var(--well-border);}
 .fx-tab{display:inline-flex;align-items:center;gap:7px;padding:10px 16px;border-radius:11px;border:none;background:transparent;
   color:var(--ink2);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;flex:1;justify-content:center;

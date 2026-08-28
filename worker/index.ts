@@ -185,7 +185,7 @@ function withSeoMetadata(
     .on('link[rel="canonical"]', new SetAttribute('href', href))
     .on('meta[property="og:url"]', new SetAttribute('content', href))
     .on('meta[name="robots"]', new SetAttribute('content', robots))
-    // Title + description. Without these every one of the seven calculators
+    // Title + description. Without these every one of the calculators
     // was served the landing page's title and description in its raw bytes, so
     // they competed with each other for one identical snippet in the SERP and
     // every WhatsApp/Slack/X unfurl of a tool link rendered the landing card.

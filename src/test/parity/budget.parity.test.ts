@@ -97,7 +97,8 @@ function expectedFromMine(input: BudgetInput) {
   const summary =
     `${r.pos ? 'Unallocated' : 'Over budget by'}${fmt(Math.abs(r.free))}` +
     `Allocated ${fmt(r.spent)} of ${fmt(r.income)} (${r.allocatedPct}%) · Actual savings rate: ${r.savePct}%`;
-  const insights = r.tips.length ? 'Insights' + r.tips.map((t) => `${t[1]}${t[2]}`).join('') : '';
+  // Deliberately NOT compared against the original any more — see the note
+  // above `expect(squish(dom.insights))` below.
   return {
     r,
     warn: r.splitWarn ? 'block' : 'none',
@@ -105,7 +106,6 @@ function expectedFromMine(input: BudgetInput) {
     segLabels: `Needs ${fmt(r.nL)}Wants ${fmt(r.wL)}Save ${fmt(r.sL)}`,
     cats: { needs: catStr('needs'), wants: catStr('wants'), save: catStr('save') },
     summary,
-    insights,
   };
 }
 
@@ -139,7 +139,12 @@ describe('budget parity — bbUpdate/bbCat rendered figures (new categories)', (
           expect(dom.segWidths.map((w) => Math.round(parseFloat(w)))).toEqual(mine.segWidths);
           expect(squish(dom.segLabels)).toBe(squish(mine.segLabels));
           expect(squish(dom.summary)).toBe(squish(mine.summary));
-          expect(squish(dom.insights)).toBe(squish(mine.insights));
+          // The insight COPY is a deliberate, documented divergence from the
+          // original — see `buildTips` in tools/lib/budget.ts. The original
+          // hard-coded 50/30/20 into its sentences, which became false the
+          // moment Budget Builder let the user choose their own split. Every
+          // FIGURE the insights describe is still parity-pinned by the
+          // assertions above and below; only the wording moved.
 
           for (const key of ['needs', 'wants', 'save'] as const) {
             expect(dom.cats[key].status).toBe(mine.cats[key].status);

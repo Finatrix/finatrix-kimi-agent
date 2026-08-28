@@ -3,6 +3,7 @@ import { render, screen, waitFor, fireEvent, within, cleanup } from '@testing-li
 import { Markdown } from '../tools/ui/Markdown';
 import AiPanel from '../tools/ui/AiPanel';
 import { CurrencyProvider } from '../tools/CurrencyContext';
+import { SUGGESTED_PROMPTS } from '../tools/ai/prompts';
 
 /**
  * The assistant's rendering surface. Two things are load-bearing here: model
@@ -116,10 +117,20 @@ describe('AiPanel', () => {
 
   it('shows that questions need not be about the user’s own data', () => {
     // The chips are the only place the general-knowledge half of the assistant
-    // is visible before somebody guesses it exists, so at least one has to be a
-    // question the DATA block could never answer.
+    // is visible before somebody guesses it exists, so several have to be
+    // questions the DATA block could never answer.
+    //
+    // Asserted on the SHAPE of the list rather than on one exact sentence: the
+    // wording is copy and will be rewritten, while "at least a third of the
+    // opening chips are not about this user's ledger" is the contract that
+    // actually matters and the one worth failing a build over.
+    const general = SUGGESTED_PROMPTS.filter((p) => !/\bmy\b|\bI\b/i.test(p));
+    expect(general.length).toBeGreaterThanOrEqual(3);
+
     renderPanel();
-    expect(screen.getByRole('button', { name: 'How does compounding work?' })).toBeInTheDocument();
+    for (const prompt of general) {
+      expect(screen.getByRole('button', { name: prompt })).toBeInTheDocument();
+    }
   });
 
   it('answers a question and shows the model’s reply', async () => {

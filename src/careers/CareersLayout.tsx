@@ -133,25 +133,40 @@ export default function CareersLayout() {
           </div>
         </header>
 
-        {/* Careers tab bar */}
+        {/* Careers tab bar.
+            Its destinations are its own — Jobs, Applications, Companies — but it
+            is drawn with the same pill classes the money tools and the landing
+            page use (src/index.css), so the whole site has one navigation
+            language and one place to change it. It wraps rather than scrolling
+            sideways for the same reason those do. */}
         <div className="nav-wrap">
-          <nav className="nav" id="mainNav" aria-label="Careers" style={{ padding: '10px 16px' }}>
-            {CAREERS_NAV.map((item) => (
-              <Link
-                key={item.id}
-                to={item.href}
-                data-route="careers"
-                className={active === item.id ? 'on' : undefined}
-              >
-                {item.name}
-              </Link>
-            ))}
-            {isAdmin && (
-              <Link to={CAREERS_ROUTES.admin} data-route="careers" className={active === 'admin' ? 'on' : undefined}>
-                Admin
-              </Link>
-            )}
-          </nav>
+          <div className="fx-toolbar">
+            <nav className="fx-navpills fx-navpills-md" id="mainNav" aria-label="Careers">
+              {CAREERS_NAV.map((item) => (
+                <Link
+                  key={item.id}
+                  to={item.href}
+                  data-route="careers"
+                  className={`fx-navpill${active === item.id ? ' on' : ''}`}
+                  aria-current={active === item.id ? 'page' : undefined}
+                >
+                  <span className="fx-navpill-dot" style={{ backgroundColor: '#D4AF37' }} aria-hidden="true" />
+                  {item.name}
+                </Link>
+              ))}
+              {isAdmin && (
+                <Link
+                  to={CAREERS_ROUTES.admin}
+                  data-route="careers"
+                  className={`fx-navpill${active === 'admin' ? ' on' : ''}`}
+                  aria-current={active === 'admin' ? 'page' : undefined}
+                >
+                  <span className="fx-navpill-dot" style={{ backgroundColor: '#D4AF37' }} aria-hidden="true" />
+                  Admin
+                </Link>
+              )}
+            </nav>
+          </div>
         </div>
 
         {/* Page content */}

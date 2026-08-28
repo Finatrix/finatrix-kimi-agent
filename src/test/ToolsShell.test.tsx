@@ -41,7 +41,7 @@ describe('ToolsLayout shell', () => {
   it('marks the active tool tab', async () => {
     renderShell('/tools/lifemap');
     await screen.findByText('tool-outlet-content');
-    const active = document.querySelector('.nav a.on');
+    const active = document.querySelector('.fx-navpills a.on');
     expect(active?.textContent).toBe('LifeMap');
   });
 });

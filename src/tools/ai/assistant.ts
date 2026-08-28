@@ -22,7 +22,25 @@ import {
 import { parseAiAnswer, type AiAnswer } from './validate';
 
 /** Room for a full monthly review; the edge function caps it at 8,192. */
-const MAX_OUTPUT_TOKENS = 2_600;
+const MAX_OUTPUT_TOKENS = 3_200;
+
+/**
+ * The model this surface asks for first.
+ *
+ * The edge function walks a fallback chain and its default chain leads with a
+ * fast, cheap model — the right choice for the Careers tasks it was built for,
+ * which are extraction and classification. This surface is different: the
+ * questions are open-ended, half of them are teaching rather than lookup, and
+ * the answer has to hold a grounding contract, a mode decision and a JSON
+ * schema at the same time. That is reasoning work, and it is worth the stronger
+ * model.
+ *
+ * Requested, never required. The server only honours a model on its allowlist
+ * and falls back through the rest of the chain if it is unavailable, so a
+ * deployment that has not been configured for this model still answers — just
+ * with the next one down.
+ */
+const CHAT_MODEL = 'anthropic/claude-sonnet-5';
 
 export interface AskSuccess extends AiAnswer {
   ok: true;
@@ -103,6 +121,7 @@ export async function ask(opts: AskOptions): Promise<AskResult> {
 
   const result = await requestCompletion({
     task: 'money-chat',
+    model: CHAT_MODEL,
     system: SYSTEM_PROMPT,
     user: buildUserMessage(snapshot, question, opts.history ?? [], {
       focusSubject: opts.focus ? describeFocus(opts.focus).title : undefined,

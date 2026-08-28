@@ -11,6 +11,7 @@
 import MarketingPage from '../../marketing/MarketingPage';
 import { Card, CtaRow, Facts, Grid, P, RelatedPages, Section, UL } from '../../marketing/ui';
 import { CAREERS_FROM_PRICE, formatInr } from '../../shared/plans';
+import { TOOL_COUNT } from '../../shared/toolCount';
 
 const PATH = '/about';
 
@@ -32,7 +33,7 @@ export default function About() {
         </P>
         <Facts
           items={[
-            { value: '7', label: 'Free money tools' },
+            { value: String(TOOL_COUNT), label: 'Free money tools' },
             { value: '0', label: 'Ad or tracking cookies' },
             { value: '0', label: 'Affiliate links' },
             { value: 'India', label: 'Tax and instrument logic' },

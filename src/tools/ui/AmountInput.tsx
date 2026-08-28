@@ -42,11 +42,13 @@ export interface AmountInputProps {
   /** Accessible name, when there is no visible <label> pointing at this id. */
   ariaLabel?: string;
   onBlur?: () => void;
+  /** Fired when the field gains focus. Used by MoneyField to enter draft mode. */
+  onFocus?: () => void;
 }
 
 export function AmountInput({
   id, value, onChange, sym, className = 'fi', inputRef,
-  invalid = false, errorId, placeholder = '0', required, ariaLabel, onBlur,
+  invalid = false, errorId, placeholder = '0', required, ariaLabel, onBlur, onFocus,
 }: AmountInputProps) {
   // Set on blur only, so a partially typed formula is never an error yet.
   const [blurError, setBlurError] = useState<string | null>(null);
@@ -77,6 +79,7 @@ export function AmountInput({
         aria-invalid={invalid || !!blurError}
         aria-describedby={describedBy}
         value={value}
+        onFocus={onFocus}
         onChange={(e) => {
           if (blurError) setBlurError(null);
           onChange(e.target.value);

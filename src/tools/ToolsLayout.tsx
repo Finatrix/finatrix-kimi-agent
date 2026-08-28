@@ -3,6 +3,7 @@ import { Link, Outlet, useLocation } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { useMobileDrawer } from '../hooks/useMobileDrawer';
 import { TOOLS } from '../lib/tools';
+import { NavPills } from '../components/NavPills';
 import {
   SYNC_KEYS,
   clearSyncedLocal,
@@ -89,62 +90,18 @@ function CurrencySelect() {
   );
 }
 
-function ToolTabs({ activeTool }: { activeTool: string }) {
+/**
+ * The tool bar.
+ *
+ * The destinations are unchanged; what changed is that they are drawn by the
+ * same `NavPills` the landing page uses, so the navigation is one object across
+ * the whole site rather than two that drift. It also wraps rather than scrolling
+ * sideways — see components/NavPills.tsx for why that mattered.
+ */
+function ToolTabs() {
   return (
-    <div
-      style={{
-        maxWidth: 1024,
-        margin: '0 auto',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '0 8px',
-      }}
-    >
-      <nav
-        className="nav"
-        id="mainNav"
-        aria-label="Tools"
-        style={{ maxWidth: 'none', margin: 0, flex: '1 1 auto', minWidth: 0, padding: '10px 8px' }}
-      >
-        <Link
-          to="/tools/dashboard"
-          data-route="dashboard"
-          className={activeTool === 'dashboard' ? 'on' : undefined}
-        >
-          Dashboard
-        </Link>
-        {TOOLS.map((t) => (
-          <Link
-            key={t.id}
-            to={t.href}
-            data-route={t.id}
-            className={activeTool === t.id ? 'on' : undefined}
-          >
-            {t.name}
-          </Link>
-        ))}
-        <Link
-          to="/tools/reports"
-          data-route="reports"
-          className={activeTool === 'reports' ? 'on' : undefined}
-        >
-          Reports
-        </Link>
-        <Link
-          to="/tools/calendar"
-          data-route="calendar"
-          className={activeTool === 'calendar' ? 'on' : undefined}
-        >
-          Calendar
-        </Link>
-        {/* In-app navigation goes to the WORKSPACE, not the public landing page
-            at /careers — this bar is only ever seen inside the signed-in tools
-            shell, where "Careers" means the section, not the pitch. */}
-        <Link to={CAREERS_ROUTES.dashboard} data-route="careers">
-          Careers
-        </Link>
-      </nav>
+    <div className="fx-toolbar">
+      <NavPills variant="app" hideBelow="md" />
       <CurrencySelect />
     </div>
   );
@@ -459,7 +416,7 @@ export default function ToolsLayout() {
 
           {/* Tool tab bar */}
           <div className="nav-wrap">
-            <ToolTabs activeTool={activeTool} />
+            <ToolTabs />
           </div>
 
           {/* Tool content */}

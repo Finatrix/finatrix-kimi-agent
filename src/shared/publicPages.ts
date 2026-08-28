@@ -26,6 +26,7 @@
 
 import { ALTERNATIVES, COMPARE_ROOT, alternativePath } from './comparisons';
 import { COMPANIES, COMPANIES_ROOT, companyPath } from './companies';
+import { TOOL_COUNT_WORD } from './toolCount';
 
 /** A question-and-answer pair. Rendered on the page AND emitted as FAQPage JSON-LD. */
 export interface FaqEntry {
@@ -305,14 +306,14 @@ export const PUBLIC_PAGES: readonly PublicPage[] = [
     description:
       'Every FinatriX money tool is free, forever. Careers plans start at ₹199/month, billed once per period with no auto-renewal. See what each plan includes.',
     heading: 'Simple, honest pricing',
-    lede: 'The seven money tools are free and always will be. FinatriX Careers is the paid product, and you are charged once per period — never automatically.',
+    lede: `The ${TOOL_COUNT_WORD} money tools are free and always will be. FinatriX Careers is the paid product, and you are charged once per period — never automatically.`,
     updated: REVIEWED,
     priority: 0.9,
     changefreq: 'monthly',
     faq: [
       {
         q: 'Are the money tools really free?',
-        a: 'Yes. All eight calculators — Budget Builder, Expense Tracker, InvestMatch, ParkSmart, PeerCompare, Reverse Goal Planner, LifeMap and the Net Worth tracker — are free with no usage limit and no card required. You can use them signed out; an account only adds sync across your devices.',
+        a: `Yes. All ${TOOL_COUNT_WORD} calculators — Budget Builder, Expense Tracker, InvestMatch, ParkSmart, PeerCompare, Reverse Goal Planner, LifeMap and the Net Worth tracker — are free with no usage limit and no card required. You can use them signed out; an account only adds sync across your devices.`,
       },
       {
         q: 'What do I actually pay for?',
@@ -420,7 +421,7 @@ export const PUBLIC_PAGES: readonly PublicPage[] = [
     faq: [
       {
         q: 'What is FinatriX?',
-        a: 'An education-first personal finance and careers platform built for India. It has seven free money calculators and a paid Careers workspace for finding and tracking jobs. It is a set of tools for thinking clearly about money, not a bank, broker or adviser.',
+        a: `An education-first personal finance and careers platform built for India. It has ${TOOL_COUNT_WORD} free money calculators and a paid Careers workspace for finding and tracking jobs. It is a set of tools for thinking clearly about money, not a bank, broker or adviser.`,
       },
       {
         q: 'Is FinatriX financial advice?',
@@ -444,7 +445,7 @@ export const PUBLIC_PAGES: readonly PublicPage[] = [
       },
       {
         q: 'What does FinatriX cost?',
-        a: 'All seven money tools are free with no limits. FinatriX Careers is paid, starting at ₹199 per month, charged once per billing period with no auto-renewal. Full detail is on the Pricing page.',
+        a: `All ${TOOL_COUNT_WORD} money tools are free with no limits. FinatriX Careers is paid, starting at ₹199 per month, charged once per billing period with no auto-renewal. Full detail is on the Pricing page.`,
       },
       {
         q: 'Are the tax and return assumptions up to date?',
@@ -604,7 +605,7 @@ export const PUBLIC_PAGES: readonly PublicPage[] = [
       },
       {
         q: 'What does FinatriX Careers cost?',
-        a: 'Plans start at ₹199 per month, charged once per billing period with no auto-renewal. The seven FinatriX money tools stay free regardless of whether you use Careers.',
+        a: `Plans start at ₹199 per month, charged once per billing period with no auto-renewal. The ${TOOL_COUNT_WORD} FinatriX money tools stay free regardless of whether you use Careers.`,
       },
       {
         q: 'Do I need to use the money tools to use Careers?',

@@ -130,6 +130,21 @@ export interface SpendingInsight {
   tone: 'ok' | 'info' | 'warn' | 'tip';
   title: string;
   body: string;
+  /**
+   * The one-line takeaway — what this observation means the user should do, or
+   * keep doing, said in a single sentence.
+   *
+   * It exists because an observation without a takeaway is half an insight, and
+   * the other half used to be behind a button. "45% of your spending happens at
+   * weekends" is a fact; whether that is a problem and what to do about it was
+   * only ever available by asking the assistant, which meant most people never
+   * got it. The deterministic line is now always on screen and the assistant is
+   * for going deeper, not for finishing the sentence.
+   *
+   * Derived from the same figures as `body`, never fetched, never generated —
+   * so it is instant, offline, identical every time, and free.
+   */
+  action: string;
   icon: IconName;
 }
 
@@ -548,6 +563,7 @@ export function generateInsights(
         body: consumedFlat
           ? `You set aside ${Math.round(savedChangePct)}% more than ${prevLabel} while your spending held steady. That is exactly the shape you want.`
           : `You set aside ${Math.round(savedChangePct)}% more than ${prevLabel}. That is money working for you, not money gone.`,
+        action: 'Hold this level next month and it stops being a good month and starts being your rate.',
         icon: 'check',
       });
     } else if (savedChangePct <= -25) {
@@ -559,6 +575,7 @@ export function generateInsights(
         tone: 'info',
         title: 'Saving less than last month',
         body: `You set aside ${Math.round(Math.abs(savedChangePct))}% less than ${prevLabel}. Worth a look if that was not deliberate.`,
+        action: 'If it was not deliberate, a standing transfer on payday is what stops it happening again.',
         icon: 'trending',
       });
     }
@@ -581,6 +598,7 @@ export function generateInsights(
         tone: 'warn',
         title: 'Spending ahead of pace',
         body: `You've used ${Math.round(actualPct)}% of your spending budget but only ${Math.round(expectedPct)}% of the month has passed. Savings are excluded — this is day-to-day money.`,
+        action: 'Check the daily safe spend above before the next discretionary purchase — it already accounts for the days left.',
         icon: 'warn',
       });
     } else if (actualPct < expectedPct - 20 && dayOfMonth > 10) {
@@ -589,6 +607,7 @@ export function generateInsights(
         tone: 'ok',
         title: 'Under budget pace',
         body: `You've used only ${Math.round(actualPct)}% of your spending budget with ${Math.round(100 - expectedPct)}% of the month left. Great discipline.`,
+        action: 'Move the surplus into savings before month end rather than letting it get absorbed.',
         icon: 'check',
       });
     }
@@ -604,6 +623,7 @@ export function generateInsights(
         tone: 'warn',
         title: 'Spending up from last month',
         body: `You're spending ${Math.round(changePct)}% more than ${prevLabel}, savings aside. Check if there's a one-off or a new pattern forming.`,
+        action: 'Open the category comparison on the Analytics tab — it names which category moved.',
         icon: 'arrow-up',
       });
     } else if (changePct < -15) {
@@ -612,6 +632,7 @@ export function generateInsights(
         tone: 'ok',
         title: 'Spending down',
         body: `You're spending ${Math.round(Math.abs(changePct))}% less than ${prevLabel}, savings aside. Keep it up.`,
+        action: 'Redirect the difference to savings now, while it is still visible.',
         icon: 'trending',
       });
     }
@@ -631,6 +652,7 @@ export function generateInsights(
       tone: 'info',
       title: 'Weekend spender',
       body: `${Math.round(weekendPct)}% of your spending happens on weekends. Planning weekend activities ahead of time can help.`,
+      action: 'Decide the weekend budget on Friday. A number set in advance is the one that holds.',
       icon: 'clock',
     });
   }
@@ -646,6 +668,7 @@ export function generateInsights(
       tone: 'info',
       title: 'Big ticket item',
       body: `Your largest purchase (${label}) accounts for ${Math.round((maxTx.amount / consumedTotal) * 100)}% of this month's spending.`,
+      action: 'If it was a one-off, read the rest of the month without it — the pattern underneath is the real one.',
       icon: 'trending',
     });
   }
@@ -665,6 +688,7 @@ export function generateInsights(
         tone: 'info',
         title: 'Spending concentrated',
         body: `${catMeta.get(catEntries[0][0])?.l ?? catEntries[0][0]} makes up ${Math.round(topPct)}% of your monthly spend. Diversifying helps reduce vulnerability to single-category spikes.`,
+        action: 'One category this dominant is also the fastest lever — a 10% cut there beats a 10% cut anywhere else.',
         icon: 'pie',
       });
     }
@@ -679,6 +703,7 @@ export function generateInsights(
       tone: 'info',
       title: 'Fixed costs dominant',
       body: `${Math.round((recurringTotal / consumedTotal) * 100)}% of your spending is recurring. Review subscriptions and contracts annually to catch unused services.`,
+      action: 'Open the Recurring tab and cancel anything you cannot name a use for in the last month.',
       icon: 'refresh',
     });
   }

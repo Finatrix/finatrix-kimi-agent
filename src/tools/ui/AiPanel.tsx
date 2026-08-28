@@ -8,7 +8,7 @@ import { Markdown } from './Markdown';
 import { currentMonth } from '../lib/month';
 import { getJSON } from '../lib/storage';
 import { loadExpenses } from '../lib/expense';
-import { loadCatView } from '../lib/budgetCats';
+import { loadCatViewFor } from '../lib/budgetCatsMonth';
 import { type BudgetStore } from '../lib/budget';
 import { ask, askForMonthlyReview, type AskResult } from '../ai/assistant';
 import { describeFocus, type AiFocus, type FocusDescription } from '../ai/focus';
@@ -160,7 +160,7 @@ export default function AiPanel({ id, onClose, focus = null, openedAt = 0 }: AiP
   /** Everything the snapshot needs, read at the moment the question is asked. */
   const readData = useCallback(() => ({
     items: loadExpenses(),
-    cats: loadCatView().active,
+    cats: loadCatViewFor(currentMonth()).active,
     budgetStore: getJSON<BudgetStore>('fx_bb_data', {}),
     month: currentMonth(),
     currency: code,

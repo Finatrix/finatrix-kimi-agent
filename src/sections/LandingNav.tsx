@@ -1,6 +1,6 @@
 import { Link } from 'react-router';
 import { useAuth } from '../context/AuthContext';
-import { TOOLS } from '../lib/tools';
+import { NavPills } from '../components/NavPills';
 import { HomeButton } from '../components/HomeButton';
 import { BrandLogo } from '../components/BrandLogo';
 import ThemeToggle from '../components/ThemeToggle';
@@ -30,32 +30,10 @@ export default function LandingNav() {
         <div className="flex items-center justify-between h-14">
           <BrandCluster />
 
-          {/* Tool tabs — inline on desktop */}
-          <nav className="hidden lg:flex items-center gap-1" aria-label="Tools">
-            {TOOLS.map((t) => (
-              <Link
-                key={t.id}
-                to={t.href}
-                className="group flex items-center gap-2 px-3 py-1.5 rounded-full text-[13px] text-ink-2 hover:text-ink hover:bg-hairline-2 transition-colors"
-              >
-                <span
-                  className="h-1.5 w-1.5 rounded-full opacity-80 group-hover:opacity-100 transition-opacity"
-                  style={{ backgroundColor: t.color }}
-                />
-                {t.short}
-              </Link>
-            ))}
-            <Link
-              to="/careers"
-              className="group flex items-center gap-2 px-3 py-1.5 rounded-full text-[13px] text-ink-2 hover:text-ink hover:bg-hairline-2 transition-colors"
-            >
-              <span
-                className="h-1.5 w-1.5 rounded-full opacity-80 group-hover:opacity-100 transition-opacity"
-                style={{ backgroundColor: '#D4AF37' }}
-              />
-              Careers
-            </Link>
-          </nav>
+          {/* Tool tabs — inline on desktop. The same component the signed-in
+              tools shell renders, so the navigation cannot drift between the
+              two halves of the site. See components/NavPills.tsx. */}
+          <NavPills variant="marketing" hideBelow="lg" />
 
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <ThemeToggle />

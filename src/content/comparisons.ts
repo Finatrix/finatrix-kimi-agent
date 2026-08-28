@@ -17,6 +17,7 @@
  * first — are stated in full on the registry it was split from, and
  * `comparisonsCompanies.test.ts` enforces them against THIS file.
  */
+import { TOOL_COUNT_WORD_CAP } from '../shared/toolCount';
 
 /** Where each product is stronger, weaker, and who it suits. */
 export interface AlternativeCopy {
@@ -43,7 +44,7 @@ export interface AlternativeCopy {
 export const OUR_SIDE = {
   name: 'FinatriX calculators',
   whatItIs:
-    'Seven free, education-first calculators covering budgeting, expenses, allocation, cash placement, benchmarking, goal planning and a whole-life projection.',
+    `${TOOL_COUNT_WORD_CAP} free, education-first calculators covering budgeting, expenses, allocation, cash placement, benchmarking, goal planning, a whole-life projection and a net worth tracker.`,
   pricingModel: 'Free, with no usage limit and no card required. An account only adds sync across devices.',
   dataModel:
     'Figures stay in your own browser until you choose to sync them. There is no bank connection, so nothing here can read your accounts.',

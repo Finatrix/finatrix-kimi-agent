@@ -15,8 +15,12 @@ const LOCAL_ONLY_KEYS = ['fx_activity', 'fx_last_tool', 'fx_notif_read', 'fx_not
 /** Human labels for the tool data keys (for the storage summary). */
 const KEY_LABEL: Record<string, string> = {
   fx_bb_data: 'Budget', fx_bb_cats: 'Budget categories',
-  fx_bb_catprefs: 'Category arrangement', fx_bb_income: 'Income sources',
+  fx_bb_catprefs: 'Category arrangement',
+  fx_bb_cats_by_month: 'Per-month categories',
+  fx_bb_income: 'Income sources',
   fx_expenses: 'Expenses',
+  fx_exp_bank: 'Bank balances',
+  fx_fy_start: 'Financial year',
   fx_expense_audit: 'Expense change history',
   fx_goals: 'Goals', fx_investmatch: 'InvestMatch', fx_parksmart: 'ParkSmart',
   fx_peercompare: 'PeerCompare', fx_lifemap: 'LifeMap', fx_networth: 'Net Worth',

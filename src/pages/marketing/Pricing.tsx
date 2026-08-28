@@ -26,6 +26,7 @@ import {
   yearlySavingPct,
   type PlanCopy,
 } from '../../shared/plans';
+import { TOOL_COUNT, TOOL_COUNT_WORD } from '../../shared/toolCount';
 
 const PATH = '/pricing';
 
@@ -138,7 +139,7 @@ export default function Pricing() {
         <Facts
           items={[
             { value: '₹0', label: 'Money tools' },
-            { value: '7', label: 'Free calculators' },
+            { value: String(TOOL_COUNT), label: 'Free calculators' },
             { value: 'None', label: 'Ads or trackers' },
             { value: 'Anytime', label: 'Export or delete' },
           ]}
@@ -228,7 +229,7 @@ export default function Pricing() {
               <li>Resume-to-role match scoring with the reasoning shown</li>
               <li>Application tracking through every stage</li>
               <li>Interview preparation and company research</li>
-              <li>All seven money tools, as always</li>
+              <li>All {TOOL_COUNT_WORD} money tools, as always</li>
             </ul>
           </Card>
           <Card title="Deliberately not included" eyebrow="Not included">

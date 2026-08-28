@@ -44,6 +44,7 @@ import {
   type Article,
   type Topic,
 } from '../shared/content';
+import { TOOL_COUNT_WORD_CAP } from '../shared/toolCount';
 
 /**
  * The origin to advertise in canonical/OG URLs. NEVER `location.origin`: the app
@@ -67,7 +68,7 @@ export const SITE_NAME = 'FinatriX';
  */
 export const DEFAULT_TITLE = 'FinatriX — Smart Money Tools for India';
 export const DEFAULT_DESCRIPTION =
-  'Seven free, education-first money tools for India: budgeting, expenses, investing, benchmarking and a lifelong wealth simulation. Not financial advice.';
+  `${TOOL_COUNT_WORD_CAP} free, education-first money tools for India: budgeting, expenses, investing, benchmarking and a lifelong wealth simulation. Not financial advice.`;
 
 /**
  * The homepage's social-card description, which is deliberately NOT the meta
@@ -78,7 +79,7 @@ export const DEFAULT_DESCRIPTION =
  * true rather than one.
  */
 export const DEFAULT_SOCIAL_DESCRIPTION =
-  'Seven free, education-first money tools for India — budgeting, investing, benchmarking and a full life-long wealth simulation.';
+  `${TOOL_COUNT_WORD_CAP} free, education-first money tools for India — budgeting, investing, benchmarking and a full life-long wealth simulation.`;
 
 /**
  * Cache-busting token for the share cards.
@@ -440,7 +441,7 @@ export function seoForPath(pathname: string): RouteSeo {
  * visible on the page, and emitting it otherwise invites a structured-data
  * manual action. That rule is enforced structurally rather than by review: the
  * markup is generated from the same array the component maps over — `TOOL_FAQ`
- * for the seven calculators, `PublicPage.faq` for the marketing pages — so
+ * for the calculators, `PublicPage.faq` for the marketing pages — so
  * markup without a visible FAQ is not a mistake anyone can make here.
  *
  * Still deliberately absent: `aggregateRating`, which needs real reviews to be

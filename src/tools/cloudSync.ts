@@ -31,7 +31,17 @@ export const SYNC_KEYS = [
   'fx_bb_data',
   'fx_bb_cats',
   'fx_bb_catprefs',
+  // Per-month category arrangements. `fx_bb_cats`/`fx_bb_catprefs` above are the
+  // account-wide TEMPLATE a month inherits when nothing earlier overrides it;
+  // this is the set of months that carry their own. Both have to travel, or a
+  // second device rebuilds every month from the template and silently undoes
+  // every per-month decision. See lib/budgetCatsMonth.ts.
+  'fx_bb_cats_by_month',
   'fx_bb_income',
+  // Opening/closing bank balances per month, and the financial-year start the
+  // Wallet reports against. Small, and useless on one device only.
+  'fx_exp_bank',
+  'fx_fy_start',
   'fx_lifemap',
   'fx_investmatch',
   'fx_parksmart',

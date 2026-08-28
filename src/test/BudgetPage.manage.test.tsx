@@ -28,7 +28,7 @@ describe('income sources', () => {
     renderPage();
     const card = incomeCard();
     // Legacy single-figure income seeds Salary.
-    expect(within(card).getByLabelText(/^Salary amount/)).toHaveValue(50000);
+    expect(within(card).getByLabelText(/^Salary amount/)).toHaveValue('50000');
 
     fireEvent.change(within(card).getByLabelText(/^Rental Income amount/), { target: { value: '18000' } });
     fireEvent.change(within(card).getByLabelText(/^Dividend amount/), { target: { value: '2000' } });

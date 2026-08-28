@@ -26,7 +26,7 @@ describe('BudgetPage (React) — wiring', () => {
     expect(screen.getByText(/Export budget/)).toBeInTheDocument();
     // Income is now multi-source: the legacy single figure seeds Salary, and
     // the take-home total is derived from every source.
-    expect(screen.getByLabelText(/^Salary amount/)).toHaveValue(50000);
+    expect(screen.getByLabelText(/^Salary amount/)).toHaveValue('50000');
     expect(screen.getByLabelText('Total monthly take-home income')).toHaveTextContent('₹50,000');
     // No spend yet → whole income is unallocated + the "Start above" nudge.
     expect(screen.getByText('Unallocated')).toBeInTheDocument();

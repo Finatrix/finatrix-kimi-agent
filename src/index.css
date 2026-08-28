@@ -377,3 +377,77 @@
   .fx-conn { animation: none !important; }
   .fx-reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
 }
+
+/* ============================================================================
+   Navigation pills — ONE navigation for the whole site.
+   ----------------------------------------------------------------------------
+   Rendered by src/components/NavPills.tsx on the landing page, every public
+   page and inside the signed-in tools shell. Defined here rather than in
+   tools.css because tools.css scopes its colour tokens to `.fx-tools`, and this
+   bar has to render identically on both sides of that boundary. Everything
+   below reads the global tokens in styles/tokens.css, which are defined on
+   `:root` and therefore resolve everywhere.
+
+   The row WRAPS. It never scrolls sideways: a horizontally scrolling nav hides
+   destinations behind a gesture with no affordance, which is how the tools bar
+   used to push half its items past the right edge with nothing to say they
+   were there.
+   ========================================================================== */
+.fx-navpills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 4px;
+  min-width: 0;
+}
+.fx-navpill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  /* 32px tall — clears the WCAG 2.2 (2.5.8) 24px target minimum with room, and
+     matches the pill height the landing header already used. */
+  min-height: 32px;
+  padding: 6px 13px;
+  border-radius: 980px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-decoration: none;
+  color: var(--ink-2);
+  transition: color 0.2s var(--ease-out, ease), background-color 0.2s var(--ease-out, ease);
+}
+.fx-navpill-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  opacity: 0.8;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.fx-navpill:hover { color: var(--ink); background: var(--hairline-2); }
+.fx-navpill:hover .fx-navpill-dot { opacity: 1; transform: scale(1.25); }
+.fx-navpill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* The current page. Gold fill and near-black ink is the same active treatment
+   the tools bar already used, kept so the change reads as one bar arriving
+   everywhere rather than as a new bar replacing a familiar one. */
+.fx-navpill.on {
+  background: linear-gradient(180deg, #E6C766, #D4AF37);
+  color: #1a1400;
+  font-weight: 600;
+  box-shadow: 0 6px 18px -4px rgba(212, 175, 55, 0.45);
+}
+.fx-navpill.on .fx-navpill-dot { background: #1a1400 !important; opacity: 0.65; }
+/* Hidden where a narrower layout has its own navigation. These live here, not
+   as Tailwind `hidden lg:flex` on the caller, because this stylesheet is
+   appended AFTER `@tailwind utilities` — at equal specificity `.fx-navpills`
+   would beat `.hidden` and the row would render at every width. */
+@media (max-width: 767px) { .fx-navpills-md { display: none; } }
+@media (max-width: 1023px) { .fx-navpills-lg { display: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .fx-navpill, .fx-navpill-dot { transition: none; }
+  .fx-navpill:hover .fx-navpill-dot { transform: none; }
+}

@@ -7,22 +7,30 @@ import { PageHead, ToolFoot } from '../ui/common';
 import { Icon } from '../ui/Icon';
 import { ExportMenu } from '../ui/ExportMenu';
 import { DragHandle, MoveButtons } from '../ui/reorder';
+import { MoneyField, PercentField } from '../ui/MoneyField';
 import { useReorder } from '../../hooks/useReorder';
 import { exportBudgetCsv, exportBudgetXlsx, exportBudgetPdf, type BudgetExport } from '../lib/exporters';
 import {
-  computeBudget, mergedCats, loadCustomCats, saveCustomCats, newCustomCatKey,
+  computeBudget, mergedCats, newCustomCatKey,
   cloneMonthData, emptyMonthData,
   type BudgetVals, type BudgetStore, type BudgetCat, type CatResult, type CatKey, type CustomCats,
 } from '../lib/budget';
 import {
-  applyCatPrefs, applyIncomeConfig, loadCatPrefs, saveCatPrefs, loadIncome, saveIncome,
+  applyCatPrefs, applyIncomeConfig, loadIncome, saveIncome,
   newIncomeKey, orderSection, reorderSubset, seedIncomeAmounts, toggleKey, totalIncome,
   withSectionOrder, forgetKey,
   type CatPrefs, type IncomeConfig, type IncomeSource,
 } from '../lib/budgetCats';
+import {
+  loadArrangement, saveArrangement, type MonthArrangement, type MonthCatEntry,
+} from '../lib/budgetCatsMonth';
 import { budgetFillPct, budgetTone, TONE_COLOR, TONE_FILL, TONE_LABEL } from '../lib/budgetStatus';
 import { SECTION_COLOR, SECTION_FILL } from '../lib/sectionColors';
 import { BudgetSuggestions } from '../ui/BudgetSuggestions';
+import { WalletDock } from '../ui/WalletDock';
+import { AutoBudgetCard } from '../ui/AutoBudgetCard';
+import { ScoreCard } from '../ui/ScoreCard';
+import { computePlanScore } from '../lib/score';
 import { AskAiButton } from '../ui/AskAiButton';
 import { loadExpenses, type ExpenseItem } from '../lib/expense';
 import { BUDGET_SUGGESTIONS_ENABLED } from '../lib/featureFlags';
@@ -37,13 +45,40 @@ export default function BudgetPage() {
   const { cfmt, sym, code } = useCurrency();
   const allRef = useRef<BudgetStore>(getJSON<BudgetStore>('fx_bb_data', {}));
   const [month, setMonth] = useState(currentMonth());
+  /** The month writes land on. A ref so the persist callback never goes stale. */
+  const monthRef = useRef(month);
   const [incomeAmt, setIncomeAmt] = useState<Record<string, number>>({});
   const [needsPct, setNeedsPct] = useState('50');
   const [wantsPct, setWantsPct] = useState('30');
   const [savePct, setSavePct] = useState('20');
   const [vals, setVals] = useState<BudgetVals>({});
-  const [custom, setCustom] = useState<CustomCats>(loadCustomCats);
-  const [prefs, setPrefs] = useState<CatPrefs>(loadCatPrefs);
+  /**
+   * The category arrangement FOR THE MONTH ON SCREEN.
+   *
+   * Categories used to be one account-wide list, so removing Transport to plan
+   * a month you are not commuting removed it from every month you had already
+   * budgeted — rewriting history and orphaning its transactions. A month now
+   * owns its own arrangement, inheriting the most recent earlier month's until
+   * it is edited. See lib/budgetCatsMonth.ts for the full rule.
+   */
+  const [arrangement, setArrangement] = useState<MonthArrangement>(
+    () => loadArrangement(currentMonth()),
+  );
+  /**
+   * The same value in a ref, and the reason is a bug this shape invites.
+   *
+   * Deleting a custom category writes the category list and then the
+   * preferences, in two calls, in one event handler. Both halves live in ONE
+   * piece of state now, so a writer that merged its patch onto the value it
+   * closed over would have the second call overwrite the first — the
+   * preferences update would carry the pre-delete category list with it and put
+   * the deleted category straight back on screen. Merging onto the ref instead
+   * makes sequential partial writes compose, which is what two separate
+   * `useState` calls used to give for free.
+   */
+  const arrangementRef = useRef(arrangement);
+  const custom = arrangement.cats;
+  const prefs = arrangement.prefs;
   const [incomeCfg, setIncomeCfg] = useState<IncomeConfig>(loadIncome);
   /** Organise mode: reveals reorder / hide / archive controls without cluttering the default view. */
   const [manage, setManage] = useState(false);
@@ -61,16 +96,11 @@ export default function BudgetPage() {
    * initial read nor the subscription happens — a disabled section should cost
    * the page nothing.
    */
-  const [spend, setSpend] = useState<ExpenseItem[]>(
-    () => (BUDGET_SUGGESTIONS_ENABLED ? loadExpenses() : []),
-  );
+  const [spend, setSpend] = useState<ExpenseItem[]>(loadExpenses);
 
-  useEffect(() => {
-    if (!BUDGET_SUGGESTIONS_ENABLED) return;
-    return onLocalWrite((key) => {
-      if (key === 'fx_expenses') setSpend(loadExpenses());
-    });
-  }, []);
+  useEffect(() => onLocalWrite((key) => {
+    if (key === 'fx_expenses') setSpend(loadExpenses());
+  }), []);
 
   const cats = useMemo(() => mergedCats(custom), [custom]);
   const view = useMemo(() => applyCatPrefs(cats, prefs), [cats, prefs]);
@@ -119,6 +149,11 @@ export default function BudgetPage() {
     const started = Object.prototype.hasOwnProperty.call(allRef.current, target);
     setPendingStart(!started && target !== currentMonth());
     setMonth(target);
+    monthRef.current = target;
+    // The categories belong to the month, so they are re-read with it.
+    const next = loadArrangement(target);
+    arrangementRef.current = next;
+    setArrangement(next);
     loadMonth(target);
     forceMonths((n) => n + 1);
   }, [loadMonth]);
@@ -151,6 +186,20 @@ export default function BudgetPage() {
   );
 
   /**
+   * How good this budget is AS A PLAN — separate from how the month goes, which
+   * the Expense Tracker scores. A plan nobody follows and a month that happened
+   * to land near an arbitrary plan are different failures; one blended number
+   * would hide both. See lib/score.ts.
+   */
+  const planScore = useMemo(
+    () => computePlanScore({ budget: r, cats: view.active, vals, month, items: spend }),
+    // `r` is recomputed on every render by design (the page has no submit
+    // button), so the memo keys on its inputs rather than on the object.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [income, needsPct, wantsPct, savePct, vals, view.active, month, spend],
+  );
+
+  /**
    * Budget Builder has no submit button — it recomputes on every keystroke — so
    * "completed" has to be derived from state rather than from an action. The
    * signal is an income plus at least one allocated category: that is the point
@@ -170,9 +219,15 @@ export default function BudgetPage() {
     }
   }, [income, vals]);
 
-  /* ── Category persistence ─────────────────────────────────────────────── */
-  const updateCustom = (next: CustomCats) => { setCustom(next); saveCustomCats(next); };
-  const updatePrefs = (next: CatPrefs) => { setPrefs(next); saveCatPrefs(next); };
+  /* ── Category persistence — scoped to the month on screen ─────────────── */
+  const writeArrangement = useCallback((patch: Partial<MonthCatEntry>) => {
+    const next: MonthArrangement = { ...arrangementRef.current, ...patch, inheritedFrom: null };
+    arrangementRef.current = next;
+    setArrangement(next);
+    saveArrangement(monthRef.current, { cats: next.cats, prefs: next.prefs });
+  }, []);
+  const updateCustom = (next: CustomCats) => writeArrangement({ cats: next });
+  const updatePrefs = (next: CatPrefs) => writeArrangement({ prefs: next });
 
   const addCat = (section: CatKey) => {
     const k = newCustomCatKey();
@@ -290,8 +345,8 @@ export default function BudgetPage() {
       : `${monthLabel(month)} created from ${mode === 'current' ? monthLabel(cur) : monthLabel(prevMonth(month))}.`);
   };
 
-  const setVal = (k: string, raw: string) =>
-    setVals((v) => ({ ...v, [k]: Math.max(0, Number(raw) || 0) }));
+  const setVal = (k: string, amount: number) =>
+    setVals((v) => ({ ...v, [k]: Math.max(0, amount) }));
   /**
    * The one path by which a suggestion becomes a budget. It is only ever
    * reached from an explicit Accept/Apply press on that category's row.
@@ -299,8 +354,8 @@ export default function BudgetPage() {
   const applySuggestion = useCallback((k: string, amount: number) => {
     setVals((v) => ({ ...v, [k]: Math.max(0, amount) }));
   }, []);
-  const setIncomeVal = (k: string, raw: string) =>
-    setIncomeAmt((v) => ({ ...v, [k]: Math.max(0, Number(raw) || 0) }));
+  const setIncomeVal = (k: string, amount: number) =>
+    setIncomeAmt((v) => ({ ...v, [k]: Math.max(0, amount) }));
 
   const buildExport = (): BudgetExport => ({
     monthLabel: monthLabel(month),
@@ -360,6 +415,21 @@ export default function BudgetPage() {
           onPdf={() => exportBudgetPdf(buildExport())}
         />
       </div>
+
+      {/* Categories belong to the month. Saying which month this list came from
+          is what stops "I deleted Transport and it came back" — it did not come
+          back; this is a different month, still inheriting the arrangement it
+          was last given. Only shown when it is actually inherited. */}
+      {!pendingStart && arrangement.inheritedFrom && (
+        <p className="bb-inherit">
+          <Icon name="layers" size={13} aria-hidden="true" />
+          <span>
+            Categories carried forward from <b>{monthLabel(arrangement.inheritedFrom)}</b>. Add or
+            remove any of them and the change applies to {monthLabel(month)} only — earlier months
+            keep the plan you already made.
+          </span>
+        </p>
+      )}
 
       <div style={{ marginBottom: 14 }}>
         <MonthNav
@@ -431,6 +501,20 @@ export default function BudgetPage() {
             </div>
           </div>
 
+          {/* Divide each envelope across its categories, from history. Reads the
+              percentages set above and never proposes its own — see
+              ui/AutoBudgetCard.tsx for why that division of labour matters. */}
+          <AutoBudgetCard
+            items={spend}
+            cats={view.active}
+            month={month}
+            envelopes={{ needs: r.nL, wants: r.wL, save: r.sL }}
+            vals={vals}
+            cfmt={cfmt}
+            onApply={applySuggestion}
+            onAnnounce={say}
+          />
+
           {/* Recommendations from logged spending. Renders nothing until there
               is history to argue from, and never writes a value on its own.
               Temporarily switched off — see BUDGET_SUGGESTIONS_ENABLED. */}
@@ -494,6 +578,16 @@ export default function BudgetPage() {
             </div>
           </div>
 
+          <ScoreCard
+            title="Plan score"
+            caption={`How well this budget for ${monthLabel(month)} is built`}
+            result={planScore}
+            focus={{
+              kind: 'score', scope: 'plan',
+              score: planScore.score, grade: planScore.gradeLabel, summary: planScore.headline,
+            }}
+          />
+
           {r.tips.length > 0 && (
             <div className="card">
               <div className="bb-cardtitle" style={{ marginBottom: 12 }}>Insights</div>
@@ -507,6 +601,10 @@ export default function BudgetPage() {
           )}
         </>
       )}
+
+      {/* The year's carry-over, one tap away from wherever the user is. It
+          reads the same store this page writes, so it is never stale. */}
+      <WalletDock items={spend} cats={view.active} budgetStore={allRef.current} month={month} />
 
       <ToolFoot>
         Built with care by <b>FinatriX</b> · Educational tool, not financial advice
@@ -578,7 +676,7 @@ function IncomeCard({
   cfmt: (n: number) => string;
   sym: string;
   onToggleManage: () => void;
-  onAmount: (k: string, v: string) => void;
+  onAmount: (k: string, amount: number) => void;
   onAdd: () => void;
   onRename: (k: string, l: string) => void;
   onRemove: (k: string, name: string) => void;
@@ -637,16 +735,13 @@ function IncomeCard({
                 <label htmlFor={amountId} className="bb-label">{s.l}</label>
               )}
               {hidden && <span className="bb-badge">Hidden</span>}
-              <input
-                className="fi-sm"
-                type="number" step="any"
+              <MoneyField
                 id={amountId}
-                aria-label={`${name} amount (${sym})`}
-                min={0}
-                inputMode="decimal"
-                placeholder="0"
-                value={amounts[s.k] ? String(amounts[s.k]) : ''}
-                onChange={(e) => onAmount(s.k, e.target.value)}
+                className="fi-sm"
+                sym={sym}
+                ariaLabel={`${name} amount (${sym})`}
+                value={amounts[s.k] ?? 0}
+                onCommit={(v) => onAmount(s.k, v)}
               />
               {manage && (
                 <span className="bb-actions">
@@ -687,7 +782,7 @@ function CategoryCard({
   archived, onToggleManage, onAdd, onRename, onRemove, onMove, onHide, onArchive,
 }: {
   catKey: CatKey; label: string; color: string; items: BudgetCat[]; res: CatResult;
-  vals: BudgetVals; setVal: (k: string, v: string) => void; cfmt: (n: number) => string; sym: string;
+  vals: BudgetVals; setVal: (k: string, amount: number) => void; cfmt: (n: number) => string; sym: string;
   manage: boolean; hiddenKeys: string[]; hiddenCount: number;
   archived: Array<BudgetCat & { section: CatKey }>;
   onToggleManage: () => void;
@@ -791,16 +886,13 @@ function CategoryCard({
                 <label htmlFor={amountId} className="bb-label">{c.l}</label>
               )}
               {hidden && <span className="bb-badge">Hidden</span>}
-              <input
-                className="fi-sm"
-                type="number" step="any"
+              <MoneyField
                 id={amountId}
-                aria-label={`${name} amount (${sym})`}
-                min={0}
-                inputMode="decimal"
-                placeholder="0"
-                value={vals[c.k] ? String(vals[c.k]) : ''}
-                onChange={(e) => setVal(c.k, e.target.value)}
+                className="fi-sm"
+                sym={sym}
+                ariaLabel={`${name} amount (${sym})`}
+                value={vals[c.k] ?? 0}
+                onCommit={(v) => setVal(c.k, v)}
               />
               {manage && (
                 <span className="bb-actions">
@@ -881,15 +973,11 @@ function PctInput({ label, color, value, onChange, id }: {
   return (
     <div>
       <label className="fl" htmlFor={id} style={{ color }}>{label}</label>
-      <input
+      <PercentField
         className="fi bb-pct"
-        type="number" step="any"
         id={id}
         value={value}
-        min={0}
-        max={100}
-        inputMode="numeric"
-        onChange={(e) => onChange(e.target.value)}
+        onChange={onChange}
       />
     </div>
   );
@@ -933,6 +1021,11 @@ const BUDGET_STYLES = `
    2px radius difference read as a mistake rather than as a distinction. */
 .fx-tools .bb-pct{height:var(--ctl-h-md);min-height:0;padding:0 12px;border-radius:var(--ctl-r-sm);
   text-align:center;font-size:18px;font-weight:700;letter-spacing:-.01em;}
+.fx-tools .bb-inherit{display:flex;align-items:flex-start;gap:8px;font-size:11.5px;color:var(--ink3);
+  line-height:1.55;margin:0 0 12px;padding:9px 12px;border-radius:var(--ctl-r-md);background:var(--well);
+  border:1px solid var(--well-border);}
+.fx-tools .bb-inherit svg{flex-shrink:0;margin-top:2px;}
+.fx-tools .bb-inherit b{color:var(--ink2);}
 .fx-tools .bb-row{gap:10px;}
 .fx-tools .bb-row.is-hidden{opacity:.6;}
 .fx-tools .bb-row.is-dragging{opacity:.4;}

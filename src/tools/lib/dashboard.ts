@@ -13,7 +13,7 @@ import { ymLocal } from '../../lib/date';
 import { store, getJSON } from './storage';
 import { currentMonth } from './month';
 import { computeBudget, allCategories, type BudgetStore } from './budget';
-import { loadCatView } from './budgetCats';
+import { loadCatViewFor } from './budgetCatsMonth';
 import { loadExpenses, migrateCategory, splitOutflow, ET_CATS } from './expense';
 import { computeGoalPlanner } from './goals';
 import { computeInvestMatch, IM_DEFAULTS, IM_RL, type ImAnswers } from './investmatch';
@@ -132,7 +132,9 @@ export function readDashboard(): DashboardSnapshot {
    * `ET_CATS` is kept as the fallback because it is still the only source of a
    * readable name for a genuinely legacy key that no longer maps anywhere.
    */
-  const catView = loadCatView().active;
+  // Month-aware: a category the user removed for a later month must not
+  // reappear in this month's figures, and vice versa. See budgetCatsMonth.ts.
+  const catView = loadCatViewFor(cm).active;
   const flatCats = allCategories(catView);
   const validCatKeys = new Set(flatCats.map((c) => c.k));
   const catLabels = new Map(flatCats.map((c) => [c.k, c.l]));

@@ -65,6 +65,26 @@ export function buildFocusDetail(focus: AiFocus, input: SnapshotInput): FocusDet
         detail: sanitizeProse(focus.body, 400),
         note: 'This observation was computed by FinatriX from the data below, not by you. Explain the figures that produced it.',
       };
+    case 'score':
+      return {
+        kind: 'score',
+        scope: focus.scope,
+        // The score itself is computed by FinatriX from the data in the
+        // snapshot, exactly like every other figure. It is passed through so
+        // the assistant explains the number the user is looking at rather than
+        // arriving at its own — the model never scores anything.
+        score: focus.score,
+        grade: sanitizeField(focus.grade, 40),
+        summary: sanitizeProse(focus.summary, 400),
+        note: focus.scope === 'plan'
+          ? 'FinatriX scored this BUDGET on four components: savings commitment (30%), realism against the user\u2019s own spending history (25%), coverage and coherence (25%) and discretionary share (20%). Every input is a ratio, never an amount, so the scale is the same at any income. Explain it from the figures below; never recompute it or offer a different number.'
+          : 'FinatriX scored this MONTH on four components: budget fidelity (35%), savings rate (25%), discretionary restraint measured on wants only (20%) and momentum against the previous month (20%). Every input is a ratio, never an amount. Explain it from the figures below; never recompute it or offer a different number.',
+      };
+    case 'wallet':
+      return {
+        kind: 'wallet',
+        note: 'The wallet is the running total of (budget \u2212 spent) for every category across the financial year so far, with savings measured the other way up. A positive balance is budget the user set aside and did not need; a negative one is an overspend still to make up. Only months that carry a budget are counted. Answer from the monthly figures in the data below.',
+      };
   }
 }
 

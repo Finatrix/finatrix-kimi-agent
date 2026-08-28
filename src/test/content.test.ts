@@ -105,7 +105,7 @@ describe('topic registry', () => {
 
   /**
    * The rule that replaced "every topic must name a calculator". None of the
-   * seven calculators computes anything about a resume, so requiring one on a
+   * calculators computes anything about a resume, so requiring one on a
    * careers topic would force a link written for a crawler rather than a reader.
    * Careers topics point at the product instead, and both halves are enforced.
    */

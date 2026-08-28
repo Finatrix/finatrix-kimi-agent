@@ -10,7 +10,8 @@
 import { store, getJSON } from './storage';
 import { currentMonth, monthLabel } from './month';
 import { computeBudget, allCategories, type BudgetStore } from './budget';
-import { loadCatView, loadIncome, applyIncomeConfig, seedIncomeAmounts } from './budgetCats';
+import { loadIncome, applyIncomeConfig, seedIncomeAmounts } from './budgetCats';
+import { loadCatViewFor } from './budgetCatsMonth';
 import { loadExpenses, computeDashboard, isSpendingCategory, migrateCategory } from './expense';
 import {
   exportBudgetCsv, exportBudgetXlsx, exportBudgetPdf, type BudgetExport,
@@ -52,9 +53,10 @@ export function buildBudgetExport(month = currentMonth()): BudgetExport | null {
   const bdata = key ? bstore[key] : undefined;
   if (!key || !bdata) return null;
 
-  // The user's own arrangement: archived categories are excluded from the
-  // report exactly as they are excluded from the tool's totals.
-  const cats = loadCatView().active;
+  // The user's own arrangement FOR THIS MONTH: archived categories are excluded
+  // from the report exactly as they are excluded from the tool's totals, and a
+  // month reports under the categories it was actually planned with.
+  const cats = loadCatViewFor(key).active;
   const r = computeBudget(
     { incomeRaw: bdata.income, needsRaw: bdata.n, wantsRaw: bdata.w, saveRaw: bdata.s, vals: bdata.vals },
     cats,
@@ -87,7 +89,7 @@ export function buildExpenseExport(month = currentMonth()): ExpenseExport | null
   const items = loadExpenses();
   if (items.length === 0) return null;
 
-  const cats = loadCatView().active;
+  const cats = loadCatViewFor(month).active;
   const flat = allCategories(cats);
   const bdata = getJSON<BudgetStore>('fx_bb_data', {})[month];
   const budgetVals = bdata?.vals || {};

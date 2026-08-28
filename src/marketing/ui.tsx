@@ -115,7 +115,7 @@ export function Card({
 }
 
 /**
- * A key/value fact strip — "₹199/mo", "7 free tools", "0 trackers".
+ * A key/value fact strip — "₹199/mo", "8 free tools", "0 trackers".
  *
  * A `<dl>` rather than divs: the number and its label are a genuine
  * term/definition pair, and that is the one structure that tells a screen reader

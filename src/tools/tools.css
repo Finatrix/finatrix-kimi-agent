@@ -184,26 +184,16 @@
 
 /* ============ TOOL NAV (in-page tab bar) ============ */
 .fx-tools .nav-wrap { position: sticky; top: 0; z-index: var(--z-toolnav); background: var(--nav-solid); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-bottom: 1px solid var(--hair); }
-.fx-tools .nav { max-width: 1024px; margin: 0 auto; display: flex; gap: 2px; overflow-x: auto; padding: 10px 16px; scrollbar-width: none; }
-.fx-tools .nav::-webkit-scrollbar { display: none; }
-.fx-tools .nav a, .fx-tools .nav button { display: inline-flex; align-items: center; flex-shrink: 0; font-size: 13px; font-weight: 500; color: color-mix(in srgb, var(--ink) 72%, transparent); text-decoration: none; padding: 7px 14px; border-radius: 980px; transition: color .2s var(--ease-out), background .2s var(--ease-out); white-space: nowrap; letter-spacing: -.01em; background: none; border: none; font-family: inherit; cursor: pointer; }
-.fx-tools .nav a::before, .fx-tools .nav button::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 8px; background: currentColor; opacity: .55; transition: opacity .2s ease, transform .2s ease; }
-.fx-tools .nav a[data-route="budget"]::before { background: #16A36A; opacity: .85; }
-.fx-tools .nav a[data-route="expenses"]::before { background: #1FAE5A; opacity: .85; }
-.fx-tools .nav a[data-route="investmatch"]::before { background: #0A84FF; opacity: .85; }
-.fx-tools .nav a[data-route="parksmart"]::before { background: #FF6B5E; opacity: .85; }
-.fx-tools .nav a[data-route="peercompare"]::before { background: #7C5CFF; opacity: .85; }
-.fx-tools .nav a[data-route="goals"]::before { background: #14B8A6; opacity: .85; }
-.fx-tools .nav a[data-route="lifemap"]::before { background: #D4AF37; opacity: .85; }
-.fx-tools .nav a[data-route="networth"]::before { background: #0EA5A5; opacity: .85; }
-.fx-tools .nav a[data-route="reports"]::before { background: #D4AF37; opacity: .85; }
-.fx-tools .nav a[data-route="calendar"]::before { background: #D4AF37; opacity: .85; }
-.fx-tools .nav a[data-route="careers"]::before { background: #D4AF37; opacity: .85; }
-.fx-tools .nav a:hover, .fx-tools .nav button:hover { color: var(--ink); background: var(--fill-06); }
-.fx-tools .nav a:hover::before, .fx-tools .nav button:hover::before { transform: scale(1.25); }
-.fx-tools .nav a.on, .fx-tools .nav button.on { background: linear-gradient(180deg,#E6C766,#D4AF37); color: #1a1400; font-weight: 600; box-shadow: 0 6px 18px -4px rgba(212,175,55,.45); position: relative; }
-.fx-tools .nav a.on::before, .fx-tools .nav button.on::before { background: #1a1400; opacity: .65; }
-@media(max-width:767px){ .fx-tools #mainNav { display: none; } .fx-tools .nav-wrap > div { justify-content: flex-end; } }
+/* The tool bar's layout. The PILLS themselves are styled once, globally, in
+   src/index.css — the landing page renders the identical component outside
+   `.fx-tools`, where none of this file's colour tokens resolve, so a second
+   copy scoped here is exactly how the two bars drifted apart in the first
+   place. Only the container belongs to the shell. */
+.fx-tools .fx-toolbar { max-width: 1024px; margin: 0 auto; display: flex; align-items: center; gap: 10px; padding: 10px 16px; }
+.fx-tools .fx-toolbar .fx-navpills { flex: 1 1 auto; min-width: 0; }
+/* Below md the bottom tab bar and the drawer own navigation, so the row is
+   hidden by NavPills' own `hideBelow` and the currency select keeps the row. */
+@media(max-width:767px){ .fx-tools .fx-toolbar { justify-content: flex-end; } }
 
 /* ---- Mobile bottom navigation (<768px) ---- */
 .fx-tools { --fx-bottomnav-h: 0px; }

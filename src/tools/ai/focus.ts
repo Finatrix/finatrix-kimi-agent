@@ -37,7 +37,15 @@ export type AiFocus =
   /** The cumulative spend-against-plan chart. */
   | { kind: 'timeline'; granularity: Granularity }
   /** A proactive insight card the user asked to have explained. */
-  | { kind: 'insight'; id: string; title: string; body: string };
+  | { kind: 'insight'; id: string; title: string; body: string }
+  /**
+   * One of the two FinatriX scores. `scope` says which; `summary` is the
+   * headline the card is showing, so the assistant explains the score the user
+   * can see rather than one it recomputes differently.
+   */
+  | { kind: 'score'; scope: 'plan' | 'execution'; score: number; grade: string; summary: string }
+  /** The year-to-date carry-over across every category. */
+  | { kind: 'wallet' };
 
 export interface FocusDescription {
   /** Shown as the panel's subject line. */
@@ -64,6 +72,8 @@ export function focusButtonLabel(focus: AiFocus): string {
     case 'heatmap': return 'Explain Pattern';
     case 'timeline': return 'Analyse Timeline';
     case 'insight': return 'Explain';
+    case 'score': return 'Explain my score';
+    case 'wallet': return 'Ask about my wallet';
   }
 }
 
@@ -84,6 +94,10 @@ export function focusAriaLabel(focus: AiFocus): string {
     case 'heatmap': return 'Ask FinatriX AI to explain your daily spending pattern';
     case 'timeline': return 'Ask FinatriX AI to analyse your budget timeline';
     case 'insight': return `Ask FinatriX AI to explain: ${focus.title}`;
+    case 'score': return focus.scope === 'plan'
+      ? 'Ask FinatriX AI to explain your plan score'
+      : 'Ask FinatriX AI to explain your execution score';
+    case 'wallet': return 'Ask FinatriX AI about your wallet balance';
   }
 }
 
@@ -173,6 +187,32 @@ export function describeFocus(focus: AiFocus): FocusDescription {
           'Is this a problem?',
         ],
       };
+
+    case 'score':
+      return {
+        title: focus.scope === 'plan' ? 'Your plan score' : 'Your execution score',
+        subtitle: focus.scope === 'plan'
+          ? 'How well this budget is built, and what would raise it.'
+          : 'How closely this month followed the plan, and what would raise it.',
+        prompts: [
+          'What is holding this score down?',
+          'What is the single fastest thing I could change?',
+          'Is this a good score for someone at my income?',
+          'How is this score calculated?',
+        ],
+      };
+
+    case 'wallet':
+      return {
+        title: 'Your wallet',
+        subtitle: 'What every category has left over, added up across the financial year.',
+        prompts: [
+          'Which categories keep going over?',
+          'Can I afford to spend my banked balance?',
+          'How do I clear the overdrawn categories?',
+          'What does my year look like so far?',
+        ],
+      };
   }
 }
 
@@ -188,6 +228,7 @@ export function focusKey(focus: AiFocus | null): string {
     case 'transaction': return `transaction:${focus.id}`;
     case 'timeline': return `timeline:${focus.granularity}`;
     case 'insight': return `insight:${focus.id}`;
+    case 'score': return `score:${focus.scope}`;
     default: return focus.kind;
   }
 }

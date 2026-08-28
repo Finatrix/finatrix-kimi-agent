@@ -9,6 +9,7 @@
  */
 
 import { LEARN_ROOT, isContentPath } from './content';
+import { TOOL_IDS } from './toolCount';
 import { PUBLIC_PAGE_PATHS } from './publicPages';
 
 /**
@@ -23,19 +24,18 @@ import { PUBLIC_PAGE_PATHS } from './publicPages';
  */
 export const CANONICAL_HOST = 'finatrix.co';
 
-/** The public calculators. Source of truth for the sitemap + edge 404s. */
-export const TOOL_IDS = [
-  'budget',
-  'expenses',
-  'investmatch',
-  'parksmart',
-  'peercompare',
-  'goals',
-  'lifemap',
-  'networth',
-] as const;
-
-export type ToolId = (typeof TOOL_IDS)[number];
+/**
+ * The public calculators. Source of truth for the sitemap + edge 404s.
+ *
+ * The list itself lives in `toolCount.ts` and is re-exported here unchanged, so
+ * every existing importer keeps working. It moved because the marketing copy
+ * needs the COUNT and cannot import this module (`routes.ts` imports
+ * `publicPages.ts`, which is where much of that copy lives) — and a count
+ * written into prose by hand is a count that goes stale, which is exactly what
+ * had happened: nineteen sentences still said "seven".
+ */
+export { TOOL_IDS, TOOL_COUNT, TOOL_COUNT_WORD, TOOL_COUNT_WORD_CAP } from './toolCount';
+export type { ToolId } from './toolCount';
 
 /**
  * Signed-in `/tools/*` pages that are NOT public calculators: the personalised

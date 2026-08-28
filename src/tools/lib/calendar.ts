@@ -9,7 +9,8 @@
  */
 import type { IconName } from '../ui/Icon';
 import { loadExpenses } from './expense';
-import { mergedCats, loadCustomCats, allCategories } from './budget';
+import { allCategories } from './budget';
+import { loadCatViewFor } from './budgetCatsMonth';
 import { detectRecurring, type CatMeta } from './expenseAnalytics';
 import { readDashboard } from './dashboard';
 
@@ -42,8 +43,9 @@ function daysInMonth(year: number, month1to12: number): number {
   return new Date(year, month1to12, 0).getDate();
 }
 
-function buildCatMeta(): Map<string, CatMeta> {
-  const cats = mergedCats(loadCustomCats());
+function buildCatMeta(month: string): Map<string, CatMeta> {
+  // The arrangement that month was planned with — see budgetCatsMonth.ts.
+  const cats = loadCatViewFor(month).active;
   const m = new Map<string, CatMeta>();
   allCategories(cats).forEach((c) => m.set(c.k, { k: c.k, l: c.l, ic: c.ic, section: c.section }));
   return m;
@@ -63,7 +65,7 @@ export function getMonthEvents(month: string): FinEvent[] {
   try {
     const items = loadExpenses();
     if (items.length > 0) {
-      const patterns = detectRecurring(items, buildCatMeta());
+      const patterns = detectRecurring(items, buildCatMeta(month));
       patterns.forEach((p, i) => {
         const day = Math.min(Number((p.lastDate || '').slice(8, 10)) || 1, dim);
         events.push({

@@ -10,11 +10,20 @@ import InvestMatchPage from '../tools/pages/InvestMatchPage';
  * accessible name. Both pages previously exposed rows of unnamed spinbuttons —
  * the visible prompt sat in a sibling node that was never wired to the input,
  * so screen-reader users heard "spin button" with no indication of which.
+ *
+ * Budget Builder's money fields are `textbox`, not `spinbutton`. They are
+ * `type="text"` with `inputMode="decimal"` on purpose: a `type="number"` input
+ * reports an empty value for anything not yet a valid number, so `"12."` wiped
+ * the field and decimals could not be typed at all. See ui/MoneyField.tsx.
+ * InvestMatch's plain integer questions are still spinbuttons.
  */
 
-/** Every spinbutton the page renders, with the name AT would announce. */
-function spinbuttonNames(): string[] {
-  return screen.getAllByRole('spinbutton').map((el) => el.getAttribute('aria-label') ?? el.getAttribute('id') ?? '');
+/** Every money field the page renders, with the name AT would announce. */
+function amountFieldNames(): string[] {
+  return screen
+    .getAllByRole('textbox')
+    .map((el) => el.getAttribute('aria-label') ?? '')
+    .filter((n) => / amount /.test(n));
 }
 
 describe('Budget Builder — category amount fields', () => {
@@ -31,14 +40,14 @@ describe('Budget Builder — category amount fields', () => {
     );
 
     // Named, and the name leads with the visible category label (WCAG 2.5.3).
-    expect(screen.getByRole('spinbutton', { name: /^Rent amount/ })).toBeInTheDocument();
-    expect(screen.getByRole('spinbutton', { name: /^Groceries amount/ })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /^Rent amount/ })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /^Groceries amount/ })).toBeInTheDocument();
 
     // Nothing typeable is left anonymous anywhere on the page.
-    for (const el of screen.getAllByRole('spinbutton')) {
+    for (const el of screen.getAllByRole('textbox')) {
       expect(el).toHaveAccessibleName();
     }
-    expect(spinbuttonNames().length).toBeGreaterThan(5);
+    expect(amountFieldNames().length).toBeGreaterThan(5);
   });
 
   it('names a custom category amount from whatever the row is called', () => {
@@ -50,10 +59,10 @@ describe('Budget Builder — category amount fields', () => {
     fireEvent.click(screen.getAllByText('+ Add Category')[0]);
     fireEvent.change(screen.getByDisplayValue('New category'), { target: { value: 'Gym' } });
 
-    expect(screen.getByRole('spinbutton', { name: /^Gym amount/ })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /^Gym amount/ })).toBeInTheDocument();
     // …and the amount is still the row's own field.
     const row = screen.getByDisplayValue('Gym').closest('.row-line') as HTMLElement;
-    expect(within(row).getByRole('spinbutton', { name: /^Gym amount/ })).toBeInTheDocument();
+    expect(within(row).getByRole('textbox', { name: /^Gym amount/ })).toBeInTheDocument();
   });
 
   it('focuses a category amount when its visible label is clicked', () => {
@@ -62,7 +71,7 @@ describe('Budget Builder — category amount fields', () => {
         <BudgetPage />
       </CurrencyProvider>
     );
-    const amount = screen.getByRole('spinbutton', { name: /^Rent amount/ });
+    const amount = screen.getByRole('textbox', { name: /^Rent amount/ });
     expect(screen.getByText('Rent').getAttribute('for')).toBe(amount.id);
   });
 });

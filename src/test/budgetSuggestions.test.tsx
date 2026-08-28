@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
 import { CurrencyProvider } from '../tools/CurrencyContext';
 import BudgetPage from '../tools/pages/BudgetPage';
@@ -69,21 +69,23 @@ describe.runIf(!BUDGET_SUGGESTIONS_ENABLED)('while the section is disabled', () 
     expect(savedVals().groceries).toBe(400);
   });
 
-  it('does not read the Expense Tracker at all', () => {
+  /**
+   * This used to assert that Budget Builder never read `fx_expenses` while the
+   * card was off — "a disabled section should cost the page nothing".
+   *
+   * That is no longer the right test, because the page now reads the ledger for
+   * two features that are switched ON: the automatic budget forecast and the
+   * plan score. The invariant worth keeping is the narrower, truer one — the
+   * suggestion ENGINE is never run while its card is off, so nothing about a
+   * disabled feature is being computed and thrown away.
+   */
+  it('never runs the suggestion engine', async () => {
+    const suggest = await import('../tools/lib/budgetSuggest');
+    const spy = vi.spyOn(suggest, 'suggestBudgets');
     seed([tx(M1, 'groceries', 560)], { groceries: 400 });
-    const reads: string[] = [];
-    const getItem = Storage.prototype.getItem;
-    Storage.prototype.getItem = function (key: string) {
-      reads.push(key);
-      return getItem.call(this, key);
-    };
-    try {
-      renderPage();
-    } finally {
-      Storage.prototype.getItem = getItem;
-    }
-
-    expect(reads).not.toContain('fx_expenses');
+    renderPage();
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
   });
 });
 
@@ -155,7 +157,7 @@ whenEnabled('nothing is written without an explicit press', () => {
     expect(savedVals().groceries).toBe(550);
     // …and the category's own input now shows it.
     const needs = screen.getByText(/^Needs · /).closest('.card') as HTMLElement;
-    expect(within(needs).getByLabelText(/^Groceries amount/)).toHaveValue(550);
+    expect(within(needs).getByLabelText(/^Groceries amount/)).toHaveValue('550');
   });
 
   it('applies the user’s own figure on Edit, not the suggestion', () => {

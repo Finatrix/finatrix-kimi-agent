@@ -1,7 +1,7 @@
 /**
  * Parity-test harness.
  *
- * The seven tools were migrated out of public/tools-app.html into typed React
+ * The tools were migrated out of public/tools-app.html into typed React
  * modules. To PROVE the migration changed no math, these helpers extract the
  * ORIGINAL functions and data tables directly from the tools-app.html source
  * string and let a test compare them against the ported implementations across

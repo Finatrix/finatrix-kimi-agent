@@ -2,6 +2,7 @@ import { Link } from 'react-router';
 import { TOOLS } from '../lib/tools';
 import { ToolIcon } from '../components/ToolIcon';
 import Reveal from '../components/Reveal';
+import { TOOL_COUNT_WORD_CAP } from '../shared/toolCount';
 
 export default function LandingShowcase() {
   return (
@@ -10,7 +11,7 @@ export default function LandingShowcase() {
         <Reveal className="max-w-[640px]">
           <span className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-accent-text">The toolkit</span>
           <h2 className="mt-4 text-[clamp(30px,5vw,52px)] font-semibold leading-[1.04] tracking-[-0.025em] text-ink">
-            Seven tools.<br />
+            {TOOL_COUNT_WORD_CAP} tools.<br />
             <span className="text-ink-2">One clear picture of your money.</span>
           </h2>
           <p className="mt-5 text-[15px] sm:text-[16px] leading-relaxed text-ink-2">

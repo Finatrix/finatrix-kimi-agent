@@ -171,21 +171,9 @@ export function computeBudget(input: BudgetInput, cats: SectionedCats = BUILTIN_
   const savePct = income > 0 ? Math.round((sT / income) * 100) : 0;
   const allocatedPct = income > 0 ? Math.round((spent / income) * 100) : 0;
 
-  const tips: Tip[] = [];
-  if (income > 0) {
-    if (nT > nL) tips.push(['warn', 'Needs above 50%', 'Rent, EMIs or transport may be squeezing you. Aim to bring fixed costs under half your income.']);
-    if (wT > wL) tips.push(['warn', 'Wants above 30%', 'Dining, subscriptions and shopping are over the line. Trimming 10% here funds your future.']);
-    if (sT > 0 && sT < sL * 0.5) tips.push(['info', 'Savings under 10%', "You're saving less than half the 20% target. Even a ₹2,000 SIP automates the habit."]);
-    if (sT >= sL) tips.push(['ok', 'Savings target hit', "You're at or above 20%. Consider a yearly 10% SIP step-up to compound faster."]);
-    // NOTE: these two tips test the ORIGINAL category keys (emi/sip/efund),
-    // which no built-in V4 category uses — so they only fire for legacy data.
-    // This is pinned by the budget parity suite; reviving them for the V4 keys
-    // (loan_invest/stocks/emergency) is a product decision that must update the
-    // parity contract at the same time.
-    if ((vals.emi || 0) > income * 0.3) tips.push(['warn', 'EMI danger zone', 'EMIs alone exceed 30% of income. Prioritise clearing high-interest loans before new investments.']);
-    if ((vals.sip || 0) > 0 && (vals.efund || 0) === 0) tips.push(['info', 'No emergency fund', 'You invest but have no buffer. Build 3–6 months of expenses in a liquid fund first.']);
-    if (spent === 0) tips.push(['info', 'Start above', 'Fill in your expenses to see your live budget breakdown.']);
-  }
+  const tips: Tip[] = buildTips({
+    income, nPct, wPct, sPct, nT, wT, sT, nL, wL, sL, spent, free, savePct, vals,
+  });
 
   return {
     income, nPct, wPct, sPct, splitWarn,
@@ -198,6 +186,96 @@ export function computeBudget(input: BudgetInput, cats: SectionedCats = BUILTIN_
     },
     tips,
   };
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Insights
+   ══════════════════════════════════════════════════════════════════════════ */
+
+interface TipInput {
+  income: number;
+  nPct: number; wPct: number; sPct: number;
+  nT: number; wT: number; sT: number;
+  nL: number; wL: number; sL: number;
+  spent: number; free: number; savePct: number;
+  vals: BudgetVals;
+}
+
+/**
+ * The budget's insights.
+ *
+ * WHY THESE ARE NOT THE ORIGINAL WORDING
+ * --------------------------------------
+ * The original insights were written against a hard-coded 50/30/20 and said so
+ * out loud — "Needs above 50%", "Savings under 10%", "You're at or above 20%".
+ * Budget Builder has let the user set their own three percentages since V4, and
+ * against any other split every one of those sentences was simply false: a
+ * household running 60/20/20 was told their needs were "above 50%" as though
+ * they had broken a rule they had explicitly not chosen, and a saver on 50/20/30
+ * who hit 28% was told they had "hit the 20% target" — congratulated for
+ * missing their own.
+ *
+ * So every threshold below is now the user's OWN limit, and the wording names
+ * the percentage they picked. The classic 50/30/20 remains the default split and
+ * the recommendation on screen; it is no longer a rule the insights enforce
+ * behind the user's back.
+ *
+ * The second change is the savings ceiling. There was none, but there was a
+ * shape: the only savings insight above the target was a single flat "target
+ * hit", so a user at 45% got the same sentence as a user at 20%. Saving more is
+ * the best outcome this product has, and it is now recognised as such — with
+ * escalating wording, and never once as a warning.
+ *
+ * NOTHING NUMERIC CHANGED. `nL`, `wL`, `sL`, `spent`, `free`, `savePct` and every
+ * figure this function reads are computed exactly as before; this is the copy
+ * that describes them.
+ */
+function buildTips(i: TipInput): Tip[] {
+  const tips: Tip[] = [];
+  if (i.income <= 0) return tips;
+
+  const shareOfIncome = (n: number) => Math.round((n / i.income) * 100);
+
+  /* ── Structure: is the plan even executable? ── */
+  if (i.free < 0) {
+    tips.push(['warn', 'Allocated beyond income', `The plan assigns ${shareOfIncome(i.spent)}% of your income. Something has to come down before the month starts, or the shortfall becomes debt.`]);
+  }
+
+  /* ── Needs and Wants, against the shares the user actually chose ── */
+  if (i.nT > i.nL) {
+    tips.push(['warn', `Needs above your ${i.nPct}% share`, `Fixed costs are ${shareOfIncome(i.nT)}% of income against the ${i.nPct}% you planned. Either the plan needs a bigger Needs share, or rent, EMIs and transport need a look.`]);
+  }
+  if (i.wT > i.wL) {
+    tips.push(['warn', `Wants above your ${i.wPct}% share`, `Discretionary spending is ${shareOfIncome(i.wT)}% of income against the ${i.wPct}% you planned. This is the movable part of the budget — a tenth trimmed here funds your future.`]);
+  }
+
+  /* ── Savings. Never a warning, and the more the better. ── */
+  if (i.sT > 0 && i.sT < i.sL * 0.5) {
+    tips.push(['info', `Savings under half your ${i.sPct}% target`, `You are putting ${i.savePct}% aside against a ${i.sPct}% plan. A standing transfer on payday is what closes that gap — the amount matters less than the automation.`]);
+  } else if (i.savePct >= 40) {
+    tips.push(['ok', 'Outstanding savings rate', `${i.savePct}% of income is committed to savings and investments. That is well beyond any conventional guideline, and it is the single strongest thing in this plan — keep it.`]);
+  } else if (i.savePct >= 30) {
+    tips.push(['ok', 'Exceptional savings rate', `${i.savePct}% of income goes to your future, comfortably past the classic 20%. Worth checking it is diversified rather than sitting in one place.`]);
+  } else if (i.sT >= i.sL) {
+    tips.push(['ok', 'Savings target met', `You are at ${i.savePct}%, at or above the ${i.sPct}% you set. A yearly step-up of even 10% compounds faster than any single decision you can make today.`]);
+  }
+
+  /* ── Legacy key-specific insights.
+        These test the ORIGINAL category keys (emi/sip/efund), which no built-in
+        V4 category uses, so they only ever fire for data saved before V4.
+        Reviving them for the V4 keys (loan_invest/stocks/emergency) is a
+        separate product decision. ── */
+  if ((i.vals.emi || 0) > i.income * 0.3) {
+    tips.push(['warn', 'EMI danger zone', 'EMIs alone exceed 30% of income. Prioritise clearing high-interest loans before new investments.']);
+  }
+  if ((i.vals.sip || 0) > 0 && (i.vals.efund || 0) === 0) {
+    tips.push(['info', 'No emergency fund', 'You invest but have no buffer. Build 3–6 months of expenses in a liquid fund first.']);
+  }
+
+  if (i.spent === 0) {
+    tips.push(['info', 'Start above', 'Fill in your expenses to see your live budget breakdown.']);
+  }
+  return tips;
 }
 
 /* ── Month persistence (fx_bb_data) — shape preserved exactly ── */
