@@ -29,6 +29,7 @@ export interface ChatMessage {
   at: string;
   /** Assistant turns only. */
   model?: string;
+  origin?: 'local' | 'ai';
   /** The answer in one sentence, shown above the rest. */
   headline?: string;
   /** Key figures as tiles, already checked against the data. */

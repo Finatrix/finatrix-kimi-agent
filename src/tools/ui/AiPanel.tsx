@@ -22,6 +22,7 @@ import type { AiChart, AiHighlight } from '../ai/validate';
 import type { GroundingReport } from '../ai/grounding';
 import { setupHelp, SETUP_QUESTIONS } from '../ai/setupHelp';
 import { readPlanContext } from '../ai/planContext';
+import { BRIEFING_QUESTION } from '../ai/briefing';
 
 /**
  * FinatriX AI — the conversation surface.
@@ -55,7 +56,13 @@ export interface AiPanelProps {
   openedAt?: number;
 }
 
-export default function AiPanel({ id, onClose, focus = null, openedAt = 0 }: AiPanelProps) {
+export default function AiPanel(props: AiPanelProps) {
+  const { user } = useAuth();
+  // Changing accounts remounts the composer and invalidates any pending reply.
+  return <AccountAiPanel key={user?.id ?? 'signed-out'} {...props} />;
+}
+
+function AccountAiPanel({ id, onClose, focus = null, openedAt = 0 }: AiPanelProps) {
   const { user, configured } = useAuth();
   const { code } = useCurrency();
   const uid = user?.id ?? '';
@@ -97,6 +104,12 @@ export default function AiPanel({ id, onClose, focus = null, openedAt = 0 }: AiP
   const listRef = useRef<HTMLDivElement>(null);
   const lastFocused = useRef<HTMLElement | null>(null);
   const titleId = useId();
+  const active = useRef(false);
+  const pending = useRef(false);
+  useEffect(() => {
+    active.current = true;
+    return () => { active.current = false; };
+  }, []);
 
   useBodyScrollLock(true);
 
@@ -176,7 +189,8 @@ export default function AiPanel({ id, onClose, focus = null, openedAt = 0 }: AiP
 
   const send = useCallback(async (question: string, kind: 'chat' | 'review' = 'chat') => {
     const text = question.trim();
-    if (!text || busy) return;
+    if (!text || busy || pending.current) return;
+    pending.current = true;
 
     const asked: ChatMessage = {
       id: newMessageId(), role: 'user', text, at: new Date().toISOString(),
@@ -199,6 +213,7 @@ export default function AiPanel({ id, onClose, focus = null, openedAt = 0 }: AiP
     const help = kind === 'chat' ? setupHelp(text) : null;
     if (help || !uid) {
       persist([...withQuestion, { id: newMessageId(), role: 'assistant', text: help || 'I can help you find your way around FinatriX without an account. Try one of the setup questions above. Sign in for AI answers about your finances.', at: new Date().toISOString(), model: 'FinatriX setup guide' }]);
+      pending.current = false;
       setBusy(false);
       inputRef.current?.focus();
       return;
@@ -217,10 +232,15 @@ export default function AiPanel({ id, onClose, focus = null, openedAt = 0 }: AiP
       };
     }
 
+    // A response may arrive after closing, clearing the session or switching
+    // accounts. It must not recreate a transcript that was deliberately removed.
+    if (!active.current) return;
+    pending.current = false;
+
     const reply: ChatMessage = result.ok
       ? {
           id: newMessageId(), role: 'assistant', text: result.answer,
-          at: new Date().toISOString(), model: result.model,
+          at: new Date().toISOString(), model: result.model, origin: result.origin,
           chart: result.chart, followUps: result.followUps,
           ...(result.headline ? { headline: result.headline } : {}),
           ...(result.highlights.length ? { highlights: result.highlights } : {}),
@@ -406,7 +426,7 @@ export default function AiPanel({ id, onClose, focus = null, openedAt = 0 }: AiP
             general money questions too, so this says whose records it can read
             rather than what it is allowed to talk about. */}
         <p className="fx-ai-foot">
-          Setup help stays on your device. AI answers send your question and relevant financial context to our AI service. Educational only. <a href="/tools/settings">Privacy controls</a>
+          Setup help and instant briefings stay on your device. AI answers send your question and relevant financial context to our AI service. Educational only. <a href="/tools/settings">Privacy controls</a>
         </p>
       </div>
     </div>
@@ -458,6 +478,12 @@ function EmptyState({ signedOut, configured, subject, onPick, onReview }: {
         from compounding to tax regimes.
       </p>
       {!subject && (
+        <button type="button" className="fx-ai-review" onClick={() => onPick(BRIEFING_QUESTION)}>
+          <Icon name="sparkle" size={15} aria-hidden="true" />
+          Get my instant financial briefing
+        </button>
+      )}
+      {!subject && (
         <button type="button" className="fx-ai-review" onClick={onReview}>
           <Icon name="pie" size={15} aria-hidden="true" />
           Create a monthly review
@@ -501,6 +527,7 @@ function Turn({ message, onFollowUp, busy }: {
             the model was called — never the model's own opinion of itself. The
             basis is spelled out because "Low confidence" without a reason is
             just a hedge. */}
+        {message.origin === 'local' && <p className="fx-ai-conf">Calculated on your device · no AI request</p>}
         {message.confidence && (
           <p className={`fx-ai-conf is-${message.confidence.level}`}>
             <span>{message.confidence.label}</span> · {message.confidence.basis}
@@ -542,10 +569,10 @@ function GroundingNote({ report }: { report: GroundingReport }) {
             {traced} of {report.checked} amounts trace to your records. Not in them: {list}.
             {' '}Treat {report.unmatched.length === 1 ? 'it' : 'those'} as a suggestion or estimate, not your data.
           </>)}
-      {report.chartWithheld && <> A chart was left out because its values were not in your records.</>}
+      {report.chartWithheld && <> A chart was left out because its values could not be verified against their cited records.</>}
       {!!report.tilesWithheld && (report.chartWithheld
         ? <> {report.tilesWithheld === 1 ? 'A figure tile was' : `${report.tilesWithheld} figure tiles were`} left out for the same reason.</>
-        : <> {report.tilesWithheld === 1 ? 'A figure tile was' : `${report.tilesWithheld} figure tiles were`} left out because {report.tilesWithheld === 1 ? 'its value was' : 'their values were'} not in your records.</>)}
+        : <> {report.tilesWithheld === 1 ? 'A figure tile was' : `${report.tilesWithheld} figure tiles were`} left out because {report.tilesWithheld === 1 ? 'its value was' : 'their values were'} not verified against their cited records.</>)}
     </p>
   );
 }

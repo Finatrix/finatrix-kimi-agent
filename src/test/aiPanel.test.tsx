@@ -167,7 +167,7 @@ describe('AiPanel', () => {
       answer: 'Here it is.',
       chart: {
         title: 'Top categories', unit: 'currency',
-        points: [{ label: 'Groceries', value: 550 }, { label: 'Dining', value: 120 }],
+        points: [{ label: 'Groceries', value: 550, source: 'data.categories.0.spent' }, { label: 'Dining', value: 120, source: 'data.categories.1.spent' }],
       },
     });
     renderPanel();
@@ -189,7 +189,7 @@ describe('AiPanel', () => {
       answer: 'Here it is.',
       chart: {
         title: 'Top categories', unit: 'currency',
-        points: [{ label: 'Groceries', value: 550 }, { label: 'Dining', value: 4800 }],
+        points: [{ label: 'Groceries', value: 550, source: 'data.categories.0.spent' }, { label: 'Dining', value: 4800 }],
       },
     });
     renderPanel();
@@ -214,8 +214,8 @@ describe('AiPanel', () => {
     reply({
       headline: 'Groceries are your biggest cost this month.',
       highlights: [
-        { label: 'Groceries', value: 550, unit: 'currency', tone: 'neutral' },
-        { label: 'Eating out', value: 120, unit: 'currency', tone: 'good' },
+        { label: 'Groceries', value: 550, source: 'data.categories.0.spent', unit: 'currency', tone: 'neutral' },
+        { label: 'Eating out', value: 120, source: 'data.categories.1.spent', unit: 'currency', tone: 'good' },
       ],
       answer: '- Groceries lead.\n- **Next:** plan one shop a week.',
     });
@@ -233,7 +233,7 @@ describe('AiPanel', () => {
     reply({
       answer: 'x',
       highlights: [
-        { label: 'Groceries', value: 550, unit: 'currency' },
+        { label: 'Groceries', value: 550, source: 'data.categories.0.spent', unit: 'currency' },
         { label: 'Invented', value: 9999, unit: 'currency' },
       ],
     });
@@ -249,7 +249,7 @@ describe('AiPanel', () => {
     seedLedger();
     reply({
       answer: 'x',
-      chart: { type: 'donut', title: 'Where it went', unit: 'currency', points: [{ label: 'Groceries', value: 550 }, { label: 'Dining', value: 120 }] },
+      chart: { type: 'donut', title: 'Where it went', unit: 'currency', points: [{ label: 'Groceries', value: 550, source: 'data.categories.0.spent' }, { label: 'Dining', value: 120, source: 'data.categories.1.spent' }] },
     });
     renderPanel();
     await ask('Split?');
@@ -264,7 +264,7 @@ describe('AiPanel', () => {
     seedLedger();
     reply({
       answer: 'x',
-      chart: { type: 'line', title: 'Trend', unit: 'currency', points: [{ label: 'A', value: 120 }, { label: 'B', value: 550 }, { label: 'C', value: 670 }] },
+      chart: { type: 'line', title: 'Trend', unit: 'currency', points: [{ label: 'A', value: 120, source: 'data.categories.1.spent' }, { label: 'B', value: 550, source: 'data.categories.0.spent' }, { label: 'C', value: 670, source: 'data.spentOnNeedsAndWants' }] },
     });
     renderPanel();
     await ask('Trend?');

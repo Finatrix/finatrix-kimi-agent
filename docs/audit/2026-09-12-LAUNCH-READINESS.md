@@ -42,9 +42,18 @@ No financial formula, tax rule, return assumption or scoring rule changed. The f
 - Live entry bundle `/assets/index-v0x5MRY0.js` — the exact build the browser suite ran against.
 - No edge functions or database migrations were deployed.
 
+## Signed-in verification (12 September, live account)
+
+Driven through the owner's own signed-in browser session — the assistant cannot be exercised without one.
+
+- A general question ("explain compounding with an example") returned the new shape: a one-sentence headline, five short bullets with the working shown inline, and a line chart labelled "Illustration — not your data" with no currency on it. Follow-up chips referenced the account's real goal.
+- A data question on a month with nothing logged refused to invent: it named the missing budget, the missing transactions and the thin history, bridged to the saved goal's funded percentage, and ended with one concrete next step. The confidence badge and the grounding line both appeared.
+- Two defects were found and fixed in that session (see the commit "Ground zero values, and say why a figure tile was withheld"): a correct ₹0 tile was withheld because zero was excluded from the known figures, and the withheld-tile sentence referred to a reason that had not been given. Both re-verified live.
+- Second release: Cloudflare version `a312c596-5685-483b-9a2b-89d3187efd3f`, entry bundle `/assets/index-B8NoM5Ou.js`, production verification re-run and passed.
+
 ## Open items (need a decision or access)
 
-- **Cloudflare zone injections.** Cloudflare injects a JavaScript-detections snippet and the Web Analytics beacon into every HTML response. The site's Content Security Policy correctly blocks both, so they log console errors and collect nothing. Disable both in the Cloudflare dashboard (recommended, consistent with the privacy positioning), or allow-list them in the CSP.
-- **Source control.** This release, like the two before it, was deployed from an uncommitted working tree. Commit it so a deployment can be rebuilt from the repository.
-- **AI model.** The assistant requests `anthropic/claude-sonnet-5`, honoured only if it is on the edge function's allow-list. Accuracy now rests on grounding and context rather than the model; a stronger model is a cost decision and needs an edge-function deploy.
-- Signed-in AI answers, sync and billing still need a staging account to verify end to end (unchanged from the 10 September report).
+- **Cloudflare zone injections.** Cloudflare injects a JavaScript-detections snippet and the Web Analytics beacon into every HTML response. The site's Content Security Policy correctly blocks both, so they log console errors and collect nothing. The local Cloudflare credentials are zone read-only, so this cannot be changed from the repository; the decision and the reasoning are now recorded in `public/_headers`. Disable both in the Cloudflare dashboard (Security → Bots; Web Analytics → automatic setup), which is the recommended fix — do not allow-list them, since the beacon is third-party and the inline snippet's hash changes whenever Cloudflare updates it.
+- **Source control.** Done: the tree is committed on `release/2026-09-12-launch-readiness` (`afe0c39`, `c16a127`), which also brings earlier sessions' uncommitted work under version control. Merging it into `main` and pushing is the remaining step.
+- **AI model.** Kept at `anthropic/claude-sonnet-5` ($2 / $10 per million tokens on OpenRouter, checked 12 September) — cheaper than Opus 5 ($5 / $25) and Fable 5.1 ($10 / $50), and stronger than the flash tier for an answer that must hold a grounding contract and a JSON schema at once. Measured prompt size is ~5,000 tokens in and ~450 out, about ₹1.3 an answer, and 70% of that input is the static system prompt — so the real saving is prompt caching at the edge function, not a cheaper model. AI usage is now costed from input and output tokens separately at checked rates.
+- Cross-device sync and billing still need a staging account and controlled fixtures to verify end to end; AI answers are now verified (above).
