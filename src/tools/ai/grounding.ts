@@ -38,7 +38,7 @@
  * Pure: no I/O, no model calls.
  */
 
-import type { AiChart, AiHighlight } from './validate';
+import type { AiChart, AiHighlight, AiUnit } from './validate';
 
 export interface GroundingReport {
   /** Currency amounts found in the answer and checked. */
@@ -59,6 +59,10 @@ export interface KnownFigures {
   money: number[];
   /** Counts, day and month numbers, and percentages. */
   counts: number[];
+  percentages: number[];
+  /** Exact values, with units and paths into the data supplied for this turn. */
+  facts: Record<string, { value: number; unit: AiUnit }>;
+
 }
 
 /* ── What a key's number is ── */
@@ -79,22 +83,32 @@ function isCountKey(key: string): boolean {
 export function collectFigures(...sources: unknown[]): KnownFigures {
   const money = new Set<number>();
   const counts = new Set<number>();
-  const walk = (value: unknown, key: string) => {
+  const percentages = new Set<number>();
+  const facts: KnownFigures['facts'] = Object.create(null);
+  const walk = (value: unknown, key: string, path: string) => {
     if (typeof value === 'number') {
-      if (!Number.isFinite(value) || value === 0) return;
-      (isCountKey(key) ? counts : money).add(Math.abs(value));
+      // Zero is kept. It is a real, checkable figure — "spent nothing this
+      // month" is the honest answer for a new account — and dropping it meant a
+      // correct ₹0 tile could never be verified, so it was withheld as if it
+      // had been invented. It grounds nothing else: a match still has to fall
+      // within the tolerance of zero.
+      if (!Number.isFinite(value)) return;
+      const unit = /pct$|percent/i.test(key) ? 'percent' : isCountKey(key) ? 'number' : 'currency';
+      (unit === 'currency' ? money : counts).add(value);
+      if (unit === 'percent') percentages.add(value);
+      facts[path] = { value, unit };
       return;
     }
     if (Array.isArray(value)) {
-      for (const v of value) walk(v, key);
+      value.forEach((v, i) => walk(v, key, `${path}.${i}`));
       return;
     }
     if (value && typeof value === 'object') {
-      for (const [k, v] of Object.entries(value as Record<string, unknown>)) walk(v, k);
+      for (const [k, v] of Object.entries(value as Record<string, unknown>)) walk(v, k, `${path}.${k}`);
     }
   };
-  for (const s of sources) walk(s, '');
-  return { money: [...money].sort((a, b) => a - b), counts: [...counts] };
+  sources.forEach((s, i) => walk(s, '', i === 0 ? 'data' : i === 1 ? 'focus' : `source${i}`));
+  return { money: [...money].sort((a, b) => a - b), counts: [...counts], percentages: [...percentages], facts };
 }
 
 /* ── Reading amounts out of prose ── */
@@ -104,8 +118,8 @@ const SCALE = String.raw`thousand|lakhs?|lacs?|crores?|million|billion|mn|bn|cr|
 const PREFIX = String.raw`US\$|AU\$|A\$|C\$|S\$|Rs\.?|INR|AED|AUD|USD|GBP|EUR|CAD|SGD|Dhs\.?|₹|\$|£|€`;
 const SUFFIX = String.raw`INR|AED|USD|GBP|EUR|AUD|CAD|SGD|rupees?|dirhams?|pounds?|dollars?|euros?`;
 
-const PREFIXED = new RegExp(String.raw`(?<![A-Za-z])(?:${PREFIX})\s?(${NUM})(?:\s?(${SCALE})(?![A-Za-z]))?`, 'g');
-const SUFFIXED = new RegExp(String.raw`(?<![\w.,$£€₹])(${NUM})(?:\s?(${SCALE}))?\s?(?:${SUFFIX})(?![A-Za-z])`, 'g');
+const PREFIXED = new RegExp(String.raw`(?<![A-Za-z])([−-]?)\s?(?:${PREFIX})\s?([−-]?)(${NUM})(?:\s?(${SCALE})(?![A-Za-z]))?`, 'g');
+const SUFFIXED = new RegExp(String.raw`(?<![\w.,$£€₹])([−-]?)(${NUM})(?:\s?(${SCALE}))?\s?(?:${SUFFIX})(?![A-Za-z])`, 'g');
 const PERCENT = new RegExp(String.raw`(${NUM})\s?%`, 'g');
 const BARE = new RegExp(String.raw`(?<![\w.,$£€₹\-/:])(${NUM})(?![\w%\-/:])`, 'g');
 
@@ -161,10 +175,14 @@ export function amountsIn(text: string): WrittenAmount[] {
     re.lastIndex = 0;
     for (let m = re.exec(text); m; m = re.exec(text)) {
       if (seen.has(m.index)) continue;
-      const { value, scale } = parse(m[1], m[2]);
-      if (!Number.isFinite(value) || value <= 0) continue;
+      const digits = re === PREFIXED ? m[3] : m[2];
+      const scaleWord = re === PREFIXED ? m[4] : m[3];
+      const parsed = parse(digits, scaleWord);
+      const negative = re === PREFIXED ? !!(m[1] || m[2]) : !!m[1];
+      const value = negative ? -parsed.value : parsed.value;
+      if (!Number.isFinite(value)) continue;
       seen.add(m.index);
-      out.push({ text: m[0].trim(), value, tolerance: toleranceOf(m[1], scale, value), at: m.index });
+      out.push({ text: m[0].trim(), value, tolerance: toleranceOf(digits, parsed.scale, Math.abs(value)), at: m.index + m[0].indexOf(m[0].trim()) });
     }
   }
   return out.sort((a, b) => a.at - b.at);
@@ -259,23 +277,27 @@ export function checkAnswer(answer: string, known: KnownFigures): Omit<Grounding
  * that is in the data. Money against the amounts, percentages against the
  * percentages, plain numbers against either.
  */
-export function highlightIsGrounded(tile: AiHighlight, known: KnownFigures): boolean {
-  const v = Math.abs(tile.value);
-  if (tile.unit === 'percent') return known.counts.some((c) => Math.abs(c - v) <= 0.6);
-  const tol = Math.max(1, v * 0.005);
-  if (tile.unit === 'currency') return near(known.money, v, tol);
-  return near(known.money, v, tol) || known.counts.some((c) => Math.abs(c - v) <= Math.max(0.6, v * 0.005));
+export function highlightIsGrounded(tile: AiHighlight, known: KnownFigures, requireSource = false): boolean {
+  return figureIsGrounded(tile, known, requireSource);
 }
 
-/**
- * A chart may only show values that are in the data, verbatim. Its axis carries
- * the user's currency, so a bar of an invented amount is indistinguishable from
- * a bar of a real one — the whole chart is withheld rather than trimmed, since a
- * comparison with a missing bar is a different comparison.
- */
-export function chartIsGrounded(chart: AiChart, known: KnownFigures): boolean {
-  const pool = chart.unit === 'percent' ? [...known.counts].sort((a, b) => a - b) : known.money;
-  return chart.points.every((p) => near(pool, Math.abs(p.value), chart.unit === 'percent'
-    ? 0.6
-    : Math.max(1, Math.abs(p.value) * 0.005)));
+function figureIsGrounded(
+  figure: { value: number; unit: AiUnit; source?: string },
+  known: KnownFigures,
+  requireSource: boolean,
+): boolean {
+  if (!Number.isFinite(figure.value)) return false;
+  if (figure.source || requireSource) {
+    const fact = figure.source ? known.facts[figure.source] : undefined;
+    // A matching amount elsewhere in the snapshot cannot justify this source.
+    return !!fact && fact.unit === figure.unit && Math.abs(fact.value - figure.value) < 0.005;
+  }
+  const pool = figure.unit === 'currency' ? known.money
+    : figure.unit === 'percent' ? known.percentages : known.counts;
+  return pool.some((value) => Math.abs(value - figure.value) < 0.005);
+}
+
+/** One unverified point invalidates the comparison, so withhold the whole chart. */
+export function chartIsGrounded(chart: AiChart, known: KnownFigures, requireSource = false): boolean {
+  return chart.points.every((point) => figureIsGrounded({ ...point, unit: chart.unit }, known, requireSource));
 }

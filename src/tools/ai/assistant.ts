@@ -11,6 +11,7 @@
  * transport's own contract.
  */
 
+import { localFinancialAnswer } from './briefing';
 import { requestCompletion } from '../../lib/ai/transport';
 import { assessConfidence, confidenceInstruction, type Confidence } from './confidence';
 import { buildSnapshot, type FinanceSnapshot, type SnapshotInput } from './context';
@@ -49,6 +50,7 @@ export interface AskSuccess extends AiAnswer {
   ok: true;
   /** Which model answered, after any server-side fallback. */
   model: string;
+  origin?: 'local' | 'ai';
   /**
    * How much data the answer stands on. Measured from the snapshot before the
    * model was called — never something the model was asked to rate about
@@ -118,6 +120,9 @@ export async function ask(opts: AskOptions): Promise<AskResult> {
   // model is told to apply come from the same reading of the evidence.
   const confidence = assessConfidence(snapshot);
 
+  const local = localFinancialAnswer(question, snapshot, !!opts.focus);
+  if (local) return { ok: true, ...local, model: 'FinatriX financial engine', origin: 'local', confidence, grounding: null };
+
   // A focus that cannot be resolved (a category that no longer exists, say) is
   // not worth failing over — the snapshot alone still answers most questions.
   let focusDetail: unknown = null;
@@ -162,9 +167,9 @@ export async function ask(opts: AskOptions): Promise<AskResult> {
   // number as the user's with no prose around it, are withheld if they miss.
   const known = collectFigures(snapshot, focusDetail);
   const checked = checkAnswer([parsed.headline, parsed.answer].filter(Boolean).join('\n'), known);
-  const highlights = parsed.highlights.filter((h) => highlightIsGrounded(h, known));
+  const highlights = parsed.highlights.filter((h) => highlightIsGrounded(h, known, true));
   const tilesWithheld = parsed.highlights.length - highlights.length;
-  const chartWithheld = parsed.chart != null && !chartIsGrounded(parsed.chart, known);
+  const chartWithheld = parsed.chart != null && !chartIsGrounded(parsed.chart, known, true);
   const grounding: GroundingReport | null = checked.checked > 0 || chartWithheld || tilesWithheld > 0
     ? { ...checked, chartWithheld, ...(tilesWithheld ? { tilesWithheld } : {}) }
     : null;

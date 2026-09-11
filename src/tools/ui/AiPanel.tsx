@@ -324,7 +324,10 @@ export default function AiPanel({ id, onClose, focus = null, openedAt = 0 }: AiP
 
         <div className="fx-ai-log" ref={listRef} role="log" aria-live="polite" aria-label="Conversation">
           <details open={signedOut || undefined} className="fx-ai-empty">
-            <summary>Setup help · no account needed</summary>
+            {/* "No account needed" is the point of this block for a visitor who
+                has not signed in. To somebody already signed in it reads as a
+                stray instruction, so they are told what it holds instead. */}
+            <summary>{signedOut ? 'Setup help · no account needed' : 'Setup help · how FinatriX works'}</summary>
             <p className="note">These are written product instructions, answered on your device.</p>
             <div className="fx-ai-chips">{SETUP_QUESTIONS.map(q => <button type="button" className="fx-ai-chip" disabled={busy} key={q} onClick={() => void send(q)}>{q}</button>)}</div>
             <p className="note" style={{ marginTop: 12 }}><a href="/welcome">Set up your month</a> · <a href="/tools/dashboard">Dashboard</a> · <a href="/tools/expenses">Expenses</a> · <a href="/tools/goals">Goals</a> · <a href="/tools/settings">Settings</a></p>
@@ -540,7 +543,9 @@ function GroundingNote({ report }: { report: GroundingReport }) {
             {' '}Treat {report.unmatched.length === 1 ? 'it' : 'those'} as a suggestion or estimate, not your data.
           </>)}
       {report.chartWithheld && <> A chart was left out because its values were not in your records.</>}
-      {!!report.tilesWithheld && <> {report.tilesWithheld === 1 ? 'A figure tile was' : `${report.tilesWithheld} figure tiles were`} left out for the same reason.</>}
+      {!!report.tilesWithheld && (report.chartWithheld
+        ? <> {report.tilesWithheld === 1 ? 'A figure tile was' : `${report.tilesWithheld} figure tiles were`} left out for the same reason.</>
+        : <> {report.tilesWithheld === 1 ? 'A figure tile was' : `${report.tilesWithheld} figure tiles were`} left out because {report.tilesWithheld === 1 ? 'its value was' : 'their values were'} not in your records.</>)}
     </p>
   );
 }

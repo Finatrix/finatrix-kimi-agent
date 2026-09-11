@@ -35,6 +35,7 @@ import {
 } from '../lib/expenseAnalytics';
 import { monthLabel, prevMonth } from '../lib/month';
 import type { PlanContext } from './planContext';
+import { comparePeriods, type PeriodComparison } from './comparison';
 
 /* ── Bounds. The edge function caps the prompt at 80k characters; these keep us
       an order of magnitude inside it, and keep the model's attention on the
@@ -135,6 +136,9 @@ export interface FinanceSnapshot {
   changeVsPreviousMonthPct: number | null;
   /** Change in money SET ASIDE vs last month. A rise here is good news. */
   savingsChangeVsPreviousMonthPct: number | null;
+
+  /** Like-for-like windows, preferred over a partial month vs a full month. */
+  comparablePeriod: PeriodComparison | null;
 
   categories: CategoryPoint[];
   largestTransactions: TransactionPoint[];
@@ -310,6 +314,7 @@ export function buildSnapshot({
       ? Math.round(((thisSplit.setAsideTotal - prevSplit.setAsideTotal) / prevSplit.setAsideTotal) * 100)
       : null,
 
+    comparablePeriod: comparePeriods({ items, cats, budgetStore, month, currency, now }),
     categories,
     largestTransactions,
     recurring,

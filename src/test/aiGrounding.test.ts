@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  amountsIn, checkAnswer, chartIsGrounded, collectFigures,
+  amountsIn, checkAnswer, chartIsGrounded, collectFigures, highlightIsGrounded,
 } from '../tools/ai/grounding';
 import { buildSnapshot } from '../tools/ai/context';
 import { mergedCats } from '../tools/lib/budget';
@@ -105,6 +105,28 @@ describe('checking amounts against the data', () => {
     const r = checkAnswer('Cap dining at ₹3,500.\nAgain: ₹3,500 is the cap.', known);
     expect(r.unmatched).toEqual(['₹3,500']);
     expect(r.checked).toBe(2);
+  });
+});
+
+describe('figure tiles', () => {
+  const known = collectFigures({ totalSpent: 0, income: 95000, percentOfBudgetUsed: 39, daysRemaining: 18 });
+
+  it('grounds a zero, which is a real figure', () => {
+    // A new month genuinely has nothing spent in it. Treating zero as absent
+    // withheld the correct tile as if it had been invented — seen on a live
+    // account whose September had no transactions.
+    expect(highlightIsGrounded({ label: 'Spent', value: 0, unit: 'currency', tone: 'neutral' }, known)).toBe(true);
+  });
+
+  it('grounds money, percentages and counts against the right pool', () => {
+    expect(highlightIsGrounded({ label: 'Income', value: 95000, unit: 'currency', tone: 'neutral' }, known)).toBe(true);
+    expect(highlightIsGrounded({ label: 'Used', value: 39, unit: 'percent', tone: 'warn' }, known)).toBe(true);
+    expect(highlightIsGrounded({ label: 'Days left', value: 18, unit: 'number', tone: 'neutral' }, known)).toBe(true);
+  });
+
+  it('withholds a tile the data does not contain', () => {
+    expect(highlightIsGrounded({ label: 'Spent', value: 7300, unit: 'currency', tone: 'neutral' }, known)).toBe(false);
+    expect(highlightIsGrounded({ label: 'Used', value: 71, unit: 'percent', tone: 'warn' }, known)).toBe(false);
   });
 });
 

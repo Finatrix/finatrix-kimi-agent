@@ -27,6 +27,8 @@ const MAX_HIGHLIGHTS = 4;
 export interface AiChartPoint {
   label: string;
   value: number;
+  /** Exact numeric field in the snapshot, e.g. data.categories.0.spent. */
+  source?: string;
 }
 
 /**
@@ -56,6 +58,8 @@ export type AiTone = 'neutral' | 'good' | 'warn' | 'bad';
 export interface AiHighlight {
   label: string;
   value: number;
+  /** Exact numeric field in the snapshot, e.g. data.categories.0.spent. */
+  source?: string;
   unit: AiUnit;
   tone: AiTone;
 }
@@ -141,10 +145,10 @@ function parseHighlights(input: unknown): AiHighlight[] {
     if (!item || typeof item !== 'object') continue;
     const row = item as Record<string, unknown>;
     const label = sanitizeField(row.label, 40);
-    const value = Number(row.value);
+    const value = typeof row.value === 'number' ? row.value : NaN;
     if (!label || !Number.isFinite(value)) continue;
     const tone: AiTone = row.tone === 'good' || row.tone === 'warn' || row.tone === 'bad' ? row.tone : 'neutral';
-    out.push({ label, value, unit: parseUnit(row.unit), tone });
+    out.push({ label, value, unit: parseUnit(row.unit), tone, ...parseSource(row.source) });
     if (out.length >= MAX_HIGHLIGHTS) break;
   }
   return out;
@@ -172,12 +176,12 @@ function parseChart(input: unknown, illustrative: boolean): AiChart | null {
     if (!p || typeof p !== 'object') continue;
     const row = p as Record<string, unknown>;
     const label = sanitizeField(row.label, 40);
-    const value = Number(row.value);
+    const value = typeof row.value === 'number' ? row.value : NaN;
     // A non-finite or negative value cannot be drawn honestly, so the point is
     // dropped rather than clamped into something the data never said. A donut
     // slice of zero is not a slice.
     if (!label || !Number.isFinite(value) || value < 0 || (type === 'donut' && value === 0)) continue;
-    points.push({ label, value });
+    points.push({ label, value, ...parseSource(row.source) });
     if (points.length >= MAX_CHART_POINTS[type]) break;
   }
   if (points.length < MIN_CHART_POINTS) return null;
@@ -194,4 +198,11 @@ function parseChart(input: unknown, illustrative: boolean): AiChart | null {
     points,
     ...(illustrative ? { illustrative: true } : {}),
   };
+}
+
+function parseSource(value: unknown): { source?: string } {
+  if (typeof value !== 'string') return {};
+  // No prototype keys or executable expressions; paths only index the fact map.
+  return /^(data|focus)(\.[A-Za-z0-9_]+)+$/.test(value) && value.length <= 200
+    ? { source: value } : {};
 }
