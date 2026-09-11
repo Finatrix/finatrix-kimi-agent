@@ -87,7 +87,11 @@ const TOGGLE_STYLES = `
   border:1px solid var(--hair);
   box-shadow:inset 0 1px 2px rgba(0,0,0,.16);
   transition:background var(--ctl-trans),border-color var(--ctl-trans),box-shadow var(--ctl-trans);}
-.fx-tools .fx-tgl-sm .fx-tgl-track{width:40px;height:23px;}
+/* 24px, not 23: WCAG 2.2 (2.5.8) sets a hard 24x24 floor for a pointer
+   target, and the small switch missed it by a single pixel — enough for
+   axe to fail every panel switch on /tools/expenses. The knob and the
+   travel distance are unchanged, so nothing about it looks different. */
+.fx-tools .fx-tgl-sm .fx-tgl-track{width:40px;height:24px;}
 .fx-tools .fx-tgl-md .fx-tgl-track{width:48px;height:28px;}
 
 .fx-tools .fx-tgl-knob{position:absolute;top:50%;left:2px;transform:translateY(-50%);

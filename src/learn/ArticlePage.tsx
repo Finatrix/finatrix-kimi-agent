@@ -19,6 +19,7 @@ import NotFound from '../pages/NotFound';
 import PageShell from '../marketing/PageShell';
 import { Faq, Section } from '../marketing/ui';
 import { TOOLS } from '../lib/tools';
+import { ScopeBadge, ScopeNote } from './ScopeBadge';
 import { applyContentSchema } from '../lib/seo';
 import { readingMinutes } from '../content/readingTime';
 import type { ArticleContent } from '../content/types';
@@ -28,6 +29,7 @@ import {
   articleFor,
   articlePath,
   contentLinkFor,
+  scopeForArticle,
   topicFor,
   topicPath,
   type Article,
@@ -202,6 +204,10 @@ export default function ArticlePage() {
     .map((id) => TOOLS.find((t) => t.id === id))
     .filter((t) => t !== undefined);
 
+  // Inherited from the topic unless the article overrides it — one resolver, so
+  // the badge here and the `contentLocation` in the JSON-LD cannot disagree.
+  const scope = scopeForArticle(article);
+
   return (
     <PageShell
       heading={article.heading}
@@ -221,9 +227,17 @@ export default function ArticlePage() {
               {AUTHOR.name}
             </Link>
           </span>
+          {scope && (
+            <>
+              <span aria-hidden="true">·</span>
+              <ScopeBadge scope={scope} />
+            </>
+          )}
         </>
       }
       hero={
+        <>
+        <ScopeNote scope={scope} />
         <div className="mt-8 rounded-[18px] border border-hairline bg-surface-2 p-6">
           <h2 className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent-text">
             In short
@@ -232,6 +246,7 @@ export default function ArticlePage() {
             <ArticleHero article={article} />
           </Suspense>
         </div>
+        </>
       }
     >
       <Suspense fallback={<Lines widths={[92, 78, 85, 60]} />}>

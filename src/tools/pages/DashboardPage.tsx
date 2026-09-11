@@ -3,15 +3,15 @@ import { Link } from 'react-router';
 import { useCurrency } from '../CurrencyContext';
 import { readDashboard, type DashboardSnapshot, type Pillar } from '../lib/dashboard';
 import { getUpcomingEvents } from '../lib/calendar';
+import { onLocalWrite } from '../lib/storage';
+import DashboardPlanning, { DashboardGuide } from '../ui/DashboardPlanning';
+import { monthLabel, currentMonth } from '../lib/month';
 import {
   DASH_SECTIONS, getDashPrefs, toggleSection, moveSection, resetDashPrefs,
   type DashPrefs, type DashSectionId,
 } from '../lib/dashboardPrefs';
 
 /* ─────────────────────────── motion helpers ─────────────────────────── */
-const reduce = () =>
-  typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-
 function timeAgo(ts: number): string {
   const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
   if (s < 60) return 'just now';
@@ -22,67 +22,6 @@ function timeAgo(ts: number): string {
   const d = Math.floor(h / 24);
   if (d < 7) return `${d}d ago`;
   return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
-
-/** Ease-out count-up used by the score + headline figures. Honors reduced motion. */
-function useCountUp(target: number, ms = 900): number {
-  const [v, setV] = useState(() => (reduce() ? target : 0));
-  useEffect(() => {
-    // Reduced motion: jump straight to the value (and keep it in sync when the
-    // target prop changes). Intentional sync set — there is nothing to animate.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (reduce()) { setV(target); return; }
-    let raf = 0;
-    const start = performance.now();
-    const tick = (now: number) => {
-      const p = Math.min(1, (now - start) / ms);
-      const eased = 1 - Math.pow(1 - p, 3);
-      setV(target * eased);
-      if (p < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [target, ms]);
-  return v;
-}
-
-/* ─────────────────────────── health ring ─────────────────────────── */
-function HealthRing({ score }: { score: number | null }) {
-  const shown = useCountUp(score ?? 0);
-  const pct = score == null ? 0 : Math.max(0, Math.min(100, shown)) / 100;
-  const R = 52;
-  const C = 2 * Math.PI * R;
-  return (
-    <div style={{ position: 'relative', width: 148, height: 148, flex: '0 0 auto' }}>
-      <svg width="148" height="148" viewBox="0 0 148 148" aria-hidden="true">
-        <defs>
-          <linearGradient id="fxHealthArc" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#EAD27E" />
-            <stop offset="100%" stopColor="#C9A23C" />
-          </linearGradient>
-        </defs>
-        <circle cx="74" cy="74" r={R} fill="none" stroke="var(--hair)" strokeWidth="10" />
-        <circle
-          cx="74" cy="74" r={R} fill="none"
-          stroke={score == null ? 'var(--hair)' : 'url(#fxHealthArc)'}
-          strokeWidth="10" strokeLinecap="round"
-          strokeDasharray={C}
-          strokeDashoffset={C * (1 - pct)}
-          transform="rotate(-90 74 74)"
-        />
-      </svg>
-      <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', textAlign: 'center' }}>
-        <div>
-          <div style={{ fontSize: 38, fontWeight: 700, letterSpacing: '-.03em', lineHeight: 1, color: 'var(--ink)' }}>
-            {score == null ? '—' : Math.round(shown)}
-          </div>
-          <div style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--ink3)', marginTop: 4 }}>
-            / 100
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 /* ─────────────────────────── journey stepper ─────────────────────────── */
@@ -190,7 +129,9 @@ export default function DashboardPage() {
   useEffect(() => {
     const onFocus = () => setTick((t) => t + 1);
     window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
+    window.addEventListener('storage', onFocus);
+    const off = onLocalWrite(key => { if (key !== 'fx_planning') onFocus(); });
+    return () => { off(); window.removeEventListener('focus', onFocus); window.removeEventListener('storage', onFocus); };
   }, []);
   // `tick` is an intentional recompute trigger (focus / local writes); reference
   // it so the dependency is honoured without the linter flagging it as unused.
@@ -312,28 +253,27 @@ export default function DashboardPage() {
       {/* ── Hero: score + greeting + KPIs ── */}
       <section className="fx-dash-hero card" aria-labelledby="fx-dash-title">
         <div className="fx-dash-hero-main">
-          <HealthRing score={snap.healthScore} />
           <span className="sr-only">
             {snap.healthScore == null
               ? 'Financial health score not yet calculated. Complete a tool to begin.'
               : `Financial health score: ${snap.healthScore} out of 100 — ${snap.healthLabel}. ${snap.healthBasis}`}
           </span>
           <div style={{ minWidth: 0 }}>
-            <div className="eyebrow">Financial health</div>
+            <div className="eyebrow">{monthLabel(currentMonth())}</div>
             <h1 id="fx-dash-title" style={{ fontSize: 'clamp(24px,3.4vw,32px)', fontWeight: 700, letterSpacing: '-.025em', lineHeight: 1.05, marginTop: 8, color: 'var(--ink)' }}>
-              {snap.healthScore == null ? `${greeting()}.` : `${snap.healthLabel}.`}
+              Your money, this month.
             </h1>
             <p style={{ fontSize: 14.5, color: 'var(--ink2)', marginTop: 8, lineHeight: 1.55, maxWidth: 440 }}>
               {snap.healthScore == null
-                ? 'Set up your first tool and FinatriX turns it into one clear picture of your money.'
-                : snap.healthBasis}
+                ? `${greeting()}. Start with your income and spending. Your dashboard will take shape as you add your records.`
+                : 'Your recorded income, spending and plans in one place. Review the figures, then choose your next step.'}
             </p>
             <details className="fx-method">
-              <summary>How this score is calculated</summary>
+              <summary>{snap.healthScore == null ? 'About the educational score' : `Educational score: ${snap.healthScore}/100 · how it works`}</summary>
               <p>
                 Your score is the average of the areas you've set up — savings rate (Budget),
                 spending discipline (Expenses), goal progress, and your investing plan. It rises
-                as you complete more tools. Everything is computed privately on your device.
+                or falls with the underlying inputs. Calculated on your device; this is an educational indicator, not a credit score or a full assessment of financial security.
               </p>
             </details>
           </div>
@@ -341,19 +281,19 @@ export default function DashboardPage() {
 
         {snap.hasAnyData ? (
           <div className="fx-kpi-grid" role="group" aria-label="Key figures">
-            <StatCell label="Monthly income" value={snap.income != null ? cfmt(snap.income) : '—'} />
-            <StatCell label="Savings rate" value={snap.savingsRatePct != null ? `${snap.savingsRatePct}%` : '—'} sub={snap.savingsRatePct != null ? (snap.savingsRatePct >= 20 ? 'On target' : 'Below 20% target') : undefined} />
-            <StatCell label="Spent this month" value={snap.monthlySpend != null ? cfmt(snap.monthlySpend) : '—'} />
+            <StatCell label="Budgeted income" value={snap.income != null ? cfmt(snap.income) : '—'} />
+            <StatCell label="Planned savings rate" value={snap.savingsRatePct != null ? `${snap.savingsRatePct}%` : '—'} sub={snap.savingsRatePct != null ? 'Based on your budget allocation' : undefined} />
+            <StatCell label="Recorded spending" value={snap.monthlySpend != null ? cfmt(snap.monthlySpend) : '—'} />
             <StatCell
-              label="Net cashflow"
+              label="Income less spending"
               value={snap.netCashflow != null ? cfmt(snap.netCashflow) : '—'}
-              sub={snap.netCashflow != null ? (snap.netCashflow >= 0 ? 'Positive' : 'Overspending') : undefined}
+              sub={snap.netCashflow != null ? 'Before savings and transfers' : undefined}
             />
           </div>
         ) : (
           <div className="fx-kpi-empty">
             <Link to="/welcome" className="btn" style={{ textDecoration: 'none' }}>
-              Set up in a minute
+              Set up your month
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
             </Link>
             {snap.nextAction && (
@@ -361,37 +301,34 @@ export default function DashboardPage() {
                 or start with {snap.nextAction.label}
               </Link>
             )}
-            <span style={{ fontSize: 12.5, color: 'var(--ink3)' }}>No sign-up needed · everything stays on your device</span>
+            <span style={{ fontSize: 12.5, color: 'var(--ink3)' }}>Start without an account. Sign in when you want cloud sync.</span>
           </div>
         )}
       </section>
 
-      {/* ── Journey ── */}
-      <section className="card" aria-labelledby="fx-journey-title" style={{ padding: '22px 24px' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-          <div>
-            <div className="panel-eyebrow" id="fx-journey-title">Your financial journey</div>
-            <div className="panel-sub" style={{ marginTop: 4 }}>
-              {snap.activeCount} of {snap.totalPillars} steps active{snap.nextAction ? ` · next: ${snap.nextAction.label}` : ' · you’re all set'}
-            </div>
-          </div>
-          <div className="fx-journey-progress" aria-hidden="true">
-            <span style={{ width: `${Math.round((snap.activeCount / snap.totalPillars) * 100)}%` }} />
-          </div>
-        </div>
+      <DashboardGuide hasData={snap.hasAnyData} />
+
+      <nav className="fx-dash-sections" aria-label="Dashboard sections">
+        <a href="#monthly-review">Monthly review</a>
+        <a href="#recurring-payments">Recurring payments</a>
+        <a href="#emergency-fund">Emergency fund</a>
+        <Link to="/tools/goals">Compare goal scenarios</Link>
+      </nav>
+      <details className="card fx-dash-library">
+        <summary>Explore your finance tools · {snap.activeCount} in use</summary>
         <Journey pillars={snap.pillars} nextId={nextId} />
-      </section>
+      </details>
 
       {/* ── Connected metric cards ── */}
       <div className="fx-dash-grid">
         {/* Cashflow */}
         {snap.income != null ? (
-          <CardShell eyebrow="Cashflow" href="/tools/budget" cta="Budget">
+          <CardShell eyebrow="Income less spending" href="/tools/budget" cta="Budget">
             <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--ink)' }}>
               {snap.netCashflow != null ? cfmt(snap.netCashflow) : cfmt(snap.income)}
             </div>
             <div style={{ fontSize: 12.5, color: 'var(--ink2)', marginTop: 4 }}>
-              {snap.monthlySpend != null ? `${cfmtSh(snap.income)} in · ${cfmtSh(snap.monthlySpend)} out` : 'Left after this month’s spending'}
+              {snap.monthlySpend != null ? `${cfmtSh(snap.income)} budgeted income · ${cfmtSh(snap.monthlySpend)} recorded spending` : 'Add expense entries to see this month’s spending'}
             </div>
             {snap.monthlySpend != null && snap.income > 0 && (
               <div style={{ display: 'flex', height: 8, borderRadius: 980, overflow: 'hidden', background: 'var(--hair2)', marginTop: 14 }}>
@@ -408,7 +345,12 @@ export default function DashboardPage() {
           <CardShell eyebrow="Top goal" href="/tools/goals" cta="Goals">
             <div style={{ fontSize: 16, fontWeight: 650, color: 'var(--ink)', letterSpacing: '-.01em' }}>{snap.goal.name}</div>
             <div style={{ fontSize: 12.5, color: 'var(--ink2)', marginTop: 3 }}>
-              {cfmtSh(snap.goal.target)} in {snap.goal.years} yrs · {cfmt(snap.goal.monthlySip)}/mo
+              {cfmtSh(snap.goal.target)} in {snap.goal.years} yrs · {snap.goal.monthlyRange.low === snap.goal.monthlyRange.high
+                ? `${cfmt(snap.goal.monthlyRange.low)}/mo`
+                : `${cfmt(snap.goal.monthlyRange.low)}–${cfmt(snap.goal.monthlyRange.high)}/mo`}
+            </div>
+            <div style={{ fontSize: 11.5, color: 'var(--ink3)', marginTop: 2 }}>
+              Monthly amount depends on the return path you choose
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14 }}>
               <div style={{ flex: 1, height: 8, borderRadius: 980, overflow: 'hidden', background: 'var(--hair2)' }}>
@@ -418,7 +360,7 @@ export default function DashboardPage() {
             </div>
           </CardShell>
         ) : (
-          <SetupCard eyebrow="Goals" title="Set a target" desc="Name a goal and work back to the exact monthly SIP that reaches it." href="/tools/goals" cta="Open Goals" />
+          <SetupCard eyebrow="Goals" title="Set a target" desc="Estimate a monthly contribution and compare different deadlines." href="/tools/goals" cta="Open Goals" />
         )}
 
         {/* Investments */}
@@ -487,6 +429,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Customise dashboard ── */}
+      <DashboardPlanning />
       {snap.hasAnyData && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', margin: '2px 0 -4px' }}>
           <button
@@ -565,7 +508,7 @@ export default function DashboardPage() {
           Computed privately on your device
         </span>
         <span aria-hidden="true">·</span>
-        <span>Educational tools, not financial advice</span>
+        <span>Educational tools, not financial advice · <Link to="/editorial-standards">How we check our work</Link> · <Link to="/contact">Contact FinatriX</Link> · <Link to="/tools/settings">Privacy controls</Link></span>
         <span aria-hidden="true">·</span>
         <span>Updated {updated}</span>
       </div>
@@ -579,6 +522,9 @@ export default function DashboardPage() {
 function DashStyles() {
   return (
     <style>{`
+      .fx-dash-sections { display: flex; gap: 10px 24px; flex-wrap: wrap; margin: 20px 0; }
+      .fx-dash-sections a { padding: 6px 0; min-height: 32px; color: var(--accent-text); text-decoration: underline; text-underline-offset: 5px; font-size: 13px; }
+      .fx-dash-library summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--ink2); min-height: 24px; }
       .fx-dash-hero { padding: 24px; display: grid; grid-template-columns: 1.15fr 1fr; gap: 26px; align-items: center; }
       .fx-dash-hero-main { display: flex; gap: 22px; align-items: center; min-width: 0; }
       .fx-kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -610,7 +556,7 @@ function DashStyles() {
          type alone, and as standalone links (not inline in a sentence) they
          owe WCAG 2.2 (2.5.8) a 24px target. The box grows, the type does not,
          so the visual weight of the card footer is unchanged. */
-      .fx-card-cta { display: inline-flex; align-items: center; gap: 4px; min-height: 24px; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--ink3); text-decoration: none; transition: color var(--ctl-trans), gap var(--ctl-trans); white-space: nowrap; }
+      .fx-card-cta { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; font-size: 12px; font-weight: 600; color: var(--ink2); text-decoration: none; transition: color var(--ctl-trans), gap var(--ctl-trans); white-space: nowrap; }
       .fx-card-cta:hover { color: var(--accent-text); gap: 7px; }
       .fx-setup-card { border-style: dashed !important; }
       .fx-setup-card:hover { border-color: rgba(212,175,55,.5) !important; }

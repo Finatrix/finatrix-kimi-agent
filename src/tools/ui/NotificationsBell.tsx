@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
+import { useAnchoredPanelWidth } from '../../hooks/useAnchoredPanelWidth';
 import { Icon } from './Icon';
 import { onLocalWrite } from '../lib/storage';
 import { buildNotifications, isRead, markAllRead, dismiss, type FinNotification } from '../lib/notifications';
@@ -12,7 +13,10 @@ const TONE_COLOR: Record<FinNotification['tone'], string> = {
 export function NotificationsBell() {
   const [open, setOpen] = useState(false);
   const [, setTick] = useState(0);
-  const wrapRef = useRef<HTMLDivElement>(null);
+  // One ref, two jobs: the outside-click test and the width measurement both
+  // need the wrapper's box, and a second ref on the same node would be two
+  // things to keep in sync.
+  const { anchorRef: wrapRef, panelStyle, measurePanel } = useAnchoredPanelWidth<HTMLDivElement>(open);
 
   // Recompute when any tool writes (spend logged, budget changed, etc.).
   useEffect(() => onLocalWrite(() => setTick((t) => t + 1)), []);
@@ -33,10 +37,13 @@ export function NotificationsBell() {
       document.removeEventListener('mousedown', onDown);
       document.removeEventListener('keydown', onKey);
     };
-  }, [open]);
+  }, [open, wrapRef]);
 
   const toggle = () => {
     const next = !open;
+    // Measured before the panel exists, from the anchor that already does: the
+    // panel is right on its first frame rather than after a correction.
+    if (next) measurePanel();
     setOpen(next);
     if (next && unread > 0) {
       // Mark read a tick later so the unread styling is visible as it opens.
@@ -63,7 +70,12 @@ export function NotificationsBell() {
         {unread > 0 && <span className="bell-dot">{unread > 9 ? '9+' : unread}</span>}
       </button>
       {open && (
-        <div className="bell-panel" role="menu" aria-label="Notifications">
+        <div
+          className="bell-panel"
+          role="menu"
+          aria-label="Notifications"
+          style={panelStyle}
+        >
           <div className="bell-head">
             <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>Notifications</span>
             {items.length > 0 && (

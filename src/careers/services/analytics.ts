@@ -6,6 +6,7 @@
  */
 
 import { supabase } from '../../lib/supabase';
+import { analyticsOptedOut, browserPrivacyRequested } from '../../lib/privacyPreferences';
 
 export type CareersEvent =
   | 'upload_started'
@@ -24,7 +25,7 @@ export function setAnalyticsEnabled(enabled: boolean) {
 }
 
 export function trackEvent(event: CareersEvent, value?: number, meta?: Record<string, string | number>) {
-  if (!analyticsEnabled) return;
+  if (!analyticsEnabled || analyticsOptedOut() || browserPrivacyRequested()) return;
   void supabase
     .from('careers_analytics')
     .insert({ event, value: value ?? null, meta: meta ?? {} })

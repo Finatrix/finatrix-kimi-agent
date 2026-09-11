@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router'
 import ErrorBoundary from './components/ErrorBoundary'
 import LoginReminderModal from './components/LoginReminderModal'
 import RouteFallback from './components/RouteFallback'
+import { useScrollRestoration } from './hooks/useScrollRestoration'
 import { trackPageView } from './lib/analytics'
 import { applySeo } from './lib/seo'
 import { RESET_PASSWORD_PATH } from './shared/routes'
@@ -101,6 +102,18 @@ function RouteMetadata() {
   return null
 }
 
+/**
+ * Where each navigation lands: top for a new page, the saved offset for
+ * back/forward, the target element for a `#fragment`. A leaf component rather
+ * than a hook call in `App` so that subscribing to the location does not
+ * re-render the whole route table on every navigation.
+ * See hooks/useScrollRestoration.ts.
+ */
+function ScrollManager() {
+  useScrollRestoration()
+  return null
+}
+
 export default function App() {
   return (
     <ErrorBoundary>
@@ -111,6 +124,7 @@ export default function App() {
         Skip to content
       </a>
       <RouteMetadata />
+      <ScrollManager />
       <Suspense fallback={<RouteFallback />}>
         {/* The single `main` landmark for the whole app (WCAG 1.3.1). This was
             a plain <div>, which gave screen-reader users no way to jump to the

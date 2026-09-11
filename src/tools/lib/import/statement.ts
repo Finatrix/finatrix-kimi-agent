@@ -23,7 +23,7 @@
 
 import { sanitizeField } from '../../../lib/sanitize';
 import { parseAmount, parseStatementDate, detectDateOrder } from './fields';
-import type { DateOrder, StatementDoc, StatementRow } from './types';
+import type { DateOrder, SourceKind, StatementDoc, StatementRow } from './types';
 
 /** A date at the very start of a line — the marker for "a new row begins here". */
 const LEADING_DATE_RE =
@@ -84,7 +84,12 @@ function moneyTokens(line: string): MoneyToken[] {
  * the caller reports "no transactions found" with the page count, which is more
  * useful than an exception.
  */
-export function parseTextStatement(text: string, now: Date = new Date()): StatementDoc {
+export function parseTextStatement(
+  text: string,
+  now: Date = new Date(),
+  /** Where the text came from. OCR output is the same shape, less trustworthy. */
+  source: SourceKind = 'pdf-text',
+): StatementDoc {
   const lines = text.split('\n').map((l) => l.replace(/\s+$/, ''));
 
   // Date order is settled over the whole document first, exactly as for CSV.
@@ -161,7 +166,7 @@ export function parseTextStatement(text: string, now: Date = new Date()): Statem
   });
 
   return {
-    source: 'pdf-text',
+    source,
     rows,
     currency: sniffStatementCurrency(text),
     openingBalance,

@@ -14,7 +14,8 @@
 
 import { store, getJSON, setJSON } from '../lib/storage';
 import type { Confidence } from './confidence';
-import type { AiChart } from './validate';
+import type { GroundingReport } from './grounding';
+import type { AiChart, AiHighlight } from './validate';
 
 const PREFIX = 'fx_ai_chat_';
 /** Kept short: this is context for a follow-up, not an archive. */
@@ -28,10 +29,16 @@ export interface ChatMessage {
   at: string;
   /** Assistant turns only. */
   model?: string;
+  /** The answer in one sentence, shown above the rest. */
+  headline?: string;
+  /** Key figures as tiles, already checked against the data. */
+  highlights?: AiHighlight[];
   chart?: AiChart | null;
   followUps?: string[];
   /** How much data the answer stood on, measured when it was given. */
   confidence?: Confidence;
+  /** Which of its amounts traced to the user's records, checked when it was given. */
+  grounding?: GroundingReport;
   /** What the question was about, for the subject line above a turn. */
   focusTitle?: string;
   /** True when this turn is a failure notice rather than an answer. */

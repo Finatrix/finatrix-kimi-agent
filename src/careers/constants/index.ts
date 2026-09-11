@@ -77,6 +77,63 @@ export const CAREERS_HIDDEN_SECTIONS = [
   { id: 'admin', name: 'Admin Dashboard', href: CAREERS_ROUTES.admin },
 ] as const;
 
+/**
+ * The sections above, grouped by the job the user is trying to do, for the
+ * "More" disclosure in the primary nav and the mobile drawer.
+ *
+ * Why this exists: the 7-item tab bar is a deliberate focus decision and stays
+ * as it is, but the other ten sections were reachable only from a "More tools"
+ * list *inside Settings* or the command palette. Settings is where you
+ * configure a product, not where you navigate it, so half of Careers was
+ * effectively undiscoverable by anyone who does not use keyboard shortcuts.
+ * Grouping them behind one disclosure in the nav keeps the bar at seven while
+ * putting every section two clicks from anywhere.
+ *
+ * `upload` and `profile` are deliberately absent: Upload is the primary action
+ * on the Resume Library and dashboard, and Career Profile is reached from the
+ * dashboard's Career DNA card — both already have stronger entry points than a
+ * menu row. `admin` is RBAC-gated and rendered separately.
+ */
+export const CAREERS_SECTION_GROUPS = [
+  {
+    id: 'pipeline',
+    name: 'Pipeline',
+    items: [
+      { id: 'queue', name: 'Match Queue', href: CAREERS_ROUTES.queue },
+      { id: 'tasks', name: 'Tasks', href: CAREERS_ROUTES.tasks },
+      { id: 'assessments', name: 'Assessments', href: CAREERS_ROUTES.assessments },
+      { id: 'offers', name: 'Offers', href: CAREERS_ROUTES.offers },
+    ],
+  },
+  {
+    id: 'research',
+    name: 'Research',
+    items: [
+      { id: 'companies', name: 'Companies', href: CAREERS_ROUTES.companies },
+      { id: 'intelligence', name: 'Company Intelligence', href: CAREERS_ROUTES.intelligence },
+      { id: 'knowledge', name: 'Knowledge Base', href: CAREERS_ROUTES.knowledge },
+    ],
+  },
+  {
+    id: 'people',
+    name: 'People',
+    items: [
+      { id: 'recruiters', name: 'Recruiters', href: CAREERS_ROUTES.recruiters },
+      { id: 'network', name: 'Network', href: CAREERS_ROUTES.network },
+    ],
+  },
+  {
+    id: 'account',
+    name: 'Account',
+    items: [{ id: 'billing', name: 'Billing', href: CAREERS_ROUTES.billing }],
+  },
+] as const;
+
+/** Flat set of every section id reachable from the "More" disclosure. */
+export const CAREERS_MORE_IDS: readonly string[] = CAREERS_SECTION_GROUPS.flatMap((g) =>
+  g.items.map((i) => i.id)
+);
+
 // ─────────────────────────── uploads ───────────────────────────
 
 export const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB

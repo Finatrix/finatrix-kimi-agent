@@ -9,11 +9,10 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
-import { Tabs } from '../../tools/ui/Tabs';
+import { PlanGrid, type BillingPeriod } from '../../marketing/PlanCards';
 import { Icon } from '../../tools/ui/Icon';
 import { track } from '../../lib/analytics';
-import { listPlans, startCheckout, type BillingPeriod } from '../services/subscriptions';
-import type { SubscriptionPlanRow } from '../types/phase4';
+import { startCheckout } from '../services/subscriptions';
 
 const FEATURES = [
   'AI Match Score',
@@ -25,28 +24,23 @@ const FEATURES = [
   'Faster Job Discovery',
 ];
 
-const PERIODS = [
-  { key: 'monthly' as const, label: 'Monthly' },
-  { key: 'yearly' as const, label: 'Yearly' },
-];
-
 export default function CareersProPaywall() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { notify } = useToast();
 
-  const [plans, setPlans] = useState<SubscriptionPlanRow[]>([]);
   const [period, setPeriod] = useState<BillingPeriod>('monthly');
   const [busy, setBusy] = useState('');
 
+  // The plan list is no longer fetched here. It used to come from
+  // `listPlans()`, which meant a network round-trip stood between a blocked
+  // user and the only screen that can unblock them — and rendered nothing at
+  // all if the request failed. The copy is a constant that `plans.test.ts`
+  // pins against the database seed, and checkout still prices server-side from
+  // that table, so the paywall now paints instantly and cannot mis-charge.
   useEffect(() => {
     track('careers_paywall_view');
-    void listPlans().then(setPlans).catch(() => setPlans([]));
   }, []);
-
-  const paidPlans = plans
-    .filter((p) => p.id !== 'free')
-    .sort((a, b) => a.sort_order - b.sort_order);
 
   const subscribe = async (planId: string) => {
     if (!user) return;
@@ -58,12 +52,7 @@ export default function CareersProPaywall() {
       setBusy('');
       return;
     }
-    // Full-page navigation to Stripe Checkout — the same pattern BillingPage
-    // uses for the identical call, which lints clean. eslint-plugin-react-hooks
-    // v7's compiler-derived `immutability` rule flags this assignment here but
-    // not there; A/B tested by swapping each file's content into the other's
-    // path — the trigger tracks unrelated surrounding JSX shape, not this line.
-    // eslint-disable-next-line react-hooks/immutability -- verified false positive, see above
+    // Navigate to the hosted checkout returned by the billing service.
     window.location.href = result.url;
   };
 
@@ -110,40 +99,28 @@ export default function CareersProPaywall() {
         </ul>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 18 }}>
-        <Tabs items={PERIODS} active={period} onChange={setPeriod} label="Billing period" />
-      </div>
+      {/* The same plan card `/pricing` and the public /careers page render.
+          This surface used to draw its own, weaker version: no featured plan,
+          no yearly saving, no "who is this for" line, and every button reading
+          "Start Careers Pro" so a screen-reader user heard the same label four
+          times (WCAG 2.4.4). A buyer now sees one consistent answer to "what
+          does it cost" whichever door they came through.
 
-      <div className="dash-grid" style={{ marginBottom: 24 }}>
-        {paidPlans.map((p) => {
-          const price = period === 'yearly' ? p.price_yearly : p.price_monthly;
-          const canCheckout = price > 0;
-          return (
-            <div key={p.id} className="card fx-pro-card" style={{ padding: 20 }}>
-              <b>{p.name}</b>
-              <div style={{ fontSize: 24, fontWeight: 700, margin: '8px 0' }}>
-                {canCheckout ? `${p.currency} ${price.toLocaleString()}/${period === 'yearly' ? 'yr' : 'mo'}` : 'Contact us'}
-              </div>
-              <ul style={{ fontSize: 12.5, color: 'var(--ink2)', paddingLeft: 18, marginBottom: 14 }}>
-                {p.features.map((f) => <li key={f}>{f}</li>)}
-              </ul>
-              {canCheckout ? (
-                <button
-                  className={`btn ${busy === p.id ? 'btn-loading' : ''}`}
-                  style={{ width: '100%' }}
-                  disabled={!!busy}
-                  onClick={() => void subscribe(p.id)}
-                >
-                  Start Careers Pro
-                </button>
-              ) : (
-                <a className="btn btn-ghost" style={{ width: '100%', textAlign: 'center', display: 'block' }} href="mailto:finatrix.hub@gmail.com?subject=Careers%20Enterprise">
-                  Contact us
-                </a>
-              )}
-            </div>
-          );
-        })}
+          Plan COPY comes from shared/plans (public, crawlable, and the same
+          source /pricing quotes); the PRICE CHARGED still comes from the
+          database server-side at checkout, so this cannot cause a wrong charge
+          — `plans.test.ts` fails if the two ever disagree. */}
+      <div style={{ marginBottom: 24 }}>
+        <PlanGrid
+          period={period}
+          onPeriodChange={setPeriod}
+          cta={{
+            kind: 'action',
+            onSelect: (planId) => void subscribe(planId),
+            busyPlanId: busy || undefined,
+            label: (plan) => `Start ${plan.name}`,
+          }}
+        />
       </div>
 
       {/* A paywall that offers only "buy" and "leave" loses everyone who simply

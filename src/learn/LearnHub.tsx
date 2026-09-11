@@ -11,6 +11,7 @@ import { Link } from 'react-router';
 import PageShell from '../marketing/PageShell';
 import { Section } from '../marketing/ui';
 import { TOOLS } from '../lib/tools';
+import { ScopeBadge } from './ScopeBadge';
 import {
   CLUSTERS,
   TOPICS,
@@ -32,8 +33,11 @@ function TopicCard({ topic }: { topic: Topic }) {
           {topic.name}
         </span>
         <span className="mt-2 flex-1 text-[14px] leading-[1.65] text-ink-2">{topic.lede}</span>
-        <span className="mt-4 font-mono text-[10px] uppercase tracking-[0.12em] text-ink-3">
-          {count} {count === 1 ? 'guide' : 'guides'}
+        <span className="mt-4 flex flex-wrap items-center gap-2">
+          <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-3">
+            {count} {count === 1 ? 'guide' : 'guides'}
+          </span>
+          <ScopeBadge scope={topic.scope} />
         </span>
       </Link>
     </li>

@@ -37,13 +37,16 @@ function txCard(): HTMLElement {
   return screen.getByText('Transactions').closest('.card') as HTMLElement;
 }
 
+/**
+ * Log one spend through the add sheet — the page's only structured route since
+ * the Overview tab's inline form was folded into it.
+ */
 function quickAdd(amount: string, note?: string) {
-  fireEvent.change(screen.getByLabelText(/^Amount \(₹\)$/), { target: { value: amount } });
-  if (note) fireEvent.change(screen.getByLabelText(/^Note/), { target: { value: note } });
-  // The structured form's submit, named exactly: it flashes "Added ✓" for a
-  // beat after a save (so a second add would miss a plain "Add expense"
-  // lookup), and the quick-add bar above it has its own "Add" button.
-  fireEvent.click(screen.getByRole('button', { name: /^(Add expense|Added ✓)$/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add an expense' }));
+  const dialog = screen.getByRole('dialog');
+  fireEvent.change(within(dialog).getByLabelText(/^Amount \(₹\)$/), { target: { value: amount } });
+  if (note) fireEvent.change(within(dialog).getByLabelText(/^Description/), { target: { value: note } });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Add transaction' }));
 }
 
 function storedLog() {

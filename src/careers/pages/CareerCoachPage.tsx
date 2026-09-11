@@ -193,7 +193,10 @@ export default function CareerCoachPage() {
               <div style={{ textAlign: 'center' }}>
                 <ScoreRing score={health.overall} caption="Career health" size={130} />
                 <div className="note" style={{ marginTop: 8 }}>
-                  Offer probability: <b style={{ color: scoreColor(health.offerProbability) }}>{health.offerProbability}%</b>
+                  {/* Not "probability": this is a readiness indicator over a
+                      handful of data points, not a calibrated forecast. See
+                      services/health.ts for the smoothing. */}
+                  Offer outlook: <b style={{ color: scoreColor(health.offerProbability) }}>{health.offerProbability}<span aria-hidden="true">/100</span><span className="sr-only"> out of 100</span></b>
                 </div>
                 <div className="note">
                   Promotion readiness: <b style={{ color: scoreColor(health.promotionReadiness) }}>{health.promotionReadiness}%</b>

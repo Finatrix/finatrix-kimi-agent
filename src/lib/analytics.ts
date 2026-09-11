@@ -21,6 +21,7 @@
  */
 
 import { routeTemplate } from '../shared/routes';
+import { analyticsOptedOut } from './privacyPreferences';
 
 /**
  * Allowlisted event names. Adding an event = adding it here (typed taxonomy).
@@ -162,6 +163,7 @@ function safeUUID(): string {
 
 /** True unless the user opted out (DNT/GPC) or no endpoint is configured. */
 export function analyticsEnabled(): boolean {
+  if (analyticsOptedOut()) return false;
   if (!ENDPOINT) return false;
   if (typeof navigator === 'undefined' || typeof window === 'undefined') return false;
   const nav = navigator as Navigator & {
@@ -259,6 +261,7 @@ function offline(): boolean {
  * under-reports by an unknown amount.
  */
 function requeue(batch: QueuedEvent[]): void {
+  if (!analyticsEnabled()) return;
   queue = [...batch, ...queue];
   if (queue.length > MAX_QUEUE) queue.splice(0, queue.length - MAX_QUEUE);
 }
@@ -272,7 +275,8 @@ function requeue(batch: QueuedEvent[]): void {
  * the events back.
  */
 export function flush(): void {
-  if (!analyticsEnabled() || queue.length === 0) return;
+  if (!analyticsEnabled()) { queue = []; return; }
+  if (queue.length === 0) return;
 
   // Nothing can be delivered while offline, and trying costs a guaranteed
   // failed request on every event. Hold, and let the `online` listener drain it.
@@ -337,6 +341,8 @@ export function initAnalytics(): void {
   // or a dropped connection sat in memory until the tab closed and then went out
   // as a single beacon that the browser frequently never gets to send.
   window.addEventListener('online', flush);
+  window.addEventListener('fx:privacy', () => { if (!analyticsEnabled()) { queue = []; recent.clear(); } });
+  window.addEventListener('storage', () => { if (!analyticsEnabled()) { queue = []; recent.clear(); } });
 
   // A steady drain for long sessions. A visitor who keeps one tab open for an
   // hour, then closes the laptop lid, previously had the whole hour riding on a

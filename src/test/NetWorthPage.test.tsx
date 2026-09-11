@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
 import { CurrencyProvider } from '../tools/CurrencyContext';
+import { MarketProvider } from '../tools/MarketContext';
 import NetWorthPage from '../tools/pages/NetWorthPage';
 import { NET_WORTH_KEY, type NetWorthAccount } from '../tools/lib/netWorth';
 import { currentMonth, prevMonth } from '../tools/lib/month';
@@ -8,8 +9,17 @@ import { currentMonth, prevMonth } from '../tools/lib/month';
 const CM = currentMonth();
 const PM = prevMonth(CM);
 
+// The page reads the market for its category names ("EPF, PPF & NPS" vs
+// "401(k), IRA & HSA"). localStorage is cleared per test, so it resolves to the
+// default and these assertions stay the Indian ones they always were.
 function renderPage() {
-  return render(<CurrencyProvider><NetWorthPage /></CurrencyProvider>);
+  return render(
+    <CurrencyProvider>
+      <MarketProvider>
+        <NetWorthPage />
+      </MarketProvider>
+    </CurrencyProvider>
+  );
 }
 
 function seed(accounts: Partial<NetWorthAccount>[]) {
@@ -175,7 +185,7 @@ describe('Net Worth — the sheet', () => {
       fr.onerror = () => reject(fr.error);
       fr.readAsText(blobs[0]);
     });
-    expect(text.split('\n')[0]).toBe('Month,Type,Category,Account,Balance');
+    expect(text.split('\n')[0]).toBe('Month,Type,Category,Account,Currency,Balance');
     expect(text).toContain('Salary account');
     expect(text).toContain('Home loan');
     vi.restoreAllMocks();

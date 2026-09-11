@@ -2,9 +2,14 @@ import { Link } from 'react-router';
 import Reveal from '../components/Reveal';
 
 const PRINCIPLES: Array<{ title: string; body: string; icon: 'lock' | 'flag' | 'spark' }> = [
-  { title: 'Private by default', body: 'Your numbers stay on your device as a guest, or encrypted to your account when you sign in. No ads, no trackers.', icon: 'lock' },
-  { title: 'Built for India', body: 'Tax slabs, SIPs, 14-city benchmarks, Lakh/Crore formatting and 40 currencies — calibrated, not generic.', icon: 'flag' },
-  { title: 'Free, forever', body: 'Every tool, every feature, ₹0. FinatriX is an education-first toolkit — clarity without the paywall.', icon: 'spark' },
+  { title: 'Clear data choices', body: 'Use finance tools locally as a guest. Sign in for account sync. AI requests use an external service; privacy controls explain what is shared.', icon: 'lock' },
+  // Was "Built for India". The India depth is real and stays the headline —
+  // it is what makes the claim credible — but the tools now carry instrument
+  // sets, tax rules and peer benchmarks for four markets, and a card that says
+  // "for India" tells three quarters of that audience the product is not for
+  // them.
+  { title: 'Check the assumptions', body: 'India, the US, the UK and the UAE have separate market settings. Tools show their assumptions and source dates so you can judge whether a result applies to you.', icon: 'flag' },
+  { title: 'Free finance tools', body: 'Budgeting, expense tracking and financial planning are free. The Careers workspace has separate paid plans, listed on our pricing page.', icon: 'spark' },
 ];
 
 function Glyph({ name }: { name: 'lock' | 'flag' | 'spark' }) {
@@ -38,15 +43,14 @@ export default function LandingClose() {
           <div className="pointer-events-none absolute inset-0 -z-0" style={{ background: 'radial-gradient(120% 140% at 50% 0%, rgba(212,175,55,0.16), transparent 60%), var(--surface-2)' }} />
           <div className="relative z-10">
             <h2 className="mx-auto max-w-[680px] text-[clamp(28px,4.6vw,46px)] font-semibold leading-[1.06] tracking-[-0.025em] text-ink">
-              Your clearest financial picture is{' '}
-              <span className="fx-gold-text">one tap away.</span>
+              Start with this month’s money.
             </h2>
             <p className="mx-auto mt-5 max-w-[480px] text-[15px] leading-relaxed text-ink-2">
               Start as a guest in seconds. Create a free account to save and sync across every device.
             </p>
             <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
               <Link to="/tools" className="fx-btn-gold inline-flex items-center gap-2 font-mono text-[12px] uppercase tracking-[0.1em] px-7 py-3.5 rounded-full">
-                Launch the tools <span>→</span>
+                Open your dashboard <span>→</span>
               </Link>
               <Link to="/signup" className="fx-btn-ghost inline-flex items-center font-mono text-[12px] uppercase tracking-[0.1em] px-6 py-3.5 rounded-full">
                 Create free account
@@ -55,6 +59,11 @@ export default function LandingClose() {
             <p className="mt-7 font-mono text-[10px] uppercase tracking-[0.14em] text-ink-3">
               Educational tools · not financial advice
             </p>
+            <div className="mt-6 flex flex-wrap justify-center gap-6 text-sm text-ink-2">
+              <Link to="/editorial-standards" className="underline underline-offset-4">How we check our work</Link>
+              <Link to="/contact" className="underline underline-offset-4">Contact the people building FinatriX</Link>
+              <Link to="/pricing" className="underline underline-offset-4">See pricing</Link>
+            </div>
           </div>
         </div>
       </Reveal>

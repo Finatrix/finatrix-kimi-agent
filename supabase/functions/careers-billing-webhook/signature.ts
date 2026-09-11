@@ -115,10 +115,30 @@ export async function verifyStripeSignature(
   return matched;
 }
 
-/** monthly → +1 calendar month, yearly → +1 calendar year, from `from`. */
+function lastUtcDayOfMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+}
+
+/**
+ * monthly -> +1 calendar month, yearly -> +1 calendar year, from `from`.
+ *
+ * JavaScript date setters overflow short months: Jan 31 + 1 month becomes
+ * Mar 3. Paid access periods should clamp to the last real day of the target
+ * month instead.
+ */
 export function periodEnd(period: string, from: Date): string {
+  const year = from.getUTCFullYear();
+  const month = from.getUTCMonth();
+  const day = from.getUTCDate();
   const d = new Date(from);
-  if (period === 'yearly') d.setUTCFullYear(d.getUTCFullYear() + 1);
-  else d.setUTCMonth(d.getUTCMonth() + 1);
+  if (period === 'yearly') {
+    const targetYear = year + 1;
+    d.setUTCFullYear(targetYear, month, Math.min(day, lastUtcDayOfMonth(targetYear, month)));
+  } else {
+    const targetMonthIndex = month + 1;
+    const targetYear = year + Math.floor(targetMonthIndex / 12);
+    const targetMonth = targetMonthIndex % 12;
+    d.setUTCFullYear(targetYear, targetMonth, Math.min(day, lastUtcDayOfMonth(targetYear, targetMonth)));
+  }
   return d.toISOString();
 }

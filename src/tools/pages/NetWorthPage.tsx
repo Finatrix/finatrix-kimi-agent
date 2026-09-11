@@ -5,6 +5,10 @@ import { MonthNav } from '../ui/MonthNav';
 import { AmountInput } from '../ui/AmountInput';
 import { useOptionalToast } from '../ui/Toast';
 import { useCurrency } from '../CurrencyContext';
+import { useMarket } from '../MarketContext';
+import { converterTo, effectiveRates } from '../lib/fx';
+import { FxNote } from '../ui/FxNote';
+import { CURRENCY_CODES, currencySym, cfmt as cfmtDisplay } from '../lib/format';
 import { currentMonth, monthLabel } from '../lib/month';
 import { onLocalWrite } from '../lib/storage';
 import { csvBlob } from '../../lib/csv';
@@ -12,9 +16,9 @@ import { downloadBlob } from '../lib/exporters';
 import { evaluateFormula } from '../lib/formula';
 import { track } from '../../lib/analytics';
 import {
-  NET_WORTH_KEY, balanceAt, categoriesFor, categoryFor, changeBetween, computeNetWorth,
-  exportRows, genAccountId, lastRecordedMonth, loadAccounts, monthsBetween, monthsWithData,
-  netWorthSeries, saveAccounts, setBalance, staleAccounts,
+  NET_WORTH_KEY, accountCurrency, balanceAt, categoriesFor, categoryFor, categoryLabel, changeBetween,
+  computeNetWorth, exportRows, genAccountId, hasForeignAccounts, lastRecordedMonth, loadAccounts,
+  monthsBetween, monthsWithData, netWorthSeries, saveAccounts, setBalance, staleAccounts,
   type AccountBalance, type AccountKind, type NetWorthAccount, type SeriesPoint,
 } from '../lib/netWorth';
 
@@ -44,12 +48,15 @@ interface DraftAccount {
   kind: AccountKind;
   category: string;
   balance: string;
+  /** Empty means "the currency I am reading in" — see netWorth.ts. */
+  currency: string;
 }
 
-const EMPTY_DRAFT: DraftAccount = { name: '', kind: 'asset', category: 'cash', balance: '' };
+const EMPTY_DRAFT: DraftAccount = { name: '', kind: 'asset', category: 'cash', balance: '', currency: '' };
 
 export default function NetWorthPage() {
-  const { cfmt, cfmtSh, sym } = useCurrency();
+  const { cfmt, cfmtSh, sym, code } = useCurrency();
+  const { market } = useMarket();
   const toast = useOptionalToast();
   const [accounts, setAccounts] = useState<NetWorthAccount[]>(loadAccounts);
   const [selMonth, setSelMonth] = useState(currentMonth);
@@ -80,8 +87,22 @@ export default function NetWorthPage() {
   }, []);
 
   const months = useMemo(() => monthsWithData(accounts), [accounts]);
-  const snapshot = useMemo(() => computeNetWorth(accounts, selMonth), [accounts, selMonth]);
-  const series = useMemo(() => netWorthSeries(accounts, selMonth), [accounts, selMonth]);
+  // One converter for the whole page, rebuilt only when the display currency
+  // changes. Every total below is therefore in `code` and adds like with like.
+  const nwOpts = useMemo(
+    () => ({ displayCurrency: code, convert: converterTo(code, effectiveRates()) }),
+    [code],
+  );
+  const foreign = useMemo(() => hasForeignAccounts(accounts, code), [accounts, code]);
+  // Every currency actually in play, so the FX note only ever discusses rates
+  // this user's own balance sheet depends on.
+  const currenciesInUse = useMemo(
+    () => [...new Set(accounts.map((a) => accountCurrency(a, code)))],
+    [accounts, code],
+  );
+
+  const snapshot = useMemo(() => computeNetWorth(accounts, selMonth, nwOpts), [accounts, selMonth, nwOpts]);
+  const series = useMemo(() => netWorthSeries(accounts, selMonth, nwOpts), [accounts, selMonth, nwOpts]);
   const stale = useMemo(() => staleAccounts(accounts, selMonth), [accounts, selMonth]);
 
   const prior = series.length > 1 ? series[series.length - 2] : null;
@@ -121,6 +142,9 @@ export default function NetWorthPage() {
       kind: draft.kind,
       category: draft.category,
       balances: { [selMonth]: value },
+      // Stored only when it differs from what they are reading, so an
+      // all-one-currency user never acquires a field they did not ask for.
+      ...(draft.currency && draft.currency !== code ? { currency: draft.currency } : {}),
     };
     commit([...accounts, account]);
     setDraft({ ...EMPTY_DRAFT, kind: draft.kind, category: draft.category });
@@ -149,7 +173,7 @@ export default function NetWorthPage() {
   };
 
   const exportCsv = () => {
-    downloadBlob(`finatrix-net-worth-${selMonth}.csv`, csvBlob(exportRows(accounts)));
+    downloadBlob(`finatrix-net-worth-${selMonth}.csv`, csvBlob(exportRows(accounts, code)));
     track('report_exported', { kind: 'csv', where: 'networth' });
   };
 
@@ -184,6 +208,8 @@ export default function NetWorthPage() {
           />
         </div>
       )}
+
+      {foreign && <FxNote displayCode={code} currencies={currenciesInUse} />}
 
       {!hasAccounts ? (
         <EmptyState onStart={() => { setAdding(true); requestAnimationFrame(() => nameRef.current?.focus()); }} />
@@ -235,6 +261,8 @@ export default function NetWorthPage() {
               subtitle="What you own"
               color={ASSET_COLOR}
               rows={snapshot.assetRows}
+              displayCode={code}
+              labels={market.netWorth.labels}
               pending={pending.filter((a) => a.kind === 'asset')}
               categories={snapshot.assetCategories}
               total={snapshot.assets}
@@ -251,6 +279,8 @@ export default function NetWorthPage() {
               subtitle="What you owe"
               color={LIABILITY_COLOR}
               rows={snapshot.liabilityRows}
+              displayCode={code}
+              labels={market.netWorth.labels}
               pending={pending.filter((a) => a.kind === 'liability')}
               categories={snapshot.liabilityCategories}
               total={snapshot.liabilities}
@@ -284,6 +314,8 @@ export default function NetWorthPage() {
           nameRef={nameRef}
           sym={sym}
           month={selMonth}
+          displayCode={code}
+          labels={market.netWorth.labels}
           onSubmit={addAccount}
           onCancel={() => { setAdding(false); setDraftError(''); }}
         />
@@ -415,8 +447,8 @@ function Trend({ series, cfmt, cfmtSh }: {
 }
 
 function Side({
-  title, subtitle, color, rows, pending, categories, total, month, sym, cfmt,
-  onBalance, onDelete, confirmId, setConfirmId,
+  title, subtitle, color, rows, pending, categories, total, month, sym, cfmt, displayCode,
+  labels, onBalance, onDelete, confirmId, setConfirmId,
 }: {
   title: string;
   subtitle: string;
@@ -429,6 +461,10 @@ function Side({
   month: string;
   sym: string;
   cfmt: (n: number) => string;
+  /** The currency totals are reported in. Rows in anything else say so. */
+  displayCode: string;
+  /** Market-local names for the category keys. */
+  labels: Readonly<Record<string, string>>;
   onBalance: (id: string, value: string) => void;
   onDelete: (id: string) => void;
   confirmId: string | null;
@@ -445,7 +481,7 @@ function Side({
       </div>
 
       {categories.length > 0 && (
-        <div className="nw-bar" role="img" aria-label={categories.map((c) => `${c.category.l} ${c.share.toFixed(0)} percent`).join(', ')}>
+        <div className="nw-bar" role="img" aria-label={categories.map((c) => `${categoryLabel(c.category.k, labels)} ${c.share.toFixed(0)} percent`).join(', ')}>
           {categories.map((c, i) => (
             <span key={c.category.k} style={{ width: `${c.share}%`, background: color, opacity: 1 - i * 0.16 }} />
           ))}
@@ -462,6 +498,8 @@ function Side({
               row={row}
               month={month}
               sym={sym}
+              displayCode={displayCode}
+              labels={labels}
               onBalance={onBalance}
               onDelete={onDelete}
               confirming={confirmId === row.account.id}
@@ -478,9 +516,15 @@ function Side({
             {pending.map((account) => (
               <Row
                 key={account.id}
-                row={{ account, balance: 0, recorded: month, current: false, share: 0 }}
+                row={{
+                  account, balance: 0, native: 0,
+                  currency: accountCurrency(account, displayCode),
+                  recorded: month, current: false, share: 0,
+                }}
                 month={month}
                 sym={sym}
+                displayCode={displayCode}
+                labels={labels}
                 blank
                 onBalance={onBalance}
                 onDelete={onDelete}
@@ -495,10 +539,12 @@ function Side({
   );
 }
 
-function Row({ row, month, sym, blank = false, onBalance, onDelete, confirming, setConfirmId }: {
+function Row({ row, month, sym, displayCode, labels, blank = false, onBalance, onDelete, confirming, setConfirmId }: {
   row: AccountBalance;
   month: string;
   sym: string;
+  displayCode: string;
+  labels: Readonly<Record<string, string>>;
   /** The account has no balance here yet — show an empty field, not a zero. */
   blank?: boolean;
   onBalance: (id: string, value: string) => void;
@@ -506,8 +552,8 @@ function Row({ row, month, sym, blank = false, onBalance, onDelete, confirming, 
   confirming: boolean;
   setConfirmId: (id: string | null) => void;
 }) {
-  const { account, balance, current, recorded } = row;
-  const category = categoryFor(account.category);
+  const { account, balance, native, currency, current, recorded } = row;
+  const isForeign = currency !== displayCode;
 
   /**
    * The field keeps the raw text the user typed, and re-seeds only when the
@@ -518,11 +564,15 @@ function Row({ row, month, sym, blank = false, onBalance, onDelete, confirming, 
    * commits, so mirroring the committed value back would rewrite "12000+3" as
    * "12003" the moment it parsed, and a formula could never be finished.
    */
-  const [text, setText] = useState(blank ? '' : String(balance));
+  // Seeded from `native`, NOT `balance`: the field edits the number the user
+  // actually holds in that account. Seeding from the converted figure would
+  // rewrite "1000 USD" as "88000" the moment it rendered, and the next
+  // keystroke would save that back as dollars.
+  const [text, setText] = useState(blank ? '' : String(native));
   const [seedMonth, setSeedMonth] = useState(month);
   if (seedMonth !== month) {
     setSeedMonth(month);
-    setText(blank ? '' : String(balance));
+    setText(blank ? '' : String(native));
   }
 
   const fieldId = `nw-bal-${account.id}`;
@@ -530,27 +580,31 @@ function Row({ row, month, sym, blank = false, onBalance, onDelete, confirming, 
   return (
     <li className="nw-row">
       <span className="nw-row-icon" aria-hidden="true">
-        <Icon name={category?.ic ?? 'other'} size={16} />
+        <Icon name={categoryFor(account.category)?.ic ?? 'other'} size={16} />
       </span>
       <span className="nw-row-main">
         <span className="nw-row-name">{account.name}</span>
         <span className="nw-row-meta">
-          {category?.l ?? 'Other'}
+          {categoryLabel(account.category, labels)}
+          {isForeign && ` · held in ${currency}`}
           {!current && !blank && ` · from ${monthLabel(recorded)}`}
         </span>
       </span>
       <span className="nw-row-field">
         <label className="sr-only" htmlFor={fieldId}>
-          {`${account.name} balance for ${monthLabel(month)}`}
+          {`${account.name} balance for ${monthLabel(month)}${isForeign ? ` in ${currency}` : ''}`}
         </label>
         <AmountInput
           id={fieldId}
           className="fi-sm"
           value={text}
           onChange={(v) => { setText(v); onBalance(account.id, v); }}
-          sym={sym}
+          sym={isForeign ? currencySym(currency) : sym}
           placeholder="0"
         />
+        {isForeign && !blank && (
+          <span className="nw-row-converted">{`≈ ${cfmtDisplay(balance, displayCode)}`}</span>
+        )}
       </span>
       {confirming ? (
         <span className="nw-row-confirm">
@@ -573,13 +627,15 @@ function Row({ row, month, sym, blank = false, onBalance, onDelete, confirming, 
   );
 }
 
-function AddForm({ draft, setDraft, error, nameRef, sym, month, onSubmit, onCancel }: {
+function AddForm({ draft, setDraft, error, nameRef, sym, month, displayCode, labels, onSubmit, onCancel }: {
   draft: DraftAccount;
   setDraft: (d: DraftAccount) => void;
   error: string;
   nameRef: React.RefObject<HTMLInputElement | null>;
   sym: string;
   month: string;
+  displayCode: string;
+  labels: Readonly<Record<string, string>>;
   onSubmit: (e: React.FormEvent) => void;
   onCancel: () => void;
 }) {
@@ -639,8 +695,34 @@ function AddForm({ draft, setDraft, error, nameRef, sym, month, onSubmit, onCanc
           value={draft.category}
           onChange={(e) => setDraft({ ...draft, category: e.target.value })}
         >
-          {categories.map((c) => <option key={c.k} value={c.k}>{c.l}</option>)}
+          {categories.map((c) => (
+            <option key={c.k} value={c.k}>{categoryLabel(c.k, labels)}</option>
+          ))}
         </select>
+      </div>
+
+      {/* Held in — the multi-currency entry point. Defaults to the currency
+          they are already reading, so the common case is one glance and no
+          decision, while an expat can say "this one is in dirhams" once and
+          have every total afterwards be a real quantity. */}
+      <div className="fg">
+        <label className="fl" htmlFor="nw-currency">Held in</label>
+        <select
+          id="nw-currency"
+          className="fs"
+          value={draft.currency || displayCode}
+          onChange={(e) => setDraft({ ...draft, currency: e.target.value })}
+        >
+          {CURRENCY_CODES.map((c) => (
+            <option key={c} value={c}>{currencySym(c)} {c}</option>
+          ))}
+        </select>
+        {draft.currency && draft.currency !== displayCode && (
+          <p className="note" style={{ marginTop: 6 }}>
+            Balances for this account are entered in {draft.currency} and converted to {displayCode}
+            {' '}for your totals.
+          </p>
+        )}
       </div>
 
       {error && <p className="nw-error" id="nw-add-error" role="alert">{error}</p>}

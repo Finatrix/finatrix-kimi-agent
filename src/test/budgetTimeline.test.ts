@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { computeTimeline, GRANULARITIES, type Granularity } from '../tools/lib/budgetTimeline';
+import {
+  computeTimeline, GRANULARITIES, type Granularity, type TimelineShape,
+} from '../tools/lib/budgetTimeline';
+import { computeMonthForecast, type CatMeta } from '../tools/lib/expenseAnalytics';
+import { allCategories, mergedCats } from '../tools/lib/budget';
 import type { ExpenseItem } from '../tools/lib/expense';
 
 /**
@@ -203,5 +207,88 @@ describe('shared guarantees across granularities', () => {
     const items = [tx('2026-03-02', 100), tx('2020-01-01', 99_999), tx('2030-01-01', 99_999)];
     const t = computeTimeline(items, '2026-03', 'daily', noBudget, new Date(2026, 3, 5));
     expect(t.totalSpent).toBe(100);
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────────────── *
+ * With a shape: the timeline and the forecast card are one story.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+describe('computeTimeline — spending against the spending plan', () => {
+  const CAT_META = new Map<string, CatMeta>(
+    allCategories(mergedCats({ needs: [], wants: [], save: [] })).map((c) => [c.k, c as CatMeta]),
+  );
+  /** A 50,000 plan: 20,000 rent, 10,000 groceries, 5,000 dining — and 15,000 into stocks. */
+  const PLAN = { rent: 20000, groceries: 10000, eating_out: 5000, stocks: 15000 };
+  const budgetValsOf = () => PLAN;
+  const planTotal = () => 50000;
+
+  /** Rent on the 1st and the SIP on the 2nd, both on time, then ordinary days. */
+  const ontime = [
+    tx('2026-03-01', 20000, 'rent'),
+    tx('2026-03-02', 15000, 'stocks'),
+    tx('2026-03-02', 400, 'groceries'),
+    tx('2026-03-03', 300, 'eating_out'),
+    tx('2026-03-04', 350, 'groceries'),
+  ];
+  const now = new Date(2026, 2, 4, 12);
+
+  function shapeFor(items: ExpenseItem[]): TimelineShape {
+    const forecast = computeMonthForecast({ items, month: '2026-03', now, catMeta: CAT_META, budgetVals: PLAN });
+    return { catMeta: CAT_META, budgetValsOf, forecast };
+  }
+
+  it('reproduces the contradiction without a shape', () => {
+    // 35,750 over four days, ×31: the chart said ~277,000 — against a card that
+    // correctly said the month was on track.
+    const t = computeTimeline(ontime, '2026-03', 'daily', planTotal, now);
+    expect(t.projectedTotal!).toBeGreaterThan(250_000);
+  });
+
+  it('leaves savings out of both sides', () => {
+    const t = computeTimeline(ontime, '2026-03', 'daily', planTotal, now, shapeFor(ontime));
+    expect(t.spendingOnly).toBe(true);
+    expect(t.totalSpent).toBe(21050);
+    expect(t.totalBudget).toBe(35000);
+  });
+
+  it('projects exactly what the forecast card says', () => {
+    const shape = shapeFor(ontime);
+    const t = computeTimeline(ontime, '2026-03', 'daily', planTotal, now, shape);
+    expect(t.projectedTotal).toBe(shape.forecast!.projected);
+    // …and the drawn line ends on it, give or take the card's rounding.
+    expect(Math.abs(t.points.at(-1)!.projected! - shape.forecast!.projected)).toBeLessThanOrEqual(0.5);
+    // On time, on plan: nowhere near the six-figure overshoot above.
+    expect(t.projectedTotal!).toBeLessThan(40_000);
+  });
+
+  it('steps the plan up on the day rent falls due, instead of spreading it', () => {
+    const t = computeTimeline(ontime, '2026-03', 'daily', planTotal, now, shapeFor(ontime));
+    // Day 1: all of the rent, plus one day of the 15,000 day-to-day plan.
+    expect(t.points[0].budgetLine).toBeCloseTo(20000 + 15000 / 31, 5);
+    expect(t.points[30].budgetLine).toBeCloseTo(35000, 5);
+  });
+
+  it('does not call rent day unusually high', () => {
+    const items = [
+      ...ontime,
+      tx('2026-03-05', 500, 'groceries'), tx('2026-03-06', 420, 'eating_out'), tx('2026-03-07', 380, 'groceries'),
+    ];
+    const t = computeTimeline(items, '2026-03', 'daily', planTotal, new Date(2026, 2, 7, 12), shapeFor(items));
+    expect(t.points[0].isAnomaly).toBe(false);
+  });
+
+  it('places a bill still to come on its due day in the projection', () => {
+    // Nothing paid yet on the 1st; rent is budgeted and, with no history, has
+    // no known day — so it is spread across the days left rather than guessed.
+    const items = [tx('2026-03-01', 300, 'groceries')];
+    const first = new Date(2026, 2, 1, 12);
+    const forecast = computeMonthForecast({ items, month: '2026-03', now: first, catMeta: CAT_META, budgetVals: PLAN });
+    const t = computeTimeline(items, '2026-03', 'daily', planTotal, first, { catMeta: CAT_META, budgetValsOf, forecast });
+    expect(forecast.stillDue.map((b) => b.label)).toContain('Rent');
+    const projected = t.points.map((p) => p.projected!);
+    // Monotonic, and it reaches the forecast's headline by the last day.
+    expect(projected).toEqual([...projected].sort((a, b) => a - b));
+    expect(Math.abs(projected.at(-1)! - forecast.projected)).toBeLessThanOrEqual(0.5);
   });
 });

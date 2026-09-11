@@ -78,6 +78,11 @@ async function audit(page: Page): Promise<Findings> {
     };
 
     const visible = (el: Element) => {
+      // A closed native disclosure removes its contents from the accessibility
+      // tree, even when a descendant retains a measurable layout box.
+      for (let parent = el.parentElement; parent; parent = parent.parentElement) {
+        if (parent.matches('details:not([open])') && !parent.querySelector(':scope > summary')?.contains(el)) return false;
+      }
       const r = el.getBoundingClientRect();
       const cs = getComputedStyle(el);
       return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none';

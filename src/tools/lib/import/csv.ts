@@ -20,7 +20,7 @@
 
 import { sanitizeField } from '../../../lib/sanitize';
 import { parseAmount, parseStatementDate, detectDateOrder } from './fields';
-import type { DateOrder, StatementDoc, StatementRow } from './types';
+import type { DateOrder, SourceKind, StatementDoc, StatementRow } from './types';
 
 /** How far into the file we will look for a header row. */
 const MAX_PREAMBLE_LINES = 30;
@@ -239,8 +239,25 @@ function sniffCurrency(text: string): string | null {
  */
 export function parseCsvStatement(text: string, now: Date = new Date()): StatementDoc {
   const delimiter = detectDelimiter(text);
-  const matrix = tokenize(text, delimiter);
+  return parseStatementMatrix(tokenize(text, delimiter), now, 'csv');
+}
 
+/**
+ * The same parse, from a grid that is already a grid.
+ *
+ * A spreadsheet arrives as rows of cells, not as delimited text, and round-
+ * tripping it through CSV to reuse this logic would mean re-quoting every cell
+ * — a cell containing a comma, a quote or a newline is where that goes wrong,
+ * and a bank's own export is full of all three. So the tokenizer is skipped and
+ * everything after it is shared: one set of column-mapping rules, one set of
+ * date-order rules, one set of tests, and no way for a statement to be read
+ * differently depending on which format it was saved in.
+ */
+export function parseStatementMatrix(
+  matrix: string[][],
+  now: Date = new Date(),
+  source: SourceKind = 'csv',
+): StatementDoc {
   let headerAt = -1;
   let map: ColumnMap = EMPTY_MAP;
   for (let i = 0; i < Math.min(matrix.length, MAX_PREAMBLE_LINES); i++) {
@@ -338,7 +355,7 @@ export function parseCsvStatement(text: string, now: Date = new Date()): Stateme
   });
 
   return {
-    source: 'csv',
+    source,
     rows,
     currency: sniffCurrency(headerText) ?? sniffCurrency(preamble),
     openingBalance,

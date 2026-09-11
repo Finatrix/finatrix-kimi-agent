@@ -18,7 +18,10 @@ import {
   loadHistory, saveHistory, clearHistory, pruneOtherUsers, newMessageId,
   type ChatMessage,
 } from '../ai/history';
-import type { AiChart } from '../ai/validate';
+import type { AiChart, AiHighlight } from '../ai/validate';
+import type { GroundingReport } from '../ai/grounding';
+import { setupHelp, SETUP_QUESTIONS } from '../ai/setupHelp';
+import { readPlanContext } from '../ai/planContext';
 
 /**
  * FinatriX AI — the conversation surface.
@@ -165,6 +168,10 @@ export default function AiPanel({ id, onClose, focus = null, openedAt = 0 }: AiP
     month: currentMonth(),
     currency: code,
     now: new Date(),
+    // The goal, net worth, investing plan and emergency fund — so a question
+    // like "can I afford this?" is answered from the whole picture, not the
+    // ledger alone.
+    plan: readPlanContext(code),
   }), [code]);
 
   const send = useCallback(async (question: string, kind: 'chat' | 'review' = 'chat') => {
@@ -189,6 +196,13 @@ export default function AiPanel({ id, onClose, focus = null, openedAt = 0 }: AiP
       .slice(-7, -1)
       .map((m) => ({ role: m.role, text: m.text }));
 
+    const help = kind === 'chat' ? setupHelp(text) : null;
+    if (help || !uid) {
+      persist([...withQuestion, { id: newMessageId(), role: 'assistant', text: help || 'I can help you find your way around FinatriX without an account. Try one of the setup questions above. Sign in for AI answers about your finances.', at: new Date().toISOString(), model: 'FinatriX setup guide' }]);
+      setBusy(false);
+      inputRef.current?.focus();
+      return;
+    }
     let result: AskResult;
     try {
       const data = readData();
@@ -208,12 +222,15 @@ export default function AiPanel({ id, onClose, focus = null, openedAt = 0 }: AiP
           id: newMessageId(), role: 'assistant', text: result.answer,
           at: new Date().toISOString(), model: result.model,
           chart: result.chart, followUps: result.followUps,
+          ...(result.headline ? { headline: result.headline } : {}),
+          ...(result.highlights.length ? { highlights: result.highlights } : {}),
           // Stored with the turn, not recomputed on render: it describes the
           // evidence as it stood when the answer was given, and a transaction
           // logged afterwards must not silently upgrade an old answer's badge.
           // Omitted rather than stored null when the answer did not read their
           // data, so a stored turn has one way of saying "no badge here".
           ...(result.confidence ? { confidence: result.confidence } : {}),
+          ...(result.grounding ? { grounding: result.grounding } : {}),
           ...(subject ? { focusTitle: subject.title } : {}),
         }
       : {
@@ -235,7 +252,7 @@ export default function AiPanel({ id, onClose, focus = null, openedAt = 0 }: AiP
     persist([...withQuestion, reply]);
     setBusy(false);
     inputRef.current?.focus();
-  }, [busy, messages, persist, readData, focus, subject]);
+  }, [busy, messages, persist, readData, focus, subject, uid]);
 
   const doClear = () => {
     if (uid) clearHistory(uid);
@@ -245,7 +262,7 @@ export default function AiPanel({ id, onClose, focus = null, openedAt = 0 }: AiP
   };
 
   const signedOut = !uid;
-  const canSend = !busy && !signedOut && draft.trim().length > 0;
+  const canSend = !busy && draft.trim().length > 0;
 
   const body = (
     <div className="fx-tools fx-scope fx-ai-shell">
@@ -306,6 +323,12 @@ export default function AiPanel({ id, onClose, focus = null, openedAt = 0 }: AiP
         </header>
 
         <div className="fx-ai-log" ref={listRef} role="log" aria-live="polite" aria-label="Conversation">
+          <details open={signedOut || undefined} className="fx-ai-empty">
+            <summary>Setup help · no account needed</summary>
+            <p className="note">These are written product instructions, answered on your device.</p>
+            <div className="fx-ai-chips">{SETUP_QUESTIONS.map(q => <button type="button" className="fx-ai-chip" disabled={busy} key={q} onClick={() => void send(q)}>{q}</button>)}</div>
+            <p className="note" style={{ marginTop: 12 }}><a href="/welcome">Set up your month</a> · <a href="/tools/dashboard">Dashboard</a> · <a href="/tools/expenses">Expenses</a> · <a href="/tools/goals">Goals</a> · <a href="/tools/settings">Settings</a></p>
+          </details>
           {messages.length === 0 && (
             <EmptyState
               signedOut={signedOut}
@@ -359,9 +382,8 @@ export default function AiPanel({ id, onClose, focus = null, openedAt = 0 }: AiP
             ref={inputRef}
             rows={1}
             maxLength={MAX_QUESTION_CHARS}
-            placeholder={signedOut ? 'Sign in to ask about your money' : 'Ask about your money, or how money works…'}
+            placeholder={signedOut ? 'Ask how to use FinatriX…' : 'Ask about your money, or how money works…'}
             value={draft}
-            disabled={signedOut}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
               // Enter sends, Shift+Enter is a newline — the convention every
@@ -381,7 +403,7 @@ export default function AiPanel({ id, onClose, focus = null, openedAt = 0 }: AiP
             general money questions too, so this says whose records it can read
             rather than what it is allowed to talk about. */}
         <p className="fx-ai-foot">
-          Educational only, not financial advice. The only account data FinatriX AI reads is your own.
+          Setup help stays on your device. AI answers send your question and relevant financial context to our AI service. Educational only. <a href="/tools/settings">Privacy controls</a>
         </p>
       </div>
     </div>
@@ -405,12 +427,13 @@ function EmptyState({ signedOut, configured, subject, onPick, onReview }: {
   if (signedOut) {
     return (
       <div className="fx-ai-empty">
-        <p className="fx-ai-lead">Sign in to use FinatriX AI.</p>
+        <p className="fx-ai-lead">Sign in for AI answers about your finances.</p>
         <p className="note">
           {configured
-            ? 'The assistant only ever reads the data in your own account, so it needs to know who you are.'
+            ? 'Setup help above is available now. For questions about your own figures, sign in to use the AI service.'
             : 'This build has no backend configured, so the assistant is unavailable here.'}
         </p>
+        {configured && <a href="/login?next=%2Ftools%2Fdashboard">Sign in</a>}
       </div>
     );
   }
@@ -463,8 +486,14 @@ function Turn({ message, onFollowUp, busy }: {
   return (
     <div className="fx-ai-turn assistant">
       <div className={`fx-ai-bubble${message.failed ? ' is-bad' : ''}`}>
-        {message.failed ? <p>{message.text}</p> : <Markdown text={message.text} />}
-        {message.chart && <ChartBars chart={message.chart} />}
+        {/* The shape of an answer: the answer in a sentence, its figures as
+            tiles, the support as bullets, and a picture when one is faster
+            than words. Older turns have only the markdown and render as they
+            always did. */}
+        {!message.failed && message.headline && <p className="fx-ai-headline">{message.headline}</p>}
+        {!message.failed && !!message.highlights?.length && <Highlights items={message.highlights} />}
+        {message.failed ? <p>{message.text}</p> : <AnswerBody text={message.text} />}
+        {message.chart && <AiChartView chart={message.chart} />}
         {/* How much data the answer stood on. Measured from the snapshot before
             the model was called — never the model's own opinion of itself. The
             basis is spelled out because "Low confidence" without a reason is
@@ -474,6 +503,11 @@ function Turn({ message, onFollowUp, busy }: {
             <span>{message.confidence.label}</span> · {message.confidence.basis}
           </p>
         )}
+        {/* Which amounts trace to the user's records — checked after the model
+            answered, against the data it was given. Amounts that do not are
+            named, not removed: they are often suggested targets, and the user
+            should be able to tell those from their own figures at a glance. */}
+        {message.grounding && <GroundingNote report={message.grounding} />}
       </div>
       {!!message.followUps?.length && (
         <div className="fx-ai-chips">
@@ -488,34 +522,195 @@ function Turn({ message, onFollowUp, busy }: {
   );
 }
 
-/**
- * The optional chart, drawn as labelled bars rather than on a canvas.
- *
- * A handful of comparable values does not need a charting library, and a DOM
- * bar list is readable by a screen reader, selectable, and printable — none of
- * which a `<canvas>` is. It also keeps Chart.js out of the lazy AI chunk.
- */
-function ChartBars({ chart }: { chart: AiChart }) {
-  const max = Math.max(...chart.points.map((p) => p.value), 1);
-  const fmt = (v: number) =>
-    chart.unit === 'percent' ? `${Math.round(v)}%` : v.toLocaleString(undefined, { maximumFractionDigits: 2 });
+function GroundingNote({ report }: { report: GroundingReport }) {
+  const traced = report.checked - report.unmatched.length;
+  const list = report.unmatched.length <= 3
+    ? report.unmatched.join(', ')
+    : `${report.unmatched.slice(0, 3).join(', ')} and ${report.unmatched.length - 3} more`;
   return (
-    <figure className="fx-ai-chart">
-      {chart.title && <figcaption>{chart.title}</figcaption>}
-      <dl>
-        {chart.points.map((p) => (
-          <div key={p.label} className="fx-ai-chart-row">
-            <dt>{p.label}</dt>
-            <dd>
-              <span className="fx-ai-chart-bar" aria-hidden="true">
-                <span style={{ width: `${(p.value / max) * 100}%` }} />
-              </span>
-              <span className="fx-ai-chart-v">{fmt(p.value)}</span>
-            </dd>
-          </div>
-        ))}
-      </dl>
+    <p className={`fx-ai-ground${report.unmatched.length ? ' is-partial' : ''}`}>
+      {report.checked > 0 && (report.unmatched.length === 0
+        ? <>
+            <Icon name="check" size={12} aria-hidden="true" />
+            {' '}{report.checked === 1 ? 'The amount here traces' : `All ${report.checked} amounts trace`} to your records
+            {report.workedOut > 0 ? `, ${report.workedOut} worked out from them with the working shown.` : '.'}
+          </>
+        : <>
+            {traced} of {report.checked} amounts trace to your records. Not in them: {list}.
+            {' '}Treat {report.unmatched.length === 1 ? 'it' : 'those'} as a suggestion or estimate, not your data.
+          </>)}
+      {report.chartWithheld && <> A chart was left out because its values were not in your records.</>}
+      {!!report.tilesWithheld && <> {report.tilesWithheld === 1 ? 'A figure tile was' : `${report.tilesWithheld} figure tiles were`} left out for the same reason.</>}
+    </p>
+  );
+}
+
+/** An answer longer than this opens collapsed: the headline and tiles carry it. */
+const LONG_ANSWER_CHARS = 900;
+
+/**
+ * The supporting markdown, collapsed when it runs long.
+ *
+ * The prompt asks for short answers and usually gets them; this is the safety
+ * net for when it does not. Everything stays in the DOM — a screen reader still
+ * reads the whole answer — and the button says what it does.
+ */
+function AnswerBody({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  const bodyId = useId();
+  const long = text.length > LONG_ANSWER_CHARS;
+  return (
+    <>
+      <div id={bodyId} className={`fx-ai-body${long && !open ? ' is-clamped' : ''}`}>
+        <Markdown text={text} />
+      </div>
+      {long && (
+        <button
+          type="button"
+          className="fx-ai-more"
+          aria-expanded={open}
+          aria-controls={bodyId}
+          onClick={() => setOpen((o) => !o)}
+        >
+          {open ? 'Show less' : 'Show the full answer'}
+        </button>
+      )}
+    </>
+  );
+}
+
+function formatValue(value: number, unit: AiHighlight['unit'], cfmt: (n: number) => string): string {
+  if (unit === 'currency') return cfmt(value);
+  if (unit === 'percent') return `${Math.round(value * 10) / 10}%`;
+  return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+/** Key figures as tiles, read at a glance. Values were checked against the data. */
+function Highlights({ items }: { items: AiHighlight[] }) {
+  const { cfmt } = useCurrency();
+  return (
+    <dl className="fx-ai-tiles">
+      {items.map((h) => (
+        <div key={h.label} className={`fx-ai-tile is-${h.tone}`}>
+          <dt>{h.label}</dt>
+          <dd>{formatValue(h.value, h.unit, cfmt)}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/** Theme tokens, in the order segments and series take them. */
+const SERIES = ['var(--gold)', 'var(--blue)', 'var(--green)', 'var(--orange)', 'var(--purple)', 'var(--teal)'];
+
+/**
+ * The optional chart — bars, a trend line or a donut — drawn as DOM and inline
+ * SVG rather than on a canvas.
+ *
+ * A handful of values does not need a charting library, and markup is readable
+ * by a screen reader, selectable and printable, none of which a `<canvas>` is.
+ * It also keeps Chart.js out of the lazy AI chunk. An illustration in a general
+ * answer says so on the chart itself, and is never drawn in a currency.
+ */
+function AiChartView({ chart }: { chart: AiChart }) {
+  const { cfmt } = useCurrency();
+  const fmt = (v: number) => formatValue(v, chart.unit, cfmt);
+  const type = chart.type ?? 'bar';
+  return (
+    <figure className={`fx-ai-chart${chart.illustrative ? ' is-illustrative' : ''}`}>
+      {(chart.title || chart.illustrative) && (
+        <figcaption>
+          {chart.title}
+          {chart.illustrative && <span className="fx-ai-illus">Illustration — not your data</span>}
+        </figcaption>
+      )}
+      {type === 'line' ? <LineChart chart={chart} fmt={fmt} />
+        : type === 'donut' ? <DonutChart chart={chart} fmt={fmt} />
+          : <BarChart chart={chart} fmt={fmt} />}
     </figure>
+  );
+}
+
+function BarChart({ chart, fmt }: { chart: AiChart; fmt: (v: number) => string }) {
+  const max = Math.max(...chart.points.map((p) => p.value), 1);
+  return (
+    <dl>
+      {chart.points.map((p) => (
+        <div key={p.label} className="fx-ai-chart-row">
+          <dt>{p.label}</dt>
+          <dd>
+            <span className="fx-ai-chart-bar" aria-hidden="true">
+              <span style={{ width: `${(p.value / max) * 100}%` }} />
+            </span>
+            <span className="fx-ai-chart-v">{fmt(p.value)}</span>
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function LineChart({ chart, fmt }: { chart: AiChart; fmt: (v: number) => string }) {
+  const W = 320;
+  const H = 120;
+  const pad = { l: 6, r: 6, t: 16, b: 20 };
+  const max = Math.max(...chart.points.map((p) => p.value), 1);
+  const n = chart.points.length;
+  const x = (i: number) => pad.l + (n === 1 ? 0 : (i * (W - pad.l - pad.r)) / (n - 1));
+  // A zero baseline: a trend line that starts at its own minimum turns a 3%
+  // wobble into a cliff.
+  const y = (v: number) => pad.t + (1 - v / max) * (H - pad.t - pad.b);
+  const path = chart.points.map((p, i) => `${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join(' ');
+  const last = chart.points[n - 1];
+  const summary = chart.points.map((p) => `${p.label} ${fmt(p.value)}`).join(', ');
+  return (
+    <svg className="fx-ai-line" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Line chart: ${summary}`}>
+      <line x1={pad.l} x2={W - pad.r} y1={H - pad.b} y2={H - pad.b} className="fx-ai-axis" />
+      <polyline points={`${x(0)},${H - pad.b} ${path} ${x(n - 1)},${H - pad.b}`} className="fx-ai-area" />
+      <polyline points={path} className="fx-ai-stroke" />
+      {chart.points.map((p, i) => (
+        <circle key={p.label} cx={x(i)} cy={y(p.value)} r={i === n - 1 ? 3.5 : 2.2} className="fx-ai-dot" />
+      ))}
+      <text x={x(n - 1)} y={y(last.value) - 7} textAnchor="end" className="fx-ai-lab strong">{fmt(last.value)}</text>
+      <text x={x(0)} y={H - 5} textAnchor="start" className="fx-ai-lab">{chart.points[0].label}</text>
+      <text x={x(n - 1)} y={H - 5} textAnchor="end" className="fx-ai-lab">{last.label}</text>
+    </svg>
+  );
+}
+
+function DonutChart({ chart, fmt }: { chart: AiChart; fmt: (v: number) => string }) {
+  const total = chart.points.reduce((s, p) => s + p.value, 0) || 1;
+  const R = 34;
+  const C = 2 * Math.PI * R;
+  const lengths = chart.points.map((p) => (p.value / total) * C);
+  // Where each segment starts along the ring: the lengths before it.
+  const starts = lengths.map((_, i) => lengths.slice(0, i).reduce((a, b) => a + b, 0));
+  return (
+    <div className="fx-ai-donut">
+      <svg viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r={R} className="fx-ai-donut-track" />
+        {chart.points.map((p, i) => (
+          <circle
+            key={p.label} cx="50" cy="50" r={R}
+            // As a style, not the `stroke` attribute: `var()` inside an SVG
+            // presentation attribute is not honoured by every engine.
+            style={{ stroke: SERIES[i % SERIES.length] }}
+            strokeDasharray={`${lengths[i]} ${C - lengths[i]}`}
+            strokeDashoffset={-starts[i]}
+            className="fx-ai-donut-seg"
+          />
+        ))}
+      </svg>
+      <ul className="fx-ai-legend">
+        {chart.points.map((p, i) => (
+          <li key={p.label}>
+            <span className="fx-ai-swatch" style={{ background: SERIES[i % SERIES.length] }} aria-hidden="true" />
+            <span className="fx-ai-legend-l">{p.label}</span>
+            <span className="fx-ai-legend-v">{fmt(p.value)} · {Math.round((p.value / total) * 100)}%</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -621,6 +816,32 @@ const PANEL_STYLES = `
 .fx-ai-conf.is-high > span{color:var(--green);}
 .fx-ai-conf.is-medium > span{color:var(--gold);}
 .fx-ai-conf.is-low > span{color:var(--orange);}
+/* Which amounts trace to the user's records. Only data answers carry it, and
+   those always carry the evidence badge, so it always sits directly under it. */
+.fx-ai-ground{margin:4px 0 0;font-size:11px;line-height:1.5;color:var(--ink3);}
+.fx-ai-ground svg{color:var(--green);vertical-align:-1px;}
+.fx-ai-ground.is-partial{color:var(--ink2);}
+
+/* The shape of an answer: headline, tiles, body, chart. */
+.fx-ai-headline{font-size:14.5px;font-weight:700;line-height:1.4;letter-spacing:-.01em;margin:0 0 10px;color:var(--ink);}
+.fx-ai-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:7px;margin:0 0 12px;}
+.fx-ai-tile{margin:0;padding:9px 10px;border-radius:11px;background:var(--fill-04,rgba(127,127,127,.06));
+  border:1px solid var(--hair2);min-width:0;}
+.fx-ai-tile dt{font-size:10.5px;font-weight:600;color:var(--ink3);letter-spacing:.02em;text-transform:uppercase;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fx-ai-tile dd{margin:3px 0 0;font-size:16px;font-weight:750;font-variant-numeric:tabular-nums;letter-spacing:-.01em;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fx-ai-tile.is-good{border-color:color-mix(in srgb,var(--green) 30%,transparent);}
+.fx-ai-tile.is-good dd{color:var(--green);}
+.fx-ai-tile.is-warn{border-color:color-mix(in srgb,var(--orange) 30%,transparent);}
+.fx-ai-tile.is-warn dd{color:var(--orange);}
+.fx-ai-tile.is-bad{border-color:color-mix(in srgb,var(--red) 30%,transparent);}
+.fx-ai-tile.is-bad dd{color:var(--red);}
+.fx-ai-body.is-clamped{max-height:15em;overflow:hidden;
+  -webkit-mask-image:linear-gradient(to bottom,#000 65%,transparent);mask-image:linear-gradient(to bottom,#000 65%,transparent);}
+.fx-ai-more{margin:4px 0 0;padding:4px 0;border:none;background:none;color:var(--accent-text,var(--gold));
+  font-size:12px;font-weight:650;font-family:inherit;cursor:pointer;}
+.fx-ai-more:hover{text-decoration:underline;}
 
 /* Assistant-supplied chart */
 .fx-ai-chart{margin:10px 0 0;}
@@ -633,6 +854,26 @@ const PANEL_STYLES = `
 .fx-ai-chart-bar{flex:1;height:7px;border-radius:5px;background:var(--fill-06);overflow:hidden;min-width:20px;}
 .fx-ai-chart-bar > span{display:block;height:100%;border-radius:5px;background:var(--gold);}
 .fx-ai-chart-v{font-size:11.5px;font-weight:700;font-variant-numeric:tabular-nums;flex-shrink:0;}
+.fx-ai-illus{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:980px;border:1px dashed var(--hair);
+  font-size:10px;font-weight:600;color:var(--ink3);text-transform:none;letter-spacing:0;}
+.fx-ai-chart.is-illustrative .fx-ai-chart-bar > span,
+.fx-ai-chart.is-illustrative .fx-ai-stroke{opacity:.7;}
+.fx-ai-line{display:block;width:100%;height:auto;overflow:visible;}
+.fx-ai-axis{stroke:var(--hair2);stroke-width:1;}
+.fx-ai-area{fill:color-mix(in srgb,var(--gold) 14%,transparent);stroke:none;}
+.fx-ai-stroke{fill:none;stroke:var(--gold);stroke-width:2;stroke-linejoin:round;stroke-linecap:round;}
+.fx-ai-dot{fill:var(--gold);}
+.fx-ai-lab{font-size:9px;fill:var(--ink3);font-family:inherit;}
+.fx-ai-lab.strong{font-size:10px;font-weight:700;fill:var(--ink);}
+.fx-ai-donut{display:flex;align-items:center;gap:14px;}
+.fx-ai-donut svg{width:96px;height:96px;flex-shrink:0;transform:rotate(-90deg);}
+.fx-ai-donut-track{fill:none;stroke:var(--fill-06);stroke-width:14;}
+.fx-ai-donut-seg{fill:none;stroke-width:14;}
+.fx-ai-legend{list-style:none;margin:0;padding:0;display:grid;gap:5px;min-width:0;flex:1;}
+.fx-ai-legend li{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:7px;font-size:11.5px;}
+.fx-ai-swatch{width:9px;height:9px;border-radius:3px;}
+.fx-ai-legend-l{color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fx-ai-legend-v{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;}
 
 @media (prefers-reduced-motion:reduce){
   .fx-ai-card,.fx-ai-backdrop{animation:none;}

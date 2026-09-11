@@ -11,6 +11,7 @@ import { useToast } from '../../tools/ui/Toast';
 import { Icon } from '../../tools/ui/Icon';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
 import { Tabs } from '../../tools/ui/Tabs';
+import { ExportMenu } from '../../tools/ui/ExportMenu';
 import { ConfirmDialog, EmptyState, ErrorCard, ModalShell, PageLoading } from '../components/states';
 import { useCareers } from '../context/CareersContext';
 import {
@@ -146,6 +147,13 @@ function CalendarView({ events }: { events: CalEvent[] }) {
     return list;
   }, [anchor, mode]);
 
+  /** The same days, chunked into the calendar rows the grid role requires. */
+  const weeks: Date[][] = useMemo(() => {
+    const out: Date[][] = [];
+    for (let i = 0; i < days.length; i += 7) out.push(days.slice(i, i + 7));
+    return out;
+  }, [days]);
+
   const todayKey = calendarKey(new Date());
   const monthLabel = anchor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   const step = (dir: 1 | -1) => {
@@ -170,22 +178,42 @@ function CalendarView({ events }: { events: CalEvent[] }) {
           items={[{ key: 'month', label: 'Month' }, { key: 'week', label: 'Week' }]}
         />
       </div>
+      {/* A `role="grid"` owes assistive tech rows and cells. This was a flat
+          list of 49 divs under the grid role, so a screen reader announced a
+          grid and then found nothing navigable inside it. The weeks are real
+          rows now (each its own 7-column CSS grid, so the layout is unchanged)
+          and every square is a gridcell. */}
       <div className="cal-grid" role="grid" aria-label={`Calendar — ${monthLabel}`}>
-        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => <div className="cal-head" key={d}>{d}</div>)}
-        {days.map((d) => {
-          const key = calendarKey(d);
-          const dayEvents = byDate.get(key) ?? [];
-          const other = mode === 'month' && d.getMonth() !== anchor.getMonth();
-          return (
-            <div key={key} className={`cal-cell ${other ? 'other' : ''} ${key === todayKey ? 'today' : ''}`}>
-              <span className="cal-num">{d.getDate()}</span>
-              {dayEvents.slice(0, 3).map((e, i) => (
-                <span key={i} className={`cal-ev ${e.kind === 'followup' ? '' : e.kind}`} title={e.label}>{e.label}</span>
-              ))}
-              {dayEvents.length > 3 && <span className="cal-ev">+{dayEvents.length - 3} more</span>}
-            </div>
-          );
-        })}
+        <div className="cal-row" role="row">
+          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
+            <div className="cal-head" role="columnheader" key={d}>{d}</div>
+          ))}
+        </div>
+        {weeks.map((week) => (
+          <div className="cal-row" role="row" key={calendarKey(week[0])}>
+            {week.map((d) => {
+              const key = calendarKey(d);
+              const dayEvents = byDate.get(key) ?? [];
+              const other = mode === 'month' && d.getMonth() !== anchor.getMonth();
+              const isToday = key === todayKey;
+              return (
+                <div
+                  key={key}
+                  role="gridcell"
+                  // "Today" was a border colour and nothing else (WCAG 1.4.1).
+                  aria-current={isToday ? 'date' : undefined}
+                  className={`cal-cell ${other ? 'other' : ''} ${isToday ? 'today' : ''}`}
+                >
+                  <span className="cal-num">{d.getDate()}</span>
+                  {dayEvents.slice(0, 3).map((e, i) => (
+                    <span key={i} className={`cal-ev ${e.kind === 'followup' ? '' : e.kind}`} title={e.label}>{e.label}</span>
+                  ))}
+                  {dayEvents.length > 3 && <span className="cal-ev">+{dayEvents.length - 3} more</span>}
+                </div>
+              );
+            })}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -550,7 +578,10 @@ export default function ApplicationsPage() {
       : kind === 'json' ? () => exportJson(table)
       : kind === 'xlsx' ? () => exportExcel(table)
       : () => exportTablePdf(table);
-    void Promise.resolve(run()).then(
+    // Returned, not fire-and-forget: ExportMenu awaits this to show its
+    // "Exporting…" state while jsPDF/xlsx are lazily fetched, which on a slow
+    // connection is the difference between "working" and "the button is dead".
+    return Promise.resolve(run()).then(
       () => notify(`${kind.toUpperCase()} export ready.`, 'ok'),
       (e) => notify(toCareersError(e).message, 'error')
     );
@@ -615,10 +646,18 @@ export default function ApplicationsPage() {
         </button>
         <button className="btn btn-sm" style={{ width: 'auto' }} onClick={() => setAddOpen(true)}>+ Track application</button>
         <span style={{ flex: 1 }} />
-        <button className="btn btn-ghost btn-sm" onClick={() => doExport('csv')}>CSV</button>
-        <button className="btn btn-ghost btn-sm" onClick={() => doExport('xlsx')}>Excel</button>
-        <button className="btn btn-ghost btn-sm" onClick={() => doExport('json')}>JSON</button>
-        <button className="btn btn-ghost btn-sm" onClick={() => doExport('pdf')}>PDF</button>
+        {/* Was four loose format buttons competing with the page's real
+            actions. ExportMenu is the primitive the finance tools already use
+            for exactly this, so the control is now consistent site-wide, the
+            toolbar has room to breathe, and Careers exports finally emit the
+            `report_exported` metric the tools side has always had. */}
+        <ExportMenu
+          source="careers-applications"
+          onCsv={() => doExport('csv')}
+          onXlsx={() => doExport('xlsx')}
+          onPdf={() => doExport('pdf')}
+          onJson={() => doExport('json')}
+        />
         {view === 'calendar' && (
           <button className="btn btn-ghost btn-sm" onClick={() => downloadIcs(toCalendarEvents(eventsOf(apps, reminders)), 'careers-calendar.ics')}>
             Export .ics

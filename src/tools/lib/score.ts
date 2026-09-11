@@ -45,6 +45,7 @@
  */
 import { allCategories, type BudgetResult, type SectionedCats } from './budget';
 import { isSpendingCategory, migrateCategory, splitOutflow, type ExpenseItem } from './expense';
+import { classifySpendTiming, expectedShareByNow } from './spendShape';
 import { ymLocal } from '../../lib/date';
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -191,23 +192,45 @@ export function fidelityScore(budget: number, actual: number): number {
 }
 
 /**
- * Improvement against the user's own recent history → 0–100.
+ * Does this month's plan match what these categories actually cost? → 0–100.
  *
- * Centred on 60, not 0: holding steady is a perfectly good month and scoring it
- * near zero would make the only way to score well a permanent decline in
- * spending, which is neither possible nor desirable. Movement in either
- * direction is worth up to 40 points, and the two halves — consumption down,
- * saving up — are weighted equally because either one is real progress.
+ * This replaced a month-versus-month "momentum" component, and the reason is
+ * worth writing down. Momentum scored the change from last month, which sounds
+ * fair and is not: income, rent and plans move between months, so a month with
+ * a bonus, a holiday or a new flat scored badly for reasons that had nothing to
+ * do with how it was run. It also compared a fortnight of one month against a
+ * fortnight of another, which is two small samples and a lot of noise.
+ *
+ * What history is genuinely good for is a different question — not "did you do
+ * better than last month?" but "is the number you wrote down achievable?". A
+ * category budgeted at half what it has cost every month for six months is a
+ * plan that will be missed, and being told so is useful before the month ends
+ * rather than after. It carries a small weight deliberately: it judges the
+ * plan, not the month, and the month is what this score is about.
+ *
+ *   ratio = budget ÷ what the category typically costs
+ *
+ *   • at or above 0.9   — the plan covers the pattern. Full marks.
+ *   • falling to 0.4    — the plan is less than half of reality. Zero.
+ *   • above 1.5         — over-allocated; eased down to 60, never below, because
+ *                         a generous budget is a mild inefficiency and not a
+ *                         failure, and some categories genuinely are lumpy.
  */
-export function momentumScore(consumptionChange: number | null, savingsChange: number | null): number {
-  const parts: number[] = [];
-  // A 20% fall in consumption earns the full +40; a 20% rise costs the full −40.
-  if (consumptionChange !== null) parts.push(clamp(60 - (consumptionChange / 0.20) * 40));
-  // A 25% rise in saving earns the full +40. Slower to reward than consumption
-  // is to punish, because a single large transfer can move it a long way.
-  if (savingsChange !== null) parts.push(clamp(60 + (savingsChange / 0.25) * 40));
-  if (parts.length === 0) return 60;
-  return parts.reduce((s, v) => s + v, 0) / parts.length;
+export function planRealismScore(budget: number, typical: number): number {
+  // Nothing on record contradicts the plan, so there is nothing to mark down.
+  if (!Number.isFinite(typical) || typical <= 0) return 100;
+  // A category that reliably costs money and is budgeted at nothing is the
+  // clearest form of a plan that does not describe reality.
+  if (budget <= 0) return 0;
+  const ratio = budget / typical;
+  if (ratio >= 0.9 && ratio <= 1.5) return 100;
+  if (ratio < 0.9) {
+    if (ratio <= 0.4) return 0;
+    const t = (ratio - 0.4) / 0.5;
+    return clamp(100 * t * t * (3 - 2 * t));
+  }
+  const t = Math.min(1, (ratio - 1.5) / 1.5);   // 0 at 1.5x, 1 at 3x and beyond
+  return clamp(100 - 40 * t * t * (3 - 2 * t));
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -231,14 +254,34 @@ const pct = (n: number): string => `${Math.round(n * 100)}%`;
  * Score a month's execution.
  *
  * Weights (before renormalisation):
- *   Budget fidelity  35 — the thing the user asked to be measured most
+ *   Budget fidelity  45 — how this month is going against THIS month's plan
  *   Savings rate     25 — "more savings, investments and growth is the top result"
  *   Discretionary    20 — restraint where restraint is actually a choice
- *   Momentum         20 — improvement, measured against themselves
+ *   Plan realism     10 — is the plan itself achievable, given the pattern
  *
- * A part-month is scored on the part that has happened: budgets are pro-rated
- * by the fraction of the month elapsed, so a tracker opened on the 3rd does not
- * report every category as wildly under budget.
+ * Fidelity carries the most weight by a clear margin, and the fourth component
+ * is small, because both answer questions about the month on screen: what the
+ * user planned for it and what they did with it. Every month has its own
+ * income, its own plan and its own shape, and a score dominated by comparisons
+ * with a different month is a score about the wrong month.
+ *
+ * A PART-MONTH IS SCORED ON THE PART THAT HAS HAPPENED
+ * ----------------------------------------------------
+ * Budgets are pro-rated by the fraction of the month elapsed, so a tracker
+ * opened on the 3rd does not report every category as wildly under budget.
+ *
+ * But pro-rating is only honest for spending that accrues. Rent is due in full
+ * on the 1st, and against a target of one-eighth of its budget an on-time rent
+ * payment read as 650% over plan — enough, at rent's share of a plan, to take
+ * the whole month's fidelity to nearly zero on the 4th. That is the single
+ * biggest reason this score used to open every month at the bottom and climb
+ * for reasons that had nothing to do with the user.
+ *
+ * So each category is paced by how its money actually moves — see
+ * `spendShape.ts` — and a scheduled charge that has neither been paid nor
+ * fallen due yet is DROPPED rather than scored. Nothing has happened and
+ * nothing was expected; scoring it either way would be an opinion about a
+ * month that has not reached it.
  */
 export function computeExecutionScore({
   month, items, cats, budgetVals, income, now,
@@ -288,32 +331,60 @@ export function computeExecutionScore({
     .filter((r) => r.budget > 0);
   const plannedTotal = planned.reduce((s, r) => s + r.budget, 0);
 
+  /** How each category's money moves — see the pacing note above. */
+  const timing = classifySpendTiming(items, flat, month);
+  const today = isRunning ? now.getDate() : daysInMonth;
+  /** Scheduled charges neither paid nor yet due — nothing to judge this month. */
+  const notYetDue: string[] = [];
+
   if (plannedTotal > 0) {
     let weighted = 0;
+    /**
+     * The plan actually being scored, which is not always the whole plan: a
+     * bill that has not fallen due carries no target, so its budget leaves the
+     * denominator too. Otherwise dropping it would quietly hand its share of
+     * the weight to zero and mark the month down for the calendar.
+     */
+    let judgedTotal = 0;
     for (const { c, budget } of planned) {
-      const target = budget * elapsed;
+      const spending = isSpendingCategory(c);
+      // Savings allocations are not paced by this module — a SIP is money moved,
+      // not money spent — so they keep the even-pace reading they always had.
+      const share = spending ? expectedShareByNow(timing.get(c.k), elapsed, today) : elapsed;
+      if (share === null) { notYetDue.push(c.l); continue; }
+      const target = budget * share;
       const actual = spentByCat.get(c.k) ?? 0;
       // Savings runs the other way up: exceeding a savings allocation is the
       // best thing in the ledger, so it can never lose fidelity points.
-      const s = isSpendingCategory(c)
+      const s = spending
         ? fidelityScore(target, actual)
         : Math.max(fidelityScore(target, actual), actual >= target ? 100 : 0);
-      weighted += s * (budget / plannedTotal);
-      if (isSpendingCategory(c) && actual > target) {
+      weighted += s * budget;
+      judgedTotal += budget;
+      if (spending && target > 0 && actual > target) {
         overspent.push({ label: c.l, over: (actual - target) / target });
       }
     }
     overspent.sort((a, b) => b.over - a.over);
     const worst = overspent[0];
-    fidelityWeight = 35;
-    fidelity = {
-      key: 'fidelity',
-      label: 'Budget fidelity',
-      score: clamp(weighted),
-      detail: overspent.length === 0
-        ? `Every budgeted category is inside its plan${isRunning ? ' at this point in the month' : ''}.`
-        : `${overspent.length} ${overspent.length === 1 ? 'category is' : 'categories are'} over plan — ${worst.label} by ${pct(worst.over)}.`,
-    };
+    if (judgedTotal > 0) {
+      fidelityWeight = 45;
+      fidelity = {
+        key: 'fidelity',
+        label: 'Budget fidelity',
+        score: clamp(weighted / judgedTotal),
+        detail: overspent.length === 0
+          ? `Every budgeted category is inside its plan${isRunning ? ' at this point in the month' : ''}.`
+          : `${overspent.length} ${overspent.length === 1 ? 'category is' : 'categories are'} over plan — ${worst.label} by ${pct(worst.over)}.`,
+      };
+    } else {
+      unmeasured.push({
+        label: 'Budget fidelity',
+        reason: notYetDue.length
+          ? `Nothing is due yet this month — ${listOf(notYetDue)} ${notYetDue.length === 1 ? 'has' : 'have'} not come round.`
+          : 'Nothing in this month\u2019s plan can be measured yet.',
+      });
+    }
   } else {
     unmeasured.push({
       label: 'Budget fidelity',
@@ -321,7 +392,12 @@ export function computeExecutionScore({
     });
   }
 
-  /* ── 2. Savings rate ── */
+  /* ── 2. Savings rate ──
+     Deliberately NOT paced by the calendar. A transfer to savings is a lumpy,
+     scheduled event, not something that accrues daily, so "how much of this
+     month's income have you set aside so far" is already the honest figure and
+     dividing it by the fraction of the month elapsed would report someone who
+     had made their whole SIP on the 2nd as saving eight times their income. */
   let savings: Omit<ScoreComponent, 'weight'> | null = null;
   let savingsWeight = 0;
   const savingsRate = income > 0 ? split.setAsideTotal / income : null;
@@ -342,7 +418,13 @@ export function computeExecutionScore({
     });
   }
 
-  /* ── 3. Discretionary restraint (wants only) ── */
+  /* ── 3. Discretionary restraint (wants only) ──
+     Paced, unlike savings, because wants genuinely do accrue with daily life.
+     Read against a whole month's income, four days of dinners looked like
+     exemplary restraint on the 4th of every month and got worse from there —
+     a component that rewarded the calendar rather than the user, and one that
+     read the same spending on a different time base from budget fidelity
+     directly above it. */
   let restraint: Omit<ScoreComponent, 'weight'> | null = null;
   let restraintWeight = 0;
   if (income > 0) {
@@ -350,13 +432,13 @@ export function computeExecutionScore({
       const k = migrateCategory(e.category, validKeys);
       return meta.get(k)?.section === 'wants' ? s + e.amount : s;
     }, 0);
-    const share = wants / income;
+    const share = wants / (income * elapsed);
     restraintWeight = 20;
     restraint = {
       key: 'restraint',
       label: 'Discretionary restraint',
       score: wantsShareScore(share),
-      detail: `${pct(share)} of income went on wants${isRunning ? ' so far' : ''}. Needs are excluded — they are not a choice.`,
+      detail: `Wants are running at ${pct(share)} of income${isRunning ? ' at this pace' : ''}. Needs are excluded — they are not a choice.`,
     };
   } else {
     unmeasured.push({
@@ -365,36 +447,43 @@ export function computeExecutionScore({
     });
   }
 
-  /* ── 4. Momentum against the previous month ── */
-  const prevKey = ymLocal(new Date(y, m - 2, 1));
-  const prevItems = items.filter((e) => (e.date || '').slice(0, 7) === prevKey);
-  let momentum: Omit<ScoreComponent, 'weight'> | null = null;
-  let momentumWeight = 0;
-  if (prevItems.length > 0) {
-    const prev = splitOutflow(prevItems, validKeys, meta);
-    // A running month is compared like for like: the same fraction of the
-    // previous month, not the whole of it. Without this, every month scores
-    // "hugely improved" on the 2nd and "collapsing" on the 30th.
-    const prevConsumed = prev.consumedTotal * elapsed;
-    const prevSetAside = prev.setAsideTotal * elapsed;
-    const consumptionChange = prevConsumed > 0
-      ? (split.consumedTotal - prevConsumed) / prevConsumed : null;
-    const savingsChange = prevSetAside > 0
-      ? (split.setAsideTotal - prevSetAside) / prevSetAside : null;
-    if (consumptionChange !== null || savingsChange !== null) {
-      momentumWeight = 20;
-      momentum = {
-        key: 'momentum',
-        label: 'Momentum',
-        score: momentumScore(consumptionChange, savingsChange),
-        detail: describeMomentum(consumptionChange, savingsChange),
-      };
+  /* ── 4. Plan realism — is this month's plan achievable? ── */
+  let realism: Omit<ScoreComponent, 'weight'> | null = null;
+  let realismWeight = 0;
+  /**
+   * What each budgeted spending category typically costs, from the months
+   * before this one.
+   *
+   * The median, not the mean: one holiday month must not redefine what
+   * "typical" means for a category, and a plan is written for ordinary months.
+   */
+  const typicalByCat = typicalMonthlySpend(items, month, validKeys);
+  const withHistory = planned.filter(
+    ({ c }) => isSpendingCategory(c) && (typicalByCat.get(c.k) ?? 0) > 0,
+  );
+  if (withHistory.length > 0) {
+    const historyTotal = withHistory.reduce((sum, r) => sum + r.budget, 0);
+    let weighted = 0;
+    const short: Array<{ label: string; gap: number }> = [];
+    for (const { c, budget } of withHistory) {
+      const typical = typicalByCat.get(c.k) ?? 0;
+      weighted += planRealismScore(budget, typical) * (budget / historyTotal);
+      if (budget < typical * 0.9) short.push({ label: c.l, gap: (typical - budget) / typical });
     }
-  }
-  if (!momentum) {
+    short.sort((a, b) => b.gap - a.gap);
+    realismWeight = 10;
+    realism = {
+      key: 'realism',
+      label: 'Plan realism',
+      score: clamp(weighted),
+      detail: short.length === 0
+        ? 'Every budgeted category is planned at or above what it usually costs.'
+        : `${short.length} ${short.length === 1 ? 'category is' : 'categories are'} budgeted below what ${short.length === 1 ? 'it usually costs' : 'they usually cost'} — ${short[0].label} by ${pct(short[0].gap)}.`,
+    };
+  } else {
     unmeasured.push({
-      label: 'Momentum',
-      reason: 'There is nothing logged for the previous month to compare against.',
+      label: 'Plan realism',
+      reason: 'There is not enough history yet to say what these categories usually cost.',
     });
   }
 
@@ -402,7 +491,7 @@ export function computeExecutionScore({
     fidelity && { c: fidelity, weight: fidelityWeight },
     savings && { c: savings, weight: savingsWeight },
     restraint && { c: restraint, weight: restraintWeight },
-    momentum && { c: momentum, weight: momentumWeight },
+    realism && { c: realism, weight: realismWeight },
   ]);
 
   if (components.length === 0) {
@@ -432,18 +521,51 @@ export function computeExecutionScore({
   };
 }
 
-function describeMomentum(consumption: number | null, savings: number | null): string {
-  const bits: string[] = [];
-  if (consumption !== null) {
-    const dir = consumption < 0 ? 'down' : 'up';
-    bits.push(`spending ${dir} ${pct(Math.abs(consumption))} on last month`);
+/** "Rent", "Rent and Phone", "Rent, Phone and 2 more" — a list a person reads. */
+function listOf(labels: readonly string[]): string {
+  if (labels.length === 1) return labels[0];
+  if (labels.length === 2) return `${labels[0]} and ${labels[1]}`;
+  return `${labels[0]}, ${labels[1]} and ${labels.length - 2} more`;
+}
+
+/**
+ * What each category typically costs a month, over the months before `month`.
+ *
+ * The median of the months in which the category was actually used, so a
+ * category bought quarterly is measured against what it costs when it is
+ * bought, and one exceptional month cannot redefine "typical". Months with
+ * nothing in a category are absent rather than counted as zero: a zero would
+ * drag every occasional category's typical cost toward nothing and then report
+ * its honest budget as wildly over-planned.
+ */
+function typicalMonthlySpend(
+  items: readonly ExpenseItem[],
+  month: string,
+  validKeys: ReadonlySet<string>,
+  lookback = 6,
+): Map<string, number> {
+  const [y, m] = month.split('-').map(Number);
+  const months = new Set<string>();
+  for (let i = 1; i <= lookback; i += 1) months.add(ymLocal(new Date(y, m - 1 - i, 1)));
+
+  const perMonth = new Map<string, Map<string, number>>();
+  for (const e of items) {
+    const mk = (e.date || '').slice(0, 7);
+    if (!months.has(mk)) continue;
+    const k = migrateCategory(e.category, validKeys);
+    const byMonth = perMonth.get(k) ?? new Map<string, number>();
+    byMonth.set(mk, (byMonth.get(mk) ?? 0) + e.amount);
+    perMonth.set(k, byMonth);
   }
-  if (savings !== null) {
-    const dir = savings < 0 ? 'down' : 'up';
-    bits.push(`saving ${dir} ${pct(Math.abs(savings))}`);
+
+  const out = new Map<string, number>();
+  for (const [k, byMonth] of perMonth) {
+    const values = [...byMonth.values()].filter((v) => v > 0).sort((a, b) => a - b);
+    if (!values.length) continue;
+    const mid = Math.floor(values.length / 2);
+    out.set(k, values.length % 2 ? values[mid] : (values[mid - 1] + values[mid]) / 2);
   }
-  if (bits.length === 0) return 'Nothing to compare with yet.';
-  return `Like for like, ${bits.join(' and ')}.`;
+  return out;
 }
 
 function executionHeadline(score: number, savingsRate: number | null, overspentCount: number): string {
@@ -477,8 +599,8 @@ function weakestStep(components: ScoreComponent[]): string | null {
       return 'Move the savings transfer to the day after payday. A rate set before the month starts is the one that survives it.';
     case 'restraint':
       return 'Wants are the movable part of the budget. Trimming a tenth there is the cheapest way to lift every other number on this page.';
-    case 'momentum':
-      return 'Pick one category to bring down against last month. One is a decision; five is a diet.';
+    case 'realism':
+      return 'Raise the budgets that sit below what those categories actually cost. A plan you cannot keep is not a plan, and every other figure here is measured against it.';
     case 'coverage':
       return 'Record the rest of the month’s spending — the score only knows what the ledger knows.';
     default:

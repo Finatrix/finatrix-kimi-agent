@@ -1,7 +1,8 @@
 /** Header notification bell: unread count + dropdown list, in-app channel. */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
+import { useAnchoredPanelWidth } from '../../hooks/useAnchoredPanelWidth';
 import { useAuth } from '../../context/AuthContext';
 import { listNotifications, markRead } from '../services/notifications';
 import type { NotificationRow } from '../types/jobs';
@@ -11,7 +12,10 @@ export function NotificationsBell() {
   const { user } = useAuth();
   const [items, setItems] = useState<NotificationRow[]>([]);
   const [open, setOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
+  // One ref, two jobs: the outside-click test and the width measurement both
+  // need the wrapper's box. See the hook for why a `right: 0` panel has to be
+  // measured rather than sized in CSS.
+  const { anchorRef: wrapRef, panelStyle, measurePanel } = useAnchoredPanelWidth<HTMLDivElement>(open);
 
   const refresh = useCallback(async () => {
     if (!user) return;
@@ -37,12 +41,15 @@ export function NotificationsBell() {
       document.removeEventListener('mousedown', onDown);
       document.removeEventListener('keydown', onKey);
     };
-  }, [open]);
+  }, [open, wrapRef]);
 
   const unread = items.filter((n) => !n.read);
 
   const toggle = async () => {
     const next = !open;
+    // Measured before the panel exists, from the anchor that already does:
+    // the panel is right on its first frame rather than after a correction.
+    if (next) measurePanel();
     setOpen(next);
     if (next && unread.length && user) {
       await markRead(user.id, unread.map((n) => n.id)).catch(() => undefined);
@@ -68,7 +75,12 @@ export function NotificationsBell() {
         {unread.length > 0 && <span className="bell-dot">{unread.length > 9 ? '9+' : unread.length}</span>}
       </button>
       {open && (
-        <div className="bell-panel" role="menu" aria-label="Notifications">
+        <div
+          className="bell-panel"
+          role="menu"
+          aria-label="Notifications"
+          style={panelStyle}
+        >
           {!items.length ? (
             <div className="bell-item" style={{ color: 'var(--ink3)' }}>No notifications yet.</div>
           ) : (

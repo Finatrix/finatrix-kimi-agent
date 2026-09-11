@@ -267,7 +267,25 @@ export function matchBand(score: number): 'green' | 'yellow' | 'red' {
   return 'red';
 }
 
-export const DEFAULT_MATCH_THRESHOLD = 70;
+/**
+ * Default hard floor for the Resume Match filter.
+ *
+ * Recalibrated from 70 to 40 (2026-08-28) because the number underneath it
+ * changed meaning. The old scorer defaulted every unmeasurable dimension to a
+ * generous floor, which pushed junk postings into the 40s and left genuinely
+ * adjacent roles in the 50s — so a 70 threshold hid good jobs while junk sat
+ * just under it. With floors removed (see search/quickMatch.ts) the scale is:
+ *
+ *     100    the same role, skills and category as the candidate
+ *      ~45   a genuinely adjacent role worth putting in front of someone
+ *      ~5    a real posting in the wrong field
+ *       0    a posting we could not measure at all
+ *
+ * 40 is the point that keeps adjacent roles and drops wrong-field and
+ * unmeasurable ones. Raising this back toward 70 on the new scale would show
+ * the user almost nothing — the two numbers are not comparable.
+ */
+export const DEFAULT_MATCH_THRESHOLD = 40;
 
 // ─────────────────────────── resume tailoring ───────────────────────────
 

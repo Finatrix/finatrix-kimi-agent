@@ -40,6 +40,7 @@ import {
   TOPICS,
   articleFor,
   articlesInTopic,
+  scopeForArticle,
   topicFor,
   type Article,
   type Topic,
@@ -66,9 +67,19 @@ export const SITE_NAME = 'FinatriX';
  * `seo.test.ts` asserts the two agree, so a change here without a change there
  * fails the build rather than silently shipping two different homepages.
  */
-export const DEFAULT_TITLE = 'FinatriX — Smart Money Tools for India';
+/**
+ * The homepage title.
+ *
+ * "Smart Money Tools for India" is kept intact as a substring on purpose. It is
+ * the phrase the site already ranks for and the audience it still serves best;
+ * replacing it with something market-neutral would have traded a real position
+ * for an aspirational one. The other three markets are appended rather than
+ * substituted, so the page now says what it covers without giving up what it
+ * was already known for.
+ */
+export const DEFAULT_TITLE = 'FinatriX — Smart Money Tools for India, the US, the UK & the UAE';
 export const DEFAULT_DESCRIPTION =
-  `${TOOL_COUNT_WORD_CAP} free, education-first money tools for India: budgeting, expenses, investing, benchmarking and a lifelong wealth simulation. Not financial advice.`;
+  `${TOOL_COUNT_WORD_CAP} free money tools calibrated for India, the US, the UK and the UAE: budgeting, expenses, investing and a lifelong wealth simulation.`;
 
 /**
  * The homepage's social-card description, which is deliberately NOT the meta
@@ -79,7 +90,7 @@ export const DEFAULT_DESCRIPTION =
  * true rather than one.
  */
 export const DEFAULT_SOCIAL_DESCRIPTION =
-  `${TOOL_COUNT_WORD_CAP} free, education-first money tools for India — budgeting, investing, benchmarking and a full life-long wealth simulation.`;
+  `${TOOL_COUNT_WORD_CAP} free, education-first money tools — calibrated for India, the US, the UK and the UAE, not merely translated for them.`;
 
 /**
  * Cache-busting token for the share cards.
@@ -170,6 +181,93 @@ function normalisePath(pathname: string): string {
   return pathname.replace(/\/+$/, '') || '/';
 }
 
+/* ------------------------------------------------------------------------- *
+ * Language and reach
+ * ------------------------------------------------------------------------- */
+
+/**
+ * The site's language, without a region.
+ *
+ * It used to be `en-IN` everywhere — in `<html lang>`, in `og:locale` and in
+ * every `inLanguage` node — and at the time that was the honest answer: the
+ * copy was written around rupees, Indian slabs and Indian instruments, and
+ * saying so was better than claiming a neutrality the product did not have.
+ *
+ * The calculators are no longer India-only, so the blanket claim stopped being
+ * true and started costing something: a regional subtag on every URL is a
+ * signal to search engines that the whole site is for one country, applied to
+ * pages that now serve four markets and to a careers library that was never
+ * India-specific at all.
+ *
+ * So the DEFAULT is plain `en`, and the pages that really are about Indian law
+ * still say `en-IN` and additionally declare `contentLocation: India`. The
+ * regional claim now sits on the content that earns it rather than on the
+ * document shell.
+ */
+export const SITE_LANGUAGE = 'en';
+
+/** The language tag for content that is specifically about India. */
+export const INDIA_LANGUAGE = 'en-IN';
+
+/**
+ * The BCP-47 tag a route should declare, and whether it is India-scoped.
+ *
+ * Only the knowledge layer varies: an article inherits its topic's scope, and
+ * `'in-only'` — Indian tax regimes, EPF versus NPS — is the one case where the
+ * regional tag is a description rather than an assumption. `'in-examples'` does
+ * NOT qualify: a guide whose worked example happens to be in rupees is still
+ * written for anyone, and tagging it `en-IN` would bury it for the readers it
+ * would serve perfectly well.
+ */
+export function languageForPath(pathname: string): { lang: string; indiaScoped: boolean } {
+  const p = normalisePath(pathname);
+  if (p.startsWith(`${LEARN_ROOT}/`)) {
+    const [, , topicSlug, articleSlug] = p.split('/');
+    const scope = articleSlug
+      ? (() => {
+          const article = articleFor(topicSlug, articleSlug);
+          return article ? scopeForArticle(article) : undefined;
+        })()
+      : topicFor(topicSlug)?.scope;
+    if (scope === 'in-only') return { lang: INDIA_LANGUAGE, indiaScoped: true };
+  }
+  return { lang: SITE_LANGUAGE, indiaScoped: false };
+}
+
+/**
+ * `og:locale` for a route.
+ *
+ * Open Graph wants `language_TERRITORY` and has no way to say "English,
+ * anywhere", so its own documented default stands in for the neutral case.
+ * India-scoped pages state the locale they actually describe.
+ */
+export function ogLocaleForPath(pathname: string): string {
+  return languageForPath(pathname).indiaScoped ? 'en_IN' : 'en_US';
+}
+
+/**
+ * The `hreflang` set for a route: one self-referential `en` and an
+ * `x-default`, both pointing at the same URL.
+ *
+ * There is one URL per page and it serves every English-speaking region, which
+ * is exactly what this markup says. It is not a trick to look international —
+ * a self-referential entry is required in any hreflang set, and `x-default`
+ * names the page to fall back to when no better regional match exists. Without
+ * it, an engine deciding who this page is for has only the content to go on,
+ * and the content is full of rupees.
+ *
+ * Returns an empty list for a non-indexable route: annotating a page that
+ * `noindex` has already removed would be contradictory.
+ */
+export function alternatesForPath(pathname: string): { hreflang: string; href: string }[] {
+  const { canonical } = seoForPath(pathname);
+  if (!canonical) return [];
+  return [
+    { hreflang: SITE_LANGUAGE, href: canonical },
+    { hreflang: 'x-default', href: canonical },
+  ];
+}
+
 /**
  * SEO copy for the public calculators.
  *
@@ -198,14 +296,14 @@ const TOOL_SEO: Record<ToolId, ToolSeo> = {
     name: 'Budget Builder',
     title: 'Budget Builder — 50/30/20 Budget Calculator | FinatriX',
     description:
-      'Split your monthly income the 50/30/20 way across needs, wants and savings. A free, education-first budget calculator built for Indian salaries.',
+      'Split your monthly take-home pay the 50/30/20 way across needs, wants and savings. A free, education-first budget calculator for India, the US, the UK and the UAE.',
     category: 'Budgeting',
   },
   expenses: {
     name: 'Expense Tracker',
     title: 'Expense Tracker — Log & Categorise Spending | FinatriX',
     description:
-      'Log daily spending, categorise it and spot the patterns behind your monthly outflow. A free, private expense tracker for India — your data stays yours.',
+      'Log daily spending, categorise it and spot the patterns behind your monthly outflow. A free, private expense tracker — no bank connection, and your data stays yours.',
     category: 'Expense tracking',
   },
   investmatch: {
@@ -226,7 +324,7 @@ const TOOL_SEO: Record<ToolId, ToolSeo> = {
     name: 'PeerCompare',
     title: 'PeerCompare — Benchmark Your Money Against Peers | FinatriX',
     description:
-      'See how your savings rate, expenses, investments and emergency buffer compare with peers at a similar income in India. An educational benchmarking tool.',
+      'See how your savings rate, expenses, investments and emergency buffer compare with peers at a similar income in India, the US, the UK or the UAE.',
     category: 'Benchmarking',
   },
   goals: {
@@ -247,10 +345,15 @@ const TOOL_SEO: Record<ToolId, ToolSeo> = {
     name: 'Net Worth Tracker',
     title: 'Net Worth Tracker — Assets Minus Liabilities | FinatriX',
     description:
-      'Record what you own and what you owe, and watch the one number that shows whether the rest is working. A free, private net worth tracker for India.',
+      'Record what you own and what you owe, and watch the one number that shows whether the rest is working. A free, private net worth tracker, in any currency.',
     category: 'Net worth tracking',
   },
 };
+
+/** A public calculator's name and search copy — for surfaces that describe one. */
+export function toolSeoFor(id: ToolId): Readonly<ToolSeo> {
+  return TOOL_SEO[id];
+}
 
 /**
  * Titles for routes that are NOT indexable — the signed-in app, the careers
@@ -371,7 +474,7 @@ export function seoForPath(pathname: string): RouteSeo {
       description: DEFAULT_DESCRIPTION,
       socialDescription: DEFAULT_SOCIAL_DESCRIPTION,
       image: OG_IMAGE,
-      imageAlt: `${SITE_NAME} — smart money tools for India`,
+      imageAlt: `${SITE_NAME} — smart money tools for India, the US, the UK and the UAE`,
     };
   }
 
@@ -566,14 +669,14 @@ function faqPage(url: string, faq: ReadonlyArray<{ q: string; a: string }>): Jso
 }
 
 /** The `WebPage` node every indexable URL gets. */
-function webPage(url: string, seo: RouteSeo, extra: JsonLd = {}): JsonLd {
+function webPage(url: string, seo: RouteSeo, extra: JsonLd = {}, lang = SITE_LANGUAGE): JsonLd {
   return {
     '@type': 'WebPage',
     '@id': `${url}#webpage`,
     url,
     name: seo.title,
     description: seo.description,
-    inLanguage: 'en-IN',
+    inLanguage: lang,
     isPartOf: { '@id': WEBSITE_ID },
     about: { '@id': ORG_ID },
     primaryImageOfPage: seo.image,
@@ -659,7 +762,7 @@ function learnGraph(
         '@type': 'CollectionPage',
         breadcrumb: { '@id': `${url}#breadcrumb` },
         dateModified: topic.updated,
-      }),
+      }, topic.scope === 'in-only' ? INDIA_LANGUAGE : SITE_LANGUAGE),
       breadcrumb(topic.name, url, [{ name: LEARN_HUB.name, path: LEARN_ROOT }]),
       {
         '@type': 'ItemList',
@@ -696,11 +799,19 @@ function learnGraph(
 
   const { topic, article } = learn;
   const articleCopy = copy?.articles[article.slug];
+  // Derived from the article itself rather than from a reconstructed path:
+  // `learnGraph` already holds the entity, and going through the URL would be a
+  // second place for the inheritance rule to be got wrong.
+  const indiaScoped = scopeForArticle(article) === 'in-only';
+  const articleLang = {
+    lang: indiaScoped ? INDIA_LANGUAGE : SITE_LANGUAGE,
+    indiaScoped,
+  };
   graph.push(
     webPage(url, seo, {
       breadcrumb: { '@id': `${url}#breadcrumb` },
       dateModified: article.updated,
-    }),
+    }, articleLang.lang),
     // `article.crumb`, not `article.heading` — the same short label the visible
     // trail renders. Breadcrumb markup has to describe the breadcrumb the page
     // shows, and the two previously disagreed.
@@ -728,7 +839,14 @@ function learnGraph(
           }
         : {}),
       url,
-      inLanguage: 'en-IN',
+      inLanguage: articleLang.lang,
+      // An explicit place, but only where the article really is about one
+      // jurisdiction. This is the honest replacement for tagging the whole site
+      // `en-IN`: it tells an engine that "old vs new regime" is Indian tax law
+      // without implying that "avalanche vs snowball" is Indian arithmetic.
+      ...(articleLang.indiaScoped
+        ? { contentLocation: { '@type': 'Country', name: 'India' } }
+        : {}),
       datePublished: article.published,
       dateModified: article.updated,
       author: { '@id': AUTHOR_ID },
@@ -850,7 +968,7 @@ export function structuredDataForPath(
           applicationSubCategory: meta.category,
           operatingSystem: 'Web',
           browserRequirements: 'Requires JavaScript',
-          inLanguage: 'en-IN',
+          inLanguage: SITE_LANGUAGE,
           isAccessibleForFree: true,
           isPartOf: { '@id': WEBSITE_ID },
           publisher: { '@id': ORG_ID },
@@ -934,6 +1052,32 @@ export function applySeo(pathname: string): void {
   // built on. Writing through the existing node keeps it honest.
   const titleEl = document.head.querySelector('title');
   if (titleEl) titleEl.textContent = seo.title;
+
+  // The document's own language. `en` for almost everything; `en-IN` on the
+  // guides that really are about Indian law, where the regional tag helps a
+  // screen reader pronounce "lakh" and tells an engine who the page is for.
+  document.documentElement.setAttribute('lang', languageForPath(pathname).lang);
+
+  setMeta('meta[property="og:locale"]', 'content', ogLocaleForPath(pathname));
+
+  // hreflang. Both entries point at this page's canonical, so a client-side
+  // navigation cannot leave the previous route's URL annotated on this one.
+  //
+  // `alternatesForPath` returns nothing for a noindex route, which is the
+  // honest answer — but `setMeta` only ever rewrites tags, never removes them,
+  // so skipping the write would strand the PREVIOUS page's URL on this one.
+  // Falling back to the site root mirrors what the canonical tag does two
+  // blocks down, for the same reason.
+  const alternates = alternatesForPath(pathname);
+  const annotated = alternates.length
+    ? alternates
+    : [SITE_LANGUAGE, 'x-default'].map((hreflang) => ({
+        hreflang,
+        href: `${CANONICAL_ORIGIN}/`,
+      }));
+  for (const { hreflang, href } of annotated) {
+    setMeta(`link[rel="alternate"][hreflang="${hreflang}"]`, 'href', href);
+  }
 
   setMeta('meta[name="robots"]', 'content', seo.robots);
   setMeta('meta[name="description"]', 'content', seo.description);

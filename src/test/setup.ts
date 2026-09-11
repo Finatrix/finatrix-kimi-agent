@@ -55,7 +55,7 @@ if (!('IntersectionObserver' in globalThis)) {
   (globalThis as unknown as { IntersectionObserver: unknown }).IntersectionObserver =
     IntersectionObserverMock;
 }
-if (typeof window !== 'undefined' && typeof window.scrollTo !== 'function') {
+if (typeof window !== 'undefined') {
   window.scrollTo = () => {};
 }
 // jsdom implements neither scrollIntoView nor matchMedia. Both are used for

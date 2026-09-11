@@ -12,40 +12,32 @@ export default function LandingShowcase() {
           <span className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-accent-text">The toolkit</span>
           <h2 className="mt-4 text-[clamp(30px,5vw,52px)] font-semibold leading-[1.04] tracking-[-0.025em] text-ink">
             {TOOL_COUNT_WORD_CAP} tools.<br />
-            <span className="text-ink-2">One clear picture of your money.</span>
+            <span className="text-ink-2">Use the ones you need.</span>
           </h2>
           <p className="mt-5 text-[15px] sm:text-[16px] leading-relaxed text-ink-2">
-            Each one is purpose-built for India — and they all share the same data, currency
-            and design, so moving between them feels like one continuous experience.
+            Start with your monthly budget and expenses. Add a goal, track your net worth or
+            explore an investment question when you are ready. Market-specific tools show the assumptions they use.
           </p>
         </Reveal>
 
-        <div className="mt-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+        <div className="mt-14 grid grid-cols-1 md:grid-cols-2 gap-x-12">
           {TOOLS.map((t, i) => (
             <Reveal key={t.id} delay={i * 60}>
               <Link
                 to={t.href}
                 aria-label={`Open ${t.name}`}
-                className="fx-glass fx-card-hover group relative flex h-full flex-col rounded-[20px] p-6 overflow-hidden"
+                className="group relative flex h-full flex-col border-t border-hairline py-7 pr-4"
               >
                 {/* top accent line in the tool colour */}
                 <span
-                  className="absolute inset-x-0 top-0 h-[2px] opacity-70 transition-opacity duration-300 group-hover:opacity-100"
-                  style={{ background: `linear-gradient(90deg, transparent, ${t.color}, transparent)` }}
-                />
-                <span
-                  className="grid h-12 w-12 place-items-center rounded-[14px] text-white"
-                  style={{
-                    background: `linear-gradient(150deg, ${t.color}, ${t.color}99)`,
-                    boxShadow: `0 10px 26px -12px ${t.color}99, inset 0 1px 0 rgba(255,255,255,0.22)`,
-                  }}
+                  className="text-accent-text"
                 >
                   <ToolIcon name={t.icon} className="h-[22px] w-[22px]" />
                 </span>
                 <h3 className="mt-5 text-[18px] font-semibold tracking-[-0.01em] text-ink">{t.name}</h3>
                 <p className="mt-2 text-[14px] leading-relaxed text-ink-2 flex-grow">{t.blurb}</p>
-                <span className="mt-5 inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.08em] text-ink-3 transition-colors group-hover:text-accent-text">
-                  Open
+                <span className="mt-4 inline-flex items-center gap-1.5 text-[13px] text-ink-2 transition-colors group-hover:text-accent-text">
+                  Open {t.name}
                   <span className="transition-transform duration-300 group-hover:translate-x-0.5">→</span>
                 </span>
               </Link>

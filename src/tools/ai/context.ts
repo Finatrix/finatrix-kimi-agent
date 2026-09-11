@@ -34,6 +34,7 @@ import {
   type CatMeta,
 } from '../lib/expenseAnalytics';
 import { monthLabel, prevMonth } from '../lib/month';
+import type { PlanContext } from './planContext';
 
 /* ── Bounds. The edge function caps the prompt at 80k characters; these keep us
       an order of magnitude inside it, and keep the model's attention on the
@@ -102,7 +103,15 @@ export interface FinanceSnapshot {
   netCashFlow: number | null;
   dailyAverage: number;
   dailySafeSpend: number | null;
+  /** Spending (savings excluded) this month is forecast to end on. An estimate. */
   projectedMonthEnd: number | null;
+  /**
+   * The forecast's calibrated range: how far it was off, standing on this same
+   * day, in the user's own past months. Null until three such months exist.
+   */
+  projectedMonthEndRange: { low: number; high: number; monthsTested: number } | null;
+  /** Past months blended into the forecast's pace; 0 means this month alone. */
+  forecastUsesMonthsOfHistory: number;
 
   /**
    * Needs + wants only — what the word "spending" means. `totalSpent` above is
@@ -112,6 +121,8 @@ export interface FinanceSnapshot {
   spentOnNeedsAndWants: number;
   /** Money moved into savings, investments or transfers this month. */
   setAsideThisMonth: number;
+  /** `setAsideThisMonth` as a share of income, when income is recorded. */
+  savingsRatePct: number | null;
   previousMonth: {
     month: string;
     label: string;
@@ -129,6 +140,12 @@ export interface FinanceSnapshot {
   largestTransactions: TransactionPoint[];
   recurring: RecurringPoint[];
   monthlyHistory: MonthPoint[];
+
+  /**
+   * The user's saved plans in the other tools — goal, net worth, investing plan,
+   * emergency fund — each computed by that tool. Null when not supplied.
+   */
+  beyondThisMonth: PlanContext | null;
 
   /** What simply is not in the data, so the assistant can say so precisely. */
   gaps: string[];
@@ -152,10 +169,12 @@ export interface SnapshotInput {
   /** ISO currency code, for the model to format amounts consistently. */
   currency: string;
   now: Date;
+  /** Saved plans from the other tools, read at ask-time. See `planContext.ts`. */
+  plan?: PlanContext | null;
 }
 
 export function buildSnapshot({
-  items, cats, budgetStore, month, currency, now,
+  items, cats, budgetStore, month, currency, now, plan = null,
 }: SnapshotInput): FinanceSnapshot {
   const flat = allCategories(cats);
   const catMeta = new Map<string, CatMeta>(flat.map((c) => [c.k, c]));
@@ -167,7 +186,12 @@ export function buildSnapshot({
 
   // The dashboard's own numbers, not a second implementation of them.
   const dash = computeDashboard(month, items, cats, budgetVals, now, income);
-  const forecast = computeMonthForecast(items, month, now, dash.spendableBudget, catMeta);
+  const forecast = computeMonthForecast({
+    items, month, now, spendableBudget: dash.spendableBudget, catMeta, budgetVals,
+  });
+  const forecastRange = forecast.isCurrentMonth && forecast.range
+    ? { low: money(forecast.range.low), high: money(forecast.range.high), monthsTested: forecast.range.monthsTested }
+    : null;
 
   const prev = prevMonth(month);
   const prevItems = items.filter((e) => (e.date || '').slice(0, 7) === prev);
@@ -238,6 +262,8 @@ export function buildSnapshot({
   if (monthItems.length === 0) gaps.push(`No transactions are logged for ${monthLabel(month)}.`);
   if (!prevHasData) gaps.push(`No transactions are logged for ${monthLabel(prev)}, so month-over-month comparison is not possible.`);
   if (monthlyHistory.filter((m) => m.txCount > 0).length < 2) gaps.push('There is less than two months of history, so trends are not meaningful yet.');
+  if (plan && !plan.goal) gaps.push('No savings goal is saved in the Goal Planner.');
+  if (plan && !plan.emergencyFund) gaps.push('No emergency-fund plan is saved on the dashboard, so questions about a safety buffer cannot use the user\'s own figures.');
 
   return {
     currency,
@@ -262,9 +288,12 @@ export function buildSnapshot({
     dailyAverage: money(dash.dailyAvg),
     dailySafeSpend: dash.dailySafeSpend == null ? null : money(dash.dailySafeSpend),
     projectedMonthEnd: forecast.isCurrentMonth ? money(forecast.projected) : null,
+    projectedMonthEndRange: forecastRange,
+    forecastUsesMonthsOfHistory: forecast.basis.historyMonths,
 
     spentOnNeedsAndWants: money(thisSplit.consumedTotal),
     setAsideThisMonth: money(thisSplit.setAsideTotal),
+    savingsRatePct: income > 0 ? Math.round((thisSplit.setAsideTotal / income) * 1000) / 10 : null,
     previousMonth: prevHasData
       ? {
           month: prev,
@@ -285,6 +314,7 @@ export function buildSnapshot({
     largestTransactions,
     recurring,
     monthlyHistory,
+    beyondThisMonth: plan,
     gaps,
   };
 }

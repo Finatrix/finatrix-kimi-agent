@@ -38,6 +38,6 @@ describe('tools routing (through the real App)', () => {
   it('redirects /tools to the dashboard hub by default', async () => {
     renderApp('/tools');
     // New visitors (no last-used tool) land on the unified dashboard hub.
-    expect(await screen.findByText('Your financial journey', undefined, LAZY)).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Your money, this month.' }, LAZY)).toBeInTheDocument();
   }, 15000);
 });

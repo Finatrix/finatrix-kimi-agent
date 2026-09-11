@@ -43,7 +43,7 @@ export function Section({
     <section aria-labelledby={id} className={`mt-14 first:mt-0 ${className}`}>
       <h2
         id={id}
-        className="scroll-mt-24 text-[22px] sm:text-[26px] font-semibold tracking-[-0.02em] text-ink"
+        className="text-[22px] sm:text-[26px] font-semibold tracking-[-0.02em] text-ink"
       >
         {title}
       </h2>

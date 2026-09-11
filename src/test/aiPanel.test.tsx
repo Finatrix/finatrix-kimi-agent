@@ -4,6 +4,7 @@ import { Markdown } from '../tools/ui/Markdown';
 import AiPanel from '../tools/ui/AiPanel';
 import { CurrencyProvider } from '../tools/CurrencyContext';
 import { SUGGESTED_PROMPTS } from '../tools/ai/prompts';
+import { currentMonth } from '../tools/lib/month';
 
 /**
  * The assistant's rendering surface. Two things are load-bearing here: model
@@ -154,7 +155,14 @@ describe('AiPanel', () => {
     expect(h.lastRequest!.system).toMatch(/NEVER invent/);
   });
 
+  /** Two transactions this month, so a chart of them is a chart of real data. */
+  const seedLedger = () => localStorage.setItem('fx_expenses', JSON.stringify([
+    { id: 'a', date: `${currentMonth()}-01`, category: 'groceries', amount: 550 },
+    { id: 'b', date: `${currentMonth()}-01`, category: 'eating_out', amount: 120 },
+  ]));
+
   it('renders an assistant-supplied chart as accessible markup, not a canvas', async () => {
+    seedLedger();
     reply({
       answer: 'Here it is.',
       chart: {
@@ -162,12 +170,138 @@ describe('AiPanel', () => {
         points: [{ label: 'Groceries', value: 550 }, { label: 'Dining', value: 120 }],
       },
     });
-    const { container } = renderPanel();
+    renderPanel();
     await ask('Show my top categories');
 
     await waitFor(() => expect(screen.getByText('Top categories')).toBeInTheDocument());
     expect(screen.getByText('Groceries')).toBeInTheDocument();
-    expect(container.querySelector('canvas')).toBeNull();
+    // The panel is portalled to <body>: asking the render container would find
+    // no canvas whatever the chart was drawn with.
+    expect(document.querySelector('.fx-ai-chart canvas')).toBeNull();
+    expect(document.querySelectorAll('.fx-ai-chart-row')).toHaveLength(2);
+  });
+
+  it('withholds a chart whose values are not in the user’s data', async () => {
+    // Drawn in the user's currency, an invented bar is indistinguishable from a
+    // real one. The whole chart is withheld and the answer says so.
+    seedLedger();
+    reply({
+      answer: 'Here it is.',
+      chart: {
+        title: 'Top categories', unit: 'currency',
+        points: [{ label: 'Groceries', value: 550 }, { label: 'Dining', value: 4800 }],
+      },
+    });
+    renderPanel();
+    await ask('Show my top categories');
+
+    await waitFor(() => expect(screen.getByText(/chart was left out/)).toBeInTheDocument());
+    expect(screen.queryByText('Top categories')).toBeNull();
+  });
+
+  it('names the amounts in an answer that are not in the user’s records', async () => {
+    seedLedger();
+    reply({ answer: 'Groceries came to ₹550. Try capping dining at ₹2,000 next month.' });
+    renderPanel();
+    await ask('Where can I save?');
+
+    await waitFor(() => expect(screen.getByText(/1 of 2 amounts trace to your records/)).toBeInTheDocument());
+    expect(screen.getByText(/Not in them: ₹2,000/)).toBeInTheDocument();
+  });
+
+  it('leads with a headline and shows key figures as tiles', async () => {
+    seedLedger();
+    reply({
+      headline: 'Groceries are your biggest cost this month.',
+      highlights: [
+        { label: 'Groceries', value: 550, unit: 'currency', tone: 'neutral' },
+        { label: 'Eating out', value: 120, unit: 'currency', tone: 'good' },
+      ],
+      answer: '- Groceries lead.\n- **Next:** plan one shop a week.',
+    });
+    renderPanel();
+    await ask('What costs me most?');
+
+    await waitFor(() => expect(screen.getByText('Groceries are your biggest cost this month.')).toBeInTheDocument());
+    const tile = screen.getByText('Eating out').closest('.fx-ai-tile')!;
+    expect(tile).toHaveClass('is-good');
+    expect(tile.textContent).toMatch(/120/);
+  });
+
+  it('withholds a tile whose value is not in the data, and says so', async () => {
+    seedLedger();
+    reply({
+      answer: 'x',
+      highlights: [
+        { label: 'Groceries', value: 550, unit: 'currency' },
+        { label: 'Invented', value: 9999, unit: 'currency' },
+      ],
+    });
+    renderPanel();
+    await ask('Summarise');
+
+    await waitFor(() => expect(screen.getByText(/figure tile was left out/)).toBeInTheDocument());
+    expect(screen.queryByText('Invented')).toBeNull();
+    expect(screen.getByText('Groceries', { selector: 'dt' })).toBeInTheDocument();
+  });
+
+  it('draws a donut with a legend a screen reader can read', async () => {
+    seedLedger();
+    reply({
+      answer: 'x',
+      chart: { type: 'donut', title: 'Where it went', unit: 'currency', points: [{ label: 'Groceries', value: 550 }, { label: 'Dining', value: 120 }] },
+    });
+    renderPanel();
+    await ask('Split?');
+
+    // The panel is portalled to <body>, so query the document, not the render container.
+    await waitFor(() => expect(screen.getByText('Where it went')).toBeInTheDocument());
+    expect(document.querySelectorAll('.fx-ai-donut-seg')).toHaveLength(2);
+    expect(screen.getByText(/82%/)).toBeInTheDocument(); // 550 of 670
+  });
+
+  it('draws a trend line with a text alternative', async () => {
+    seedLedger();
+    reply({
+      answer: 'x',
+      chart: { type: 'line', title: 'Trend', unit: 'currency', points: [{ label: 'A', value: 120 }, { label: 'B', value: 550 }, { label: 'C', value: 670 }] },
+    });
+    renderPanel();
+    await ask('Trend?');
+
+    await waitFor(() => expect(screen.getByRole('img', { name: /Line chart: A .*120.*C .*670/ })).toBeInTheDocument());
+  });
+
+  it('labels a general answer’s chart as an illustration', async () => {
+    reply({
+      mode: 'general',
+      answer: 'Compounding speeds up over time.',
+      chart: { type: 'line', title: 'Growth', unit: 'number', points: [{ label: 'Year 1', value: 100 }, { label: 'Year 10', value: 259 }] },
+    });
+    renderPanel();
+    await ask('How does compounding work?');
+
+    await waitFor(() => expect(screen.getByText('Illustration — not your data')).toBeInTheDocument());
+  });
+
+  it('collapses a long answer behind a disclosure button', async () => {
+    reply({ mode: 'general', answer: Array.from({ length: 40 }, (_, i) => `- Point number ${i} explains one more thing.`).join('\n') });
+    renderPanel();
+    await ask('Explain it all');
+
+    const more = await screen.findByRole('button', { name: 'Show the full answer' });
+    expect(more).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(more);
+    expect(screen.getByRole('button', { name: 'Show less' })).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('says so when every amount traces to the records', async () => {
+    seedLedger();
+    reply({ answer: 'Groceries were ₹550 and dining ₹120, so ₹670 in all.' });
+    renderPanel();
+    await ask('What did I spend?');
+
+    await waitFor(() => expect(screen.getByText(/All 3 amounts trace to your records/)).toBeInTheDocument());
   });
 
   it('reports a failure as a message instead of failing silently', async () => {
@@ -178,14 +312,18 @@ describe('AiPanel', () => {
       expect(screen.getByText(/Daily AI limit reached/)).toBeInTheDocument());
   });
 
-  it('explains itself to a signed-out visitor and disables the composer', async () => {
+  it('offers local setup help to guests without sending a financial request', async () => {
     h.user = null;
     renderPanel();
-    expect(screen.getByText(/Sign in to use FinatriX AI/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Ask FinatriX AI/i)).toBeDisabled();
-    // The composer cannot take focus, so the dialog itself must — otherwise a
-    // screen reader is left outside the dialog entirely.
-    await waitFor(() => expect(screen.getByRole('dialog')).toHaveFocus());
+    expect(screen.getByText(/Sign in for AI answers/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Ask FinatriX AI/i)).toBeEnabled();
+    await waitFor(() => expect(screen.getByLabelText(/Ask FinatriX AI/i)).toHaveFocus());
+    await ask('How do I get started?');
+    expect(screen.getByText(/Start with Set up your month/)).toBeInTheDocument();
+    expect(h.lastRequest).toBeNull();
+    await ask('What did I spend on food?');
+    expect(screen.getByText(/I can help you find your way/)).toBeInTheDocument();
+    expect(h.lastRequest).toBeNull();
   });
 
   it('persists the conversation for the signed-in user and restores it', async () => {

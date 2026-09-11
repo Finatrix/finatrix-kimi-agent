@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
-import { store, getJSON, setJSON } from '../tools/lib/storage';
-import { currentMonth } from '../tools/lib/month';
-import { cfmt, currencySym, CURRENCY_CODES } from '../tools/lib/format';
+import { store } from '../tools/lib/storage';
+import { currencySym, CURRENCY_CODES } from '../tools/lib/format';
+import { loadMarket, MARKET_LIST, isMarketId, type MarketId } from '../tools/lib/markets';
+import { seedOnboarding } from '../tools/lib/onboarding';
 import { BrandLogo } from '../components/BrandLogo';
 import ThemeToggle from '../components/ThemeToggle';
 
@@ -10,45 +11,39 @@ import ThemeToggle from '../components/ThemeToggle';
  * First-run onboarding — a calm, ~60-second setup that POPULATES the dashboard.
  *
  * It collects only what meaningfully lights up the dashboard, then writes to the
- * exact same localStorage shapes the tools use (fx_bb_data, fx_investmatch,
- * fx_goals, fx_currency) so every figure is real and editable in its tool. No
+ * exact same storage shapes the tools use (fx_bb_data, fx_goals, fx_currency)
+ * while preserving existing plans. Every figure is editable in its tool. No
  * long forms, one decision per step, everything skippable, never a dead end.
  */
-
-type Risk = 'conservative' | 'moderate' | 'aggressive';
 
 interface Form {
   code: string;
   income: string;
   savings: string;
-  risk: Risk | '';
+  market: MarketId;
   goalName: string;
   goalTarget: string;
   goalYears: string;
 }
 
-const RISKS: Array<{ v: Risk; l: string; d: string }> = [
-  { v: 'conservative', l: 'Conservative', d: 'Safety first, steadier returns' },
-  { v: 'moderate', l: 'Moderate', d: 'Balanced growth with some risk' },
-  { v: 'aggressive', l: 'Aggressive', d: 'Maximum growth, more ups and downs' },
-];
-
 const num = (v: string) => {
-  const n = parseFloat(String(v ?? '').replace(/[^0-9.]/g, ''));
-  return Number.isFinite(n) ? n : 0;
+  const n = Number(String(v ?? '').replace(/,/g, '').trim());
+  return Number.isFinite(n) && n >= 0 && n <= 1e12 ? n : 0;
 };
 
-// Steps: 0 income · 1 savings · 2 risk · 3 goal · 4 done. (Welcome is inline on 0.)
+// Steps: 0 income · 1 emergency contribution · 2 market · 3 goal · 4 done.
 const INPUT_STEPS = 4; // steps that count toward the progress bar
 
 export default function Onboarding() {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<Form>({
     code: store.get('fx_currency', 'INR') || 'INR',
-    income: '', savings: '', risk: '', goalName: '', goalTarget: '', goalYears: '10',
+    income: '', savings: '', market: loadMarket(), goalName: '', goalTarget: '', goalYears: '10',
   });
   const firstFieldRef = useRef<HTMLInputElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const [savedNotes, setSavedNotes] = useState<string[]>([]);
+  const [error, setError] = useState('');
 
   const sym = currencySym(form.code);
   const income = num(form.income);
@@ -67,41 +62,21 @@ export default function Onboarding() {
 
   const set = (patch: Partial<Form>) => setForm((f) => ({ ...f, ...patch }));
 
-  function persist() {
-    try {
-      if (form.code) store.set('fx_currency', form.code);
-      if (income > 0) {
-        const cm = currentMonth();
-        const bstore = getJSON<Record<string, unknown>>('fx_bb_data', {});
-        bstore[cm] = {
-          income: String(Math.round(income)),
-          n: '50', w: '30', s: '20',
-          // Seed the amount set aside into a savings category so the Budget tool
-          // and the dashboard's savings rate reflect it (fully editable there).
-          vals: savings > 0 ? { emergency: Math.round(savings) } : {},
-        };
-        setJSON('fx_bb_data', bstore);
-      }
-      const monthly = savings >= 100 ? Math.round(savings) : income > 0 ? Math.round(income * 0.2) : 0;
-      if (form.risk && income > 0 && monthly >= 100) {
-        setJSON('fx_investmatch', { a: { age: 28, income: Math.round(income), monthly, risk: form.risk, horizon: '5-10', goal: 'wealth' } });
-      }
-      const gt = num(form.goalTarget);
-      const gy = num(form.goalYears);
-      if (form.goalName.trim() && gt >= 1000 && gy > 0) {
-        setJSON('fx_goals', { 'gp-name': form.goalName.trim(), 'gp-target': String(Math.round(gt)), 'gp-years': String(Math.round(gy)), 'gp-existing': '0', 'gp-inflate': true });
-      }
-    } catch {
-      /* storage blocked — onboarding still completes for the session */
-    }
+  function persist(skipGoal: boolean) {
+    setSavedNotes(seedOnboarding({ ...form, income, savings, goalName: skipGoal ? '' : form.goalName, goalTarget: num(form.goalTarget), goalYears: num(form.goalYears) }));
   }
 
-  function finish() {
-    persist();
+  function finish(skipGoal = false) {
+    if (!skipGoal && (form.goalName.trim() || form.goalTarget.trim()) && (!form.goalName.trim() || num(form.goalTarget) < 1000 || !Number.isInteger(num(form.goalYears)) || num(form.goalYears) < 1 || num(form.goalYears) > 40)) {
+      setError('Give your goal a name, a target of at least 1,000 and a whole-year deadline from 1 to 40, or skip this step.');
+      return;
+    }
+    setError('');
+    persist(skipGoal);
     setStep(4);
   }
 
-  const canContinue = step === 0 ? income > 0 : true;
+  const canContinue = step === 0 ? income > 0 : step === 1 ? (form.savings.trim() === '' || (/^[\d,]+(?:\.\d+)?$/.test(form.savings.trim()) && Number(form.savings.replace(/,/g, '')) <= income)) : true;
 
   return (
     <div className="fx-onb" role="main">
@@ -134,7 +109,7 @@ export default function Onboarding() {
           <section className="fx-onb-step" aria-labelledby="onb-t0">
             <span className="fx-onb-eyebrow">Welcome to FinatriX</span>
             <h1 id="onb-t0" tabIndex={-1} ref={headingRef}>Let’s build your money picture.</h1>
-            <p className="fx-onb-sub">Answer a few quick questions and your dashboard fills in instantly. About a minute — everything stays on your device.</p>
+            <p className="fx-onb-sub">Start with a few details you know. Existing budgets and goals are kept when you repeat setup. Guest records stay on this device; signed-in finance records also sync.</p>
             <label className="fx-onb-field">
               <span>Monthly income (after tax)</span>
               <div className="fx-onb-amount">
@@ -162,10 +137,10 @@ export default function Onboarding() {
         {step === 1 && (
           <section className="fx-onb-step" aria-labelledby="onb-t1">
             <span className="fx-onb-eyebrow">Step 2 of 4</span>
-            <h1 id="onb-t1" tabIndex={-1} ref={headingRef}>How much do you set aside each month?</h1>
-            <p className="fx-onb-sub">Savings, SIPs, anything you keep or invest. A rough number is perfect — you can fine-tune it later.</p>
+            <h1 id="onb-t1" tabIndex={-1} ref={headingRef}>What can you set aside for emergencies?</h1>
+            <p className="fx-onb-sub">An optional monthly contribution to your emergency savings. This is a budget allocation, not a record of money already saved.</p>
             <label className="fx-onb-field">
-              <span>Monthly savings &amp; investments</span>
+              <span>Planned monthly emergency savings</span>
               <div className="fx-onb-amount">
                 <span className="fx-onb-sym">{sym}</span>
                 <input
@@ -175,39 +150,25 @@ export default function Onboarding() {
                   placeholder={income > 0 ? String(Math.round(income * 0.2)) : '10,000'}
                   value={form.savings}
                   onChange={(e) => set({ savings: e.target.value })}
-                  onKeyDown={(e) => { if (e.key === 'Enter') setStep(2); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && canContinue) setStep(2); }}
                 />
               </div>
               <span className="fx-onb-hint">
                 {savingsRate > 0
-                  ? `That’s ${savingsRate}% of your income${savingsRate >= 20 ? ' — at or above the 20% target 🎯' : ''}`
-                  : 'A healthy target is around 20% of income'}
+                  ? `That’s ${savingsRate}% of your entered income. Keep enough for your essential bills.`
+                  : 'Leave blank if you would like to decide later.'}
               </span>
             </label>
           </section>
         )}
 
-        {/* ── Step 2 · Risk ── */}
+        {/* ── Step 2 · Market ── */}
         {step === 2 && (
           <section className="fx-onb-step" aria-labelledby="onb-t2">
             <span className="fx-onb-eyebrow">Step 3 of 4 · optional</span>
-            <h1 id="onb-t2" tabIndex={-1} ref={headingRef}>How do you feel about investment risk?</h1>
-            <p className="fx-onb-sub">This shapes a starter portfolio in InvestMatch. No wrong answer.</p>
-            <div className="fx-onb-choices" role="radiogroup" aria-label="Risk appetite">
-              {RISKS.map((r) => (
-                <button
-                  key={r.v}
-                  type="button"
-                  role="radio"
-                  aria-checked={form.risk === r.v}
-                  className={`fx-onb-choice ${form.risk === r.v ? 'is-sel' : ''}`}
-                  onClick={() => { set({ risk: r.v }); }}
-                >
-                  <span className="fx-onb-choice-l">{r.l}</span>
-                  <span className="fx-onb-choice-d">{r.d}</span>
-                </button>
-              ))}
-            </div>
+            <h1 id="onb-t2" tabIndex={-1} ref={headingRef}>Which market should your tools use?</h1>
+            <p className="fx-onb-sub">This selects the available instruments, tax assumptions and benchmarks. Choose it separately from display currency. Review the assumptions in each tool.</p>
+            <label className="fx-onb-field"><span>Market</span><select className="fx-onb-text" value={form.market} onChange={e => { if (isMarketId(e.target.value)) set({ market: e.target.value }); }}>{MARKET_LIST.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
           </section>
         )}
 
@@ -216,10 +177,10 @@ export default function Onboarding() {
           <section className="fx-onb-step" aria-labelledby="onb-t3">
             <span className="fx-onb-eyebrow">Step 4 of 4 · optional</span>
             <h1 id="onb-t3" tabIndex={-1} ref={headingRef}>What are you saving toward?</h1>
-            <p className="fx-onb-sub">Name one goal and we’ll track it — and work out the monthly SIP that reaches it.</p>
+            <p className="fx-onb-sub">Name a goal to estimate a monthly contribution. You can compare deadlines in Goal Planner. No investment profile is created during setup.</p>
             <label className="fx-onb-field">
               <span>Goal</span>
-              <input className="fx-onb-text" autoComplete="off" placeholder="e.g. House down payment" value={form.goalName} onChange={(e) => set({ goalName: e.target.value })} />
+              <input className="fx-onb-text" autoComplete="off" maxLength={40} placeholder="e.g. House down payment" value={form.goalName} onChange={(e) => set({ goalName: e.target.value })} />
             </label>
             <div className="fx-onb-row">
               <label className="fx-onb-field">
@@ -245,9 +206,7 @@ export default function Onboarding() {
             </div>
             <h1 id="onb-t4" tabIndex={-1} ref={headingRef}>Your dashboard is ready.</h1>
             <p className="fx-onb-sub">
-              {income > 0
-                ? `We’ve set up your ${cfmt(income, form.code)}/mo picture${savings > 0 ? ` with a ${savingsRate}% savings rate` : ''}. Explore it, then refine any number in its tool.`
-                : 'Jump in and add your numbers whenever you’re ready.'}
+              {savedNotes.join(' ') || 'Add your numbers whenever you’re ready.'}
             </p>
             <Link to="/tools/dashboard" className="fx-btn-gold fx-onb-cta">
               See my dashboard
@@ -256,6 +215,9 @@ export default function Onboarding() {
           </section>
         )}
       </div>
+      {error && <p role="alert" style={{ maxWidth: 560, margin: '12px auto', color: 'var(--ink-2)' }}>{error}</p>}
+      {step === 1 && !canContinue && <p role="alert" style={{ textAlign: 'center', color: 'var(--ink-2)' }}>Enter an amount from zero to your monthly income, or leave this blank.</p>}
+      {step < INPUT_STEPS && <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--ink-2)' }}>Need a hand? <Link to="/tools/dashboard?help=setup" style={{ color: 'var(--accent-text)' }}>Open setup help in chat</Link></p>}
 
       {/* Footer nav */}
       {step < INPUT_STEPS && (
@@ -265,7 +227,7 @@ export default function Onboarding() {
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {step >= 2 && (
-              <button type="button" className="fx-onb-back" onClick={() => (step === 3 ? finish() : setStep((s) => s + 1))}>
+              <button type="button" className="fx-onb-back" onClick={() => (step === 3 ? finish(true) : setStep((s) => s + 1))}>
                 Skip
               </button>
             )}

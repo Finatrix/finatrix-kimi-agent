@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   computeExecutionScore, computePlanScore, fidelityScore, gradeFor,
-  momentumScore, savingsRateScore, wantsShareScore,
+  planRealismScore, savingsRateScore, wantsShareScore,
 } from '../tools/lib/score';
 import { computeBudget, mergedCats } from '../tools/lib/budget';
 import type { ExpenseItem } from '../tools/lib/expense';
@@ -77,14 +77,20 @@ describe('the curves', () => {
     expect(fidelityScore(1000, 2000)).toBeLessThan(15);
   });
 
-  it('centres momentum on holding steady, not on zero', () => {
-    // Scoring a flat month near zero would make the only way to score well a
-    // permanent decline in spending, which is neither possible nor desirable.
-    expect(momentumScore(0, 0)).toBe(60);
-    expect(momentumScore(null, null)).toBe(60);
-    expect(momentumScore(-0.2, null)).toBe(100); // spending down 20%
-    expect(momentumScore(0.2, null)).toBe(20);   // spending up 20%
-    expect(momentumScore(null, 0.25)).toBe(100); // saving up 25%
+  it('marks a plan down for budgeting below what a category actually costs', () => {
+    // A plan that covers the pattern is a plan that can be kept.
+    expect(planRealismScore(10_000, 10_000)).toBe(100);
+    expect(planRealismScore(9_500, 10_000)).toBe(100);
+    // Below it, and falling: half of reality is a plan that will be missed.
+    expect(planRealismScore(6_000, 10_000)).toBeLessThan(60);
+    expect(planRealismScore(4_000, 10_000)).toBe(0);
+    // A category that reliably costs money and is budgeted at nothing.
+    expect(planRealismScore(0, 10_000)).toBe(0);
+    // Over-allocating is a mild inefficiency, never a failure, and never zero.
+    expect(planRealismScore(40_000, 10_000)).toBe(60);
+    expect(planRealismScore(15_000, 10_000)).toBe(100);
+    // Nothing on record to contradict the plan.
+    expect(planRealismScore(10_000, 0)).toBe(100);
   });
 });
 
@@ -126,7 +132,7 @@ describe('the execution score', () => {
     expect(r.components.map((c) => c.key)).toEqual(['fidelity']);
     expect(r.components[0].weight).toBe(1);
     expect(r.unmeasured.map((u) => u.label).sort())
-      .toEqual(['Discretionary restraint', 'Momentum', 'Savings rate']);
+      .toEqual(['Discretionary restraint', 'Plan realism', 'Savings rate']);
     expect(r.score).toBeGreaterThan(80);
   });
 

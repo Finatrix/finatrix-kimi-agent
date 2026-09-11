@@ -140,6 +140,56 @@ export async function extractPdfText(bytes: ArrayBuffer, password?: string): Pro
   }
 }
 
+/** Pages rendered for OCR. A statement's transactions are on its first pages. */
+export const MAX_OCR_PAGES = 8;
+
+/**
+ * Render the first pages of a PDF to PNGs, for the OCR fallback.
+ *
+ * Only reached when a PDF has no usable text layer — a scan, or a photograph
+ * of a statement. The page count and the scale are both capped: rendering is
+ * the one part of this file whose memory cost is a product of the file's own
+ * declared dimensions, and a phone is the device most likely to be handed a
+ * photograph.
+ *
+ * Scale 2 is the lowest that reliably keeps a statement's digits legible to
+ * Tesseract; below it, 3s and 8s start trading places, and a misread digit in
+ * an amount is the failure this whole path has to be careful about.
+ */
+export async function renderPdfPages(
+  bytes: ArrayBuffer,
+  password?: string,
+  maxPages = MAX_OCR_PAGES,
+): Promise<Blob[]> {
+  const task = pdfjs.getDocument({ data: bytes.slice(0), password });
+  const doc = await open(task, password);
+  try {
+    const blobs: Blob[] = [];
+    const count = Math.min(doc.numPages, maxPages);
+    for (let p = 1; p <= count; p += 1) {
+      const page = await doc.getPage(p);
+      const viewport = page.getViewport({ scale: 2 });
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.ceil(viewport.width);
+      canvas.height = Math.ceil(viewport.height);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new PdfError('unreadable', 'Could not prepare this PDF for text recognition on this device.');
+      await page.render({ canvas, canvasContext: ctx, viewport }).promise;
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+      // Zeroing the canvas releases the backing store immediately rather than
+      // at the next GC, which is what keeps a multi-page scan inside a phone's
+      // memory budget.
+      canvas.width = 0;
+      canvas.height = 0;
+      page.cleanup();
+      if (blob) blobs.push(blob);
+    }
+    return blobs;
+  } finally {
+    await task.destroy().catch(() => undefined);
+  }
+}
+
 type LoadingTask = ReturnType<typeof pdfjs.getDocument>;
 
 async function open(task: LoadingTask, password?: string) {

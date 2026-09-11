@@ -14,6 +14,7 @@ import {
   type SyncStatus,
 } from './cloudSync';
 import { CurrencyProvider, useCurrency } from './CurrencyContext';
+import { MarketProvider } from './MarketContext';
 import { ToastProvider } from './ui/Toast';
 import { IconSprite } from './ui/Icon';
 import { CURRENCY_CODES, currencySym } from './lib/format';
@@ -339,6 +340,7 @@ export default function ToolsLayout() {
 
   return (
     <CurrencyProvider>
+      <MarketProvider>
       <ToastProvider>
         {/* FinatriX AI wraps the whole shell because any screen inside it can
             open the assistant pointed at what the user is looking at — a
@@ -440,7 +442,7 @@ export default function ToolsLayout() {
             {/* Orientation left, escape hatch right — Back only renders below
                 the top level, so it never appears as a dead control. */}
             <div style={{ paddingTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-              <Breadcrumb current={activeTool === 'dashboard' ? 'Dashboard' : activeTool === 'reports' ? 'Reports' : activeTool === 'calendar' ? 'Calendar' : activeTool === 'settings' ? 'Settings' : (TOOLS.find((t) => t.id === activeTool)?.name ?? 'Tools')} />
+              <Breadcrumb parent={{ label: 'Money tools', to: '/tools' }} current={activeTool === 'dashboard' ? 'Dashboard' : activeTool === 'reports' ? 'Reports' : activeTool === 'calendar' ? 'Calendar' : activeTool === 'settings' ? 'Settings' : (TOOLS.find((t) => t.id === activeTool)?.name ?? 'Tools')} />
               <BackButton />
             </div>
             {ready ? <Outlet /> : <ToolSkeleton />}
@@ -568,6 +570,7 @@ export default function ToolsLayout() {
         </div>
         </AiProvider>
       </ToastProvider>
+      </MarketProvider>
     </CurrencyProvider>
   );
 }

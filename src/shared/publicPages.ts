@@ -348,11 +348,11 @@ export const PUBLIC_PAGES: readonly PublicPage[] = [
   {
     path: '/about',
     name: 'About',
-    title: 'About FinatriX — Education-First Money Tools for India',
+    title: 'About FinatriX — Personal Finance Tools with the Workings Shown',
     description:
       'Why FinatriX exists, how it makes money, what it will never do with your data, and the principles behind every calculator and career tool on the site.',
     heading: 'Financial clarity, without the sales pitch',
-    lede: 'FinatriX is an education-first toolkit for money and careers in India. No ads, no lead generation, no product recommendations that pay us a commission.',
+    lede: 'FinatriX brings budgeting, expense tracking and financial planning into one educational workspace, with market settings for India, the US, the UK and the UAE. Careers is a separate paid workspace focused on Indian roles.',
     updated: REVIEWED,
     priority: 0.7,
     changefreq: 'monthly',
@@ -453,15 +453,15 @@ export const PUBLIC_PAGES: readonly PublicPage[] = [
       },
       {
         q: 'Can I export my data?',
-        a: 'Yes. Reports export to PDF, Excel and Word, and expense data exports to a spreadsheet. Your data is yours — export or delete it at any time from your profile.',
+        a: 'Yes. Reports exports your budget and expenses. Settings contains a JSON backup of your finance records, privacy controls and finance-data removal. Account and Careers records are separate.',
       },
       {
         q: 'How do I delete my account?',
-        a: 'Ask from your profile page or email support, and the account and everything in it is deleted. Deletion is permanent and is not a soft flag on a row we keep.',
+        a: 'Contact support to request account deletion. The privacy policy explains data handling and any retention obligations. Clearing finance records in Settings does not delete your account or Careers records.',
       },
       {
         q: 'Which currencies and countries does FinatriX support?',
-        a: 'The tools are calibrated for India — rupee formatting in lakh and crore, Indian tax slabs, SIPs and Indian instruments — and display in 40 currencies. The tax and instrument logic is India-specific and should not be relied on elsewhere.',
+        a: 'Finance tools have market settings for India, the US, the UK and the UAE, with separate instrument, tax and benchmark assumptions. There are 40 display currencies; selecting a currency does not select a market or convert amounts you entered in a budget. Net Worth can convert accounts recorded in different currencies using the displayed exchange-rate assumptions. Check each tool’s market note before using a result.',
       },
       {
         q: 'Does FinatriX connect to my bank?',

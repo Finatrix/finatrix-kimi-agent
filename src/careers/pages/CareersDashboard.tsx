@@ -1,7 +1,10 @@
 /**
- * Careers dashboard — the landing view: latest scores, experience and
- * education at a glance, primary skills, industries, Career DNA summary and
- * recent activity, with a strong upload path when the library is empty.
+ * Careers dashboard — the landing view.
+ *
+ * Ordered by the question a returning user actually arrives with: what is due
+ * (Up next), then how ready they are (readiness + scores), then who they are
+ * (Career DNA, skills, industries), then how it is going (funnel and trends).
+ * The upload path stays prominent while the library is empty.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -16,6 +19,11 @@ import { CAREERS_ROUTES } from '../constants';
 import { useCareers } from '../context/CareersContext';
 import { CompanyIntelPanel } from '../components/CompanyIntelPanel';
 import { computeApplicationStats, listApplications } from '../services/applications';
+import { computeReminders } from '../services/reminders';
+import { listTasks } from '../services/tasks';
+import { UpNext } from '../components/UpNext';
+import type { Reminder } from '../types/jobs';
+import type { TaskRow } from '../types/phase3';
 import type { ResumeVersionRow, ResumeWithVersions } from '../types';
 import { formatDate, timeAgo } from '../utils/format';
 
@@ -45,10 +53,21 @@ export default function CareersDashboard() {
   // Module 17 — Analytics: application funnel, rates and trend, computed
   // from the same data the Applications page already tracks.
   const [stats, setStats] = useState<ReturnType<typeof computeApplicationStats> | null>(null);
+  // "Up next" rides on the SAME applications fetch the funnel already made —
+  // the rows were being reduced to counts and thrown away, so surfacing the
+  // deadlines inside them costs no extra request. Tasks are the one addition.
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [tasks, setTasks] = useState<TaskRow[]>([]);
+
   const loadStats = useCallback(async () => {
     if (!user) return;
-    const apps = await listApplications(user.id).catch(() => []);
+    const [apps, taskRows] = await Promise.all([
+      listApplications(user.id).catch(() => []),
+      listTasks(user.id).catch(() => []),
+    ]);
     setStats(computeApplicationStats(apps));
+    setReminders(computeReminders(apps));
+    setTasks(taskRows);
   }, [user]);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- standard load-on-mount pattern used across every Careers page
@@ -116,6 +135,12 @@ export default function CareersDashboard() {
           stats={stats}
         />
       )}
+
+      {/* Above the scores on purpose: a returning user's first question is
+          "what do I have to do today", not "what did I score last week".
+          Before this the only call to action on the page was "Upload a new
+          resume", at the bottom, for someone who already had one. */}
+      {!error && <UpNext reminders={reminders} tasks={tasks} hasResume={!!latest} />}
 
       {error && <ErrorCard error={error} onRetry={() => void refresh()} />}
 
@@ -261,7 +286,12 @@ export default function CareersDashboard() {
               <div className="dash-grid" style={{ marginBottom: 16 }}>
                 <div className="metric">
                   <div className="ml">Response rate</div>
-                  <div className="mv">{stats.applied ? Math.round(((stats.interviews + stats.offers) / stats.applied) * 100) : 0}%</div>
+                  {/* Was `(interviews + offers) / applied`, computed inline —
+                      but `interviews` already contains every offer stage, so a
+                      single accepted offer counted twice and this card could
+                      read 200%. The set-based figure lives in
+                      computeApplicationStats, where it is tested. */}
+                  <div className="mv">{stats.responseRate}%</div>
                   <div className="md">of applications get a reply</div>
                 </div>
                 <div className="metric" style={{ ['--metric-accent' as string]: 'var(--blue)' }}>

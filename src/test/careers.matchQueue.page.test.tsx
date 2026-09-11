@@ -11,6 +11,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import type { ScoredJob } from '../careers/search/pipeline';
+import { DEFAULT_MATCH_THRESHOLD } from '../careers/types/jobs';
 
 // `vi.mock` factories are hoisted above every const in this file, so the spies
 // they close over have to be hoisted too.
@@ -83,6 +84,7 @@ function scored(id: string, title: string, company: string, overall: number, ext
     } as unknown as ScoredJob['job'],
     match: {
       overall,
+      confidence: 100,
       scores: {} as never,
       matchedSkills: extra.matched ?? [],
       missingTerms: extra.missing ?? [],
@@ -245,8 +247,13 @@ describe('Match Queue page', () => {
     mount();
     build();
 
-    expect(await screen.findByText(/Nothing cleared the 70% bar/)).toBeTruthy();
-    expect(screen.getByText(/scored below 70%/)).toBeTruthy();
+    // Asserted against the constant, not a literal: this test is about the
+    // page explaining an empty queue in terms of the threshold, not about what
+    // the threshold currently is. It broke when the match scale was
+    // recalibrated, which is the test's fault, not the change's.
+    const bar = DEFAULT_MATCH_THRESHOLD;
+    expect(await screen.findByText(new RegExp(`Nothing cleared the ${bar}% bar`))).toBeTruthy();
+    expect(screen.getByText(new RegExp(`scored below ${bar}%`))).toBeTruthy();
   });
 
   it('reports progress from terminal verdicts only', async () => {

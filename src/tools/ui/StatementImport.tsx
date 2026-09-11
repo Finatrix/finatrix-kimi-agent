@@ -375,7 +375,10 @@ function IdlePane({
         onDrop={(e) => { e.preventDefault(); setDragging(false); onFile(e.dataTransfer.files?.[0]); }}
       >
         <p className="fx-imp-state-title">Drop a bank or credit card statement</p>
-        <p className="fx-imp-note">CSV or PDF · password-protected PDFs are supported</p>
+        <p className="fx-imp-note">
+          CSV, Excel, PDF — or a screenshot or photo of one.
+          Password-protected PDFs are supported.
+        </p>
         <label className="fx-imp-btn fx-imp-primary fx-imp-filebtn" htmlFor={inputId}>Choose a file</label>
         <input
           id={inputId}
@@ -387,9 +390,10 @@ function IdlePane({
       </div>
 
       <ul className="fx-imp-points">
-        <li>Your file is read in this browser and never uploaded.</li>
+        <li>Your file is read in this browser and never uploaded — photos included.</li>
         <li>Amounts, dates and balances are read from the file itself — the assistant only names merchants and picks categories.</li>
         <li>Every row stays a draft until you review it and press Import.</li>
+        <li>Rows read from a photo are always held back for you to check first.</li>
       </ul>
     </div>
   );
@@ -520,6 +524,15 @@ function Row({
           {credit && <span className="fx-imp-badge fx-imp-badge-info">Money in — not tracked here</span>}
           {draft.issues.includes('no-amount') && <span className="fx-imp-badge fx-imp-badge-warn">No amount found</span>}
           {draft.issues.includes('no-date') && <span className="fx-imp-badge fx-imp-badge-warn">No date found</span>}
+          {/* Named on the row rather than only in the summary: the reason this
+              row needs checking is not that anything looks wrong with it, but
+              that the figures were read off a picture — which is exactly the
+              kind of thing a user cannot tell by looking at the row. */}
+          {draft.issues.includes('recognised-text') && (
+            <span className="fx-imp-badge fx-imp-badge-warn" title="Read from the image by text recognition — check the amount and date against the original.">
+              Read from image · check it
+            </span>
+          )}
         </span>
       </td>
 

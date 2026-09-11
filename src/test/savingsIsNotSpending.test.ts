@@ -155,14 +155,30 @@ describe('month-end forecast', () => {
     // The SIP lands on the 5th. A run-rate over the whole outflow projects it
     // as if it recurred daily: A$6,200 over 20 days → A$9,610 by month end,
     // "on track to exceed your budget", in red, because the user invested.
-    const f = computeMonthForecast(
-      AUGUST_AS_REPORTED, '2026-08', NOW,
-      computeDashboard('2026-08', AUGUST_AS_REPORTED, CATS, BUDGET, NOW).spendableBudget,
-      CAT_META,
-    );
+    const f = computeMonthForecast({
+      items: AUGUST_AS_REPORTED, month: '2026-08', now: NOW,
+      spendableBudget: computeDashboard('2026-08', AUGUST_AS_REPORTED, CATS, BUDGET, NOW).spendableBudget,
+      catMeta: CAT_META, budgetVals: BUDGET,
+    });
     expect(f.spentSoFar).toBe(1200);
-    expect(f.projected).toBe(Math.round((1200 / 20) * 31));
     expect(f.overBudget).toBe(false);
+  });
+
+  it('counts the rent once instead of every day of the month', () => {
+    // The second half of the same defect. A$1,000 of rent paid on the 3rd,
+    // divided by 20 elapsed days and multiplied back by 31, used to forecast
+    // A$1,550 of rent — half as much again as the rent actually is.
+    const f = computeMonthForecast({
+      items: AUGUST_AS_REPORTED, month: '2026-08', now: NOW,
+      spendableBudget: computeDashboard('2026-08', AUGUST_AS_REPORTED, CATS, BUDGET, NOW).spendableBudget,
+      catMeta: CAT_META, budgetVals: BUDGET,
+    });
+    // Rent has landed and does not accrue; only the A$200 of dining does.
+    expect(f.fixedSoFar).toBe(1000);
+    expect(f.variableSoFar).toBe(200);
+    expect(f.projected).toBe(1000 + Math.round((200 / 20) * 31));
+    // The old arithmetic. Kept as a number so the regression is unmistakable.
+    expect(f.projected).toBeLessThan(Math.round((1200 / 20) * 31));
   });
 
   it('still flags a genuine overspend trajectory', () => {
@@ -171,12 +187,26 @@ describe('month-end forecast', () => {
       tx('2026-08-10', 'shopping', 700),
       tx('2026-08-05', 'stocks', 5000),
     ];
-    const f = computeMonthForecast(
-      heavy, '2026-08', NOW,
-      computeDashboard('2026-08', heavy, CATS, BUDGET, NOW).spendableBudget,
-      CAT_META,
-    );
+    const f = computeMonthForecast({
+      items: heavy, month: '2026-08', now: NOW,
+      spendableBudget: computeDashboard('2026-08', heavy, CATS, BUDGET, NOW).spendableBudget,
+      catMeta: CAT_META, budgetVals: BUDGET,
+    });
     expect(f.overBudget).toBe(true);
+  });
+
+  it('counts a budgeted bill that has not landed yet, once', () => {
+    // Rent is budgeted at A$1,400 and nothing has been logged to it. Ignoring
+    // it forecasts a month with no rent in it, which is not a forecast anyone
+    // can act on — and the user's own budget is what says the money is going.
+    const noRentYet = [tx('2026-08-02', 'eating_out', 200)];
+    const f = computeMonthForecast({
+      items: noRentYet, month: '2026-08', now: NOW,
+      spendableBudget: 2000, catMeta: CAT_META, budgetVals: BUDGET,
+    });
+    expect(f.fixedStillDue).toBe(1400);
+    expect(f.stillDueLabels).toContain('Rent');
+    expect(f.projected).toBe(1400 + Math.round((200 / 20) * 31));
   });
 });
 

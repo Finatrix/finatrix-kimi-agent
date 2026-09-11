@@ -191,18 +191,27 @@ describe('parseAiAnswer', () => {
       expect(parseAiAnswer('You spent 670 this month.')!.mode).toBe('data');
     });
 
-    it('drops a chart from a general answer', () => {
-      // Hypothetical figures on an axis labelled in the user's currency read as
-      // their own money, so the chart is refused rather than relabelled.
+    it('keeps a general answer’s chart only as a labelled illustration, never in a currency', () => {
+      // Hypothetical figures on an axis in the user's currency would read as
+      // their own money. A teaching chart is still worth drawing — compounding
+      // is far clearer as a curve — so it is marked as an illustration (the UI
+      // labels it "not your data") and stripped of the currency.
       const r = parseAiAnswer(JSON.stringify({
         mode: 'general',
         answer: 'Compounding grows faster over time.',
         chart: {
-          title: 'Growth', unit: 'currency',
+          type: 'line', title: 'Growth', unit: 'currency',
           points: [{ label: 'Year 1', value: 10_000 }, { label: 'Year 10', value: 25_937 }],
         },
       }))!;
-      expect(r.chart).toBeNull();
+      expect(r.chart).toMatchObject({ illustrative: true, unit: 'number', type: 'line' });
+    });
+
+    it('never gives a general answer figure tiles', () => {
+      const r = parseAiAnswer(JSON.stringify({
+        mode: 'general', answer: 'x', highlights: [{ label: 'Growth', value: 25937, unit: 'currency' }],
+      }))!;
+      expect(r.highlights).toEqual([]);
     });
   });
 
@@ -215,9 +224,20 @@ describe('parseAiAnswer', () => {
         title: 'Top categories', unit: 'currency',
         points: [{ label: 'Groceries', value: 550 }, { label: 'Dining', value: 120 }],
       })).toEqual({
-        title: 'Top categories', unit: 'currency',
+        title: 'Top categories', type: 'bar', unit: 'currency',
         points: [{ label: 'Groceries', value: 550 }, { label: 'Dining', value: 120 }],
       });
+    });
+
+    it('reads the chart type, defaulting to bars', () => {
+      const pts = [{ label: 'A', value: 1 }, { label: 'B', value: 2 }];
+      expect(withChart({ type: 'donut', points: pts })!.type).toBe('donut');
+      expect(withChart({ type: 'line', points: pts })!.type).toBe('line');
+      expect(withChart({ type: 'pie3d', points: pts })!.type).toBe('bar');
+    });
+
+    it('refuses a zero slice in a donut', () => {
+      expect(withChart({ type: 'donut', points: [{ label: 'A', value: 5 }, { label: 'B', value: 0 }] })).toBeNull();
     });
 
     it('refuses a chart with too few points to compare anything', () => {
@@ -319,5 +339,36 @@ describe('conversation history', () => {
   it('mints unique message ids', () => {
     const ids = new Set(Array.from({ length: 200 }, newMessageId));
     expect(ids.size).toBe(200);
+  });
+});
+
+describe('the shape of an answer', () => {
+  it('reads a headline and up to four figure tiles', () => {
+    const r = parseAiAnswer(JSON.stringify({
+      headline: 'You are on track this month.',
+      highlights: [
+        { label: 'Spent', value: 45236, unit: 'currency', tone: 'neutral' },
+        { label: 'Set aside', value: 15000, unit: 'currency', tone: 'good' },
+        { label: 'Used', value: 71, unit: 'percent', tone: 'warn' },
+        { label: 'Days left', value: 18, unit: 'number' },
+        { label: 'Fifth', value: 1, unit: 'number' },
+      ],
+      answer: '- one\n- two',
+    }))!;
+    expect(r.headline).toBe('You are on track this month.');
+    expect(r.highlights).toHaveLength(4);
+    expect(r.highlights[3]).toEqual({ label: 'Days left', value: 18, unit: 'number', tone: 'neutral' });
+  });
+
+  it('drops a headline that only repeats the first line of the answer', () => {
+    const r = parseAiAnswer(JSON.stringify({ headline: 'You are on track.', answer: '**You are on track.**\n- more' }))!;
+    expect(r.headline).toBe('');
+  });
+
+  it('drops tiles that are not numbers', () => {
+    const r = parseAiAnswer(JSON.stringify({
+      answer: 'x', highlights: [{ label: 'A', value: 'lots' }, { label: '', value: 3 }, { label: 'B', value: 2, tone: 'glowing' }],
+    }))!;
+    expect(r.highlights).toEqual([{ label: 'B', value: 2, unit: 'number', tone: 'neutral' }]);
   });
 });

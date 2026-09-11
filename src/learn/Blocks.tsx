@@ -216,7 +216,7 @@ export function Blocks({ blocks, idPrefix }: { blocks: readonly Block[]; idPrefi
               <h3
                 key={key}
                 id={slugify(block.text)}
-                className="mt-8 scroll-mt-24 text-[17px] font-semibold tracking-[-0.01em] text-ink"
+                className="mt-8 text-[17px] font-semibold tracking-[-0.01em] text-ink"
               >
                 {block.text}
               </h3>

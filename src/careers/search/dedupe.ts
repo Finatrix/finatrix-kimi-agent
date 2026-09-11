@@ -19,6 +19,7 @@
  */
 
 import { normalizeCompanyName } from './companyMatch';
+import { isDirectEmployerUrl } from './applyUrl';
 
 export interface DedupeInput {
   source: string;
@@ -80,8 +81,26 @@ const TITLE_SIMILARITY_THRESHOLD = 0.5;
 
 /**
  * De-duplicate a list of postings. `T` only needs the DedupeInput fields.
+ *
+ * Direct-employer postings are considered FIRST. The collapse rule keeps the
+ * first occurrence, so whichever copy is seen first is the one the user ends
+ * up applying through — and when the same role arrives from both an
+ * aggregator and the employer's own ATS, the employer's copy is the one worth
+ * keeping: it is the canonical posting and its apply URL is a real
+ * application form rather than a tracking redirect. This was previously
+ * decided by provider fan-out order, which is unrelated to link quality.
+ *
+ * The partition is stable, so ordering within each group is untouched, and the
+ * pipeline re-ranks after this stage regardless.
  */
-export function dedupeJobs<T extends DedupeInput>(jobs: T[]): DedupeResult<T> {
+export function dedupeJobs<T extends DedupeInput>(input: T[]): DedupeResult<T> {
+  const direct: T[] = [];
+  const indirect: T[] = [];
+  for (const job of input) {
+    (isDirectEmployerUrl(job.apply_url) ? direct : indirect).push(job);
+  }
+  const jobs = direct.length && indirect.length ? [...direct, ...indirect] : input;
+
   const unique: T[] = [];
   const seenId = new Set<string>();
   const seenContent = new Set<string>();

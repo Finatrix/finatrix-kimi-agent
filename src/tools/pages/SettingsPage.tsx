@@ -4,9 +4,13 @@ import { PageHead, ToolFoot } from '../ui/common';
 import { Icon } from '../ui/Icon';
 import { useToast } from '../ui/Toast';
 import { useCurrency } from '../CurrencyContext';
+import { useMarket } from '../MarketContext';
 import { useTheme } from '../../context/ThemeContext';
 import { CURRENCY_CODES, currencySym } from '../lib/format';
+import { MARKET_LIST } from '../lib/markets';
 import { getDataSummary, hasAnyData, exportBackup, resetAllData } from '../lib/settings';
+import PrivacyControls from '../ui/PrivacyControls';
+import { useAuth } from '../../context/AuthContext';
 
 function Section({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
   return (
@@ -20,7 +24,9 @@ function Section({ title, desc, children }: { title: string; desc?: string; chil
 
 export default function SettingsPage() {
   const { notify } = useToast();
+  const { user } = useAuth();
   const { code, setCode } = useCurrency();
+  const { id: marketId, market, setMarket, detected } = useMarket();
   const { theme, setTheme } = useTheme();
   const [confirmReset, setConfirmReset] = useState(false);
   const [, force] = useState(0);
@@ -37,14 +43,14 @@ export default function SettingsPage() {
     const n = resetAllData();
     setConfirmReset(false);
     force((x) => x + 1);
-    notify(n > 0 ? 'All local data cleared' : 'There was nothing to clear', n > 0 ? 'ok' : 'info');
+    notify(n > 0 ? 'Finance data cleared on this device' : 'There was nothing to clear', n > 0 ? 'ok' : 'info');
   };
 
   return (
-    <div className="fx-page">
+    <div className="fx-page fx-settings">
       <PageHead chip="Settings" chipColor="var(--gold)" chipBg="rgba(212,175,55,.1)" icon="shield" title="Settings & personalisation.">
-        Personalise how FinatriX looks, choose your display currency, and manage your data — all stored
-        privately on your device.
+        Personalise how FinatriX looks, tell us where you live, choose your display currency, and
+        manage your data. Signed-in finance records also sync with your account.
       </PageHead>
 
       {/* Appearance */}
@@ -66,8 +72,64 @@ export default function SettingsPage() {
         </div>
       </Section>
 
+      {/* Market — the setting that changes what the tools actually compute. */}
+      <Section
+        title="Your market"
+        desc="Which country's instruments, tax rules and peer benchmarks the tools should compare you against. ParkSmart, InvestMatch, PeerCompare and the Goal Planner all follow this."
+      >
+        <label htmlFor="fx-set-market" className="fl">Market</label>
+        <select
+          id="fx-set-market"
+          className="fs"
+          value={marketId}
+          onChange={(e) => {
+            const next = MARKET_LIST.find((m) => m.id === e.target.value);
+            if (!next) return;
+            setMarket(next.id);
+            notify(`Market set to ${next.name}`, 'ok');
+          }}
+          style={{ width: '100%' }}
+        >
+          {MARKET_LIST.map((m) => (
+            <option key={m.id} value={m.id}>{m.flag} {m.name}</option>
+          ))}
+        </select>
+
+        {detected && (
+          <p className="note" style={{ marginTop: 10 }}>
+            We guessed {market.name} from your browser. It is only a guess — picking it yourself makes
+            it stick.
+          </p>
+        )}
+
+        {/* Changing market never rewrites a currency the user chose. It offers. */}
+        {code !== market.currency && (
+          <div
+            className="tip tip-info"
+            style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}
+          >
+            <span style={{ flex: 1, minWidth: 200 }}>
+              {market.name} uses {market.currency}, but you are reading amounts in {code}.
+            </span>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              style={{ width: 'auto' }}
+              onClick={() => { setCode(market.currency); notify(`Currency set to ${market.currency}`, 'ok'); }}
+            >
+              Switch to {market.currency}
+            </button>
+          </div>
+        )}
+
+        <p className="note" style={{ marginTop: 12 }}>
+          Figures for {market.name} were last reviewed {market.asOf.replace('-', '/')}. Sources:{' '}
+          {market.sources.join('; ')}.
+        </p>
+      </Section>
+
       {/* Currency */}
-      <Section title="Display currency" desc="Applied across every tool, report and export. Amounts are converted for display only.">
+      <Section title="Display currency" desc="Applied across every tool, report and export. Set it independently of your market — you might live in one country and think in another currency.">
         <label htmlFor="fx-set-cur" className="fl">Currency</label>
         <select
           id="fx-set-cur"
@@ -83,7 +145,8 @@ export default function SettingsPage() {
       </Section>
 
       {/* Data & privacy */}
-      <Section title="Your data" desc="Everything you enter is stored locally on this device. Export a backup or clear it any time.">
+      <PrivacyControls />
+      <Section title="Your finance records" desc="Export a backup of your finance records, including review notes and emergency-fund plans. Backups contain personal information; store them somewhere private.">
         {anyData ? (
           <ul style={{ listStyle: 'none', margin: '0 0 14px', padding: 0 }}>
             {areas.filter((a) => a.present).map((a) => (
@@ -110,14 +173,14 @@ export default function SettingsPage() {
         <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--hair2)' }}>
           {!confirmReset ? (
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirmReset(true)} disabled={!anyData} style={{ color: 'var(--red)', borderColor: 'color-mix(in srgb, var(--red) 40%, transparent)' }}>
-              Reset all data…
+              Clear finance data…
             </button>
           ) : (
             <div role="alertdialog" aria-label="Confirm reset" style={{ background: 'color-mix(in srgb, var(--red) 7%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 30%, transparent)', borderRadius: 12, padding: 14 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Delete all local data?</div>
-              <p className="note" style={{ marginBottom: 12 }}>This permanently clears your budget, expenses, goals and other saved data on this device. Export a backup first if you want to keep it. This can’t be undone.</p>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Clear your finance records?</div>
+              <p className="note" style={{ marginBottom: 12 }}>This clears your budget, expenses, goals, review notes and other finance data. {user ? 'Because you are signed in, this cleared state will also sync to your account when connected. Check the sync indicator; a failed sync may restore cloud records later.' : 'This affects records on this device.'} Export a backup first. This cannot be undone. Your account and Careers records are separate.</p>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button type="button" className="btn btn-sm" onClick={onReset} style={{ width: 'auto', background: 'var(--red)', borderColor: 'var(--red)', color: '#fff' }}>Yes, delete everything</button>
+                <button type="button" className="btn btn-sm" onClick={onReset} style={{ width: 'auto', background: 'var(--red)', borderColor: 'var(--red)', color: '#fff' }}>Clear finance records</button>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirmReset(false)} style={{ width: 'auto' }}>Cancel</button>
               </div>
             </div>
@@ -130,8 +193,10 @@ export default function SettingsPage() {
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
           <Icon name="lock" size={18} style={{ color: 'var(--gold)', flexShrink: 0, marginTop: 1 }} />
           <div style={{ fontSize: 12.5, color: 'var(--ink2)', lineHeight: 1.6 }}>
-            FinatriX is an educational suite — not financial advice. Your data never leaves your device unless you
-            sign in to sync. Read our <Link to="/privacy" style={{ color: 'var(--accent-text)' }}>Privacy Policy</Link> and{' '}
+            FinatriX provides educational tools, not personal financial advice. Read our{' '}
+            <Link to="/editorial-standards" style={{ color: 'var(--accent-text)' }}>editorial standards</Link>,{' '}
+            <Link to="/contact" style={{ color: 'var(--accent-text)' }}>contact the team</Link>, or check our{' '}
+            <Link to="/privacy" style={{ color: 'var(--accent-text)' }}>Privacy Policy</Link> and{' '}
             <Link to="/terms" style={{ color: 'var(--accent-text)' }}>Terms</Link>.
           </div>
         </div>

@@ -1,0 +1,47 @@
+.fx-planning { margin: 26px 0; color: var(--ink); }
+.fx-planning h2, .fx-planning h3 { margin: 0; font-size: 20px; letter-spacing: -.025em; font-weight: 650; line-height: 1.3; }
+.fx-planning h3 { font-size: 16px; }
+.fx-planning p { color: var(--ink2); font-size: 13px; line-height: 1.65; margin: 8px 0 16px; }
+.fx-planning a, .fx-settings a:not(.btn) { color: var(--accent-text); text-decoration: underline; text-underline-offset: 3px; }
+.fx-tools .fx-settings .foot { color: var(--ink2); }
+.fx-planning-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; margin-bottom: 18px; flex-wrap: wrap; }
+.fx-planning-head p { max-width: 560px; margin-bottom: 0; }
+.fx-planning-head .fs { width: auto; max-width: 100%; }
+.fx-planning-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+.fx-planning-surface { border-top: 1px solid var(--hair); padding-top: 22px; min-width: 0; scroll-margin-top: 100px; }
+.fx-planning .btn { width: auto; min-height: 40px; }
+.fx-planning label { display: block; color: var(--ink2); font-size: 12px; line-height: 1.5; }
+.fx-planning label .fi, .fx-planning label .fs { margin-top: 6px; width: 100%; }
+.fx-plan-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+.fx-plan-stats { margin: 12px 0 18px; }
+.fx-plan-stats > div { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; padding: 12px 0; border-bottom: 1px solid var(--hair2); }
+.fx-plan-stats dt { color: var(--ink2); font-size: 13px; }
+.fx-plan-stats dd { margin: 0; font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; overflow-wrap: anywhere; }
+.fx-plan-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.fx-plan-bills { list-style: none; padding: 0; margin: 16px 0; }
+.fx-plan-bills li { border-bottom: 1px solid var(--hair2); padding: 14px 0; }
+.fx-plan-bill { display: flex; justify-content: space-between; gap: 16px; overflow-wrap: anywhere; }
+.fx-plan-bill strong { font-size: 14px; font-weight: 600; }
+.fx-plan-bills p { font-size: 12px; margin: 5px 0 10px; }
+.fx-plan-muted { color: var(--ink2); font-size: 12px; line-height: 1.6; }
+.fx-plan-note { background: var(--fill-03); border-left: 2px solid var(--gold); padding: 14px 18px; }
+.fx-planning progress { width: 100%; height: 8px; accent-color: var(--accent-text); }
+.fx-plan-table-wrap { overflow-x: auto; margin: 18px 0; border: 1px solid var(--hair); border-radius: 8px; }
+.fx-plan-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 420px; }
+.fx-plan-table th, .fx-plan-table td { padding: 13px 16px; text-align: right; border-bottom: 1px solid var(--hair2); font-variant-numeric: tabular-nums; }
+.fx-plan-table th:first-child, .fx-plan-table td:first-child { text-align: left; }
+.fx-plan-table th { background: var(--fill-03); font-weight: 600; }
+.fx-plan-guide { background: var(--fill-03); border: 1px solid var(--hair); border-radius: 12px; padding: 20px 24px; }
+.fx-plan-guide ol { list-style: none; margin: 18px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.fx-plan-guide li { border-top: 1px solid var(--hair); padding-top: 12px; }
+.fx-plan-guide li a { font-size: 14px; font-weight: 600; }
+.fx-plan-guide li p { margin: 5px 0 0; }
+.fx-plan-guide summary { cursor: pointer; font-weight: 600; }
+.fx-planning :is(button, a, summary, input, select, textarea):focus-visible { outline: 2px solid var(--accent-text); outline-offset: 4px; }
+@media(max-width: 700px) {
+  .fx-planning-grid { grid-template-columns: 1fr; }
+  .fx-plan-guide ol { grid-template-columns: 1fr; gap: 14px; }
+  .fx-plan-fields { grid-template-columns: 1fr; }
+  .fx-planning-head { gap: 12px; }
+  .fx-plan-guide { padding: 18px; }
+}

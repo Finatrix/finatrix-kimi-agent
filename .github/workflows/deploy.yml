@@ -116,6 +116,17 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_ANALYTICS_URL: ${{ secrets.VITE_ANALYTICS_URL }}
+      # CI runs separately and cannot block this workflow. Exercise the actual
+      # production bundle before publishing: browser-only regressions must gate
+      # deployment just like unit tests and the dependency audit do.
+      - name: Install browser for release checks
+        run: npx playwright install --with-deps chromium
+      - name: Browser and accessibility release checks
+        run: npm run test:e2e
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_ANALYTICS_URL: ${{ secrets.VITE_ANALYTICS_URL }}
       - name: Deploy to Cloudflare Workers
         run: npx wrangler deploy
         env:

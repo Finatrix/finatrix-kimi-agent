@@ -14,8 +14,10 @@
  * this that is not cloaking.
  */
 
+import { useState } from 'react';
 import { Link } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
+import { PlanGrid, type BillingPeriod } from '../../marketing/PlanCards';
 import MarketingPage from '../../marketing/MarketingPage';
 import { Card, Facts, Faq, Grid, P, RelatedPages, Section, UL } from '../../marketing/ui';
 import { CAREERS_FROM_PRICE, formatInr } from '../../shared/plans';
@@ -46,6 +48,7 @@ const STEPS = [
 export default function CareersLanding() {
   const { user } = useAuth();
   const page = publicPageFor(PATH);
+  const [period, setPeriod] = useState<BillingPeriod>('monthly');
 
   return (
     <MarketingPage path={PATH}>
@@ -148,6 +151,31 @@ export default function CareersLanding() {
         </p>
       </Section>
 
+      {/* The one claim here no competitor makes, and it is only claimable
+          because the product now actually does it — see
+          src/careers/search/applyUrl.ts. Deliberately does NOT promise that
+          every link is direct: most aggregated listings are not, and the point
+          of the section is that we say so. */}
+      <Section id="apply-links" title="Every result tells you where its link goes">
+        <P>
+          Job boards route &ldquo;Apply&rdquo; through their own redirect. You click, you land on a
+          search page, and you go looking for the role again. It is so normal that most people have
+          stopped noticing it.
+        </P>
+        <P>
+          Here, a link that reaches the employer&rsquo;s own application form says{' '}
+          <strong className="text-ink">Apply</strong>. A link that reaches a job board says{' '}
+          <strong className="text-ink">View on Adzuna</strong> — naming the site you will actually
+          arrive at, not the board the listing originally came from. When the same role appears both
+          on an aggregator and on the company&rsquo;s own careers system, the company&rsquo;s copy is
+          the one kept.
+        </P>
+        <P>
+          That is a smaller promise than &ldquo;one-click apply&rdquo;. It is also one we can keep on
+          every single listing, which is the difference.
+        </P>
+      </Section>
+
       <Section id="honest" title="What it does not do">
         <P>
           The things a job product is usually vague about, stated plainly — because knowing where a
@@ -197,26 +225,37 @@ export default function CareersLanding() {
         </ul>
       </Section>
 
+      {/* The price is ON this page, not one click away. A visitor deciding
+          whether to pay ₹199–₹2,499 a month should never have to navigate to
+          find out what they get for it — this page previously described the
+          product at length and then sent the buyer elsewhere for the number. */}
       <Section id="pricing" title="Pricing">
         <P>
           Plans start at {formatInr(CAREERS_FROM_PRICE)} a month. Each purchase is a single payment
           covering one billing period — nothing auto-renews, and no mandate is stored against your
           card. The {TOOL_COUNT_WORD} FinatriX money tools stay free whether or not you ever use Careers.
         </P>
-        <div className="mt-6 flex flex-wrap items-center gap-3">
-          <Link
-            to="/pricing"
-            className="fx-btn-gold inline-flex items-center gap-2 rounded-full px-7 py-3.5 font-mono text-[12px] uppercase tracking-[0.1em]"
-          >
-            Compare plans <span aria-hidden="true">→</span>
-          </Link>
-          <Link
-            to={user ? '/careers/dashboard' : '/signup'}
-            className="fx-btn-ghost inline-flex items-center rounded-full px-6 py-3.5 font-mono text-[12px] uppercase tracking-[0.1em]"
-          >
-            {user ? 'Open workspace' : 'Create free account'}
-          </Link>
+
+        <div className="mt-8">
+          <PlanGrid
+            period={period}
+            onPeriodChange={setPeriod}
+            cta={{
+              kind: 'link',
+              to: user ? '/careers/dashboard' : '/signup',
+              label: (plan) => (user ? `Open workspace` : `Start with ${plan.name}`),
+            }}
+          />
         </div>
+
+        <p className="mt-5 text-[13px] leading-[1.6] text-ink-3">
+          Prices are in Indian rupees and are the total charged at checkout — nothing is added at the
+          payment step. Payment is handled by Stripe; FinatriX never sees or stores your card details.{' '}
+          <Link to="/pricing" className="fx-prose-link">
+            Full plan comparison and billing terms
+          </Link>
+          .
+        </p>
       </Section>
 
       {page?.faq && <Faq entries={page.faq} />}

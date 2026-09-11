@@ -3,7 +3,17 @@
  * and gpSip()/gpStepUp()/gpCalc() in tools-app.html. gpSip (annuity-due) and
  * gpStepUp (binary-search over a step-up simulation) are pure and directly
  * parity-checked; computeGoalPlanner assembles them exactly as gpCalc did.
- * Renders with INR `fmt`.
+ *
+ * MARKETS
+ * -------
+ * `GP_PRESETS` is India's set of goals and stays parity-pinned, right down to
+ * the "₹1 Crore club". The inflation rate used to gross a target up to future
+ * money is now an argument rather than a constant: 6% describes India and would
+ * overstate a UK goal by roughly a third over twenty years. The three growth
+ * paths are an argument for the same reason — `GP_PATHS` recommends PPF, ELSS
+ * and sovereign gold bonds, none of which a reader in Ohio can buy. Both
+ * default to India's values, so the original call site and the parity suite are
+ * unchanged.
  */
 
 // Preset tuples kept identical to the source ([label, iconId, amount, years]);
@@ -92,7 +102,11 @@ export interface GoalResult {
 const CHECKPOINTS = [1, 2, 3, 5, 7, 10, 15, 20, 25, 30, 35, 40];
 
 /** Verbatim port of gpCalc()'s calculation core. `targetToday < 1000` is invalid. */
-export function computeGoalPlanner(inp: GoalInput): GoalResult {
+export function computeGoalPlanner(
+  inp: GoalInput,
+  inflation = 0.06,
+  paths: readonly GoalPath[] = GP_PATHS,
+): GoalResult {
   const name = inp.name.trim() || 'Your goal';
   const targetToday = Math.max(0, inp.targetToday);
   const years = Math.min(40, Math.max(1, inp.years));
@@ -103,9 +117,9 @@ export function computeGoalPlanner(inp: GoalInput): GoalResult {
     return { valid: false, name, targetToday, target: 0, years, existing, inflate, results: [] };
   }
 
-  const target = inflate ? targetToday * Math.pow(1.06, years) : targetToday;
+  const target = inflate ? targetToday * Math.pow(1 + inflation, years) : targetToday;
 
-  const results: GoalPathResult[] = GP_PATHS.map((p) => {
+  const results: GoalPathResult[] = paths.map((p) => {
     const r = p.rate / 12;
     const n = years * 12;
     const existingFV = existing * Math.pow(1 + p.rate, years);

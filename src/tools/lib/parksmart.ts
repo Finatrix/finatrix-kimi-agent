@@ -1,14 +1,34 @@
 /**
  * ParkSmart — data + math, ported verbatim from PS_OPTS / PS_M / PS_DL and the
  * psTax()/psCalc() logic in tools-app.html. `psTax` and `computeParkSmart` are
- * pure and parity-checked against the source. ParkSmart renders with INR `fmt`.
+ * pure and parity-checked against the source.
+ *
+ * MARKETS
+ * -------
+ * `PS_OPTS` is the Indian instrument set and stays exactly what it was — the
+ * parity suite compares it field-for-field against the archived original. What
+ * changed is that `computeParkSmart` now takes the instrument list and its tax
+ * treatments as an optional argument, defaulting to India's. A market pack
+ * (see `markets/`) supplies a different list; the ranking arithmetic below
+ * never learns which country it is pricing.
+ *
+ * `psTax` is kept as a named export because the parity harness calls it
+ * directly. It now delegates to the shared `netAfterTax` engine, which is
+ * written to reproduce its branches operation-for-operation — the parity test
+ * is what proves that, across every option, holding period and slab.
  */
 import type { IconName } from '../ui/Icon';
+import { netAfterTax, type TaxTreatment } from './markets/tax';
 
 export interface ParkOption {
   n: string;
   rate: number;
-  tax: 'slab80tta' | 'slab' | 'equity';
+  /**
+   * Key into the market's `treatments` map. India's three keys are the original
+   * literals; a pack may define any others it needs. Typed as `string` rather
+   * than a union so adding a market never edits this file.
+   */
+  tax: string;
   liquid: boolean;
   risk: string;
   ic: IconName;
@@ -32,23 +52,30 @@ export const PS_OPTS: ParkOption[] = [
 export const PS_M: Record<string, number> = { '0-1': 0.5, '1-3': 2, '3-6': 4.5, '6-12': 9, '12+': 15 };
 export const PS_DL: Record<string, string> = { '0-1': 'under 1 month', '1-3': '1–3 months', '3-6': '3–6 months', '6-12': '6–12 months', '12+': 'over 1 year' };
 
-/** Post-tax return for an option (verbatim port of psTax). */
+/**
+ * India's three tax treatments, as data.
+ *
+ * These reproduce the original `psTax` exactly: equity is 20% STCG under twelve
+ * months and 12.5% LTCG above a ₹1.25L exemption pro-rated to the holding
+ * period; `slab80tta` is the ₹10,000 savings-interest allowance pro-rated the
+ * same way and then the user's slab; `slab` is the slab on the whole return.
+ */
+export const IN_TREATMENTS: Readonly<Record<string, TaxTreatment>> = {
+  equity: { gains: { months: 12, allowance: 125000, rate: 0.125, shortRate: 0.2 } },
+  slab80tta: { allowance: 10000 },
+  slab: {},
+};
+
+/**
+ * Post-tax return for an option (verbatim port of psTax).
+ *
+ * Delegates to `netAfterTax` with India's treatments. Kept as its own export
+ * with its original signature because the parity harness compares it directly
+ * against the function compiled out of the archived tools-app.html.
+ */
 export function psTax(opt: ParkOption, gross: number, months: number, slabPct: number, _amt: number): number {
   void _amt;
-  if (opt.tax === 'equity') {
-    if (months >= 12) {
-      const exempt = 125000 * (months / 12); // LTCG exemption pro-rated to holding period
-      const taxable = Math.max(0, gross - exempt);
-      return gross - taxable * 0.125; // LTCG 12.5%
-    }
-    return gross * (1 - 0.2); // STCG 20%
-  }
-  if (opt.tax === 'slab80tta') {
-    const exempt = 10000 * (months / 12); // 80TTA pro-rated (old regime)
-    const taxable = Math.max(0, gross - exempt);
-    return gross - taxable * slabPct;
-  }
-  return gross * (1 - slabPct); // taxed at slab
+  return netAfterTax(IN_TREATMENTS[opt.tax] ?? IN_TREATMENTS.slab, gross, months, slabPct);
 }
 
 export interface RankedOption extends ParkOption {
@@ -70,15 +97,56 @@ export interface ParkResult {
   split: SplitIdea | null;
 }
 
-/** Verbatim port of psCalc()'s ranking core. `amt < 1000` is invalid. */
-export function computeParkSmart(amt: number, dur: string, slabPct: number): ParkResult {
-  if (amt < 1000) return { valid: false, ranked: [], best: null, maxNet: 1, split: null };
+/**
+ * The instrument set a ranking runs against: what you can park cash in, and how
+ * each is taxed. A market pack is one of these plus its labels.
+ */
+export interface ParkInstruments {
+  options: readonly ParkOption[];
+  treatments: Readonly<Record<string, TaxTreatment>>;
+  /**
+   * Below this the tool declines to answer, in the market's own currency.
+   * ₹1,000 in India; a pack sets its own, because "too small to bother
+   * optimising" is a different number in dollars than it is in rupees.
+   */
+  minAmount: number;
+  /** Above this a liquid/locked split is worth suggesting. */
+  splitThreshold: number;
+}
+
+/**
+ * India — the original instrument set and thresholds, unchanged.
+ * `computeParkSmart` uses this when no pack is passed, which is what keeps the
+ * parity suite (and every existing caller) on exactly the code that shipped.
+ */
+export const IN_PARK: ParkInstruments = {
+  options: PS_OPTS,
+  treatments: IN_TREATMENTS,
+  minAmount: 1000,
+  splitThreshold: 100000,
+};
+
+/**
+ * Verbatim port of psCalc()'s ranking core, now parameterised by market.
+ *
+ * The arithmetic is untouched: gross return, post-tax net, annualised effective
+ * rate, sort by net, and a split suggestion when the winner locks the money up.
+ * Only the inputs moved — which instruments exist, how they are taxed, and the
+ * two currency-scaled thresholds.
+ */
+export function computeParkSmart(
+  amt: number,
+  dur: string,
+  slabPct: number,
+  pack: ParkInstruments = IN_PARK,
+): ParkResult {
+  if (amt < pack.minAmount) return { valid: false, ranked: [], best: null, maxNet: 1, split: null };
   const months = PS_M[dur];
 
-  const ranked: RankedOption[] = PS_OPTS.filter((o) => months >= o.minM && (dur !== '0-1' || o.liquid))
+  const ranked: RankedOption[] = pack.options.filter((o) => months >= o.minM && (dur !== '0-1' || o.liquid))
     .map((o) => {
       const gross = amt * (o.rate / 100) * (months / 12);
-      const net = Math.max(0, psTax(o, gross, months, slabPct, amt));
+      const net = Math.max(0, netAfterTax(pack.treatments[o.tax] ?? {}, gross, months, slabPct));
       const effRate = amt > 0 && months > 0 ? (net / amt) * (12 / months) * 100 : 0;
       return { ...o, gross, net, effRate };
     })
@@ -89,7 +157,7 @@ export function computeParkSmart(amt: number, dur: string, slabPct: number): Par
 
   let split: SplitIdea | null = null;
   const bestLiquid = ranked.find((o) => o.liquid);
-  if (amt >= 100000 && bestLiquid && bestLiquid.n !== best.n && !best.liquid) {
+  if (amt >= pack.splitThreshold && bestLiquid && bestLiquid.n !== best.n && !best.liquid) {
     const buf = Math.round(amt * 0.3);
     const core = amt - buf;
     split = { core, buf, bestName: best.n, bestLiquidName: bestLiquid.n };

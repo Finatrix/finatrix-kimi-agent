@@ -314,7 +314,7 @@ function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, onAg
               const on = applied.has(d.id);
               const good = d.smart > 0;
               return (
-                <button key={d.id} type="button" aria-pressed={on} onClick={() => onToggle(d.id)} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '14px 16px', borderRadius: 14, border: `1.5px solid ${on ? (good ? 'rgba(29,125,70,.3)' : 'rgba(215,0,21,.25)') : 'var(--hair2)'}`, background: on ? (good ? 'rgba(29,125,70,.04)' : 'rgba(215,0,21,.03)') : 'var(--card)', marginBottom: 8, cursor: 'pointer', transition: 'all .2s', width: '100%', textAlign: 'left', fontFamily: 'inherit', color: 'inherit' }}>
+                <button key={d.id} type="button" aria-pressed={on} onClick={() => onToggle(d.id)} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '14px 16px', borderRadius: 14, border: `1.5px solid ${on ? (good ? 'rgba(29,125,70,.3)' : 'rgba(215,0,21,.25)') : 'var(--hair2)'}`, background: on ? (good ? 'rgba(29,125,70,.04)' : 'rgba(215,0,21,.03)') : 'var(--card)', marginBottom: 8, cursor: 'pointer', transition: 'border-color .2s, background-color .2s', width: '100%', textAlign: 'left', fontFamily: 'inherit', color: 'inherit' }}>
                   <div style={{ width: 40, height: 40, borderRadius: 12, background: d.c, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--ink)' }}><Icon name={d.ic} size={18} /></div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 600 }}>{d.t}</div>

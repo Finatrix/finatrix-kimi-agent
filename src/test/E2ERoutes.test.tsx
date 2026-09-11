@@ -17,7 +17,10 @@ function renderAt(path: string) {
 // Every page renders through the real App without crashing (automated
 // equivalent of "open every page"). Each assertion is a stable heading.
 const CASES: [string, string | RegExp][] = [
-  ['/', 'Real-time calculations'],
+  // "Made in India" rather than a claim about coverage: it is the one trust
+  // chip that is a fact about the product's origin, so it survives positioning
+  // changes that the market and currency counts do not.
+  ['/', 'Personal finance, with the workings shown'],
   ['/login', 'Welcome back'],
   ['/signup', 'Create your account'],
   // Both titles are correct states of this route, and which one renders depends
@@ -38,7 +41,7 @@ const CASES: [string, string | RegExp][] = [
   ['/tools/investmatch', 'A portfolio shaped to you.'],
   ['/tools/parksmart', "Idle money shouldn't idle."],
   ['/tools/peercompare', 'How do you really stack up?'],
-  ['/tools/goals', 'Start at the dream. Work backwards.'],
+  ['/tools/goals', 'What would it take to reach your goal?'],
   ['/tools/lifemap', 'Simulate your entire financial life.'],
   ['/tools/reports', 'Your finances, ready to share.'],
   ['/tools/calendar', 'Your money month, at a glance.'],

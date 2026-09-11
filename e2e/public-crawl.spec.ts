@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { CONTENT_PATHS } from '../src/shared/content';
+import { INDEXABLE } from '../src/lib/seo';
 import { PUBLIC_PAGE_PATHS } from '../src/shared/publicPages';
 import { TOOL_IDS } from '../src/shared/routes';
 
@@ -107,7 +108,12 @@ test.describe('every public page, in a browser', () => {
 
       expect(head.title.length, `${path} title`).toBeGreaterThan(10);
       expect(head.description.length, `${path} description`).toBeGreaterThan(50);
-      expect(head.robots, `${path} robots`).toBe('index, follow');
+      // Compared against the constant rather than a copy of its value. The
+      // literal 'index, follow' was written here before seo.ts gained the three
+      // `max-*` presentation directives, and this assertion then failed on
+      // every one of 150 public pages while `seo.test.ts` — which reads the
+      // constant — stayed green. A duplicated value is a value that drifts.
+      expect(head.robots, `${path} robots`).toBe(INDEXABLE);
       expect(head.canonical, `${path} canonical`).toBe(
         `https://finatrix.co${path === '/' ? '/' : path}`,
       );

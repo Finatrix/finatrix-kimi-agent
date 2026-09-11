@@ -8,9 +8,10 @@ import { SYNC_KEYS } from '../cloudSync';
 import { ymdLocal } from '../../lib/date';
 import { downloadBlob } from './exporters';
 import { clearNotificationState } from './notifications';
+import { store } from './storage';
 
 /** Non-synced local keys that still belong to the user and should be reset. */
-const LOCAL_ONLY_KEYS = ['fx_activity', 'fx_last_tool', 'fx_notif_read', 'fx_notif_dismissed', 'fx_notif_seen_at', 'fx_dash_layout', 'fx_exp_catsort'];
+const LOCAL_ONLY_KEYS = ['fx_activity', 'fx_last_tool', 'fx_notif_read', 'fx_notif_dismissed', 'fx_notif_seen_at', 'fx_dash_layout', 'fx_exp_catsort', 'fx_onboarding_done'];
 
 /** Human labels for the tool data keys (for the storage summary). */
 const KEY_LABEL: Record<string, string> = {
@@ -23,6 +24,7 @@ const KEY_LABEL: Record<string, string> = {
   fx_fy_start: 'Financial year',
   fx_expense_audit: 'Expense change history',
   fx_goals: 'Goals', fx_investmatch: 'InvestMatch', fx_parksmart: 'ParkSmart',
+  fx_planning: 'Monthly reviews, recurring-payment choices & emergency funds',
   fx_peercompare: 'PeerCompare', fx_lifemap: 'LifeMap', fx_networth: 'Net Worth',
   fx_currency: 'Currency',
 };
@@ -30,7 +32,7 @@ const KEY_LABEL: Record<string, string> = {
 export interface DataArea { key: string; label: string; present: boolean; bytes: number }
 
 function readRaw(key: string): string | null {
-  try { return localStorage.getItem(key); } catch { return null; }
+  return store.raw(key);
 }
 
 /** Summarise which tool data exists locally (drives the Settings data view). */
@@ -78,7 +80,7 @@ export function resetAllData(): number {
   let n = 0;
   for (const k of [...SYNC_KEYS, ...LOCAL_ONLY_KEYS]) {
     try {
-      if (localStorage.getItem(k) != null) { localStorage.removeItem(k); n += 1; }
+      if (store.raw(k) != null) { store.remove(k); n += 1; }
     } catch { /* ignore */ }
   }
   return n;

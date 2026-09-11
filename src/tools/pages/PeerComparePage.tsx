@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { PageHead, ToolFoot } from '../ui/common';
 import { Icon } from '../ui/Icon';
-import { fmt } from '../lib/format';
 import { getJSON, setJSON } from '../lib/storage';
-import { PC_CITIES, computePeerCompare, type PeerResult, type Metric } from '../lib/peercompare';
+import { computePeerCompare, type PeerResult, type Metric } from '../lib/peercompare';
+import { useCurrency } from '../CurrencyContext';
+import { useMarket } from '../MarketContext';
+import { MarketNote } from '../ui/MarketNote';
+import type { MarketPack } from '../lib/markets';
 import { track } from '../../lib/analytics';
 
-const CITY_ENTRIES = Object.entries(PC_CITIES);
 const STATUS_META = {
   ahead: { arrow: '↑', color: 'var(--green)', hex: '#1d7d46', label: 'Ahead' },
   ontrack: { arrow: '→', color: 'var(--gold)', hex: '#b08a36', label: 'On track' },
@@ -14,7 +16,20 @@ const STATUS_META = {
 } as const;
 
 type Fields = { age: string; city: string; income: string; savings: string; invest: string; debt: string; rate: string; expenses: string };
-const DEFAULTS: Fields = { age: '25', city: 'mumbai', income: '50000', savings: '200000', invest: '100000', debt: '0', rate: '20', expenses: '30000' };
+
+/**
+ * Starting answers for the active market. Derived from the pack rather than
+ * hard-coded, because ₹50,000 a month is a reasonable prompt in Mumbai and a
+ * nonsensical one in Manchester.
+ */
+function defaultsFor(market: MarketPack): Fields {
+  const d = market.peer.defaults;
+  return {
+    age: String(d.age), city: d.cityKey, income: String(d.income), savings: String(d.savings),
+    invest: String(d.invest), debt: String(d.debt), rate: String(d.rate), expenses: String(d.expenses),
+  };
+}
+
 const KEY_MAP: Record<keyof Fields, string> = {
   age: 'pc-age', city: 'pc-city', income: 'pc-income', savings: 'pc-savings', invest: 'pc-invest', debt: 'pc-debt', rate: 'pc-rate', expenses: 'pc-expenses',
 };
@@ -25,9 +40,13 @@ function num(v: string): number {
 }
 
 export default function PeerComparePage() {
+  const { cfmt, sym } = useCurrency();
+  const { market } = useMarket();
+  const peer = market.peer;
+  const cityEntries = Object.entries(peer.cities);
   const [f, setF] = useState<Fields>(() => {
     const saved = getJSON<Record<string, string>>('fx_peercompare', {});
-    const init = { ...DEFAULTS };
+    const init = { ...defaultsFor(market) };
     (Object.keys(KEY_MAP) as (keyof Fields)[]).forEach((k) => {
       const v = saved[KEY_MAP[k]];
       if (v != null && v !== '') init[k] = v;
@@ -53,48 +72,49 @@ export default function PeerComparePage() {
         computePeerCompare({
           age: num(f.age), cityKey: f.city, income: num(f.income), savings: num(f.savings),
           invest: num(f.invest), debt: num(f.debt), rate: num(f.rate), expenses: num(f.expenses),
-        })
+        }, peer)
       );
-      track('tool_completed', { tool: 'peercompare' });
+      track('tool_completed', { tool: 'peercompare', market: market.id });
     }, 600);
   };
 
   return (
     <div className="fx-page">
       <PageHead chip="PeerCompare" chipColor="var(--purple)" chipBg="rgba(110,59,212,.09)" icon="peer" title="How do you really stack up?">
-        City-calibrated benchmarks for 14 Indian cities — including Chennai, Hyderabad and Kolkata —
-        adjusted for local incomes and living costs.
+        Benchmarks for {cityEntries.length} locations across {market.name}, adjusted for local incomes
+        and living costs.
       </PageHead>
 
       {!result ? (
         <div className="card">
           <div className="grid2">
             <Field label="Your age" id="pc-age"><input className="fi" type="number" step="any" id="pc-age" value={f.age} min={18} max={70} inputMode="numeric" onChange={(e) => set('age', e.target.value)} /></Field>
-            <Field label="Your city" id="pc-city">
-              <select className="fs" id="pc-city" value={f.city} onChange={(e) => set('city', e.target.value)}>
-                {CITY_ENTRIES.map(([k, v]) => <option key={k} value={k}>{v.l}</option>)}
+            <Field label={peer.cityLabel} id="pc-city">
+              <select className="fs" id="pc-city" value={f.city in peer.cities ? f.city : peer.fallbackCity} onChange={(e) => set('city', e.target.value)}>
+                {cityEntries.map(([k, v]) => <option key={k} value={k}>{v.l}</option>)}
               </select>
             </Field>
           </div>
-          <Field label="Monthly income (₹)" id="pc-income"><input className="fi" type="number" step="any" id="pc-income" value={f.income} min={0} inputMode="decimal" onChange={(e) => set('income', e.target.value)} /></Field>
+          <Field label={`Monthly income (${sym})`} id="pc-income"><input className="fi" type="number" step="any" id="pc-income" value={f.income} min={0} inputMode="decimal" onChange={(e) => set('income', e.target.value)} /></Field>
           <div className="grid2">
-            <Field label="Total savings (₹)" id="pc-savings"><input className="fi" type="number" step="any" id="pc-savings" value={f.savings} min={0} inputMode="decimal" onChange={(e) => set('savings', e.target.value)} /></Field>
-            <Field label="Total investments (₹)" id="pc-invest"><input className="fi" type="number" step="any" id="pc-invest" value={f.invest} min={0} inputMode="decimal" onChange={(e) => set('invest', e.target.value)} /></Field>
+            <Field label={`Total savings (${sym})`} id="pc-savings"><input className="fi" type="number" step="any" id="pc-savings" value={f.savings} min={0} inputMode="decimal" onChange={(e) => set('savings', e.target.value)} /></Field>
+            <Field label={`Total investments (${sym})`} id="pc-invest"><input className="fi" type="number" step="any" id="pc-invest" value={f.invest} min={0} inputMode="decimal" onChange={(e) => set('invest', e.target.value)} /></Field>
           </div>
           <div className="grid2">
-            <Field label="Total debt (₹)" id="pc-debt"><input className="fi" type="number" step="any" id="pc-debt" value={f.debt} min={0} inputMode="decimal" onChange={(e) => set('debt', e.target.value)} /></Field>
+            <Field label={`Total debt (${sym})`} id="pc-debt"><input className="fi" type="number" step="any" id="pc-debt" value={f.debt} min={0} inputMode="decimal" onChange={(e) => set('debt', e.target.value)} /></Field>
             <Field label="Monthly savings rate (%)" id="pc-rate"><input className="fi" type="number" step="any" id="pc-rate" value={f.rate} min={0} max={100} inputMode="decimal" onChange={(e) => set('rate', e.target.value)} /></Field>
           </div>
-          <Field label="Monthly expenses (₹)" id="pc-expenses"><input className="fi" type="number" step="any" id="pc-expenses" value={f.expenses} min={0} inputMode="decimal" onChange={(e) => set('expenses', e.target.value)} /></Field>
+          <Field label={`Monthly expenses (${sym})`} id="pc-expenses"><input className="fi" type="number" step="any" id="pc-expenses" value={f.expenses} min={0} inputMode="decimal" onChange={(e) => set('expenses', e.target.value)} /></Field>
           <button className={`btn ${loading ? 'btn-loading' : ''}`} disabled={loading} onClick={submit}>
             {loading ? 'Analysing your data…' : 'See how I stack up'}
           </button>
         </div>
       ) : (
-        <PeerResultView result={result} onReset={() => setResult(null)} />
+        <PeerResultView result={result} money={cfmt} onReset={() => setResult(null)} />
       )}
 
-      <ToolFoot>Benchmarks modelled on RBI, PLFS &amp; survey data · Built with care by <b>FinatriX</b></ToolFoot>
+      <MarketNote market={market} />
+      <ToolFoot>Built with care by <b>FinatriX</b> · Benchmarks are medians, not targets</ToolFoot>
     </div>
   );
 }
@@ -108,7 +128,7 @@ function Field({ label, id, children }: { label: string; id: string; children: R
   );
 }
 
-function PeerResultView({ result, onReset }: { result: PeerResult; onReset: () => void }) {
+function PeerResultView({ result, money, onReset }: { result: PeerResult; money: (n: number) => string; onReset: () => void }) {
   const { metrics, score, scColor, scHex, msg, bracket, city, eMonths, dti, nw, investedRatio } = result;
   const C = 2 * Math.PI * 56;
   const off = C - (score / 100) * C;
@@ -131,14 +151,14 @@ function PeerResultView({ result, onReset }: { result: PeerResult; onReset: () =
       </div>
 
       <div style={{ fontSize: 15, fontWeight: 700, margin: '20px 4px 12px' }}>Metric by metric</div>
-      {metrics.map((m) => <MetricCard key={m.k} m={m} cityLabel={city.l} />)}
+      {metrics.map((m) => <MetricCard key={m.k} m={m} cityLabel={city.l} money={money} />)}
 
       <div className="card">
         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>Additional stats</div>
         <div className="grid2" style={{ textAlign: 'center' }}>
           <StatBox v={eMonths >= 99 ? '∞' : String(eMonths)} l="Emergency months" color={eMonths >= 6 ? 'var(--green)' : eMonths >= 3 ? 'var(--gold)' : 'var(--red)'} />
           <StatBox v={`${dti}%`} l="Debt-to-income" color={dti < 20 ? 'var(--green)' : dti < 40 ? 'var(--gold)' : 'var(--red)'} />
-          <StatBox v={fmt(nw)} l="Net worth" color="var(--purple)" />
+          <StatBox v={money(nw)} l="Net worth" color="var(--purple)" />
           <StatBox v={`${investedRatio}%`} l="Invested ratio" color="var(--blue)" />
         </div>
       </div>
@@ -154,10 +174,10 @@ function PeerResultView({ result, onReset }: { result: PeerResult; onReset: () =
   );
 }
 
-function MetricCard({ m, cityLabel }: { m: Metric; cityLabel: string }) {
+function MetricCard({ m, cityLabel, money }: { m: Metric; cityLabel: string; money: (n: number) => string }) {
   const meta = STATUS_META[m.status];
-  const dy = m.money ? fmt(m.yours) : m.yours + (m.suf || '');
-  const da = m.money ? fmt(m.avg) : m.avg + (m.suf || '');
+  const dy = m.money ? money(m.yours) : m.yours + (m.suf || '');
+  const da = m.money ? money(m.avg) : m.avg + (m.suf || '');
   return (
     <div className="card" style={{ padding: '18px 20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 9 }}>

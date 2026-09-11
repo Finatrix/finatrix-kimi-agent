@@ -11,8 +11,11 @@ const items: ExpenseItem[] = [
 describe('month-end spend forecast', () => {
   it('projects month-end total from the run-rate so far', () => {
     // 10 days elapsed of 31, ₹10,000 spent → run-rate 1000/day → ~₹31,000.
+    // No category metadata is passed, so nothing can be identified as a
+    // scheduled charge and everything is treated as accruing — which is
+    // exactly what this arithmetic has always assumed.
     const now = new Date('2026-07-10T12:00:00');
-    const f = computeMonthForecast(items, CM, now, 40000);
+    const f = computeMonthForecast({ items, month: CM, now, spendableBudget: 40000 });
     expect(f.isCurrentMonth).toBe(true);
     expect(f.spentSoFar).toBe(10000);
     expect(f.daysElapsed).toBe(10);
@@ -24,14 +27,14 @@ describe('month-end spend forecast', () => {
 
   it('flags an over-budget trajectory', () => {
     const now = new Date('2026-07-10T12:00:00');
-    const f = computeMonthForecast(items, CM, now, 20000);
+    const f = computeMonthForecast({ items, month: CM, now, spendableBudget: 20000 });
     expect(f.overBudget).toBe(true);
     expect(f.projected).toBeGreaterThan(20000);
   });
 
   it('treats a past month as complete (no projection inflation)', () => {
     const now = new Date('2026-08-15T12:00:00');
-    const f = computeMonthForecast(items, CM, now, 40000);
+    const f = computeMonthForecast({ items, month: CM, now, spendableBudget: 40000 });
     expect(f.isCurrentMonth).toBe(false);
     expect(f.projected).toBe(10000); // equals actual spend, not extrapolated
   });

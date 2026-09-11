@@ -273,12 +273,14 @@ describe('exportRows', () => {
     const rows = exportRows([
       account({ id: 'a', name: 'Salary', balances: { '2026-02': 200, '2026-01': 100 } }),
       account({ id: 'l', name: 'Card', kind: 'liability', category: 'credit_card', balances: { '2026-02': 50 } }),
-    ]);
-    expect(rows[0]).toEqual(['Month', 'Type', 'Category', 'Account', 'Balance']);
+    ], 'INR');
+    // The Currency column is required, not cosmetic: a sheet of balances drawn
+    // from several countries with no denomination on any row cannot be audited.
+    expect(rows[0]).toEqual(['Month', 'Type', 'Category', 'Account', 'Currency', 'Balance']);
     expect(rows.slice(1)).toEqual([
-      ['2026-01', 'Asset', 'Cash & bank', 'Salary', 100],
-      ['2026-02', 'Asset', 'Cash & bank', 'Salary', 200],
-      ['2026-02', 'Liability', 'Credit card', 'Card', 50],
+      ['2026-01', 'Asset', 'Cash & bank', 'Salary', 'INR', 100],
+      ['2026-02', 'Asset', 'Cash & bank', 'Salary', 'INR', 200],
+      ['2026-02', 'Liability', 'Credit card', 'Card', 'INR', 50],
     ]);
   });
 

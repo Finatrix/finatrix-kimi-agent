@@ -2,25 +2,44 @@
  * File in, statement rows out.
  *
  * The orchestrator's whole job is routing plus honest failure. It validates the
- * upload before reading a byte of content, sends CSV/TSV to the delimited parser
- * and PDF to the text-layer parser, and converts every way this can go wrong
- * into a typed outcome the review sheet can act on — most importantly
- * `password-required`, which is a prompt rather than an error, because a locked
- * statement is the normal case rather than the exceptional one.
+ * upload before reading a byte of content, sends each format to the parser that
+ * understands it, and converts every way this can go wrong into a typed outcome
+ * the review sheet can act on — most importantly `password-required`, which is
+ * a prompt rather than an error, because a locked statement is the normal case
+ * rather than the exceptional one.
  *
- * Nothing here uploads anything. pdf.js runs in a worker in this tab, the CSV
- * reader is a string function, and the file's bytes never leave the device.
+ * FOUR ROUTES, ONE SET OF RULES
+ * -----------------------------
+ *   csv / tsv / txt   → the delimited parser
+ *   .xlsx             → read to a grid, then the SAME delimited parser
+ *   pdf (with text)   → the text-layer parser
+ *   pdf (scanned)     → rendered to images, recognised, then the text parser
+ *   png / jpg / webp  → recognised, then the text parser
  *
- * Scanned, image-only PDFs are recognised and declined with a specific message.
- * The OCR fallback exists in this codebase (`careers/parser/ocr.ts`) and is the
- * obvious next step, but an amount misread by OCR is a wrong number in someone's
- * ledger — so it ships behind its own review rules rather than being quietly
- * folded in here.
+ * Everything converges on two parsers, so a statement cannot be read
+ * differently depending on which format it was saved in. The spreadsheet reader
+ * is this codebase's own (`xlsx.ts`) rather than SheetJS, whose parser carries
+ * two unpatched high-severity advisories that are accepted only because nothing
+ * calls it — see that file for the whole reasoning.
+ *
+ * OCR IS NOT TRUSTED THE WAY A FILE IS
+ * ------------------------------------
+ * Text recognition can misread a digit, and a misread digit in an amount is a
+ * wrong number in somebody's ledger that nobody typed. So rows recovered by OCR
+ * are marked `source: 'ocr'` and the review sheet holds every one of them back
+ * for a human to confirm. This is what "scanned PDFs are declined" was
+ * protecting against; reading them and being honest about the confidence is a
+ * better answer than refusing.
+ *
+ * Nothing here uploads anything. pdf.js and Tesseract both run in workers in
+ * this tab, the spreadsheet reader uses the platform's own inflate, and the
+ * file's bytes never leave the device.
  */
 
 import { sanitizeText } from '../../../lib/sanitize';
-import { parseCsvStatement, StatementParseError } from './csv';
+import { parseCsvStatement, parseStatementMatrix, StatementParseError } from './csv';
 import { parseTextStatement } from './statement';
+import { readWorkbookGrid } from './xlsx';
 import { reconcile, resolveDirections, type Reconciliation } from './reconcile';
 import type { StatementDoc } from './types';
 
@@ -30,9 +49,31 @@ export const MAX_FILE_BYTES = 15 * 1024 * 1024;
 /** Below this many characters, a PDF has no usable text layer. */
 const MIN_PDF_TEXT_CHARS = 200;
 
-export const ACCEPTED_EXTENSIONS = ['csv', 'tsv', 'txt', 'pdf'] as const;
+/**
+ * Below this many characters, recognition found nothing usable.
+ *
+ * Lower than the PDF threshold on purpose: a phone photo of one page of a
+ * statement is a legitimate input and carries far less text than a whole
+ * document, while a photo of a cat still lands well under it.
+ */
+const MIN_OCR_TEXT_CHARS = 40;
+
+export const ACCEPTED_EXTENSIONS = [
+  'csv', 'tsv', 'txt', 'pdf', 'xlsx', 'xls',
+  'png', 'jpg', 'jpeg', 'webp', 'bmp',
+] as const;
+
+/** Extensions routed through text recognition. */
+const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'webp', 'bmp']);
+
 /** What the file picker offers. */
-export const ACCEPT_ATTRIBUTE = '.csv,.tsv,.txt,.pdf,text/csv,text/plain,application/pdf';
+export const ACCEPT_ATTRIBUTE = [
+  '.csv,.tsv,.txt,.pdf,.xlsx,.xls',
+  '.png,.jpg,.jpeg,.webp,.bmp',
+  'text/csv,text/plain,application/pdf',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'image/png,image/jpeg,image/webp,image/bmp',
+].join(',');
 
 export type ImportFailure =
   | 'too-large'
@@ -78,6 +119,39 @@ async function looksLikePdf(file: File): Promise<boolean> {
 }
 
 /**
+ * Recognise text across images, and refuse a result that is plainly not a
+ * statement rather than handing the parser noise to find rows in.
+ */
+async function recogniseImages(images: readonly Blob[]): Promise<string> {
+  // Tesseract and its WASM core are several megabytes and are loaded only when
+  // an image is actually opened — a CSV import must not pay for them.
+  const { ocrImages } = await import('../../../lib/ocr');
+  let text: string;
+  try {
+    text = await ocrImages(images);
+  } catch (e) {
+    throw new ImportError('unreadable', e instanceof Error ? e.message : 'Could not read this image.');
+  }
+  if (text.trim().length < MIN_OCR_TEXT_CHARS) {
+    throw new ImportError(
+      'no-transactions',
+      'No readable text was found in this image. A straight, well-lit photo of the statement itself usually works — or export it as a PDF or CSV from your bank.',
+    );
+  }
+  return text;
+}
+
+/** Read a spreadsheet into the same grid the delimited parser consumes. */
+async function readWorkbook(file: File, now: Date): Promise<StatementDoc> {
+  try {
+    return parseStatementMatrix(await readWorkbookGrid(file), now, 'spreadsheet');
+  } catch (e) {
+    if (e instanceof StatementParseError) throw new ImportError('unreadable', e.message);
+    throw new ImportError('unreadable', 'Could not read this spreadsheet. Try exporting it as CSV instead.');
+  }
+}
+
+/**
  * Read and parse an uploaded statement.
  *
  * `password` is supplied on the second attempt, after the caller has prompted
@@ -98,7 +172,7 @@ export async function extractStatement(
 
   const extension = extensionOf(file.name);
   if (!(ACCEPTED_EXTENSIONS as readonly string[]).includes(extension)) {
-    throw new ImportError('unsupported', 'Unsupported format. Please upload a CSV or PDF statement.');
+    throw new ImportError('unsupported', 'Unsupported format. Please upload a CSV, Excel or PDF statement, or a clear photo of one.');
   }
 
   const isPdf = await looksLikePdf(file);
@@ -109,7 +183,11 @@ export async function extractStatement(
   let doc: StatementDoc;
   let pages: number | null = null;
 
-  if (isPdf) {
+  if (IMAGE_EXTENSIONS.has(extension) && !isPdf) {
+    doc = parseTextStatement(sanitizeText(await recogniseImages([file])), now, 'ocr');
+  } else if (extension === 'xlsx' || extension === 'xls') {
+    doc = await readWorkbook(file, now);
+  } else if (isPdf) {
     let text: string;
     try {
       // pdf.js is loaded only when a PDF is actually opened. It is by far the
@@ -142,12 +220,22 @@ export async function extractStatement(
     }
 
     if (text.trim().length < MIN_PDF_TEXT_CHARS) {
-      throw new ImportError(
-        'scanned-pdf',
-        'This PDF has no selectable text — it looks like a scan or a photo. Please download the statement as a PDF or CSV from your bank instead.',
-      );
+      // A scan, or a photograph saved as a PDF. Rendered and recognised rather
+      // than refused — and every row it produces is held for review, because
+      // that is the honest way to use a reading that might have misread a 3.
+      const { renderPdfPages } = await import('../../../lib/pdfText');
+      const images = await renderPdfPages(await file.arrayBuffer(), options.password)
+        .catch(() => [] as Blob[]);
+      if (!images.length) {
+        throw new ImportError(
+          'scanned-pdf',
+          'This PDF has no selectable text and could not be scanned on this device. Please download the statement as a PDF or CSV from your bank instead.',
+        );
+      }
+      doc = parseTextStatement(sanitizeText(await recogniseImages(images)), now, 'ocr');
+    } else {
+      doc = parseTextStatement(sanitizeText(text), now);
     }
-    doc = parseTextStatement(sanitizeText(text), now);
   } else {
     const raw = await file.text();
     // A NUL byte means this is a binary file wearing a .csv name — an .xls

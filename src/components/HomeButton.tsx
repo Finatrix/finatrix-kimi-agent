@@ -10,7 +10,7 @@ export function HomeButton({ compact = false, className = '' }: { compact?: bool
     <Link
       to="/"
       aria-label="Home"
-      className={`group inline-flex items-center gap-1.5 rounded-full border border-[#D4AF37]/40 bg-[var(--tile-bg)] px-3 py-1.5 backdrop-blur-sm transition-all duration-200 hover:border-[#D4AF37] hover:bg-[#D4AF37]/[0.1] hover:shadow-[0_4px_18px_-4px_rgba(212,175,55,0.5)] ${className}`}
+      className={`group inline-flex items-center gap-1.5 rounded-full border border-[#D4AF37]/40 bg-[var(--tile-bg)] px-3 py-1.5 transition-all duration-200 hover:border-[#D4AF37] hover:bg-[#D4AF37]/[0.1] hover:shadow-[0_4px_18px_-4px_rgba(212,175,55,0.5)] ${className}`}
     >
       <svg
         width="15"

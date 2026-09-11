@@ -1,7 +1,19 @@
 /**
  * PeerCompare — data + math, ported verbatim from PC_CITIES / PC_BENCH and the
  * pcBracket()/pcPct()/pcCompare() logic in tools-app.html. All pure and
- * parity-checked against the source. Renders with INR `fmt`.
+ * parity-checked against the source.
+ *
+ * MARKETS
+ * -------
+ * `PC_CITIES` and `PC_BENCH` are India's cost-of-living multipliers and its
+ * age-banded benchmarks, unchanged and parity-pinned. `computePeerCompare`
+ * gained an optional second argument so another market can supply its own
+ * table; the percentile maths, the scoring and every threshold are shared.
+ *
+ * A benchmark is a claim about a population, so a pack that supplies one also
+ * has to say where it came from and when — see `markets/types.ts`. The India
+ * table predates that rule and its provenance is recorded alongside the others
+ * in `markets/in.ts` rather than being left implied.
  */
 import { fmt } from './format';
 
@@ -106,15 +118,38 @@ export interface PeerResult {
   tips: PcTip[];
 }
 
+/**
+ * The market-varying half of PeerCompare: who you are being compared with, and
+ * the currency the advice is written in.
+ */
+export interface PeerBenchmarks {
+  cities: Readonly<Record<string, City>>;
+  bench: Readonly<Record<string, Bench>>;
+  /** Used when the chosen key is not in `cities`. Must exist in it. */
+  fallbackCity: string;
+  /** The "start small" nudge, already written in the market's own currency. */
+  sipExample: string;
+  money: (n: number) => string;
+}
+
+/** India — the original tables, unchanged. */
+export const IN_PEER: PeerBenchmarks = {
+  cities: PC_CITIES,
+  bench: PC_BENCH,
+  fallbackCity: 'tier2other',
+  sipExample: 'Even a ₹2,000/month SIP started today beats a ₹10,000 SIP started in five years.',
+  money: fmt,
+};
+
 /** Verbatim port of pcCompare()'s calculation core. */
-export function computePeerCompare(inp: PeerInput): PeerResult {
+export function computePeerCompare(inp: PeerInput, pack: PeerBenchmarks = IN_PEER): PeerResult {
   const age = Math.min(70, Math.max(18, inp.age));
-  const city = PC_CITIES[inp.cityKey] || PC_CITIES.tier2other;
+  const city = pack.cities[inp.cityKey] || pack.cities[pack.fallbackCity];
   const income = inp.income, savings = inp.savings, invest = inp.invest;
   const debt = inp.debt, rate = Math.min(100, inp.rate), expenses = inp.expenses;
 
   const bracket = pcBracket(age);
-  const b = PC_BENCH[bracket];
+  const b = pack.bench[bracket];
   const avgIncome = Math.round(b.income[city.tier] * city.col);
   const avgExpenses = Math.round(b.expenses[city.tier] * city.col);
   const nw = savings + invest - debt;
@@ -153,10 +188,10 @@ export function computePeerCompare(inp: PeerInput): PeerResult {
   const get = (k: string) => metrics.find((m) => m.k === k)!;
   if (get('income').status === 'ahead') tips.push(['ok', 'Income strength', `You earn more than the typical ${city.l} peer your age. Channel the surplus into a higher savings rate — that's where the gap compounds.`]);
   if (get('income').status === 'behind') tips.push(['warn', 'Income gap', `You're below the ${city.l} average for your age. Upskilling, a negotiated raise or a side income moves this fastest.`]);
-  if (get('savings').status === 'behind') tips.push(['warn', 'Savings below peers', `Aim toward ${fmt(b.savings)} — start with an emergency fund, then automate the rest.`]);
-  if (get('invest').status === 'behind') tips.push(['warn', 'Investments lagging', 'Even a ₹2,000/month SIP started today beats a ₹10,000 SIP started in five years.']);
+  if (get('savings').status === 'behind') tips.push(['warn', 'Savings below peers', `Aim toward ${pack.money(b.savings)} — start with an emergency fund, then automate the rest.`]);
+  if (get('invest').status === 'behind') tips.push(['warn', 'Investments lagging', pack.sipExample]);
   if (get('invest').status === 'ahead') tips.push(['ok', 'Strong investing game', "You're ahead of peers on investments. Make sure you're diversified across asset classes, not concentrated in one bet."]);
-  if (expenses > 0 && eMonths < 3) tips.push(['warn', 'Thin emergency buffer', `Your savings cover ${eMonths} months of expenses. Build toward 6 months (${fmt(expenses * 6)}).`]);
+  if (expenses > 0 && eMonths < 3) tips.push(['warn', 'Thin emergency buffer', `Your savings cover ${eMonths} months of expenses. Build toward 6 months (${pack.money(expenses * 6)}).`]);
   if (expenses > 0 && eMonths >= 6 && eMonths < 99) tips.push(['ok', 'Solid emergency fund', `${eMonths} months of cover — you're well prepared for surprises.`]);
   if (dti > 40) tips.push(['warn', 'Heavy debt load', `Debt is ${dti}% of your annual income. Clear high-interest loans before adding investments.`]);
 

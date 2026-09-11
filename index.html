@@ -1,11 +1,18 @@
 <!doctype html>
-<!-- en-IN, not en: every schema node declares inLanguage "en-IN" and og:locale
-     is "en_IN", so a bare "en" here was the one place the document disagreed
-     with its own metadata about what it is. The regional subtag is also the
-     honest description — the copy is written around ₹, Indian tax slabs and
-     Indian instruments. Screen readers without an Indian English voice fall
-     back to generic English, i.e. exactly today's behaviour. -->
-<html lang="en-IN">
+<!-- `en`, not `en-IN`. This was the regional tag for as long as the regional
+     claim was true: the calculators were built around ₹, Indian slabs and
+     Indian instruments, and saying so beat implying a neutrality the product
+     did not have.
+
+     The calculators now carry market packs for India, the US, the UK and the
+     UAE, and the careers library was never India-specific at all — so a
+     site-wide `en-IN` had become a signal to search engines that every URL is
+     for one country, applied to pages serving four. The regional claim moved to
+     the content that earns it: guides about Indian tax law still declare
+     `en-IN` and a `contentLocation` of India, and `applySeo` (plus the edge
+     Worker, for the raw bytes) rewrites this attribute per route. See
+     `languageForPath` in src/lib/seo.ts. -->
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -29,10 +36,10 @@
     <link rel="preload" href="/fonts/GeistMono-Variable.woff2" as="font" type="font/woff2" crossorigin />
 
     <!-- Primary meta -->
-    <title>FinatriX — Smart Money Tools for India</title>
+    <title>FinatriX — Smart Money Tools for India, the US, the UK & the UAE</title>
     <meta
       name="description"
-      content="Eight free, education-first money tools for India: budgeting, expenses, investing, benchmarking and a lifelong wealth simulation. Not financial advice."
+      content="Eight free money tools calibrated for India, the US, the UK and the UAE: budgeting, expenses, investing and a lifelong wealth simulation."
     />
     <meta name="author" content="FinatriX" />
     <!-- The three max-* directives are permissions, not claims: without them
@@ -42,6 +49,13 @@
          tag from that constant, and seo.test.ts fails if the two disagree. -->
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <link rel="canonical" href="https://finatrix.co/" />
+    <!-- One URL per page, serving every English-speaking region — which is
+         exactly what these say. A self-referential entry is required in any
+         hreflang set, and `x-default` names the page to fall back to when no
+         regional match is better. Both are rewritten per route by `applySeo`
+         and by the edge Worker, from `alternatesForPath` in src/lib/seo.ts. -->
+    <link rel="alternate" hreflang="en" href="https://finatrix.co/" />
+    <link rel="alternate" hreflang="x-default" href="https://finatrix.co/" />
 
     <!--
       Icons — a responsive set, split at 64px.
@@ -76,13 +90,16 @@
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="FinatriX" />
-    <meta property="og:title" content="FinatriX — Smart Money Tools for India" />
+    <meta property="og:title" content="FinatriX — Smart Money Tools for India, the US, the UK & the UAE" />
     <meta
       property="og:description"
-      content="Eight free, education-first money tools for India: budgeting, expenses, investing, benchmarking and a lifelong wealth simulation. Not financial advice."
+      content="Eight free money tools calibrated for India, the US, the UK and the UAE: budgeting, expenses, investing and a lifelong wealth simulation."
     />
     <meta property="og:url" content="https://finatrix.co/" />
-    <meta property="og:locale" content="en_IN" />
+    <!-- Open Graph has no way to say "English, anywhere", so its own documented
+         default stands in for the neutral case; India-scoped guides state
+         `en_IN`. Rewritten per route — see `ogLocaleForPath`. -->
+    <meta property="og:locale" content="en_US" />
     <!-- 1200×630 (1.91:1). The previous wordmark asset was 1206×314, which both
          Facebook and X centre-crop to an unreadable sliver in a large card. -->
     <meta
@@ -92,7 +109,7 @@
     <meta property="og:image:type" content="image/jpeg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="FinatriX — smart money tools for India" />
+    <meta property="og:image:alt" content="FinatriX — smart money tools for India, the US, the UK and the UAE" />
 
     <!-- Twitter.
          TODO(brand): re-add `twitter:site` / `twitter:creator` once an official
@@ -102,20 +119,20 @@
          for trust than no attribution at all. `twitter:card` and the image tags
          below are handle-independent and the card still renders in full. -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="FinatriX — Smart Money Tools for India" />
+    <meta name="twitter:title" content="FinatriX — Smart Money Tools for India, the US, the UK & the UAE" />
     <!-- Identical to og:description on purpose: X falls back to the og: tags
          when a twitter: equivalent is absent, so a third variant of the same
          sentence was only ever a third string to keep true. `applySeo` and the
          edge Worker write the same value into both. -->
     <meta
       name="twitter:description"
-      content="Eight free, education-first money tools for India: budgeting, expenses, investing, benchmarking and a lifelong wealth simulation. Not financial advice."
+      content="Eight free money tools calibrated for India, the US, the UK and the UAE: budgeting, expenses, investing and a lifelong wealth simulation."
     />
     <meta
       name="twitter:image"
       content="https://finatrix.co/images/og-cover.jpg?v=3"
     />
-    <meta name="twitter:image:alt" content="FinatriX — smart money tools for India" />
+    <meta name="twitter:image:alt" content="FinatriX — smart money tools for India, the US, the UK and the UAE" />
 
     <!-- Structured data: Organization (brand signal) + WebSite + WebApplication.
          Every @id is absolute and rooted at the canonical apex, so the brand
@@ -141,9 +158,14 @@
             "logo": "https://finatrix.co/images/finatrix-logo.png",
             "image": "https://finatrix.co/images/og-cover.jpg",
             "email": "finatrix.hub@gmail.com",
-            "description": "Free, education-first personal-finance tools for India.",
+            "description": "Free, education-first personal-finance tools for India, the US, the UK and the UAE.",
             "slogan": "A complete money toolkit — refined into one premium experience.",
-            "areaServed": { "@type": "Country", "name": "India" },
+            "areaServed": [
+              { "@type": "Country", "name": "India" },
+              { "@type": "Country", "name": "United States" },
+              { "@type": "Country", "name": "United Kingdom" },
+              { "@type": "Country", "name": "United Arab Emirates" }
+            ],
             "knowsAbout": [
               "Budgeting",
               "Saving",
@@ -189,7 +211,7 @@
             "@id": "https://finatrix.co/#website",
             "name": "FinatriX",
             "url": "https://finatrix.co/",
-            "inLanguage": "en-IN",
+            "inLanguage": "en",
             "publisher": { "@id": "https://finatrix.co/#org" }
           },
           {
@@ -200,8 +222,8 @@
             "operatingSystem": "Web",
             "browserRequirements": "Requires JavaScript",
             "url": "https://finatrix.co/",
-            "inLanguage": "en-IN",
-            "description": "Free, education-first personal-finance tools for India. Educational tools, not financial advice.",
+            "inLanguage": "en",
+            "description": "Free, education-first personal-finance tools for India, the US, the UK and the UAE. Educational tools, not financial advice.",
             "isPartOf": { "@id": "https://finatrix.co/#website" },
             "offers": { "@type": "Offer", "price": "0", "priceCurrency": "INR" },
             "publisher": { "@id": "https://finatrix.co/#org" }

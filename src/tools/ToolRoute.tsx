@@ -34,7 +34,7 @@ const TOOL_PAGES: Record<string, ComponentType> = {
 export default function ToolRoute() {
   const { toolId = '' } = useParams();
   const id = toolId.toLowerCase();
-  const Page = TOOL_PAGES[id];
+  const Page = Object.hasOwn(TOOL_PAGES, id) ? TOOL_PAGES[id] : undefined;
 
   useEffect(() => {
     if (Page) {

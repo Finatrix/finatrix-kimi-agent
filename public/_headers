@@ -13,6 +13,20 @@
 # CSP cannot express it. If the theme-boot script in index.html changes,
 # recompute its sha256 in BOTH places.
 #
+# CLOUDFLARE INJECTS TWO SCRIPTS THAT THIS POLICY BLOCKS, ON PURPOSE.
+# If "Bot Fight Mode" (JavaScript detections) or Web Analytics "automatic
+# setup" is enabled on the zone, Cloudflare rewrites every HTML response at the
+# edge to add an inline challenge-platform snippet and a beacon from
+# static.cloudflareinsights.com. Neither is in the built index.html; both are
+# refused here, which logs two console errors per page load and collects
+# nothing. That is the correct outcome for a product whose analytics are
+# first-party and privacy-controlled — but the injection is worth switching OFF
+# at the zone (Cloudflare dashboard → Security → Bots, and Web Analytics →
+# your site → automatic setup) so the errors stop at the source.
+# Do NOT "fix" this by allow-listing them: the beacon is a third-party script,
+# and the inline snippet's sha256 changes whenever Cloudflare updates it, so a
+# hash added here would silently stop matching.
+#
 # On the four directives that are NOT there to permit something:
 #
 #   worker-src 'self'    Workers fall back through child-src to SCRIPT-src, not

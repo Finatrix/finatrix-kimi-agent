@@ -123,16 +123,80 @@ describe('the shipped pdfjs-dist build', () => {
  * `securitypolicyviolation` event in a console nobody is watching. Self-hosting
  * the worker script does not help on its own — the blob wrapper is applied to
  * whatever path it is given. So the option is pinned here.
+ *
+ * Checked at EVERY `createWorker` call rather than in one named file. The setup
+ * has already moved once (out of `careers/parser/ocr.ts` and into the shared
+ * `lib/ocr.ts` when statement import needed it), and a check pinned to a path
+ * passes vacuously the moment the code leaves that path.
  */
 describe('the self-hosted OCR worker', () => {
   it('is spawned from its own URL, not a blob the CSP cannot match', () => {
-    const src = readFileSync(join(srcRoot, 'careers', 'parser', 'ocr.ts'), 'utf8');
+    const callers = sourceFiles(srcRoot).filter((f) => /createWorker\s*\(/.test(readFileSync(f, 'utf8')));
+
+    // If nothing calls it, the assertion below would pass while proving
+    // nothing — which is exactly how this check would rot.
+    expect(callers.length, 'no createWorker call site found; has OCR moved again?')
+      .toBeGreaterThan(0);
+
+    for (const file of callers) {
+      expect(
+        /workerBlobURL\s*:\s*false/.test(readFileSync(file, 'utf8')),
+        `${file} calls tesseract.js createWorker without \`workerBlobURL: false\`. Its `
+          + 'default wraps the worker in a blob: URL, which `worker-src \'self\'` does not '
+          + 'match — and `new Worker()` does not throw when that is blocked, so OCR fails '
+          + 'silently and the user is told their scan was unreadable.',
+      ).toBe(true);
+    }
+  });
+});
+
+/**
+ * The OCR core the browser will actually ask for has to be on the server.
+ *
+ * tesseract.js does not ship one WASM core, it picks one at runtime from what
+ * the browser supports: relaxed SIMD if available, then SIMD, then plain. Only
+ * two of the three were ever copied into `public/careers-ocr/`, so every
+ * browser with relaxed-SIMD support — which is Chrome — hit
+ *
+ *     NetworkError: Failed to execute 'importScripts' on 'WorkerGlobalScope'
+ *
+ * and OCR failed for the majority of users while working perfectly on the
+ * machine of anyone who tested it in Safari. Nothing in the build, the types or
+ * the unit suite could see it: the file is fetched by a worker, at runtime,
+ * from a path assembled by a minified string concatenation.
+ *
+ * So the required set is derived from the bundle rather than written down here.
+ * A tesseract upgrade that adds a fourth variant fails this test instead of
+ * failing quietly in somebody's browser.
+ */
+describe('the OCR core files that ship', () => {
+  const ocrDir = join(srcRoot, '..', 'public', 'careers-ocr');
+
+  it('includes every core the worker can choose', () => {
+    const worker = readFileSync(join(ocrDir, 'worker.min.js'), 'utf8');
+    const candidates = [...new Set(
+      [...worker.matchAll(/\/(tesseract-core[a-z-]*\.wasm\.js)/g)].map((m) => m[1]),
+    )];
+
+    // The app creates its worker with OEM 1 (LSTM only), and the bundle's
+    // selection branches on exactly that: only the `-lstm` variants are
+    // reachable. Pinned here so a change to the OEM has to come back and say so.
+    const usesLstmOnly = /createWorker\(\s*'eng'\s*,\s*1\s*,/.test(
+      readFileSync(join(srcRoot, 'lib', 'ocr.ts'), 'utf8'),
+    );
+    expect(usesLstmOnly, 'lib/ocr.ts no longer pins OEM 1; the reachable core set has changed')
+      .toBe(true);
+
+    const reachable = candidates.filter((name) => name.includes('-lstm'));
+    expect(reachable.length, 'no core candidates found in worker.min.js').toBeGreaterThan(0);
+
+    const missing = reachable.filter((name) => !existsSync(join(ocrDir, name)));
     expect(
-      /workerBlobURL\s*:\s*false/.test(src),
-      'tesseract.js must be created with `workerBlobURL: false`. Its default wraps the '
-        + 'worker in a blob: URL, which `worker-src \'self\'` does not match — and '
-        + '`new Worker()` does not throw when that is blocked, so OCR fails silently and '
-        + 'the user is told their scan was unreadable.',
-    ).toBe(true);
+      missing,
+      'These OCR cores are referenced by the Tesseract worker but are not in '
+        + 'public/careers-ocr/. The browser picks one of them at runtime, so a missing '
+        + 'file breaks OCR for every user whose CPU features select it — silently, in a '
+        + 'worker, with no build error. Copy them from node_modules/tesseract.js-core/.',
+    ).toEqual([]);
   });
 });

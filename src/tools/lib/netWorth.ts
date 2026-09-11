@@ -26,6 +26,25 @@
  * contributes nothing at all to a month BEFORE its first recorded balance —
  * a home loan taken in March does not reach back and reduce February.
  *
+ * MULTIPLE CURRENCIES
+ * -------------------
+ * An account may be denominated in its own currency. This is the whole point
+ * for the people this tool is hardest for right now: an expat with a dirham
+ * salary account, a rupee mutual-fund folio and a dollar brokerage cannot get a
+ * true net worth by adding those three numbers together, and until now that is
+ * exactly what the tool did.
+ *
+ * `currency` is OPTIONAL and absent means "the currency being displayed". That
+ * is not a fudge, it is the only backwards-compatible reading: every existing
+ * account was entered by someone looking at one currency symbol, so resolving a
+ * missing value to the display currency reproduces today's totals exactly and
+ * converts nothing until the user says an account is foreign. Nothing is
+ * migrated behind their back — `accountCurrency` resolves it on read, and the
+ * value is written only when the user picks one.
+ *
+ * Conversion is injected rather than imported (`NetWorthOptions.convert`), so
+ * this file has no opinion about where a rate comes from and stays pure.
+ *
  * Everything here is pure apart from `loadAccounts`/`saveAccounts`, which are
  * the storage boundary.
  */
@@ -76,6 +95,21 @@ export function categoriesFor(kind: AccountKind): NetWorthCategory[] {
   return NET_WORTH_CATEGORIES.filter((c) => c.kind === kind);
 }
 
+/**
+ * What to CALL a category here.
+ *
+ * The keys are permanent — a net-worth history is only worth keeping because
+ * the same bucket means the same thing in 2026 and 2036 — but the name on the
+ * screen is local. "EPF, PPF & NPS" and "401(k), IRA & HSA" are one bucket
+ * wearing the reader's own vocabulary, and a market pack supplies the override.
+ */
+export function categoryLabel(
+  key: string,
+  overrides: Readonly<Record<string, string>> = {},
+): string {
+  return overrides[key] ?? categoryFor(key)?.l ?? 'Other';
+}
+
 export interface NetWorthAccount {
   id: string;
   /** What the user calls it — "HDFC savings", "Flat in Pune". */
@@ -91,6 +125,14 @@ export interface NetWorthAccount {
    * negative number is how a sign error turns into a wrong net worth.
    */
   balances: Record<string, number>;
+  /**
+   * ISO 4217 code this account's balances are denominated in.
+   *
+   * Absent means "whatever is being displayed" — see the note at the top of the
+   * file. Present means the balances are in THIS currency regardless of what
+   * the user is reading totals in, and get converted before they are summed.
+   */
+  currency?: string;
   note?: string;
 }
 
@@ -137,14 +179,39 @@ export function normalizeAccount(raw: Partial<NetWorthAccount> & { id?: string |
     }
   }
 
+  // A currency is kept only when it looks like an ISO code. Junk here would
+  // silently divide a balance by a rate that does not exist.
+  const currency = typeof raw.currency === 'string' && /^[A-Z]{3}$/.test(raw.currency.toUpperCase())
+    ? raw.currency.toUpperCase()
+    : undefined;
+
   return {
     id: raw.id === undefined || raw.id === null || raw.id === '' ? genAccountId() : String(raw.id),
     name: String(raw.name ?? '').trim() || 'Untitled account',
     kind,
     category,
     balances,
+    ...(currency ? { currency } : {}),
     ...(raw.note ? { note: String(raw.note) } : {}),
   };
+}
+
+/**
+ * The currency an account's balances are actually in.
+ *
+ * The one place that resolves "absent means the display currency", so no caller
+ * has to remember the rule and none of them can disagree about it.
+ */
+export function accountCurrency(account: NetWorthAccount, displayCode: string): string {
+  return account.currency ?? displayCode;
+}
+
+/** True when any account is held in something other than `displayCode`. */
+export function hasForeignAccounts(
+  accounts: readonly NetWorthAccount[],
+  displayCode: string,
+): boolean {
+  return accounts.some((a) => a.currency != null && a.currency !== displayCode);
 }
 
 export function loadAccounts(): NetWorthAccount[] {
@@ -187,7 +254,12 @@ export function lastRecordedMonth(account: NetWorthAccount, month: string): stri
 
 export interface AccountBalance {
   account: NetWorthAccount;
+  /** Converted into the display currency — the figure that gets summed. */
   balance: number;
+  /** The figure as the user entered it, in `currency`. */
+  native: number;
+  /** The currency `native` is denominated in. */
+  currency: string;
   /** The month this balance was actually recorded in (≤ the month asked for). */
   recorded: string;
   /** Whether the balance was entered for the month being viewed. */
@@ -221,15 +293,24 @@ function rowsFor(
   accounts: readonly NetWorthAccount[],
   month: string,
   kind: AccountKind,
+  opts: NetWorthOptions,
 ): { rows: AccountBalance[]; total: number } {
   const rows: AccountBalance[] = [];
   let total = 0;
   for (const account of accounts) {
     if (account.kind !== kind) continue;
-    const balance = balanceAt(account, month);
-    if (balance === null) continue; // did not exist yet
+    const native = balanceAt(account, month);
+    if (native === null) continue; // did not exist yet
+    const currency = accountCurrency(account, opts.displayCurrency);
+    // `balance` is always in the DISPLAY currency from here down, so every sum,
+    // share and chart below adds like with like. `native` is kept so a row can
+    // show what the user actually typed.
+    const balance = currency === opts.displayCurrency ? native : opts.convert(native, currency);
     const recorded = lastRecordedMonth(account, month)!;
-    rows.push({ account, balance, recorded, current: recorded === month, share: 0 });
+    rows.push({
+      account, balance, native, currency,
+      recorded, current: recorded === month, share: 0,
+    });
     total += balance;
   }
   for (const row of rows) row.share = total > 0 ? (row.balance / total) * 100 : 0;
@@ -252,13 +333,33 @@ function categoryTotals(rows: readonly AccountBalance[], total: number, kind: Ac
     .sort((a, b) => b.total - a.total);
 }
 
+/**
+ * How to reconcile accounts held in different currencies.
+ *
+ * The default is the identity: no display currency, no conversion, every
+ * balance taken at face value — which is precisely the behaviour that shipped,
+ * so existing callers and their tests are unaffected by this parameter existing.
+ */
+export interface NetWorthOptions {
+  /** The currency totals are reported in. */
+  displayCurrency: string;
+  /** `amount` in `from`, expressed in `displayCurrency`. */
+  convert: (amount: number, from: string) => number;
+}
+
+const NO_CONVERSION: NetWorthOptions = {
+  displayCurrency: '',
+  convert: (amount) => amount,
+};
+
 /** The whole balance sheet for one month. Pure. */
 export function computeNetWorth(
   accounts: readonly NetWorthAccount[],
   month: string,
+  opts: NetWorthOptions = NO_CONVERSION,
 ): NetWorthSnapshot {
-  const assetsSide = rowsFor(accounts, month, 'asset');
-  const liabilitiesSide = rowsFor(accounts, month, 'liability');
+  const assetsSide = rowsFor(accounts, month, 'asset', opts);
+  const liabilitiesSide = rowsFor(accounts, month, 'liability', opts);
   return {
     month,
     assets: assetsSide.total,
@@ -299,6 +400,7 @@ export interface SeriesPoint {
 export function netWorthSeries(
   accounts: readonly NetWorthAccount[],
   through = currentMonth(),
+  opts: NetWorthOptions = NO_CONVERSION,
 ): SeriesPoint[] {
   // Recorded months only — deliberately NOT `monthsWithData`, which injects the
   // current month so the month navigator always has one to land on. A user with
@@ -316,7 +418,7 @@ export function netWorthSeries(
   let cursor = recorded[0];
   // Bounded by construction: `cursor` strictly increases and stops at `through`.
   while (cursor <= through) {
-    const snapshot = computeNetWorth(accounts, cursor);
+    const snapshot = computeNetWorth(accounts, cursor, opts);
     out.push({
       month: cursor,
       assets: snapshot.assets,
@@ -395,8 +497,13 @@ export function setBalance(
 }
 
 /** Rows for the CSV export: one line per account per recorded month. */
-export function exportRows(accounts: readonly NetWorthAccount[]): (string | number)[][] {
-  const rows: (string | number)[][] = [['Month', 'Type', 'Category', 'Account', 'Balance']];
+export function exportRows(
+  accounts: readonly NetWorthAccount[],
+  displayCurrency = '',
+): (string | number)[][] {
+  // The currency column is not decoration: a spreadsheet of balances drawn from
+  // three countries with no denomination on any row is unauditable.
+  const rows: (string | number)[][] = [['Month', 'Type', 'Category', 'Account', 'Currency', 'Balance']];
   const months = new Set<string>();
   for (const account of accounts) for (const m of Object.keys(account.balances)) months.add(m);
   for (const month of [...months].sort()) {
@@ -408,6 +515,7 @@ export function exportRows(accounts: readonly NetWorthAccount[]): (string | numb
         account.kind === 'asset' ? 'Asset' : 'Liability',
         categoryFor(account.category)?.l ?? account.category,
         account.name,
+        accountCurrency(account, displayCurrency),
         value,
       ]);
     }

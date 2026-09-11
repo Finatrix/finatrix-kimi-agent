@@ -22,6 +22,7 @@ function job(overall: number | null, extra: { matched?: string[]; missing?: stri
     job: {} as ScoredJob['job'],
     match: overall == null ? null : {
       overall,
+      confidence: 100,
       scores: {} as never,
       matchedSkills: extra.matched ?? [],
       missingTerms: extra.missing ?? [],

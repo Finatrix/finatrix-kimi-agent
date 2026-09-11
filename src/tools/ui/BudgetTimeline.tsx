@@ -6,7 +6,7 @@ import { AskAiButton } from './AskAiButton';
 import { monthLabel } from '../lib/month';
 import {
   computeTimeline, GRANULARITIES,
-  type Granularity, type Timeline, type BudgetLookup,
+  type Granularity, type Timeline, type BudgetLookup, type TimelineShape,
 } from '../lib/budgetTimeline';
 import type { ExpenseItem } from '../lib/expense';
 
@@ -47,14 +47,20 @@ export interface BudgetTimelineProps {
   code: string;
   theme: string | undefined;
   now: Date;
+  /**
+   * Spending against the spending plan, with bills paced on their due day and
+   * the forecast's own projection — see `TimelineShape`. The Expenses page
+   * always passes it, so the chart agrees with the forecast card above it.
+   */
+  shape?: TimelineShape;
 }
 
-export function BudgetTimeline({ items, month, budgetOf, cfmt, code, theme, now }: BudgetTimelineProps) {
+export function BudgetTimeline({ items, month, budgetOf, cfmt, code, theme, now, shape }: BudgetTimelineProps) {
   const [granularity, setGranularity] = useState<Granularity>('weekly');
 
   const timeline = useMemo(
-    () => computeTimeline(items, month, granularity, budgetOf, now),
-    [items, month, granularity, budgetOf, now],
+    () => computeTimeline(items, month, granularity, budgetOf, now, shape),
+    [items, month, granularity, budgetOf, now, shape],
   );
 
   const anomalies = timeline.points.filter((p) => p.isAnomaly);
@@ -71,8 +77,10 @@ export function BudgetTimeline({ items, month, budgetOf, cfmt, code, theme, now 
           </div>
           <p className="note" style={{ marginTop: 3, marginBottom: 0 }}>
             {granularity === 'monthly'
-              ? 'Cumulative spending across the last 12 months.'
-              : `How ${monthLabel(month)} is adding up against your plan.`}
+              ? `Cumulative spending across the last 12 months${timeline.spendingOnly ? ', savings left out' : ''}.`
+              : timeline.spendingOnly
+                ? `How ${monthLabel(month)} is adding up against your spending plan. Savings are left out, and bills count on the day they fall due.`
+                : `How ${monthLabel(month)} is adding up against your plan.`}
           </p>
         </div>
         <div className="fx-seg" role="group" aria-label="Timeline detail">
@@ -94,7 +102,7 @@ export function BudgetTimeline({ items, month, budgetOf, cfmt, code, theme, now 
 
       <div className="fx-tl-legend">
         <LegendKey color={COLOR.spent} label="Spent" />
-        {timeline.totalBudget > 0 && <LegendKey color={COLOR.budget} label="Budget pace" dashed />}
+        {timeline.totalBudget > 0 && <LegendKey color={COLOR.budget} label={timeline.spendingOnly ? 'Plan' : 'Budget pace'} dashed />}
         {timeline.inProgress && <LegendKey color={COLOR.projected} label="Projected" dashed />}
       </div>
 
@@ -110,7 +118,7 @@ export function BudgetTimeline({ items, month, budgetOf, cfmt, code, theme, now 
             <b>{anomalies.map((p) => p.label).join(', ')}</b>
             {' — '}
             {anomalies.length === 1 ? 'this period is' : 'these periods are'} well above your
-            {' '}usual pace for this timeline.
+            {' '}usual {timeline.spendingOnly && timeline.granularity !== 'monthly' ? 'day-to-day ' : ''}pace for this timeline.
           </span>
         </div>
       )}
@@ -144,18 +152,25 @@ function PacingNote({ timeline, cfmt }: { timeline: Timeline; cfmt: (n: number) 
   const hasFuture = timeline.points.some((p) => p.isFuture);
   const projected = hasFuture ? timeline.projectedTotal : null;
   const overBy = projected != null ? projected - timeline.totalBudget : null;
+  // With a shape the line steps up on bill days, so it is the plan's own pace
+  // rather than an even one — and saying "even" would describe a line not drawn.
+  const pace = timeline.spendingOnly && timeline.granularity !== 'monthly' ? 'your planned pace' : 'an even pace';
 
   return (
     <p className="note fx-tl-note">
       {Math.abs(ahead) < 1
         ? 'Exactly on pace so far.'
         : ahead > 0
-          ? <>You're <b style={{ color: 'var(--orange)' }}>{cfmt(ahead)} ahead</b> of an even pace.</>
-          : <>You're <b style={{ color: 'var(--green)' }}>{cfmt(-ahead)} behind</b> an even pace — comfortably placed.</>}
+          ? <>You're <b style={{ color: 'var(--orange)' }}>{cfmt(ahead)} ahead</b> of {pace}.</>
+          : <>You're <b style={{ color: 'var(--green)' }}>{cfmt(-ahead)} behind</b> {pace} — comfortably placed.</>}
       {overBy != null && timeline.totalBudget > 0 && (
-        overBy > 0
-          ? <> At this rate you'd finish about {cfmt(overBy)} over budget.</>
-          : <> At this rate you'd finish about {cfmt(-overBy)} under budget.</>
+        timeline.spendingOnly
+          ? overBy > 0
+            ? <> The month-end forecast finishes about {cfmt(overBy)} over the spending budget.</>
+            : <> The month-end forecast finishes about {cfmt(-overBy)} under the spending budget.</>
+          : overBy > 0
+            ? <> At this rate you'd finish about {cfmt(overBy)} over budget.</>
+            : <> At this rate you'd finish about {cfmt(-overBy)} under budget.</>
       )}
     </p>
   );

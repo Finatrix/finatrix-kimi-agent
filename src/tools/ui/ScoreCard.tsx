@@ -45,7 +45,9 @@ export function ScoreBadge({ result }: { result: ScoreResult }) {
     <span
       className="fx-score-grade"
       style={{
-        color,
+        // Grade colours remain in the border/tint; small label text needs the
+        // stronger ink token to stay readable on every tinted card and theme.
+        color: 'var(--ink)',
         borderColor: `color-mix(in srgb, ${color} 32%, transparent)`,
         background: `color-mix(in srgb, ${color} 10%, transparent)`,
       }}

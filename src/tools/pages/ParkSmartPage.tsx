@@ -2,58 +2,68 @@ import { useState } from 'react';
 import { useToast } from '../ui/Toast';
 import { PageHead, ToolFoot } from '../ui/common';
 import { Icon } from '../ui/Icon';
-import { fmt } from '../lib/format';
+import { cfmtSh } from '../lib/format';
 import { getJSON, setJSON } from '../lib/storage';
 import { computeParkSmart, PS_DL, type ParkResult } from '../lib/parksmart';
+import { useCurrency } from '../CurrencyContext';
+import { useMarket } from '../MarketContext';
+import { MarketNote } from '../ui/MarketNote';
 import { track } from '../../lib/analytics';
-
-const QUICK: [number, string][] = [
-  [25000, '₹25K'], [100000, '₹1L'], [500000, '₹5L'], [1000000, '₹10L'], [2500000, '₹25L'],
-];
 
 interface Saved { 'ps-amount'?: string; 'ps-duration'?: string; 'ps-slab'?: string }
 
 export default function ParkSmartPage() {
   const { notify } = useToast();
+  const { cfmt, code, sym } = useCurrency();
+  const { market } = useMarket();
+  const park = market.park;
   const saved = getJSON<Saved>('fx_parksmart', {});
   const [amount, setAmount] = useState(saved['ps-amount'] ?? '100000');
   const [dur, setDur] = useState(saved['ps-duration'] ?? '3-6');
-  const [slab, setSlab] = useState(saved['ps-slab'] ?? '20');
+  // The market's own default, not a hard-coded 20%: the UAE offers only 0% and
+  // the US brackets do not include 20 at all. India's stays 20, so an existing
+  // user's first ranking is unchanged.
+  const defaultRate = String(park.defaultRate);
+  const [slab, setSlab] = useState(saved['ps-slab'] ?? defaultRate);
   const [result, setResult] = useState<ParkResult | null>(null);
 
   const persist = (next: Partial<Saved>) => {
     setJSON('fx_parksmart', { 'ps-amount': amount, 'ps-duration': dur, 'ps-slab': slab, ...next });
   };
 
+  // A rate stored under a previous market may not exist in this one (30% is an
+  // Indian slab, not a US bracket). Falling back keeps the select controlled.
+  const rate = park.rateOptions.some((o) => String(o.value) === slab) ? slab : defaultRate;
+
   const submit = () => {
     const amt = Math.max(0, Number(amount) || 0);
-    if (amt < 1000) {
-      notify('Please enter at least ₹1,000.', 'error');
+    if (amt < park.minAmount) {
+      notify(`Please enter at least ${cfmt(park.minAmount)}.`, 'error');
       return;
     }
     // computeParkSmart is synchronous — no artificial delay needed.
-    setResult(computeParkSmart(amt, dur, Number(slab) / 100));
-    track('tool_completed', { tool: 'parksmart' });
+    setResult(computeParkSmart(amt, dur, Number(rate) / 100, park));
+    track('tool_completed', { tool: 'parksmart', market: market.id });
   };
 
   return (
     <div className="fx-page">
       <PageHead chip="ParkSmart" chipColor="var(--teal)" chipBg="rgba(12,128,121,.09)" icon="bank" title="Idle money shouldn't idle.">
-        Compare what ₹1 actually earns after tax across ten parking options — tuned to your duration,
-        your slab, and 2026 tax rules.
+        Compare what idle cash actually earns after tax across {park.options.length} parking options
+        in {market.name} — tuned to your duration, your tax rate and current rules.
       </PageHead>
 
       {!result ? (
         <div className="card">
           <div className="fg">
-            <label className="fl" htmlFor="ps-amount">Amount to park (₹)</label>
-            <input className="fi" type="number" step="any" id="ps-amount" value={amount} min={1000} inputMode="decimal"
+            <label className="fl" htmlFor="ps-amount">Amount to park ({sym})</label>
+            <input className="fi" type="number" step="any" id="ps-amount" value={amount} min={park.minAmount} inputMode="decimal"
               onChange={(e) => { setAmount(e.target.value); persist({ 'ps-amount': e.target.value }); }} />
           </div>
           <label className="fl">Quick select</label>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-            {QUICK.map(([v, l]) => (
-              <button key={v} className="btn btn-ghost btn-sm" onClick={() => { setAmount(String(v)); persist({ 'ps-amount': String(v) }); }}>{l}</button>
+            {park.quickAmounts.map((v) => (
+              <button key={v} className="btn btn-ghost btn-sm" onClick={() => { setAmount(String(v)); persist({ 'ps-amount': String(v) }); }}>{cfmtSh(v, code)}</button>
             ))}
           </div>
           <div className="grid2">
@@ -68,16 +78,13 @@ export default function ParkSmartPage() {
               </select>
             </div>
             <div className="fg">
-              <label className="fl" htmlFor="ps-slab">Income-tax slab</label>
-              <select className="fs" id="ps-slab" value={slab} onChange={(e) => { setSlab(e.target.value); persist({ 'ps-slab': e.target.value }); }}>
-                <option value="0">0% (income under ₹12L, new regime)</option>
-                <option value="5">5%</option>
-                <option value="10">10%</option>
-                <option value="15">15%</option>
-                <option value="20">20%</option>
-                <option value="25">25%</option>
-                <option value="30">30%</option>
+              <label className="fl" htmlFor="ps-slab">{park.rateLabel}</label>
+              <select className="fs" id="ps-slab" value={rate} onChange={(e) => { setSlab(e.target.value); persist({ 'ps-slab': e.target.value }); }}>
+                {park.rateOptions.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
               </select>
+              <p className="note" style={{ marginTop: 6 }}>{park.taxNote}</p>
             </div>
           </div>
           <button className="btn" onClick={submit}>
@@ -85,15 +92,26 @@ export default function ParkSmartPage() {
           </button>
         </div>
       ) : (
-        <ParkResultView result={result} amount={Math.max(0, Number(amount) || 0)} dur={dur} onReset={() => setResult(null)} />
+        <ParkResultView
+          result={result}
+          amount={Math.max(0, Number(amount) || 0)}
+          dur={dur}
+          money={cfmt}
+          keepInMind={park.keepInMind}
+          onReset={() => setResult(null)}
+        />
       )}
 
-      <ToolFoot>Rates are indicative averages, June 2026 · Built with care by <b>FinatriX</b> · Not financial advice</ToolFoot>
+      <MarketNote market={market} />
+      <ToolFoot>Built with care by <b>FinatriX</b> · Not financial advice</ToolFoot>
     </div>
   );
 }
 
-function ParkResultView({ result, amount, dur, onReset }: { result: ParkResult; amount: number; dur: string; onReset: () => void }) {
+function ParkResultView({ result, amount, dur, money, keepInMind, onReset }: {
+  result: ParkResult; amount: number; dur: string;
+  money: (n: number) => string; keepInMind: string; onReset: () => void;
+}) {
   const { ranked, best, maxNet, split } = result;
   if (!best) return null;
 
@@ -106,7 +124,7 @@ function ParkResultView({ result, amount, dur, onReset }: { result: ParkResult; 
         </div>
         <div className="note" style={{ marginTop: 4 }}>{best.d}</div>
         <div className="grid3" style={{ textAlign: 'center', marginTop: 18 }}>
-          <div><div style={{ fontSize: 19, fontWeight: 700, color: 'var(--green)' }}>{fmt(best.net)}</div><div className="note">Post-tax earnings</div></div>
+          <div><div style={{ fontSize: 19, fontWeight: 700, color: 'var(--green)' }}>{money(best.net)}</div><div className="note">Post-tax earnings</div></div>
           <div><div style={{ fontSize: 19, fontWeight: 700, color: 'var(--teal)' }}>{best.effRate.toFixed(2)}%</div><div className="note">Effective rate</div></div>
           <div><div style={{ fontSize: 19, fontWeight: 700, color: 'var(--gold)' }}>{best.risk}</div><div className="note">Risk</div></div>
         </div>
@@ -116,15 +134,15 @@ function ParkResultView({ result, amount, dur, onReset }: { result: ParkResult; 
         <div className="card" style={{ background: 'rgba(12,128,121,.05)' }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--teal)', marginBottom: 8 }}>Smart split idea</div>
           <div className="note" style={{ lineHeight: 1.8 }}>
-            {split.bestName} locks your money. Consider <b style={{ color: 'var(--ink)' }}>{fmt(split.core)}</b> in {split.bestName} for max
-            returns + <b style={{ color: 'var(--ink)' }}>{fmt(split.buf)}</b> in {split.bestLiquidName} so 30% stays one tap away.
+            {split.bestName} locks your money. Consider <b style={{ color: 'var(--ink)' }}>{money(split.core)}</b> in {split.bestName} for max
+            returns + <b style={{ color: 'var(--ink)' }}>{money(split.buf)}</b> in {split.bestLiquidName} so 30% stays one tap away.
           </div>
         </div>
       )}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '18px 4px 12px' }}>
         <div style={{ fontSize: 15, fontWeight: 700 }}>All options, ranked</div>
-        <div className="note">{fmt(amount)} for {PS_DL[dur]}</div>
+        <div className="note">{money(amount)} for {PS_DL[dur]}</div>
       </div>
 
       {ranked.map((o, i) => (
@@ -133,7 +151,7 @@ function ParkResultView({ result, amount, dur, onReset }: { result: ParkResult; 
             <span className={`fx-rank${i === 0 ? ' is-top' : ''}`}>{i + 1}</span>
             <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24 }}><Icon name={o.ic} size={18} style={{ color: 'var(--teal)' }} /></span>
             <span style={{ flex: 1, fontSize: 14, fontWeight: 600 }}>{o.n}</span>
-            <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--green)' }}>{fmt(o.net)}</span>
+            <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--green)' }}>{money(o.net)}</span>
           </div>
           <div className="note" style={{ margin: '7px 0 7px 36px' }}>{o.d}</div>
           <div style={{ display: 'flex', gap: 14, fontSize: 11, color: 'var(--ink3)', marginLeft: 36, flexWrap: 'wrap' }}>
@@ -149,7 +167,7 @@ function ParkResultView({ result, amount, dur, onReset }: { result: ParkResult; 
 
       <div className="card" style={{ background: 'var(--gold-bg)' }}>
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Keep in mind</div>
-        <div className="note">Returns are indicative category averages as of mid-2026 — actual fund and FD rates vary, so compare before committing. Arbitrage funds enjoy equity taxation (20% STCG, 12.5% LTCG beyond the exemption) which beats slab tax for higher earners. Debt funds bought after April 2023 are taxed at your slab with no indexation. Banks deduct TDS on FD interest above ₹50,000 a year. And whatever you choose, keep 3–6 months of expenses in something liquid.</div>
+        <div className="note">{keepInMind}</div>
       </div>
       <button className="btn" onClick={onReset}>Try a different amount</button>
     </div>

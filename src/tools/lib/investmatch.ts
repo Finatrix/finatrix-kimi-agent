@@ -3,7 +3,20 @@
  * IM_HY / IM_RL and the imBuild() logic in tools-app.html. `computeInvestMatch`
  * is a pure function (horizon-aware risk downgrade, annuity-due future value,
  * inflation-adjusted value, insights) and is parity-checked against the source.
- * InvestMatch renders amounts with the INR `fmt` (not currency-aware) — preserved.
+ *
+ * MARKETS
+ * -------
+ * `IM_ALLOC` and `IM_RATE` are India's allocation mix and its expected-return
+ * assumptions, and both stay exactly as they shipped — the parity suite compares
+ * them against the archived original, and `computeInvestMatch` called with one
+ * argument still runs precisely the code it always did.
+ *
+ * What is new is the optional second argument. A market pack supplies its own
+ * allocation, its own return assumptions and its own inflation figure, because
+ * every one of those is a claim about a particular economy: a 12% moderate
+ * return and 6% inflation describe India and would be a fabrication applied to
+ * a UK portfolio. The arithmetic — risk downgrade, annuity-due future value,
+ * real value, insight thresholds — is identical for every market.
  */
 import { fmt } from './format';
 
@@ -92,7 +105,8 @@ export interface ImResult {
   tooLow: boolean;
   effRisk: string;
   riskNote: string;
-  alloc: ImAlloc[];
+  /** Readonly because it is the market pack's table, handed straight through. */
+  alloc: readonly ImAlloc[];
   rate: number;
   years: number;
   fv: number;
@@ -103,8 +117,40 @@ export interface ImResult {
   insights: string[];
 }
 
+/**
+ * The market-varying half of InvestMatch.
+ *
+ * `money` is here rather than passed separately because two of the insight
+ * strings quote amounts, and an insight that says "₹4,20,000" to someone
+ * reading dollars is worse than no insight. It defaults to the INR `fmt`, which
+ * is what the parity suite compares against.
+ */
+export interface InvestAssumptions {
+  alloc: Readonly<Record<string, readonly ImAlloc[]>>;
+  /** Expected nominal annual return by risk band, 0–1. */
+  rates: Readonly<Record<string, number>>;
+  /** Assumed long-run inflation, 0–1, used for the real-terms figure. */
+  inflation: number;
+  /** Tax-shelter advice for this jurisdiction. Empty means "say nothing". */
+  taxInsight: string;
+  /** The "start small" example, already formatted for the market. */
+  sipExample: string;
+  money: (n: number) => string;
+}
+
+/** India — the original tables and assumptions, unchanged. */
+export const IN_INVEST: InvestAssumptions = {
+  alloc: IM_ALLOC,
+  rates: IM_RATE,
+  inflation: 0.06,
+  taxInsight:
+    "For tax saving: ELSS covers ₹1.5L under 80C (old regime), plus NPS adds ₹50K under 80CCD(1B). Under the new regime most deductions don't apply — check which regime you file.",
+  sipExample: 'Even a ₹2,000/month SIP started today beats a ₹10,000 SIP started in five years.',
+  money: fmt,
+};
+
 /** Verbatim port of imBuild()'s calculation core. */
-export function computeInvestMatch(ans: ImAnswers): ImResult {
+export function computeInvestMatch(ans: ImAnswers, pack: InvestAssumptions = IN_INVEST): ImResult {
   if (ans.monthly < 100) {
     return { tooLow: true, effRisk: ans.risk, riskNote: '', alloc: [], rate: 0, years: 0, fv: 0, invested: 0, gains: 0, realFv: 0, growthPct: 0, insights: [] };
   }
@@ -119,15 +165,15 @@ export function computeInvestMatch(ans: ImAnswers): ImResult {
     riskNote = 'With a 3–5 year horizon, we softened aggressive to moderate. Small-caps can stay underwater for years.';
   }
 
-  const alloc = IM_ALLOC[effRisk];
-  const rate = IM_RATE[effRisk];
+  const alloc = pack.alloc[effRisk];
+  const rate = pack.rates[effRisk];
   const years = IM_HY[ans.horizon];
   const r = rate / 12;
   const n = years * 12;
   const fv = ans.monthly * ((Math.pow(1 + r, n) - 1) / r) * (1 + r);
   const invested = ans.monthly * n;
   const gains = fv - invested;
-  const realFv = fv / Math.pow(1.06, years);
+  const realFv = fv / Math.pow(1 + pack.inflation, years);
   const growthPct = invested > 0 ? Math.round((gains / invested) * 100) : 0;
 
   const insights: string[] = [];
@@ -136,14 +182,39 @@ export function computeInvestMatch(ans: ImAnswers): ImResult {
     insights.push("You're young — time is your biggest edge. Consider gradually raising equity exposure as you get comfortable.");
   if (ans.income > 0 && ans.monthly < ans.income * 0.15)
     insights.push(`You're investing ${Math.round((ans.monthly / ans.income) * 100)}% of income. Pushing toward 20% meaningfully accelerates wealth.`);
-  if (ans.goal === 'tax')
-    insights.push("For tax saving: ELSS covers ₹1.5L under 80C (old regime), plus NPS adds ₹50K under 80CCD(1B). Under the new regime most deductions don't apply — check which regime you file.");
+  if (ans.goal === 'tax' && pack.taxInsight) insights.push(pack.taxInsight);
   if (ans.goal === 'emergency')
     insights.push('For an emergency fund, skip equity entirely — keep it in liquid funds or sweep-in FDs you can access within a day.');
   if (gains > invested)
-    insights.push(`Your projected gains (${fmt(gains)}) exceed what you put in (${fmt(invested)}) — that's compounding doing the heavy lifting over ${years} years.`);
+    insights.push(`Your projected gains (${pack.money(gains)}) exceed what you put in (${pack.money(invested)}) — that's compounding doing the heavy lifting over ${years} years.`);
 
   return { tooLow: false, effRisk, riskNote, alloc, rate, years, fv, invested, gains, realFv, growthPct, insights };
+}
+
+/**
+ * The question text as this market should read it.
+ *
+ * `IM_Q` is parity-pinned, so its two money questions carry a literal "(₹)"
+ * that cannot be edited out. Substituting at render time keeps the table
+ * byte-identical to the original while a reader in London is asked for their
+ * income in pounds — the alternative was a second, drifting copy of the
+ * questions.
+ */
+export function questionLabel(q: ImQuestion, sym: string): string {
+  return q.t.replace('(₹)', `(${sym})`);
+}
+
+/**
+ * The placeholder for a numeric question, scaled to the market.
+ *
+ * "e.g. 50000" is a sensible monthly income in rupees and an absurd one in
+ * pounds. The market's own starting answers are the honest source for what a
+ * plausible number looks like here.
+ */
+export function questionPlaceholder(q: ImNumQuestion, defaults: ImAnswers): string {
+  if (q.k === 'income') return `e.g. ${defaults.income}`;
+  if (q.k === 'monthly') return `e.g. ${defaults.monthly}`;
+  return q.ph;
 }
 
 /** Clamp a numeric answer to a question's min/max (port of imSaveNum). */

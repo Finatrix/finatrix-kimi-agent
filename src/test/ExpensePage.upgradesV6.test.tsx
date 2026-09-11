@@ -200,9 +200,15 @@ describe('scheduling a spend for a future month', () => {
   it('says a future date schedules the spend rather than recording it', () => {
     seed(SPEND, PLAN);
     renderPage();
-    const date = screen.getByLabelText('Date') as HTMLInputElement;
+    // The date field lives in the add sheet now — the Overview tab's inline
+    // form was folded into it, and the scheduling hint came with it.
+    fireEvent.click(screen.getByRole('button', { name: 'Add an expense' }));
+    const dialog = screen.getByRole('dialog');
+    const date = within(dialog).getByLabelText('Date') as HTMLInputElement;
     fireEvent.change(date, { target: { value: `${NEXT}-10` } });
-    expect(screen.getByText(/Scheduled for June 2026/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Scheduled/)).toBeInTheDocument();
+    // …and it will not accept a date past the twelve-month planning horizon.
+    expect(date.max).toBe('2027-05-31');
   });
 
   it('lists what has been scheduled, grouped by the month it lands in', () => {

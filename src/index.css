@@ -85,6 +85,25 @@
 
   html {
     color-scheme: var(--color-scheme, dark);
+
+    /* Smooth in-page scrolling, site-wide.
+       ------------------------------------------------------------------
+       This applies ONLY to scrolls the page asks for — a fragment link, a
+       `scrollIntoView`, find-in-page. Per spec it never touches a wheel, a
+       trackpad or a finger, so it cannot make ordinary scrolling feel heavy.
+
+       It was missing, and the omission was visible: the hero's "Scroll to
+       features" cue and its #showcase call-to-action teleported 1341px in a
+       single frame with no sense of where the reader had been moved to. The
+       reduced-motion safety net above already forces this back to `auto` with
+       `!important`, so the intent was there — only the declaration it was
+       guarding never existed. Route changes stay instant; they pass
+       `behavior: 'instant'` explicitly (hooks/useScrollRestoration.ts). */
+    scroll-behavior: smooth;
+
+    /* …and stop short of the header that covers the top of the viewport, so a
+       heading scrolled to is a heading you can read. See --scroll-offset. */
+    scroll-padding-top: var(--scroll-offset);
   }
 
   body {
@@ -128,10 +147,6 @@
 }
 
 /* ─────────────── Landing page animations ─────────────── */
-@keyframes fxBreathe {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.035); }
-}
 @keyframes fxHubPulse {
   0% { transform: scale(0.9); opacity: 0.55; }
   70% { transform: scale(1.9); opacity: 0; }
@@ -142,19 +157,17 @@
   50% { transform: translate3d(6%, 4%, 0) scale(1.15); }
   100% { transform: translate3d(-6%, -3%, 0) scale(1); }
 }
-@keyframes fxDashFlow {
-  to { stroke-dashoffset: -24; }
-}
 @keyframes fxFloatY {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-6px); }
 }
 
-.fx-tile { will-change: transform; }
-.fx-tile-breathe { animation: fxBreathe 6s ease-in-out infinite; }
+/* `.fx-tile`, `.fx-tile-breathe` and `.fx-connector-flow` used to live here and
+   matched nothing in the app — the last of them being a standing
+   `will-change: transform`, i.e. a permanent compositor layer waiting for
+   whoever next reached for the name. Removed with their keyframes. */
 .fx-aurora { animation: fxAurora 18s ease-in-out infinite; }
 .fx-hub-ring { animation: fxHubPulse 3.4s ease-out infinite; }
-.fx-connector-flow { stroke-dasharray: 4 8; animation: fxDashFlow 1.4s linear infinite; }
 .fx-scroll-cue { animation: fxFloatY 2.2s ease-in-out infinite; }
 
 /* Entrance reveal (CSS, not JS — cannot freeze and leave content hidden).
@@ -174,10 +187,8 @@
 @media (prefers-reduced-motion: reduce) {
   .fx-in,
   .fx-line-in,
-  .fx-tile-breathe,
   .fx-aurora,
   .fx-hub-ring,
-  .fx-connector-flow,
   .fx-scroll-cue {
     animation: none !important;
   }
@@ -229,15 +240,24 @@
   -webkit-text-fill-color: transparent;
   color: transparent;
 }
-/* Premium glass surface */
+/* Premium glass surface.
+   ---------------------------------------------------------------------------
+   No `backdrop-filter`. It carried `blur(14px)` and rendered nothing: on light,
+   --glass-bg is `linear-gradient(180deg, #FFFFFF, #FCFBF8)` — fully opaque, so
+   the blurred backdrop was painted over in its entirety; on dark it is a 5%
+   white veil over a flat surface, where a blur of a flat colour is that colour.
+   Verified by screenshot in both themes: removing it is pixel-identical.
+
+   It was not free, though. Each `backdrop-filter` element is its own render
+   surface whose backdrop the compositor re-samples as the page moves, and
+   eleven of these tile the showcase grid. The glass here is the gradient, the
+   hairline and the inset highlight — all of which survive. */
 .fx-glass {
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   box-shadow:
     0 1px 0 var(--glass-inset) inset,
     var(--glass-shadow);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
 }
 .fx-card-hover {
   transition: transform 0.45s var(--fx-ease), border-color 0.45s var(--fx-ease),
@@ -376,6 +396,11 @@
 @media (prefers-reduced-motion: reduce) {
   .fx-conn { animation: none !important; }
   .fx-reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
+}
+/* Paper has no scroll position: a section that was never scrolled past would
+   otherwise print as a blank gap. */
+@media print {
+  .fx-reveal { opacity: 1 !important; transform: none !important; }
 }
 
 /* ============================================================================

@@ -43,10 +43,44 @@ function sourceFiles(dir: string, out: string[] = []): string[] {
 /** Workbook-PARSING entry points. Any of these makes the advisories reachable. */
 const READER_APIS = /\bXLSX\s*\.\s*(read|readFile)\b|\bsheet_to_json\b/;
 
+/**
+ * Comments, removed before scanning.
+ *
+ * This check has to run over code, not prose. `tools/lib/import/xlsx.ts` is a
+ * hand-written spreadsheet reader that exists PRECISELY so that SheetJS's
+ * parser stays unreachable, and its header explains that by naming the API it
+ * refuses to call — at which point a naive scan flagged the one file in the
+ * repository written to satisfy this rule. A check that punishes documentation
+ * is a check somebody eventually deletes.
+ *
+ * Only block comments and whole-line comments are stripped. A trailing `//` is
+ * left alone: a `//` inside a string (a URL, most often) would take the rest of
+ * a real line of code with it, and this test must never see less code than
+ * there is.
+ */
+function codeOnly(source: string): string {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n')
+    .filter((line) => !/^\s*(\/\/|\*)/.test(line))
+    .join('\n');
+}
+
 describe('SheetJS stays write-only', () => {
+  /**
+   * The guard on the guard. `codeOnly` is the kind of helper that can silently
+   * start returning nothing, at which point the test below passes for ever
+   * while proving nothing at all.
+   */
+  it('still recognises a reader when it sees one', () => {
+    expect(READER_APIS.test(codeOnly('const rows = XLSX.read(bytes);'))).toBe(true);
+    expect(READER_APIS.test(codeOnly('const rows = XLSX.sheet_to_json(sheet);'))).toBe(true);
+    expect(READER_APIS.test(codeOnly('/** never call XLSX.read here */'))).toBe(false);
+  });
+
   it('no source file calls a workbook-reading API', () => {
     const offenders = sourceFiles(srcRoot)
-      .filter((f) => READER_APIS.test(readFileSync(f, 'utf8')))
+      .filter((f) => READER_APIS.test(codeOnly(readFileSync(f, 'utf8'))))
       .map((f) => f.slice(srcRoot.length + 1));
 
     expect(

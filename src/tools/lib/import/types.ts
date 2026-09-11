@@ -23,8 +23,14 @@
  * and only for rows the user ticked.
  */
 
-/** How the rows were recovered from the file. */
-export type SourceKind = 'csv' | 'pdf-text';
+/**
+ * How the rows were recovered from the file.
+ *
+ * `ocr` is the one that changes how a row is treated rather than just labelled:
+ * text recognition can misread a digit, and a misread digit in an amount is a
+ * wrong number in somebody's ledger. Rows from it arrive flagged for review.
+ */
+export type SourceKind = 'csv' | 'pdf-text' | 'spreadsheet' | 'ocr';
 
 /** Which way the money moved, as the statement reported it. */
 export type Direction = 'debit' | 'credit';
@@ -46,7 +52,16 @@ export type RowIssue =
   /** Money came in rather than out. */
   | 'credit'
   /** The description is too sparse to categorise from. */
-  | 'sparse-description';
+  | 'sparse-description'
+  /**
+   * The row was read by text recognition rather than out of a file.
+   *
+   * Not a defect in the row — it may be perfect. It is a statement about how
+   * much the number can be trusted: OCR can turn a 3 into an 8, and an amount
+   * nobody typed and nobody checked has no business entering a ledger. Every
+   * such row is held for review and starts unticked.
+   */
+  | 'recognised-text';
 
 /** Where a draft's category came from. Drives the badge and the learning step. */
 export type CategoryOrigin =

@@ -58,6 +58,13 @@
 .fx-tools .badge-blue { background: rgba(77,155,255,.12); color: var(--blue); }
 .fx-tools .badge-mute { background: var(--fill-06); color: var(--ink2); }
 .fx-tools .badge-red { background: rgba(255,90,82,.12); color: var(--red); }
+/* A badge that is a link or a button is a POINTER TARGET, and WCAG 2.2 (2.5.8)
+   puts the floor at 24×24 CSS px. At 10.5px type and 3px padding these were
+   ~20px tall — the "Company intelligence ↗" link on every enriched job card,
+   the department and source chips on a company profile. Decorative badges keep
+   their compact size; only the interactive ones grow, and doing it here means
+   the next interactive badge inherits the fix instead of repeating the bug. */
+.fx-tools a.badge, .fx-tools button.badge { min-height: 24px; padding-top: 4px; padding-bottom: 4px; }
 .fx-tools .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 9px; border: 1px solid var(--hair2); background: var(--fill-03); color: var(--ink2); cursor: pointer; transition: background-color var(--ctl-trans), border-color var(--ctl-trans), color var(--ctl-trans); }
 .fx-tools .icon-btn:hover { color: var(--ink); border-color: var(--hair); background: var(--fill-07); }
 .fx-tools .icon-btn.gold { color: var(--accent-text); border-color: rgba(212,175,55,.35); }
@@ -125,7 +132,12 @@
 
 /* ============ PHASE 2: PIPELINE / CALENDAR ============ */
 .fx-tools .stage-select { font-size: 12px; padding: 6px 28px 6px 10px; border-radius: 8px; }
-.fx-tools .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+/* The 7-column track moved from the grid container onto each row, so the weeks
+   can be real `role="row"` elements without `display: contents` (which some
+   engines still drop from the accessibility tree). Rendered result is
+   identical: seven equal columns, 4px gutters. */
+.fx-tools .cal-grid { display: flex; flex-direction: column; gap: 4px; }
+.fx-tools .cal-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
 .fx-tools .cal-head { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink3); text-align: center; padding: 6px 0; }
 .fx-tools .cal-cell { min-height: 74px; border: 1px solid var(--hair2); border-radius: 10px; padding: 5px 6px; font-size: 11px; background: var(--fill-02); }
 .fx-tools .cal-cell.other { opacity: .35; }
@@ -223,4 +235,60 @@
 @media (prefers-reduced-motion: reduce) {
   .fx-tools .fx-pro-card { transition: none; }
   .fx-tools .fx-pro-card:hover { transform: none; }
+}
+
+/* ============ SECTION "MORE" MENU ============
+   The disclosure that carries the ten sections which do not fit the seven-pill
+   tab bar. Anchored to its trigger inside .nav-wrap (a sticky, z-indexed
+   stacking context), so --z-dropdown stacks it correctly against the bar it
+   opens from without competing with the app header above it. */
+.fx-tools .fx-more { position: relative; display: inline-flex; flex-shrink: 0; }
+.fx-tools .fx-more-caret { font-size: 9px; opacity: .7; margin-left: -2px; }
+
+.fx-tools .fx-more-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: var(--z-dropdown);
+  min-width: 232px;
+  max-height: min(70dvh, 520px);
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--card-solid);
+  border: 1px solid var(--hair);
+  border-radius: var(--ctl-r-md);
+  box-shadow: 0 18px 44px -16px rgba(0,0,0,.6);
+  animation: fxResultCardIn 160ms var(--ease-out) both;
+}
+/* Near the right edge the menu would otherwise overflow the viewport; the nav
+   is left-aligned, so flipping the anchor is only needed for the RTL case. */
+[dir="rtl"] .fx-tools .fx-more-pop { left: auto; right: 0; }
+
+.fx-tools .fx-more-group + .fx-more-group { margin-top: 4px; border-top: 1px solid var(--hair2); padding-top: 6px; }
+.fx-tools .fx-more-head {
+  padding: 6px 10px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink3);
+}
+.fx-tools .fx-more-item {
+  display: flex;
+  align-items: center;
+  /* 36px clears the WCAG 2.2 (2.5.8) 24px target minimum and matches the
+     comfortable row height the account menu uses. */
+  min-height: 36px;
+  padding: 8px 10px;
+  border-radius: var(--ctl-r-sm);
+  font-size: 13.5px;
+  color: var(--ink);
+  text-decoration: none;
+  transition: background-color var(--ctl-trans), color var(--ctl-trans);
+}
+.fx-tools .fx-more-item:hover { background: var(--fill-06); }
+.fx-tools .fx-more-item.on { color: var(--accent-text); background: var(--gold-bg); font-weight: 600; }
+@media (prefers-reduced-motion: reduce) {
+  .fx-tools .fx-more-pop { animation: none; }
+  .fx-tools .fx-more-item { transition: none; }
 }

@@ -16,20 +16,48 @@ import { extractJson } from '../../lib/ai/json';
 import { sanitizeField, sanitizeProse } from '../../lib/sanitize';
 
 const MAX_ANSWER_CHARS = 6_000;
+const MAX_HEADLINE_CHARS = 180;
 const MAX_FOLLOW_UPS = 3;
 const MAX_FOLLOW_UP_CHARS = 80;
-const MAX_CHART_POINTS = 8;
 const MIN_CHART_POINTS = 2;
+/** How many points each chart type can show and still be read at a glance. */
+const MAX_CHART_POINTS: Record<AiChartType, number> = { bar: 8, line: 12, donut: 6 };
+const MAX_HIGHLIGHTS = 4;
 
 export interface AiChartPoint {
   label: string;
   value: number;
 }
 
+/**
+ * Which picture answers the question fastest: `bar` compares things, `line`
+ * shows a trend over three or more periods, `donut` shows how a total splits.
+ */
+export type AiChartType = 'bar' | 'line' | 'donut';
+export type AiUnit = 'currency' | 'percent' | 'number';
+
 export interface AiChart {
   title: string;
-  unit: 'currency' | 'percent';
+  /** Absent on charts stored before types existed; those were all bars. */
+  type?: AiChartType;
+  unit: AiUnit;
   points: AiChartPoint[];
+  /**
+   * A worked illustration in a `general` answer — hypothetical figures, never
+   * the user's. Rendered with a label saying so and never in their currency,
+   * so it cannot be mistaken for a chart of their money.
+   */
+  illustrative?: boolean;
+}
+
+export type AiTone = 'neutral' | 'good' | 'warn' | 'bad';
+
+/** One key figure, shown as a tile so it is read at a glance rather than found in prose. */
+export interface AiHighlight {
+  label: string;
+  value: number;
+  unit: AiUnit;
+  tone: AiTone;
 }
 
 /**
@@ -44,6 +72,10 @@ export interface AiChart {
 export type AiAnswerMode = 'data' | 'general';
 
 export interface AiAnswer {
+  /** The answer in one sentence, shown first. Empty when the model gave none. */
+  headline: string;
+  /** Key figures as tiles. Only ever on a `data` answer — see `parseHighlights`. */
+  highlights: AiHighlight[];
   /** Markdown, sanitized. Never empty — a blank reply is reported as a failure. */
   answer: string;
   mode: AiAnswerMode;
@@ -77,15 +109,45 @@ export function parseAiAnswer(content: string): AiAnswer | null {
   // losing it, and a model cannot suppress the badge by omitting the field.
   const mode: AiAnswerMode = dict.mode === 'general' ? 'general' : 'data';
 
+  // A headline that merely repeats the answer's opening line adds nothing but
+  // height, so it is dropped rather than shown twice.
+  const headline = sanitizeField(dict.headline, MAX_HEADLINE_CHARS);
+  const firstLine = answer.split('\n')[0].replace(/[*_#>`-]/g, '').trim();
+
   return {
+    headline: headline && headline !== firstLine ? headline : '',
+    // Tiles look like the user's own figures, so a general answer — whose
+    // numbers are hypothetical — never gets them.
+    highlights: mode === 'general' ? [] : parseHighlights(dict.highlights),
     answer,
     mode,
     followUps: parseFollowUps(dict.followUps),
-    // Enforced here, not merely asked for: a chart drawn from hypothetical
-    // figures is indistinguishable on screen from one drawn from the user's,
-    // and the axis carries their currency either way.
-    chart: mode === 'general' ? null : parseChart(dict.chart),
+    // Enforced here, not merely asked for: a chart of hypothetical figures is
+    // indistinguishable on screen from one of the user's. A general answer may
+    // still teach with one, but only marked as an illustration and never in a
+    // currency.
+    chart: parseChart(dict.chart, mode === 'general'),
   };
+}
+
+function parseUnit(v: unknown): AiUnit {
+  return v === 'currency' || v === 'percent' ? v : 'number';
+}
+
+function parseHighlights(input: unknown): AiHighlight[] {
+  if (!Array.isArray(input)) return [];
+  const out: AiHighlight[] = [];
+  for (const item of input) {
+    if (!item || typeof item !== 'object') continue;
+    const row = item as Record<string, unknown>;
+    const label = sanitizeField(row.label, 40);
+    const value = Number(row.value);
+    if (!label || !Number.isFinite(value)) continue;
+    const tone: AiTone = row.tone === 'good' || row.tone === 'warn' || row.tone === 'bad' ? row.tone : 'neutral';
+    out.push({ label, value, unit: parseUnit(row.unit), tone });
+    if (out.length >= MAX_HIGHLIGHTS) break;
+  }
+  return out;
 }
 
 function parseFollowUps(input: unknown): string[] {
@@ -99,10 +161,11 @@ function parseFollowUps(input: unknown): string[] {
   return out;
 }
 
-function parseChart(input: unknown): AiChart | null {
+function parseChart(input: unknown, illustrative: boolean): AiChart | null {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
   const dict = input as Record<string, unknown>;
   if (!Array.isArray(dict.points)) return null;
+  const type: AiChartType = dict.type === 'line' || dict.type === 'donut' ? dict.type : 'bar';
 
   const points: AiChartPoint[] = [];
   for (const p of dict.points) {
@@ -110,17 +173,25 @@ function parseChart(input: unknown): AiChart | null {
     const row = p as Record<string, unknown>;
     const label = sanitizeField(row.label, 40);
     const value = Number(row.value);
-    // A non-finite or negative bar cannot be drawn honestly, so the point is
-    // dropped rather than clamped into something the data never said.
-    if (!label || !Number.isFinite(value) || value < 0) continue;
+    // A non-finite or negative value cannot be drawn honestly, so the point is
+    // dropped rather than clamped into something the data never said. A donut
+    // slice of zero is not a slice.
+    if (!label || !Number.isFinite(value) || value < 0 || (type === 'donut' && value === 0)) continue;
     points.push({ label, value });
-    if (points.length >= MAX_CHART_POINTS) break;
+    if (points.length >= MAX_CHART_POINTS[type]) break;
   }
   if (points.length < MIN_CHART_POINTS) return null;
 
+  // An unrecognised unit on a chart is read as money, as it always was: charts
+  // of the user's data are overwhelmingly charts of amounts.
+  const unit: AiUnit = dict.unit === 'percent' || dict.unit === 'number' ? dict.unit : 'currency';
   return {
     title: sanitizeField(dict.title, 60),
-    unit: dict.unit === 'percent' ? 'percent' : 'currency',
+    type,
+    // An illustration is never drawn in a currency: that is the one thing that
+    // would make it look like the user's own money.
+    unit: illustrative && unit === 'currency' ? 'number' : unit,
     points,
+    ...(illustrative ? { illustrative: true } : {}),
   };
 }

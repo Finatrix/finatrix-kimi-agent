@@ -8,9 +8,9 @@
  *     echoed back as chips *before* submission, so a wrong guess is corrected
  *     in the line rather than discovered later in the ledger.
  *  2. It never replaces the form. A field it could not fill is simply not
- *     shown, and the structured form below remains the complete way to enter
- *     anything — this is a shortcut for the common case, not a new dialect
- *     the user has to learn.
+ *     shown, and the full sheet one button below remains the complete way to
+ *     enter anything — this is a shortcut for the common case, not a new
+ *     dialect the user has to learn.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from './Icon';
@@ -20,6 +20,13 @@ import type { FlatCat } from './TransactionModal';
 
 interface Props {
   cats: FlatCat[];
+  /**
+   * Words the user's own ledger has already filed, from `learnCategoryWords`.
+   *
+   * Optional so the component still works before there is any history — the
+   * label and keyword vocabularies stand on their own.
+   */
+  learned?: ReadonlyMap<string, string>;
   cfmt: (n: number) => string;
   now: Date;
   /** Commit a parsed line. Returns false if it was rejected. */
@@ -39,11 +46,12 @@ interface Props {
   seed?: { text: string; nonce: number };
 }
 
-export function QuickAddBar({ cats, cfmt, now, onAdd, fallbackCategory, seed }: Props) {
+export function QuickAddBar({ cats, learned, cfmt, now, onAdd, fallbackCategory, seed }: Props) {
   const [text, setText] = useState('');
   const [flash, setFlash] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current); }, []);
 
   const seedNonce = seed?.nonce ?? 0;
   const seedText = seed?.text ?? '';
@@ -62,12 +70,17 @@ export function QuickAddBar({ cats, cfmt, now, onAdd, fallbackCategory, seed }: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seedNonce]);
 
-  const validKeys = useMemo(() => new Set(cats.map((c) => c.k)), [cats]);
+  // The full vocabulary, not just the keys: a category is recognised by its own
+  // name (including custom ones) and by what this user has filed before.
+  const vocabulary = useMemo(
+    () => ({ categories: cats.map((c) => ({ k: c.k, l: c.l })), learned }),
+    [cats, learned],
+  );
   // Parsed on every keystroke: the preview IS the feedback, and a parse of one
   // short line is far cheaper than the render it feeds.
   const parsed = useMemo(
-    () => parseQuickAdd(text, now, validKeys),
-    [text, now, validKeys],
+    () => parseQuickAdd(text, now, vocabulary),
+    [text, now, vocabulary],
   );
 
   const catKey = parsed.category || fallbackCategory;
@@ -133,6 +146,9 @@ export function QuickAddBar({ cats, cfmt, now, onAdd, fallbackCategory, seed }: 
               <span className="fx-qa-chip">
                 <Icon name={cat.ic} size={12} style={{ color: SECTION_COLOR[cat.section] }} aria-hidden="true" />
                 {cat.l}{parsed.category ? '' : ' (default)'}
+                {parsed.categorySource === 'history' && (
+                  <span className="fx-qa-src">learned</span>
+                )}
               </span>
             )}
             <span className="fx-qa-chip">{fmtDay(parsed.date, now)}</span>
@@ -175,6 +191,8 @@ const QUICK_ADD_STYLES = `
   background:var(--fill-06);color:var(--ink2);font-size:11px;font-weight:600;
   animation:fxQaChip .18s ease both;}
 .fx-tools .fx-qa-amt{background:color-mix(in srgb,var(--gold) 16%,transparent);color:var(--ink);}
+.fx-tools .fx-qa-src{padding:1px 5px;border-radius:980px;background:var(--fill-08);
+  color:var(--ink3);font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;}
 .fx-tools .fx-qa-note{font-weight:500;font-style:italic;max-width:220px;overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap;}
 @keyframes fxQaChip{from{opacity:0;transform:translateY(-2px) scale(.96)}to{opacity:1;transform:none}}

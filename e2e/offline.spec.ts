@@ -61,7 +61,10 @@ test('the app still loads with no connection once the shell is cached', async ({
     await page.reload({ waitUntil: 'load' });
     // The shell booted and the SPA rendered a real tool, not an error page.
     await expect(page.getByRole('tab', { name: 'Overview' })).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText('Add an expense')).toBeVisible();
+    // By role: the card's heading and the button that opens the add sheet both
+    // read "Add an expense", and the button is the one that proves the tool is
+    // interactive rather than merely painted.
+    await expect(page.getByRole('button', { name: 'Add an expense' })).toBeVisible();
   } finally {
     await context.setOffline(false);
   }

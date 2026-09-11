@@ -47,11 +47,33 @@ export function computeCareerHealth(ctx: CoachContext): CareerHealth {
       categories.reduce((sum, c) => sum + WEIGHTS[c.id], 0)
   );
 
-  // Offer probability: base rates shaped by funnel performance and readiness.
-  const offerRate = applied ? offers / applied : 0;
-  const offerProbability = clamp(
-    offerRate > 0 ? 40 + offerRate * 300 : overall * 0.55 + conversion * 100 * 0.25
-  );
+  // ── Offer outlook ────────────────────────────────────────────────────────
+  //
+  // Was: `offerRate > 0 ? 40 + offerRate * 300 : …`, which had two defects that
+  // made the figure indefensible as the percentage it is rendered as:
+  //
+  //   • A CLIFF at the first offer. Zero offers scored ~38; a single offer
+  //     jumped straight to 40 + rate*300, so one event moved the number by
+  //     forty points regardless of how many applications sat behind it.
+  //   • SATURATION. One offer from three applications is a rate of 0.33, giving
+  //     40 + 100 = 140 → clamped to 100. The product told a user with three
+  //     applications that their offer probability was 100%.
+  //
+  // The rate is now smoothed toward a conservative base rate, so a small sample
+  // is pulled to the prior rather than believed outright, and the funnel is one
+  // weighted input alongside readiness instead of an either/or branch. Same
+  // 0–100 scale, monotonic, no discontinuity.
+  //
+  // PRIOR_STRENGTH is expressed in pseudo-applications: with none of their own,
+  // a user sits exactly at PRIOR_RATE; by 20 real applications their own record
+  // carries half the weight.
+  const PRIOR_STRENGTH = 20;
+  const PRIOR_RATE = 0.03;
+  const smoothedOfferRate = (offers + PRIOR_RATE * PRIOR_STRENGTH) / (applied + PRIOR_STRENGTH);
+  // A sustained 10% application-to-offer rate is an exceptional real-world
+  // result, so it anchors the top of the evidence scale rather than 100%.
+  const funnelEvidence = clamp((smoothedOfferRate / 0.1) * 100);
+  const offerProbability = clamp(overall * 0.5 + funnelEvidence * 0.3 + conversion * 100 * 0.2);
 
   const suggestions: string[] = [];
   if (resume < 70) suggestions.push('Lift your Resume Score above 70 — it is the biggest single factor in your Career Health.');

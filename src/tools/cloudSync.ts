@@ -47,7 +47,16 @@ export const SYNC_KEYS = [
   'fx_parksmart',
   'fx_peercompare',
   'fx_goals',
+  'fx_planning',
   'fx_networth',
+  // Which market's instruments, tax rules and benchmarks the tools compare
+  // against. Travels for the same reason the currency does: someone who set
+  // themselves to the UK on a laptop has not moved back to India by opening
+  // the app on their phone.
+  'fx_market',
+  // Exchange rates the user corrected by hand. Small, and a rate someone
+  // bothered to look up should not have to be looked up again on their phone.
+  'fx_fx_overrides',
 ];
 const LAST_UID_KEY = 'fx_last_uid';
 

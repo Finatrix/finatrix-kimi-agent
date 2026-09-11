@@ -15,6 +15,7 @@ import { track as trackEvent } from '../../lib/analytics';
 import { useToast } from '../../tools/ui/Toast';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
 import { Tabs } from '../../tools/ui/Tabs';
+import { MoneyField } from '../../tools/ui/MoneyField';
 import { CoverLetterModal } from '../components/CoverLetterModal';
 import { JobIntelView } from '../components/JobIntelView';
 import { MatchPanel } from '../components/MatchPanel';
@@ -34,6 +35,7 @@ import {
   searchProviders,
 } from '../services/jobsService';
 import { matchResumeToJob } from '../services/matchService';
+import { withRegistryJobs } from '../services/registryJobs';
 import { saveTailoredVersion, setSectionAccepted } from '../services/resumeTailoring';
 import type { ResumeTailoredVersionRow } from '../types/phase3';
 import { runSearchPipeline, type ScoredJob, type SearchReport } from '../search/pipeline';
@@ -43,6 +45,7 @@ import { searchCompanies } from '../services/companyIntelligence';
 import { listSavedCompanies } from '../services/companyIntelUser';
 import type { CompanyIntel, CompanyFilters } from '../types/companyIntel';
 import { categoryLabel } from '../search/taxonomy';
+import { classifyApplyUrl } from '../search/applyUrl';
 import type { QuickMatchInput } from '../search/quickMatch';
 import type { ResumeVersionRow, ResumeWithVersions } from '../types';
 import {
@@ -262,7 +265,12 @@ function JobWorkbench({
               target="_blank" rel="noopener noreferrer"
               style={{ color: 'var(--gold)' }}
             >
-              Apply on {target.jobRow?.raw && typeof target.jobRow.raw.via === 'string' ? target.jobRow.raw.via : target.normalized?.via ?? 'source'} ↗
+              {classifyApplyUrl(
+                target.jobRow?.apply_url ?? target.normalized?.apply_url ?? '',
+                target.jobRow?.raw && typeof target.jobRow.raw.via === 'string'
+                  ? target.jobRow.raw.via
+                  : target.normalized?.via ?? ''
+              ).label} ↗
             </a>
           )}
         </div>
@@ -451,6 +459,8 @@ export default function JobsPage() {
   const [workbench, setWorkbench] = useState<WorkbenchTarget | null>(null);
   // Monotonic search sequence — stale responses never clobber newer ones.
   const searchSeq = useRef(0);
+  // Same guard for opening a job: a superseded open never wins the race.
+  const openSeq = useRef(0);
 
   /** Deterministic quick-match input for the selected resume version. */
   const resumeInput = useMemo<QuickMatchInput | null>(() => {
@@ -462,6 +472,55 @@ export default function JobsPage() {
       profile,
     };
   }, [version, profile]);
+
+  // Refinements are collapsed by default and opened on demand. They open
+  // automatically when a saved/deep-linked search arrives with some already
+  // set, so an active filter is never invisible.
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const queryRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * How many refinements are actually narrowing the search. Compared against
+   * DEFAULT_SEARCH_PARAMS rather than against emptiness, because `country`
+   * defaults to India — counting it as "on" would make the badge read 1 on a
+   * search nobody had filtered.
+   */
+  const activeFilters = useMemo(() => {
+    const keys = ['country', 'workMode', 'employmentType', 'industry', 'salaryMin', 'salaryMax'] as const;
+    return keys.filter((k) => params[k] !== DEFAULT_SEARCH_PARAMS[k]).length;
+  }, [params]);
+
+  const clearFilters = useCallback(() => {
+    setParams((p) => ({
+      ...p,
+      country: DEFAULT_SEARCH_PARAMS.country,
+      workMode: DEFAULT_SEARCH_PARAMS.workMode,
+      employmentType: DEFAULT_SEARCH_PARAMS.employmentType,
+      industry: DEFAULT_SEARCH_PARAMS.industry,
+      salaryMin: DEFAULT_SEARCH_PARAMS.salaryMin,
+      salaryMax: DEFAULT_SEARCH_PARAMS.salaryMax,
+      // Refinements only — the query and location the user typed are theirs.
+    }));
+  }, []);
+
+  // "/" focuses the search box, the convention every search-first product
+  // shares. Ignored while the user is already typing somewhere, so it never
+  // steals a literal slash from a job title or the JD analyzer's textarea.
+  useEffect(() => {
+    if (view !== 'search') return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = document.activeElement;
+      const tag = el?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (el instanceof HTMLElement && el.isContentEditable) return;
+      e.preventDefault();
+      queryRef.current?.focus();
+      queryRef.current?.select();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [view]);
 
   // Analyzer state
   const [pasteText, setPasteText] = useState('');
@@ -501,10 +560,23 @@ export default function JobsPage() {
       const out = await runSearchPipeline(
         { ...params, page },
         resumeInput,
-        (p, terms) => searchProviders(p, terms),
+        // Registry jobs (read off employers' own ATS boards, so their apply
+        // URLs are real application forms) merge into the same fan-out as the
+        // aggregators and flow through one pipeline — see services/registryJobs.
+        withRegistryJobs((p, terms) => searchProviders(p, terms)),
         { resumeKey: version?.id ?? 'none' }
       );
       if (seq !== searchSeq.current) return; // a newer search superseded this one
+
+      // Paging past the last page used to replace a screen of good results
+      // with an empty one, and the only way back was to search again. An empty
+      // page beyond the first is the end of the list, not a new result set:
+      // keep what is on screen and say so.
+      if (page > 0 && out.jobs.length === 0) {
+        notify('You’ve reached the end of these results.', 'info');
+        return;
+      }
+
       setReport(out);
       setParams((p) => ({ ...p, page }));
       const keys = new Map<ScoredJob, string>();
@@ -593,10 +665,17 @@ export default function JobsPage() {
       return;
     }
     const key = `${job.source}-${job.external_id}`;
+    // Every card's button used to be disabled while ANY one of them was
+    // opening, so a mis-click froze the whole list for the length of a network
+    // write. Only the card in flight is busy now; the sequence guard is what
+    // keeps a fast second click from opening the first job's workbench — the
+    // same pattern runSearch already uses for superseded searches.
+    const seq = ++openSeq.current;
     setOpeningKey(key);
     try {
       // Persist first (idempotent) so analysis/matching attach to a row.
       const row = await saveJob(user.id, job);
+      if (seq !== openSeq.current) return;
       setWorkbench({
         jobText: `${job.title}\n${job.company}\n${job.location}\n\n${job.description}`,
         company: job.company,
@@ -606,9 +685,9 @@ export default function JobsPage() {
       });
       void loadSaved();
     } catch (e) {
-      notify(toCareersError(e).message, 'error');
+      if (seq === openSeq.current) notify(toCareersError(e).message, 'error');
     } finally {
-      setOpeningKey('');
+      if (seq === openSeq.current) setOpeningKey('');
     }
   };
 
@@ -760,56 +839,109 @@ export default function JobsPage() {
 
       {view === 'search' && (
         <>
+          {/* Nine controls used to sit here permanently, eight of them
+              optional, so the resting state of the page a user comes to
+              SEARCH with was a form. The three that carry a real query stay
+              out; the refinements collapse behind one disclosure that says how
+              many are on, so nothing is hidden without a signal. */}
           <div className="card" style={{ padding: 18 }}>
-            <div className="grid3" style={{ marginBottom: 10 }}>
-              <input className="fi" placeholder="Job title or keyword *" aria-label="Job title or keyword" value={params.query}
+            <div className="grid3" style={{ marginBottom: 12 }}>
+              <input ref={queryRef} className="fi" placeholder="Job title or keyword *" aria-label="Job title or keyword" value={params.query}
                 onChange={(e) => setParams((p) => ({ ...p, query: e.target.value }))}
                 onKeyDown={(e) => e.key === 'Enter' && void runSearch(0)} />
               <input className="fi" placeholder="City / state" aria-label="Location" value={params.location}
                 onChange={(e) => setParams((p) => ({ ...p, location: e.target.value }))}
                 onKeyDown={(e) => e.key === 'Enter' && void runSearch(0)} />
-              <select className="fs" aria-label="Country" value={params.country}
-                onChange={(e) => setParams((p) => ({ ...p, country: e.target.value }))}>
-                <option value="in">India</option>
-                <option value="gb">United Kingdom</option>
-                <option value="us">United States</option>
-                <option value="au">Australia</option>
-                <option value="sg">Singapore</option>
-                <option value="ae">UAE</option>
-              </select>
-            </div>
-            <div className="grid3" style={{ marginBottom: 10 }}>
-              <select className="fs" aria-label="Work mode" value={params.workMode}
-                onChange={(e) => setParams((p) => ({ ...p, workMode: e.target.value as JobSearchParams['workMode'] }))}>
-                <option value="">Any work mode</option>
-                <option value="remote">Remote / WFH only</option>
-                <option value="hybrid">Hybrid only</option>
-                <option value="onsite">On-site</option>
-              </select>
-              <select className="fs" aria-label="Employment type" value={params.employmentType}
-                onChange={(e) => setParams((p) => ({ ...p, employmentType: e.target.value }))}>
-                <option value="">Any employment type</option>
-                <option value="fulltime">Full-time</option>
-                <option value="parttime">Part-time</option>
-                <option value="contract">Contract</option>
-                <option value="intern">Internship / graduate</option>
-              </select>
-              <select className="fs" aria-label="Industry" value={params.industry}
-                onChange={(e) => setParams((p) => ({ ...p, industry: e.target.value }))}>
-                <option value="">Any industry</option>
-                {INDUSTRY_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </div>
-            <div className="grid3" style={{ marginBottom: 14 }}>
-              <input className="fi" type="number" min={0} placeholder="Min salary (₹/yr)" aria-label="Minimum salary" value={params.salaryMin ?? ''}
-                onChange={(e) => setParams((p) => ({ ...p, salaryMin: e.target.value ? Number(e.target.value) : null }))} />
-              <input className="fi" type="number" min={0} placeholder="Max salary (₹/yr)" aria-label="Maximum salary" value={params.salaryMax ?? ''}
-                onChange={(e) => setParams((p) => ({ ...p, salaryMax: e.target.value ? Number(e.target.value) : null }))} />
               <button className={`btn ${searching ? 'btn-loading' : ''}`} disabled={searching} onClick={() => void runSearch(0)}>
                 {searching ? 'Searching…' : 'Search jobs'}
               </button>
             </div>
-            <div className="note">
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                aria-expanded={filtersOpen}
+                aria-controls="jobs-filters"
+                onClick={() => setFiltersOpen((o) => !o)}
+              >
+                Filters
+                {activeFilters > 0 && (
+                  <span className="badge badge-gold" style={{ marginLeft: 8 }}>{activeFilters}</span>
+                )}
+                <span aria-hidden="true" style={{ marginLeft: 6, fontSize: 9, opacity: .7 }}>
+                  {filtersOpen ? '▴' : '▾'}
+                </span>
+              </button>
+              {activeFilters > 0 && (
+                <button type="button" className="btn btn-ghost btn-sm" onClick={clearFilters}>
+                  Clear filters
+                </button>
+              )}
+              <span className="note" style={{ flex: 1, minWidth: 0 }}>
+                {activeFilters > 0
+                  ? `${activeFilters} filter${activeFilters === 1 ? '' : 's'} narrowing this search.`
+                  : 'Searching everywhere. Add filters to narrow it down.'}
+              </span>
+            </div>
+
+            {filtersOpen && (
+              <div id="jobs-filters" style={{ marginTop: 12 }}>
+                <div className="grid3" style={{ marginBottom: 10 }}>
+                  <select className="fs" aria-label="Country" value={params.country}
+                    onChange={(e) => setParams((p) => ({ ...p, country: e.target.value }))}>
+                    <option value="in">India</option>
+                    <option value="gb">United Kingdom</option>
+                    <option value="us">United States</option>
+                    <option value="au">Australia</option>
+                    <option value="sg">Singapore</option>
+                    <option value="ae">UAE</option>
+                  </select>
+                  <select className="fs" aria-label="Work mode" value={params.workMode}
+                    onChange={(e) => setParams((p) => ({ ...p, workMode: e.target.value as JobSearchParams['workMode'] }))}>
+                    <option value="">Any work mode</option>
+                    <option value="remote">Remote / WFH only</option>
+                    <option value="hybrid">Hybrid only</option>
+                    <option value="onsite">On-site</option>
+                  </select>
+                  <select className="fs" aria-label="Employment type" value={params.employmentType}
+                    onChange={(e) => setParams((p) => ({ ...p, employmentType: e.target.value }))}>
+                    <option value="">Any employment type</option>
+                    <option value="fulltime">Full-time</option>
+                    <option value="parttime">Part-time</option>
+                    <option value="contract">Contract</option>
+                    <option value="intern">Internship / graduate</option>
+                  </select>
+                </div>
+                {/* Money is never `type="number"` here — see MoneyField: the
+                    browser reports an empty value for anything not yet a valid
+                    number, so the field blanked itself the moment someone typed
+                    a decimal point. MoneyField keeps the user's draft string
+                    while focused. Empty commits as 0, mapped back to null so
+                    "no minimum" stays distinct from "at least ₹0". */}
+                <div className="grid3" style={{ marginBottom: 4 }}>
+                  <select className="fs" aria-label="Industry" value={params.industry}
+                    onChange={(e) => setParams((p) => ({ ...p, industry: e.target.value }))}>
+                    <option value="">Any industry</option>
+                    {INDUSTRY_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                  <MoneyField
+                    id="jobs-salary-min" className="fi" sym="₹"
+                    placeholder="Min salary (₹/yr)" ariaLabel="Minimum salary"
+                    value={params.salaryMin ?? 0}
+                    onCommit={(v) => setParams((p) => ({ ...p, salaryMin: v > 0 ? v : null }))}
+                  />
+                  <MoneyField
+                    id="jobs-salary-max" className="fi" sym="₹"
+                    placeholder="Max salary (₹/yr)" ariaLabel="Maximum salary"
+                    value={params.salaryMax ?? 0}
+                    onCommit={(v) => setParams((p) => ({ ...p, salaryMax: v > 0 ? v : null }))}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="note" style={{ marginTop: 12 }}>
               Listings are aggregated from a broad set of trusted job sources across the web and refreshed
               continuously. Each posting shows its original source, and duplicate listings are merged automatically.
             </div>
@@ -924,7 +1056,15 @@ export default function JobsPage() {
                         <span>{[job.salary_min, job.salary_max].filter(Boolean).map((n) => n!.toLocaleString()).join(' – ')} {job.currency}</span>
                       )}
                       {job.posted_at && <span>Posted {formatDate(job.posted_at)}</span>}
-                      <span className="badge badge-mute">via {job.via}</span>
+                      {/* Sourcing, stated plainly. A posting read off the
+                          employer's own ATS is the canonical one and says so;
+                          an aggregated listing names the aggregator instead of
+                          implying the company published it here. */}
+                      {classifyApplyUrl(job.apply_url, job.via).direct ? (
+                        <span className="badge badge-green">Direct from employer</span>
+                      ) : (
+                        <span className="badge badge-mute">Listed via {job.via}</span>
+                      )}
                     </div>
                     {/* Truthful, earned trust/quality chips (freshness, salary,
                         remote, confidence, skill match) — each reflects a real
@@ -969,7 +1109,18 @@ export default function JobsPage() {
                   </div>
                   <div style={{ textAlign: 'center', flexShrink: 0 }}>
                     {pct != null ? (
-                      <ScoreRing score={pct} caption={ai ? 'AI match' : 'match'} size={62} />
+                      <>
+                        <ScoreRing score={pct} caption={ai ? 'AI match' : 'match'} size={62} />
+                        {/* A percentage computed from two signals is not the
+                            same claim as one computed from eight. Saying so is
+                            the difference between a score and a guess wearing
+                            a score's clothes. */}
+                        {!ai && s.match && s.match.confidence < 50 && (
+                          <div className="note" style={{ fontSize: 10, marginTop: 3, lineHeight: 1.3 }}>
+                            thin data
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <span className="note">no resume</span>
                     )}
@@ -978,7 +1129,7 @@ export default function JobsPage() {
                 <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
                   <button
                     className={`btn btn-sm ${openingKey === `${job.source}-${job.external_id}` ? 'btn-loading' : ''}`}
-                    disabled={!!openingKey}
+                    disabled={openingKey === `${job.source}-${job.external_id}`}
                     onClick={() => void openNormalized(job)}
                   >
                     {openingKey === `${job.source}-${job.external_id}` ? 'Opening…' : 'Analyse & match'}
@@ -989,8 +1140,18 @@ export default function JobsPage() {
                   }}>
                     Save
                   </button>
-                  <a className="btn btn-ghost btn-sm" style={{ width: 'auto', textDecoration: 'none' }} href={job.apply_url} target="_blank" rel="noopener noreferrer">
-                    Apply ↗
+                  {/* The label states the real destination. This button used
+                      to say "Apply" for every result, including Adzuna's
+                      redirect_url and Remotive's listing page — neither of
+                      which is an application form. See search/applyUrl.ts. */}
+                  <a
+                    className="btn btn-ghost btn-sm"
+                    style={{ width: 'auto', textDecoration: 'none' }}
+                    href={job.apply_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {classifyApplyUrl(job.apply_url, job.via).label} ↗
                   </a>
                 </div>
               </div>

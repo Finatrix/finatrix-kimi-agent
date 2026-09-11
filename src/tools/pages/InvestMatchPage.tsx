@@ -2,18 +2,23 @@ import { useEffect, useRef, useState } from 'react';
 import { useToast } from '../ui/Toast';
 import { PageHead, ToolFoot } from '../ui/common';
 import { getJSON, setJSON } from '../lib/storage';
-import { fmt } from '../lib/format';
 import {
-  IM_Q, IM_RL, IM_DEFAULTS, computeInvestMatch, clampAnswer,
+  IM_Q, IM_RL, computeInvestMatch, clampAnswer, questionLabel, questionPlaceholder,
   type ImAnswers, type ImNumQuestion,
 } from '../lib/investmatch';
+import { useCurrency } from '../CurrencyContext';
+import { useMarket } from '../MarketContext';
+import { MarketNote } from '../ui/MarketNote';
+import type { MarketPack } from '../lib/markets';
 import { track } from '../../lib/analytics';
 
 export default function InvestMatchPage() {
   const { notify } = useToast();
+  const { cfmt, sym } = useCurrency();
+  const { market } = useMarket();
   const [ans, setAns] = useState<ImAnswers>(() => {
     const saved = getJSON<{ a?: Partial<ImAnswers> }>('fx_investmatch', {});
-    return { ...IM_DEFAULTS, ...(saved.a || {}) };
+    return { ...market.invest.defaults, ...(saved.a || {}) };
   });
   const [step, setStep] = useState(0);
   const [numDraft, setNumDraft] = useState('');
@@ -62,9 +67,9 @@ export default function InvestMatchPage() {
   const build = () => {
     const a = commitNum(ans);
     setAns(a);
-    const preview = computeInvestMatch(a);
+    const preview = computeInvestMatch(a, market.invest);
     if (preview.tooLow) {
-      notify('Please enter a monthly investment of at least ₹100.', 'error');
+      notify(`Please enter a monthly investment of at least ${cfmt(100)}.`, 'error');
       return;
     }
     setBuilding(true);
@@ -73,7 +78,7 @@ export default function InvestMatchPage() {
       setShowResult(true);
       // Fired here rather than at `build()` so a submission rejected by the
       // minimum-investment guard above is never counted as a completion.
-      track('tool_completed', { tool: 'investmatch' });
+      track('tool_completed', { tool: 'investmatch', market: market.id });
     }, 500);
   };
 
@@ -85,8 +90,9 @@ export default function InvestMatchPage() {
   if (showResult) {
     return (
       <div className="fx-page">
-        <Head />
-        <InvestResult ans={ans} onReset={reset} />
+        <Head market={market} />
+        <InvestResult ans={ans} market={market} money={cfmt} onReset={reset} />
+        <MarketNote market={market} />
         <ToolFoot>Projections use historical averages · Built with care by <b>FinatriX</b> · Not financial advice</ToolFoot>
       </div>
     );
@@ -94,7 +100,7 @@ export default function InvestMatchPage() {
 
   return (
     <div className="fx-page">
-      <Head />
+      <Head market={market} />
       <div>
         <div className="steps">
           {IM_Q.map((_, i) => (
@@ -109,7 +115,7 @@ export default function InvestMatchPage() {
               wire it up rather than leaving the input, or the set of option
               buttons, unnamed. One id serves both branches. */}
           <div id="im-question" style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-.01em', marginBottom: 18 }}>
-            {q.t}
+            {questionLabel(q, sym)}
           </div>
           {q.type === 'num' ? (
             <>
@@ -118,7 +124,7 @@ export default function InvestMatchPage() {
                 type="number" step="any"
                 id="im-input"
                 value={numDraft}
-                placeholder={q.ph}
+                placeholder={questionPlaceholder(q as ImNumQuestion, market.invest.defaults)}
                 min={q.min}
                 max={q.max}
                 inputMode="decimal"
@@ -161,34 +167,37 @@ export default function InvestMatchPage() {
           )}
         </div>
       </div>
+      <MarketNote market={market} />
       <ToolFoot>Projections use historical averages · Built with care by <b>FinatriX</b> · Not financial advice</ToolFoot>
     </div>
   );
 }
 
-function Head() {
+function Head({ market }: { market: MarketPack }) {
   return (
     <PageHead chip="InvestMatch" chipColor="var(--green)" chipBg="rgba(29,125,70,.09)" icon="invest" title="A portfolio shaped to you.">
-      Six quick questions. One personalised allocation across Indian instruments — with horizon-aware
-      risk control most tools skip.
+      Six quick questions. One personalised allocation across instruments available in {market.name} —
+      with horizon-aware risk control most tools skip.
     </PageHead>
   );
 }
 
-function InvestResult({ ans, onReset }: { ans: ImAnswers; onReset: () => void }) {
-  const r = computeInvestMatch(ans);
+function InvestResult({ ans, market, money, onReset }: {
+  ans: ImAnswers; market: MarketPack; money: (n: number) => string; onReset: () => void;
+}) {
+  const r = computeInvestMatch(ans, market.invest);
   return (
     <div>
       <div className="result-hero-anim" style={{ textAlign: 'center', margin: '8px 0 22px' }}>
         <div style={{ fontSize: 13, color: 'var(--ink2)' }}>Your {IM_RL[r.effRisk]} portfolio could grow to</div>
-        <div className="big-num" style={{ color: 'var(--green)' }}>{fmt(r.fv)}</div>
-        <div className="note">in {r.years} years at ~{Math.round(r.rate * 100)}% p.a. · worth {fmt(r.realFv)} in today's money</div>
+        <div className="big-num" style={{ color: 'var(--green)' }}>{money(r.fv)}</div>
+        <div className="note">in {r.years} years at ~{Math.round(r.rate * 100)}% p.a. · worth {money(r.realFv)} in today's money</div>
       </div>
 
       <div className="card">
         <div className="grid3" style={{ textAlign: 'center' }}>
-          <div><div style={{ fontSize: 19, fontWeight: 700, color: 'var(--blue)' }}>{fmt(r.invested)}</div><div className="note">You invest</div></div>
-          <div><div style={{ fontSize: 19, fontWeight: 700, color: 'var(--green)' }}>{fmt(r.gains)}</div><div className="note">You gain</div></div>
+          <div><div style={{ fontSize: 19, fontWeight: 700, color: 'var(--blue)' }}>{money(r.invested)}</div><div className="note">You invest</div></div>
+          <div><div style={{ fontSize: 19, fontWeight: 700, color: 'var(--green)' }}>{money(r.gains)}</div><div className="note">You gain</div></div>
           <div><div style={{ fontSize: 19, fontWeight: 700, color: 'var(--gold)' }}>{r.growthPct}%</div><div className="note">Total growth</div></div>
         </div>
       </div>
@@ -203,7 +212,7 @@ function InvestResult({ ans, onReset }: { ans: ImAnswers; onReset: () => void })
             <div style={{ width: 10, height: 10, borderRadius: '50%', background: a.c, flexShrink: 0 }} />
             <div style={{ flex: 1, fontSize: 14 }}>{a.n}</div>
             <div style={{ fontSize: 14, fontWeight: 700, color: a.c }}>{a.p}%</div>
-            <div style={{ fontSize: 12, color: 'var(--ink2)', minWidth: 80, textAlign: 'right' }}>{fmt((ans.monthly * a.p) / 100)}/mo</div>
+            <div style={{ fontSize: 12, color: 'var(--ink2)', minWidth: 80, textAlign: 'right' }}>{money((ans.monthly * a.p) / 100)}/mo</div>
           </div>
         ))}
       </div>
@@ -218,7 +227,7 @@ function InvestResult({ ans, onReset }: { ans: ImAnswers; onReset: () => void })
       <div className="card" style={{ background: 'var(--gold-bg)' }}>
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Summary</div>
         <div className="note" style={{ lineHeight: 2 }}>
-          Monthly SIP: <b style={{ color: 'var(--ink)' }}>{fmt(ans.monthly)}</b> · Risk:{' '}
+          {market.invest.monthlyTerm}: <b style={{ color: 'var(--ink)' }}>{money(ans.monthly)}</b> · Risk:{' '}
           <b style={{ color: 'var(--ink)' }}>{IM_RL[r.effRisk]}</b> · Horizon:{' '}
           <b style={{ color: 'var(--ink)' }}>{r.years} years</b> · Expected CAGR:{' '}
           <b style={{ color: 'var(--ink)' }}>~{Math.round(r.rate * 100)}%</b>

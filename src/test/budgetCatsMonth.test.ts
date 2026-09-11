@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, afterAll, beforeEach, vi } from 'vitest';
 import {
   cloneEntry, isMonthCustomised, loadArrangement, loadCatViewFor, loadMonthCatStore,
   resolveMonthEntry, saveArrangement, saveMonthCatStore, sourceMonthFor,
@@ -18,7 +18,24 @@ import { currentMonth } from '../tools/lib/month';
  *
  * Everything below is that rule, and the three cases it has to get right at
  * once: past months frozen, new months not empty, existing accounts unmoved.
+ *
+ * THE CLOCK IS PINNED, AND HAS TO BE
+ * ----------------------------------
+ * `saveArrangement` also writes the account template when the month being saved
+ * is the CURRENT month and is the only customised one — the rule that keeps an
+ * account which never leaves "this month" behaving exactly as it did before
+ * per-month arrangements existed. So a fixture month that happens to equal the
+ * real current month takes a different code path from the one the test is
+ * about. This file's months are hard-coded, so in September 2026 the
+ * inheritance test below silently started asserting the template-sync path
+ * instead, and failed.
+ *
+ * Pinned at the TOP LEVEL rather than in `beforeEach`, because the module graph
+ * reads the date at import time.
  */
+vi.useFakeTimers({ shouldAdvanceTime: true });
+vi.setSystemTime(new Date(2026, 0, 15, 12, 0, 0)); // 15 Jan 2026 — before every fixture month
+afterAll(() => vi.useRealTimers());
 
 const entry = (labels: string[], archived: string[] = []): MonthCatEntry => ({
   cats: {

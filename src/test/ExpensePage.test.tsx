@@ -14,6 +14,24 @@ function renderPage() {
   );
 }
 
+/**
+ * Log one spend through the page's only structured route.
+ *
+ * The Overview tab used to carry its own inline form; it now carries the
+ * one-line quick-add plus a button onto the same sheet the transaction list
+ * opens, so there is a single place to answer each question.
+ */
+function openAddSheet(): HTMLElement {
+  fireEvent.click(screen.getByRole('button', { name: 'Add an expense' }));
+  return screen.getByRole('dialog');
+}
+
+function addSpend(amount: string) {
+  const dialog = openAddSheet();
+  fireEvent.change(within(dialog).getByLabelText(/^Amount/), { target: { value: amount } });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Add transaction' }));
+}
+
 describe('ExpensePage (React) — dashboard wiring', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -33,10 +51,10 @@ describe('ExpensePage (React) — dashboard wiring', () => {
 
   it('logs an expense that flows into Monthly spent and Top categories', () => {
     renderPage();
-    fireEvent.change(screen.getByLabelText(/^Amount/), { target: { value: '500' } });
-    fireEvent.click(screen.getByText('Add expense'));
+    addSpend('500');
 
-    // Default category is the first budget category (Rent). Spent rolls up.
+    // Default category is the most-used one, and with an empty ledger that is
+    // the first budget category (Rent). Spent rolls up.
     const top = screen.getByText('Top spending categories').closest('.card') as HTMLElement;
     expect(within(top).getByText('Rent')).toBeInTheDocument();
     // The transactions list shows it too.
@@ -53,13 +71,14 @@ describe('ExpensePage (React) — dashboard wiring', () => {
     renderPage();
     const before = localStorage.getItem('fx_expenses');
 
-    fireEvent.click(screen.getByText('Add expense'));
+    const dialog = openAddSheet();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Add transaction' }));
 
     const alert = screen.getByRole('alert');
     expect(alert).toHaveTextContent(/enter an amount/i);
 
     // The field is marked invalid, points at the message, and takes focus back.
-    const amount = screen.getByLabelText(/^Amount/);
+    const amount = within(dialog).getByLabelText(/^Amount/);
     expect(amount).toHaveAttribute('aria-invalid', 'true');
     expect(amount).toHaveAccessibleDescription(/enter an amount/i);
     expect(amount).toHaveFocus();
@@ -70,24 +89,24 @@ describe('ExpensePage (React) — dashboard wiring', () => {
 
   it('clears the rejection as soon as the amount is corrected, then saves', () => {
     renderPage();
-    fireEvent.click(screen.getByText('Add expense'));
+    const dialog = openAddSheet();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Add transaction' }));
     expect(screen.getByRole('alert')).toBeInTheDocument();
 
-    const amount = screen.getByLabelText(/^Amount/);
+    const amount = within(dialog).getByLabelText(/^Amount/);
     fireEvent.change(amount, { target: { value: '250' } });
     expect(screen.queryByRole('alert')).toBeNull();
     expect(amount).toHaveAttribute('aria-invalid', 'false');
 
-    fireEvent.click(screen.getByText('Add expense'));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Add transaction' }));
     const txList = screen.getByText('Transactions').closest('.card') as HTMLElement;
     expect(within(txList).getAllByText('₹250').length).toBeGreaterThan(0);
   });
 
   it('rejects a zero amount — it says nothing and still occupies the ledger', () => {
     renderPage();
-    fireEvent.change(screen.getByLabelText(/^Amount/), { target: { value: '0' } });
-    fireEvent.click(screen.getByText('Add expense'));
-    expect(screen.getByRole('alert')).toHaveTextContent(/enter an amount/i);
+    addSpend('0');
+    expect(screen.getByRole('alert')).toHaveTextContent(/amount other than 0/i);
     expect(localStorage.getItem('fx_expenses')).toBeNull();
   });
 
@@ -99,8 +118,7 @@ describe('ExpensePage (React) — dashboard wiring', () => {
    */
   it('accepts a negative amount so a refund can be logged against its category', () => {
     renderPage();
-    fireEvent.change(screen.getByLabelText(/^Amount/), { target: { value: '-500' } });
-    fireEvent.click(screen.getByText('Add expense'));
+    addSpend('-500');
 
     expect(screen.queryByRole('alert')).toBeNull();
     const saved = JSON.parse(localStorage.getItem('fx_expenses') ?? '[]');
@@ -110,15 +128,8 @@ describe('ExpensePage (React) — dashboard wiring', () => {
 
   it('nets a refund against an earlier spend in the same category', () => {
     renderPage();
-    const amount = screen.getByLabelText(/^Amount/);
-    // The submit button relabels to "Added ✓" for a moment after each save, so
-    // it is addressed by role rather than by its current text.
-    const submit = () => fireEvent.click(screen.getByRole('button', { name: /add expense|added/i }));
-
-    fireEvent.change(amount, { target: { value: '1200' } });
-    submit();
-    fireEvent.change(amount, { target: { value: '-200' } });
-    submit();
+    addSpend('1200');
+    addSpend('-200');
 
     const saved = JSON.parse(localStorage.getItem('fx_expenses') ?? '[]');
     expect(saved.map((e: { amount: number }) => e.amount).sort((a: number, b: number) => a - b))
@@ -141,9 +152,8 @@ describe('ExpensePage (React) — dashboard wiring', () => {
 
   it('edits a transaction in place without creating a duplicate', () => {
     renderPage();
-    // Quick-add a Rent expense of 500 (Rent is the default first category).
-    fireEvent.change(screen.getByLabelText(/^Amount \(₹\)$/), { target: { value: '500' } });
-    fireEvent.click(screen.getByText('Add expense'));
+    // A Rent expense of 500 (Rent is the default first category).
+    addSpend('500');
 
     const txCard = screen.getByText('Transactions').closest('.card') as HTMLElement;
     expect(within(txCard).getByText('1 in ' + new Date().toLocaleString('en', { month: 'long', year: 'numeric' }))).toBeTruthy();
@@ -165,8 +175,7 @@ describe('ExpensePage (React) — dashboard wiring', () => {
 
   it('deletes a transaction (after its exit animation) and can undo it', async () => {
     renderPage();
-    fireEvent.change(screen.getByLabelText(/^Amount \(₹\)$/), { target: { value: '500' } });
-    fireEvent.click(screen.getByText('Add expense'));
+    addSpend('500');
 
     const txCard = screen.getByText('Transactions').closest('.card') as HTMLElement;
     fireEvent.click(within(txCard).getByLabelText('Delete Rent'));
@@ -311,8 +320,7 @@ describe('ExpensePage (React) — dashboard wiring', () => {
 
   it('confirms deletion from the edit modal, deletes, and restores via undo', () => {
     renderPage();
-    fireEvent.change(screen.getByLabelText(/^Amount \(₹\)$/), { target: { value: '500' } });
-    fireEvent.click(screen.getByText('Add expense'));
+    addSpend('500');
 
     const txCard = screen.getByText('Transactions').closest('.card') as HTMLElement;
     fireEvent.click(within(txCard).getByLabelText('Edit Rent'));
@@ -343,8 +351,7 @@ describe('ExpensePage (React) — dashboard wiring', () => {
 
   it('closes the edit modal on Escape', () => {
     renderPage();
-    fireEvent.change(screen.getByLabelText(/^Amount \(₹\)$/), { target: { value: '500' } });
-    fireEvent.click(screen.getByText('Add expense'));
+    addSpend('500');
     const txCard = screen.getByText('Transactions').closest('.card') as HTMLElement;
     fireEvent.click(within(txCard).getByLabelText('Edit Rent'));
     expect(screen.getByRole('dialog')).toBeInTheDocument();

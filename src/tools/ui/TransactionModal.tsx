@@ -26,6 +26,14 @@ interface Props {
   defaultCat: string;
   /** Most-used category keys (ordered) for the one-tap "Recent" shortcut. */
   recentCats?: string[];
+  /**
+   * Today, `YYYY-MM-DD`. Anything after it is scheduled rather than spent, and
+   * the date field says so — the one thing the page's old inline form had that
+   * this sheet did not.
+   */
+  todayKey?: string;
+  /** Last date a spend may be scheduled for — the month nav's own horizon. */
+  scheduleLimit?: string;
   onSave: (item: ExpenseItem) => void;
   onClose: () => void;
   onDelete?: (id: string) => void;
@@ -82,12 +90,14 @@ const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:n
  * draft is initialised once from props — no state-sync effect required.
  */
 export default function TransactionModal({
-  editing, cats, sym, defaultCat, recentCats = [], onSave, onClose, onDelete, onDuplicate,
-  history = [], cfmt,
+  editing, cats, sym, defaultCat, recentCats = [], todayKey, scheduleLimit,
+  onSave, onClose, onDelete, onDuplicate, history = [], cfmt,
 }: Props) {
   const isEdit = !!editing;
   const [draft, setDraft] = useState<Draft>(() => (editing ? draftFromItem(editing) : emptyDraft(defaultCat)));
   const [errors, setErrors] = useState<{ amount?: string; category?: string; date?: string }>({});
+  /** A date the user has pushed forward: a plan, not a record. */
+  const scheduled = !!todayKey && draft.date > todayKey;
   const [submitted, setSubmitted] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
 
@@ -346,11 +356,22 @@ export default function TransactionModal({
                 id="tx-date"
                 type="date"
                 value={draft.date}
+                max={scheduleLimit}
                 onChange={(e) => set('date', e.target.value)}
                 aria-invalid={!!err('date')}
-                aria-describedby={err('date') ? 'tx-date-err' : undefined}
+                aria-describedby={
+                  err('date') ? 'tx-date-err' : scheduled ? 'tx-date-hint' : undefined
+                }
               />
               {err('date') && <div className="fx-tx-err" id="tx-date-err" role="alert">{errors.date}</div>}
+              {/* Only once the date actually IS in the future, so it reads as
+                  confirmation of what just happened rather than as instructions
+                  for a field most people fill in once. */}
+              {!err('date') && scheduled && (
+                <p id="tx-date-hint" className="note" style={{ marginTop: 5 }}>
+                  Scheduled — it will be waiting on that date, not counted as spent today.
+                </p>
+              )}
             </div>
           </div>
 

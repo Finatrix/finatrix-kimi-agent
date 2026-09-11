@@ -32,7 +32,7 @@ import {
 } from '../lib/expenseAudit';
 import AuditTrail from '../ui/AuditTrail';
 import { QuickAddBar } from '../ui/QuickAddBar';
-import type { QuickAddResult } from '../lib/quickAdd';
+import { learnCategoryWords, type QuickAddResult } from '../lib/quickAdd';
 import { computeCommitments } from '../lib/commitments';
 import { ymdLocal } from '../../lib/date';
 import { haptic } from '../../lib/haptics';
@@ -41,10 +41,8 @@ import { loadCatViewFor } from '../lib/budgetCatsMonth';
 import { budgetFillPct, budgetTone, TONE_COLOR, TONE_FILL, TONE_LABEL } from '../lib/budgetStatus';
 import { SECTION_COLOR, SECTION_FILL } from '../lib/sectionColors';
 import { useOptionalToast } from '../ui/Toast';
-import { AmountInput } from '../ui/AmountInput';
 import { AskAiButton } from '../ui/AskAiButton';
 import { BudgetTimeline } from '../ui/BudgetTimeline';
-import { evaluateFormula } from '../lib/formula';
 import TransactionModal from '../ui/TransactionModal';
 import TransactionList, { type ExportKind, type TransactionListHandle } from '../ui/TransactionList';
 import { Tabs, type TabItem } from '../ui/Tabs';
@@ -52,7 +50,7 @@ import {
   computeMonthlyTrend, computeCategoryComparison, computePaymentBreakdown,
   computeDailyHeatmap, detectRecurring, computeStreaks, generateInsights,
   computeAnalyticsSummary, computeMonthForecast, frequentCategoryKeys,
-  type CatMeta, type MonthlyTrend, type SpendingInsight,
+  type CatMeta, type MonthForecast, type MonthlyTrend, type SpendingInsight,
 } from '../lib/expenseAnalytics';
 import { track } from '../../lib/analytics';
 import { WalletDock } from '../ui/WalletDock';
@@ -141,21 +139,6 @@ export default function ExpensePage() {
   const flatCats = useMemo(() => allCategories(cats), [cats]);
   /** Live category keys — the reconciliation and the score resolve through these. */
   const validKeys = useMemo(() => new Set(flatCats.map((c) => c.k)), [flatCats]);
-  const [sel, setSel] = useState<string>(() => flatCats[0]?.k ?? '');
-  const [amount, setAmount] = useState('');
-  const [date, setDate] = useState(etToday());
-  const [note, setNote] = useState('');
-  const [justAdded, setJustAdded] = useState(false);
-  const [addError, setAddError] = useState<string | null>(null);
-  const amountRef = useRef<HTMLInputElement>(null);
-  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  /** Typing clears the rejection, so the error never outlives the problem. */
-  const changeAmount = (v: string) => {
-    setAmount(v);
-    if (addError) setAddError(null);
-  };
-
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<ExpenseItem | null>(null);
   // Multi-level undo: every deletion pushes its victims (not an array
@@ -168,8 +151,6 @@ export default function ExpensePage() {
   /** Bumped on every delete/undo to restart the countdown bar. */
   const [armToken, setArmToken] = useState(0);
 
-  const selKey = flatCats.some((c) => c.k === sel) ? sel : (flatCats[0]?.k ?? '');
-
   const catMeta = useMemo(() => {
     const m = new Map<string, CatMeta>();
     flatCats.forEach((c) => m.set(c.k, c));
@@ -180,6 +161,30 @@ export default function ExpensePage() {
   const recentCatKeys = useMemo(
     () => frequentCategoryKeys(items, new Set(flatCats.map((c) => c.k)), 5),
     [items, flatCats]
+  );
+
+  /**
+   * The category a fresh entry starts on — the one this user logs most, with
+   * the first category as the fallback for a ledger with no history yet.
+   *
+   * This used to be a selection held on the page, driven by a 23-tile grid that
+   * sat below the quick-add line. The grid is gone (the full sheet owns that
+   * job now), and "whatever happens to be first" is a worse default than "what
+   * you always pick" for both the sheet and an unrecognised quick-add line.
+   */
+  const defaultCatKey = recentCatKeys[0] ?? flatCats[0]?.k ?? '';
+
+  /**
+   * What the ledger has already taught the quick-add line.
+   *
+   * Derived from the whole ledger rather than the month on screen: a merchant
+   * filed once in March is still the best evidence for the same merchant typed
+   * in September, and scoping it to a month would make the field forget things
+   * for no reason the user could see.
+   */
+  const learnedWords = useMemo(
+    () => learnCategoryWords(items, validKeys),
+    [items, validKeys]
   );
 
   useEffect(() => {
@@ -206,9 +211,13 @@ export default function ExpensePage() {
     },
     [budgetStore, flatCats],
   );
+  /** Each month's plan per category — the timeline paces bills from it. */
+  const budgetValsOf = useCallback(
+    (m: string): Record<string, number> => budgetStore[m]?.vals ?? {},
+    [budgetStore],
+  );
 
   useEffect(() => () => {
-    if (flashTimer.current) clearTimeout(flashTimer.current);
     if (undoTimer.current) clearTimeout(undoTimer.current);
   }, []);
 
@@ -314,57 +323,6 @@ export default function ExpensePage() {
   };
 
   /**
-   * Submitting with no amount used to return silently — no message, no focus
-   * move, nothing announced — so the form looked broken. Every rejected
-   * submission now names the reason, marks the field invalid and sends focus
-   * back to it (the same contract TransactionModal already honoured).
-   */
-  const addExpense = () => {
-    // The field accepts arithmetic, so the amount is parsed rather than cast.
-    // A rejected formula names its own reason ("Check the brackets…") instead of
-    // silently becoming 0 and reporting "enter an amount greater than 0".
-    const parsed = evaluateFormula(amount);
-    // Sign is preserved: a negative amount records a refund against the
-    // category it reverses, so that category's total nets out correctly. Zero
-    // is still rejected — it says nothing and still occupies the ledger.
-    const amt = parsed.ok ? parsed.value : 0;
-    if (!selKey) {
-      setAddError('Add a category in Budget Builder before logging a spend.');
-      return;
-    }
-    if (!parsed.ok && amount.trim()) {
-      setAddError(parsed.error);
-      haptic('warn');
-      amountRef.current?.focus();
-      return;
-    }
-    if (!amt) {
-      setAddError('Enter an amount. Use a minus sign for a refund.');
-      haptic('warn');
-      amountRef.current?.focus();
-      return;
-    }
-    setAddError(null);
-    const d = date || etToday();
-    const nowIso = new Date().toISOString();
-    const item: ExpenseItem = { id: genExpenseId(), amount: amt, category: selKey, date: d, createdAt: nowIso, updatedAt: nowIso };
-    if (note.trim()) item.note = note.trim();
-    commit([item, ...items], [auditEvent('add', item)]);
-    haptic('success');
-    // A logged spend IS the completion for a tracker — there is no result
-    // screen to reach, so counting result views would score this tool zero
-    // forever.
-    track('tool_completed', { tool: 'expenses' });
-    setAmount('');
-    setNote('');
-    const expenseMonth = d.slice(0, 7);
-    if (expenseMonth !== selMonth) switchMonth(expenseMonth);
-    setJustAdded(true);
-    if (flashTimer.current) clearTimeout(flashTimer.current);
-    flashTimer.current = setTimeout(() => setJustAdded(false), 1200);
-  };
-
-  /**
    * Commit a parsed quick-add line.
    *
    * Goes through the same `commit` path and records the same `add` event as
@@ -373,9 +331,9 @@ export default function ExpensePage() {
    * usable category, which is the one condition the parser cannot fix.
    */
   const addFromQuickAdd = (parsed: QuickAddResult): boolean => {
-    const category = parsed.category || selKey;
+    const category = parsed.category || defaultCatKey;
     if (!category) {
-      setAddError('Add a category in Budget Builder before logging a spend.');
+      notify('Add a category in Budget Builder before logging a spend.', 'error');
       haptic('warn');
       return false;
     }
@@ -878,12 +836,9 @@ export default function ExpensePage() {
         {tab === 'overview' && (
           <OverviewTab
             r={r} items={items} monthTx={monthTx} selMonth={selMonth} flatCats={flatCats}
-            selKey={selKey} sel={sel} setSel={setSel} amount={amount} setAmount={changeAmount}
-            recentCatKeys={recentCatKeys}
-            addError={addError} amountRef={amountRef}
-            date={date} setDate={setDate} note={note} setNote={setNote} justAdded={justAdded}
-            cfmt={cfmt} sym={sym} now={now} catMeta={catMeta}
-            addExpense={addExpense} addFromQuickAdd={addFromQuickAdd} quickSeed={quickSeed}
+            defaultCatKey={defaultCatKey} learnedWords={learnedWords}
+            cfmt={cfmt} now={now} catMeta={catMeta}
+            addFromQuickAdd={addFromQuickAdd} quickSeed={quickSeed}
             openAdd={openAdd} openEdit={openEdit}
             duplicateTransaction={duplicateTransaction} deleteTransaction={deleteTransaction}
             bulkDelete={bulkDelete} bulkDuplicate={bulkDuplicate} bulkCategory={bulkCategory}
@@ -895,7 +850,6 @@ export default function ExpensePage() {
             score={monthScore}
             validKeys={validKeys}
             todayKey={todayKey}
-            scheduleLimit={scheduleLimit}
             onGoToMonth={switchMonth}
           />
         )}
@@ -904,7 +858,9 @@ export default function ExpensePage() {
             items={items} selMonth={selMonth} catMeta={catMeta}
             cfmt={cfmt} code={code} theme={theme} now={now}
             spendableBudget={r.spendableBudget}
+            budgetVals={budget.vals}
             budgetTotalOf={budgetTotalOf}
+            budgetValsOf={budgetValsOf}
             onStartLogging={startLogging}
           />
         )}
@@ -935,8 +891,10 @@ export default function ExpensePage() {
           editing={editing}
           cats={flatCats}
           sym={sym}
-          defaultCat={selKey}
+          defaultCat={defaultCatKey}
           recentCats={recentCatKeys}
+          todayKey={todayKey}
+          scheduleLimit={scheduleLimit}
           history={editing ? historyFor(audit, editing.id) : []}
           cfmt={cfmt}
           onSave={saveTransaction}
@@ -993,18 +951,12 @@ export default function ExpensePage() {
 interface OverviewProps {
   r: DashResult; items: ExpenseItem[]; monthTx: ExpenseItem[]; selMonth: string;
   flatCats: Array<{ k: string; l: string; ic: IconName; section: CatKey }>;
-  selKey: string; sel: string; setSel: (k: string) => void;
-  recentCatKeys: string[];
-  amount: string; setAmount: (v: string) => void;
-  /** Why the last submission was rejected — null when the form is clean. */
-  addError: string | null;
-  amountRef: RefObject<HTMLInputElement | null>;
-  date: string; setDate: (v: string) => void;
-  note: string; setNote: (v: string) => void;
-  justAdded: boolean;
-  cfmt: (n: number) => string; sym: string; now: Date;
+  /** The category a fresh entry starts on — the one this user logs most. */
+  defaultCatKey: string;
+  /** Words the ledger has taught the quick-add line. See `learnCategoryWords`. */
+  learnedWords: ReadonlyMap<string, string>;
+  cfmt: (n: number) => string; now: Date;
   catMeta: Map<string, CatMeta>;
-  addExpense: () => void;
   /** Commit a parsed one-line entry. False when it could not be logged. */
   addFromQuickAdd: (parsed: QuickAddResult) => boolean;
   /** A line handed over by the ⌘K palette, to be typed into the quick-add field. */
@@ -1028,19 +980,16 @@ interface OverviewProps {
   validKeys: ReadonlySet<string>;
   /** Today, `YYYY-MM-DD`. Anything after it is scheduled rather than spent. */
   todayKey: string;
-  /** Last date a spend may be scheduled for — the same horizon the month nav reaches. */
-  scheduleLimit: string;
   /** Open a month from a scheduled row. */
   onGoToMonth: (month: string) => void;
 }
 
 function OverviewTab({
-  r, items, monthTx, selMonth, flatCats, selKey, setSel, recentCatKeys,
-  amount, setAmount, addError, amountRef, date, setDate, note, setNote, justAdded,
-  cfmt, sym, now, catMeta,
-  addExpense, addFromQuickAdd, quickSeed, openAdd, openEdit, duplicateTransaction, deleteTransaction,
+  r, items, monthTx, selMonth, flatCats, defaultCatKey, learnedWords,
+  cfmt, now, catMeta,
+  addFromQuickAdd, quickSeed, openAdd, openEdit, duplicateTransaction, deleteTransaction,
   bulkDelete, bulkDuplicate, bulkCategory, bulkAddTags, exportTransactions,
-  code, listApi, panels, onFlipPanel, score, validKeys, todayKey, scheduleLimit, onGoToMonth,
+  code, listApi, panels, onFlipPanel, score, validKeys, todayKey, onGoToMonth,
 }: OverviewProps) {
   const insights = useMemo(
     // `spendableBudget`, never `monthlyBudget`: the pace insight compares it
@@ -1054,12 +1003,6 @@ function OverviewTab({
 
   /** A month that has not started. Every figure in it is a plan, not a record. */
   const isFutureMonth = selMonth > todayKey.slice(0, 7);
-
-  // Resolve the frequent-category keys to real categories for the quick-pick.
-  const recentInline = useMemo(() => {
-    const byKey = new Map(flatCats.map((c) => [c.k, c]));
-    return recentCatKeys.map((k) => byKey.get(k)).filter((c): c is typeof flatCats[number] => !!c);
-  }, [flatCats, recentCatKeys]);
 
   return (
     <>
@@ -1275,117 +1218,43 @@ function OverviewTab({
         <TrendChart trend={r.trend} cfmt={cfmt} code={code} />
       </PanelCard>
 
-      {/* Add expense — a real form, so Enter submits and the browser exposes
-          the field/validation relationships to assistive tech. */}
+      {/* Add expense — one line for the common case, one button for everything
+          else.
+
+          This card used to carry the one-line field AND a full structured form
+          (amount, date, a 23-tile category grid, note, submit) — while the
+          transaction list below it opened `TransactionModal`, a *richer* form
+          with merchant, payment method, tags, notes and recurring. Two forms
+          for one job: the shorter one was the one that could not express a
+          whole transaction, and it cost roughly 700px of scroll to reach the
+          list it duplicated. So the structured form is now the sheet, reached
+          from here and from the list's own Add button, and there is exactly one
+          place to answer each question. */}
       <div className="card">
         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>Add an expense</div>
 
-        {/* The one-line route, above the structured one. Fills the same fields
-            through the same commit path — see QuickAddBar. */}
-        {flatCats.length > 0 && (
-          <QuickAddBar
-            cats={flatCats}
-            cfmt={cfmt}
-            now={now}
-            onAdd={addFromQuickAdd}
-            fallbackCategory={selKey}
-            seed={quickSeed ?? undefined}
-          />
-        )}
-
-        <form onSubmit={(e) => { e.preventDefault(); addExpense(); }} noValidate>
-        <div className="grid2">
-          <div className="fg">
-            <label className="fl" htmlFor="et-amount">Amount ({sym})</label>
-            {/* Accepts arithmetic as well as a number — "120/4" is a valid way
-                to say 30, and "=10+5+3" is the spreadsheet form of the same
-                thing. The placeholder is what makes that discoverable.
-                See ui/AmountInput.tsx. */}
-            <AmountInput
-              id="et-amount"
-              inputRef={amountRef}
-              sym={sym}
-              placeholder="0  or  =10+5+3"
-              required
-              invalid={!!addError}
-              errorId={addError ? 'et-add-err' : undefined}
-              value={amount}
-              onChange={setAmount}
+        {flatCats.length > 0 ? (
+          <>
+            <QuickAddBar
+              cats={flatCats}
+              learned={learnedWords}
+              cfmt={cfmt}
+              now={now}
+              onAdd={addFromQuickAdd}
+              fallbackCategory={defaultCatKey}
+              seed={quickSeed ?? undefined}
             />
-          </div>
-          <div className="fg">
-            <label className="fl" htmlFor="et-date">Date</label>
-            <input
-              className="fi"
-              type="date"
-              id="et-date"
-              value={date}
-              max={scheduleLimit}
-              aria-describedby="et-date-hint"
-              onChange={(e) => setDate(e.target.value)}
-            />
-            {/* Future dates were always accepted and never advertised, so
-                nobody scheduled anything. The hint appears only once the date
-                actually is in the future, so it reads as confirmation rather
-                than as instructions for a field most people fill in once. */}
-            <p id="et-date-hint" className="note" style={{ marginTop: 5 }}>
-              {date > todayKey
-                ? `Scheduled for ${monthLabel(date.slice(0, 7))} — it will be waiting there, not counted as spent today.`
-                : 'Pick a future date to schedule a spend you know is coming.'}
-            </p>
-          </div>
-        </div>
-        <label className="fl">Category (from Budget Builder)</label>
-        {flatCats.length > 6 && recentInline.length >= 2 && (
-          <div style={{ marginBottom: 10 }}>
-            <div className="note" style={{ fontWeight: 700, marginBottom: 6 }}>Recent</div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {recentInline.map((c) => (
-                <button key={`et-recent-${c.k}`} type="button" onClick={() => setSel(c.k)}
-                  aria-pressed={selKey === c.k} aria-label={`${c.l} (recent)`} style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: 160, padding: '7px 12px', borderRadius: 980,
-                    border: `1.5px solid ${selKey === c.k ? 'var(--ink)' : 'var(--hair2)'}`, background: selKey === c.k ? 'var(--hair)' : 'var(--card)',
-                    color: 'var(--ink)', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit', transition: 'all .15s',
-                  }}>
-                  <Icon name={c.ic} size={14} style={{ color: SECTION_COLOR[c.section] }} />
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.l}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(96px, 1fr))', gap: 7, marginBottom: 14 }}>
-          {flatCats.map((c) => (
-            <button key={c.k} type="button" onClick={() => setSel(c.k)} title={SECTION_LABEL[c.section]}
-              aria-pressed={selKey === c.k} aria-label={`${c.l} (${SECTION_LABEL[c.section]})`} style={{
-                padding: '10px 4px', borderRadius: 12, border: `1.5px solid ${selKey === c.k ? 'var(--ink)' : 'var(--hair2)'}`,
-                background: selKey === c.k ? 'var(--hair)' : 'var(--card)', textAlign: 'center', cursor: 'pointer', transition: 'all .15s', fontFamily: 'inherit',
-              }}>
-              <span style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 22, marginBottom: 2 }}>
-                <Icon name={c.ic} size={18} style={{ color: SECTION_COLOR[c.section] }} />
-              </span>
-              <span style={{ fontSize: 10, color: 'var(--ink2)', fontWeight: 600, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.l}</span>
+            <button type="button" className="btn" onClick={openAdd}>
+              Add an expense
             </button>
-          ))}
-        </div>
-        <div className="fg">
-          <label className="fl" htmlFor="et-note">Note (optional)</label>
-          <input className="fi" type="text" id="et-note" placeholder="What was it for?" maxLength={60} value={note} onChange={(e) => setNote(e.target.value)} />
-        </div>
-        {addError && (
-          <div
-            id="et-add-err"
-            role="alert"
-            style={{ color: 'var(--red)', fontSize: 12.5, fontWeight: 600, marginBottom: 10 }}
-          >
-            {addError}
-          </div>
+            <p className="note" style={{ marginTop: 8, marginBottom: 0 }}>
+              Opens the full form — merchant, payment method, tags and notes.
+              A future date schedules the spend instead of counting it today.
+            </p>
+          </>
+        ) : (
+          <div className="note">Add categories in Budget Builder to start tracking.</div>
         )}
-        <button type="submit" className="btn" style={justAdded ? { background: 'var(--green)' } : undefined}>
-          {justAdded ? 'Added ✓' : 'Add expense'}
-        </button>
-        {flatCats.length === 0 && <div className="note" style={{ marginTop: 8 }}>Add categories in Budget Builder to start tracking.</div>}
-        </form>
       </div>
 
       {/* Per-category budget health */}
@@ -1450,23 +1319,37 @@ function OverviewTab({
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function AnalyticsTab({
-  items, selMonth, catMeta, cfmt, code, theme, now, spendableBudget, budgetTotalOf,
-  onStartLogging,
+  items, selMonth, catMeta, cfmt, code, theme, now, spendableBudget, budgetVals, budgetTotalOf,
+  budgetValsOf, onStartLogging,
 }: {
   items: ExpenseItem[]; selMonth: string; catMeta: Map<string, CatMeta>;
   cfmt: (n: number) => string; code: string; theme: string | undefined; now: Date;
   /** The budget meant to be SPENT — savings excluded. See computeMonthForecast. */
   spendableBudget: number;
+  /** This month's plan per category, so a bill still to land is counted once. */
+  budgetVals: Record<string, number>;
   /** Total budget for any month, used by the timeline's 12-month view. */
   budgetTotalOf: (month: string) => number;
+  /** Any month's plan per category, so the timeline can pace bills on their day. */
+  budgetValsOf: (month: string) => Record<string, number>;
   /** Send the user to the place they can actually act — the add form. */
   onStartLogging: () => void;
 }) {
   const forecast = useMemo(
-    // Spendable budget + category sections: the projection is about day-to-day
-    // spending, not about money moved into savings on a fixed day each month.
-    () => computeMonthForecast(items, selMonth, now, spendableBudget, catMeta),
-    [items, selMonth, now, spendableBudget, catMeta]
+    // Spendable budget, category sections and the month's plan: the projection
+    // is about day-to-day spending. Savings are money moved rather than spent,
+    // and a scheduled charge lands once rather than accruing — see
+    // computeMonthForecast for what that fixes.
+    () => computeMonthForecast({
+      items, month: selMonth, now, spendableBudget, catMeta, budgetVals,
+    }),
+    [items, selMonth, now, spendableBudget, catMeta, budgetVals]
+  );
+  // Spending against the spending plan, projected by the forecast above — so
+  // the chart and the card can never give two different month-end figures.
+  const timelineShape = useMemo(
+    () => ({ catMeta, budgetValsOf, forecast }),
+    [catMeta, budgetValsOf, forecast],
   );
   const trend12 = useMemo(
     () => computeMonthlyTrend(items, selMonth, 12, catMeta),
@@ -1498,32 +1381,11 @@ function AnalyticsTab({
         <Kpi v={`${summary.monthsTracked} mo`} l="Months tracked" />
       </div>
 
-      {/* Month-end forecast (current month only) */}
-      {forecast.isCurrentMonth && forecast.spentSoFar > 0 && (
-        <div className="card" style={{ marginBottom: 14 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <Icon name="trending" size={16} style={{ color: forecast.overBudget ? 'var(--red)' : 'var(--gold)' }} />
-            <div style={{ fontSize: 14, fontWeight: 700 }}>Month-end forecast</div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-.02em', color: forecast.overBudget ? 'var(--red)' : 'var(--ink)' }}>{cfmt(forecast.projected)}</span>
-            <span className="note" style={{ fontSize: 12 }}>
-              projected · {cfmt(forecast.spentSoFar)} spent over {forecast.daysElapsed} of {forecast.daysInMonth} days
-            </span>
-          </div>
-          {forecast.vsBudgetPct != null && (
-            <div style={{ marginTop: 12 }}>
-              <div className="bar" style={{ height: 7 }}>
-                <div className="bar-fill" style={{ width: `${Math.min(100, forecast.vsBudgetPct)}%`, background: forecast.overBudget ? 'var(--red)' : 'var(--green)' }} />
-              </div>
-              <div className="note" style={{ fontSize: 11.5, marginTop: 6 }}>
-                {forecast.overBudget
-                  ? `On track to exceed your spending budget by ${cfmt(forecast.projected - spendableBudget)} (${forecast.vsBudgetPct}%). Savings are excluded — easing the daily pace keeps you within plan.`
-                  : `Projected to use ${forecast.vsBudgetPct}% of your ${cfmt(spendableBudget)} spending budget — comfortably on track.`}
-              </div>
-            </div>
-          )}
-        </div>
+      {/* Month-end forecast (current month only). Shown on the 1st before
+          anything is logged when history can already say what a typical month
+          costs — that is exactly when the user is planning the month. */}
+      {forecast.isCurrentMonth && (forecast.spentSoFar > 0 || forecast.basis.historyMonths > 0) && (
+        <MonthForecastCard forecast={forecast} spendableBudget={spendableBudget} cfmt={cfmt} />
       )}
 
       {(summary.topMerchant || summary.topCategory) && (
@@ -1552,6 +1414,7 @@ function AnalyticsTab({
         code={code}
         theme={theme}
         now={now}
+        shape={timelineShape}
       />
 
       {/* 12-month spending trend */}
@@ -1634,6 +1497,115 @@ function AnalyticsTab({
  * `aria-hidden`: an illustration a screen reader announced as figures would be
  * indistinguishable from real data, which is the one thing this must never be.
  */
+/** "Rent", "Rent and Phone", "Rent, Phone and 2 more" — a list a person reads. */
+function listOfLabels(labels: readonly string[]): string {
+  if (labels.length === 1) return labels[0];
+  if (labels.length === 2) return `${labels[0]} and ${labels[1]}`;
+  return `${labels[0]}, ${labels[1]} and ${labels.length - 2} more`;
+}
+
+/**
+ * The month-end forecast, with its working on the card.
+ *
+ * A projection nobody can take apart is a projection nobody believes, and this
+ * one is built from parts that behave completely differently: bills that have
+ * landed, day-to-day spending that accrues, large purchases counted once, and
+ * bills still to come. Only the day-to-day part is carried forward over the days
+ * remaining — listing every part is what makes that claim checkable, and the
+ * parts add up to the headline.
+ */
+function MonthForecastCard({ forecast: f, spendableBudget, cfmt }: {
+  forecast: MonthForecast;
+  spendableBudget: number;
+  cfmt: (n: number) => string;
+}) {
+  const daysLeft = f.daysInMonth - f.daysElapsed;
+  const paced = f.variableSoFar - f.oneOffSoFar - f.datedAhead;
+  const pct = (w: number) => `${Math.round(w * 100)}%`;
+  /** What day-to-day spending can run at from tomorrow and still land on budget. */
+  const onBudgetPace = daysLeft > 0
+    ? (spendableBudget - f.spentSoFar - f.fixedStillDue) / daysLeft
+    : null;
+
+  return (
+    <div className="card" style={{ marginBottom: 14 }}>
+      <style>{FORECAST_STYLES}</style>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <Icon name="trending" size={16} style={{ color: f.overBudget ? 'var(--red)' : 'var(--gold)' }} />
+        <div style={{ fontSize: 14, fontWeight: 700 }}>Month-end forecast</div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-.02em', color: f.overBudget ? 'var(--red)' : 'var(--ink)' }}>{cfmt(f.projected)}</span>
+        <span className="note" style={{ fontSize: 12 }}>
+          projected · {cfmt(f.spentSoFar)} spent over {f.daysElapsed} of {f.daysInMonth} days
+        </span>
+      </div>
+      {f.range && (
+        <p className="note fx-fc-range">
+          Likely between <b>{cfmt(f.range.low)}</b> and <b>{cfmt(f.range.high)}</b> — how far
+          this forecast was off on the same day of your last {f.range.monthsTested} months.
+        </p>
+      )}
+
+      <ul className="fx-fc-parts">
+        {f.fixedSoFar > 0 && (
+          <li><span>Bills already paid</span><b>{cfmt(f.fixedSoFar)}</b></li>
+        )}
+        {paced > 0 && (
+          <li><span>Day-to-day spending so far</span><b>{cfmt(paced)}</b></li>
+        )}
+        {f.oneOffSoFar > 0 && (
+          <li><span>Large one-off purchases, counted once</span><b>{cfmt(f.oneOffSoFar)}</b></li>
+        )}
+        {f.datedAhead > 0 && (
+          <li><span>Already dated later this month</span><b>{cfmt(f.datedAhead)}</b></li>
+        )}
+        {daysLeft > 0 && (
+          <li>
+            <span>Next {daysLeft} {daysLeft === 1 ? 'day' : 'days'}, at {cfmt(Math.round(f.remainingDailyRate))} a day</span>
+            <b>{cfmt(Math.round(f.variableStillExpected))}</b>
+          </li>
+        )}
+        {f.fixedStillDue > 0 && (
+          <li>
+            <span>Bills still to come — {listOfLabels(f.stillDueLabels)}</span>
+            <b>{cfmt(f.fixedStillDue)}</b>
+          </li>
+        )}
+      </ul>
+
+      <p className="note fx-fc-basis">
+        {f.basis.historyMonths > 0 && f.basis.typicalDailyRate != null
+          ? <>Blends this month&rsquo;s pace of {cfmt(Math.round(f.dailyRunRate))} a day with your usual {cfmt(Math.round(f.basis.typicalDailyRate))} from {f.basis.historyMonths} tracked months. This month counts for {pct(f.basis.weightOnThisMonth)} of the days ahead, and more each day.</>
+          : <>Based on this month&rsquo;s pace alone. With two full months logged, the forecast blends in your usual pace, which makes early-month forecasts much steadier.</>}
+      </p>
+
+      {f.vsBudgetPct != null && (
+        <div style={{ marginTop: 12 }}>
+          <div className="bar" style={{ height: 7 }}>
+            <div className="bar-fill" style={{ width: `${Math.min(100, f.vsBudgetPct)}%`, background: f.overBudget ? 'var(--red)' : 'var(--green)' }} />
+          </div>
+          <div className="note" style={{ fontSize: 11.5, marginTop: 6 }}>
+            {f.overBudget
+              ? <>
+                  On track to exceed your spending budget by {cfmt(f.projected - spendableBudget)} ({f.vsBudgetPct}%).
+                  {' '}{onBudgetPace != null && onBudgetPace > 0
+                    ? <>Keeping day-to-day spending to about <b>{cfmt(Math.floor(onBudgetPace))} a day</b> from tomorrow lands you on budget.</>
+                    : <>Bills and spending already logged use up the budget, so the rest of the month is about limiting the overshoot.</>}
+                  {' '}Savings are excluded, and scheduled bills are counted once.
+                </>
+              : f.range && f.range.high > spendableBudget
+                ? `Projected to use ${f.vsBudgetPct}% of your ${cfmt(spendableBudget)} spending budget. The top of the likely range goes over, so there is little room for surprises.`
+                : f.vsBudgetPct >= 90
+                  ? `Projected to use ${f.vsBudgetPct}% of your ${cfmt(spendableBudget)} spending budget — on track, with little to spare.`
+                  : `Projected to use ${f.vsBudgetPct}% of your ${cfmt(spendableBudget)} spending budget — comfortably on track.`}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AnalyticsPreview({ logged, onStart }: { logged: number; onStart: () => void }) {
   const milestones = [
     { at: 1, label: 'Payment methods & daily heatmap', icon: 'pie' as IconName },
@@ -1691,6 +1663,17 @@ function AnalyticsPreview({ logged, onStart }: { logged: number; onStart: () => 
     </div>
   );
 }
+
+const FORECAST_STYLES = `
+.fx-tools .fx-fc-parts{list-style:none;margin:12px 0 0;padding:10px 0 0;border-top:1px solid var(--hair2);
+  display:grid;gap:7px;}
+.fx-tools .fx-fc-parts li{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+  font-size:12px;color:var(--ink2);}
+.fx-tools .fx-fc-parts b{color:var(--ink);font-weight:700;white-space:nowrap;}
+.fx-tools .fx-fc-range{margin:6px 0 0;font-size:12px;line-height:1.5;}
+.fx-tools .fx-fc-range b{color:var(--ink);font-weight:700;white-space:nowrap;}
+.fx-tools .fx-fc-basis{margin:10px 0 0;font-size:11.5px;line-height:1.5;}
+`;
 
 const ANALYTICS_PREVIEW_STYLES = `
 .fx-tools .fx-apv-head{display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;}

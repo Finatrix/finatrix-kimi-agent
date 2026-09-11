@@ -56,7 +56,9 @@ import { isKnownRoute, TOOL_IDS } from '../shared/routes';
 import { sitemapEntries } from '../shared/sitemap';
 import { TOOL_GUIDES } from '../shared/toolGuides';
 import { TOOL_FAQ } from '../shared/toolFaq';
-import { CANONICAL_ORIGIN, seoForPath, structuredDataForPath, INDEXABLE } from '../lib/seo';
+import {
+  CANONICAL_ORIGIN, INDEXABLE, languageForPath, seoForPath, structuredDataForPath,
+} from '../lib/seo';
 
 const SRC = join(__dirname, '..');
 const FOOTER = readFileSync(join(SRC, 'sections', 'LandingFooter.tsx'), 'utf8');
@@ -364,7 +366,13 @@ describe('structured data, on every URL', () => {
       const webpage = graphFor(p).find((n) => String(n['@type']).includes('WebPage'));
       if (webpage) {
         expect(webpage.url, `${p} WebPage url`).toBe(seoForPath(p).canonical);
-        expect(webpage.inLanguage, `${p} inLanguage`).toBe('en-IN');
+        // The language a page declares must match what `languageForPath` says
+        // about it: plain `en` almost everywhere, and `en-IN` only on the
+        // guides whose substance really is Indian law. A site-wide regional tag
+        // told search engines that four markets' worth of calculators, and a
+        // careers library that was never India-specific, were all for one
+        // country.
+        expect(webpage.inLanguage, `${p} inLanguage`).toBe(languageForPath(p).lang);
       }
     }
   });

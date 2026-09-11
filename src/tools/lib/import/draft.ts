@@ -74,6 +74,9 @@ export function buildDrafts(
     if (row.direction === 'credit') issues.push('credit');
     if (row.currency && doc.currency && row.currency !== doc.currency) issues.push('foreign-currency');
     if (row.description.trim().length < MIN_DESCRIPTION_CHARS) issues.push('sparse-description');
+    // A reading, not a file. See the note on the issue itself for why every one
+    // of these is held back regardless of how clean it looks.
+    if (doc.source === 'ocr') issues.push('recognised-text');
 
     const magnitude = row.amount ?? 0;
     const amount = row.direction === 'credit' ? -magnitude : magnitude;
@@ -100,7 +103,7 @@ export function buildDrafts(
     // real date, a real amount, a category, and money going out. Everything else
     // starts off and the user opts it in, which is the safe direction to be
     // wrong in.
-    draft.include = row.direction !== 'credit' && isImportable(draft);
+    draft.include = doc.source !== 'ocr' && row.direction !== 'credit' && isImportable(draft);
     return draft;
   });
 }

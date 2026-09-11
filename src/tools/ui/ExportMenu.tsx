@@ -13,6 +13,7 @@ export function ExportMenu({
   onCsv,
   onXlsx,
   onPdf,
+  onJson,
   label = 'Export',
   /**
    * Which surface the export came from, for analytics. Optional so existing
@@ -24,6 +25,12 @@ export function ExportMenu({
   onCsv: () => void;
   onXlsx: () => void | Promise<void>;
   onPdf: () => void | Promise<void>;
+  /**
+   * Optional fourth format. Careers exports raw JSON alongside the three
+   * spreadsheet/report formats; the finance tools do not, so the row only
+   * renders where a handler is supplied.
+   */
+  onJson?: () => void | Promise<void>;
   label?: string;
   source?: string;
 }) {
@@ -45,7 +52,7 @@ export function ExportMenu({
     };
   }, [open]);
 
-  const run = (kind: 'csv' | 'xlsx' | 'pdf', fn: () => void | Promise<void>) => async () => {
+  const run = (kind: 'csv' | 'xlsx' | 'pdf' | 'json', fn: () => void | Promise<void>) => async () => {
     setOpen(false);
     let ok = true;
     try {
@@ -87,6 +94,7 @@ export function ExportMenu({
           <MenuItem onClick={run('csv', onCsv)}>Download CSV</MenuItem>
           <MenuItem onClick={run('xlsx', onXlsx)}>Download Excel (.xlsx)</MenuItem>
           <MenuItem onClick={run('pdf', onPdf)}>Download PDF</MenuItem>
+          {onJson && <MenuItem onClick={run('json', onJson)}>Download JSON</MenuItem>}
         </div>
       )}
     </div>

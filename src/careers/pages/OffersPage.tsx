@@ -8,6 +8,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
+import { AmountInput } from '../../tools/ui/AmountInput';
+import { evaluateFormula } from '../../tools/lib/formula';
 import { EmptyState, ErrorCard, PageLoading } from '../components/states';
 import { useCareers } from '../context/CareersContext';
 import { analyzeOffer, deleteOffer, listOffers, setOfferStatus, upsertOffer } from '../services/offers';
@@ -18,6 +20,18 @@ import { formatDate, scoreColor } from '../utils/format';
 
 function completeVersions(resumes: ResumeWithVersions[]): { label: string; version: ResumeVersionRow }[] {
   return resumes.flatMap((r) => r.versions.filter((v) => v.status === 'complete' && v.parsed).map((v) => ({ label: `${r.name} · v${v.version_number}`, version: v })));
+}
+
+/**
+ * Parse a money field that may hold arithmetic. Returns null for empty or
+ * unparseable input, matching the previous `x ? Number(x) : null` behaviour
+ * for every plain number.
+ */
+function money(raw: string): number | null {
+  const t = raw.trim();
+  if (!t) return null;
+  const parsed = evaluateFormula(t);
+  return parsed.ok ? parsed.value : null;
 }
 
 const EMPTY_FORM = {
@@ -57,8 +71,10 @@ export default function OffersPage() {
     try {
       await upsertOffer(user.id, {
         ...form,
-        base_salary: form.base_salary ? Number(form.base_salary) : null,
-        bonus: form.bonus ? Number(form.bonus) : null,
+        // evaluateFormula, not Number(): the amount fields accept arithmetic,
+        // and Number('95000*1.1') is NaN. A plain "95000" parses identically.
+        base_salary: money(form.base_salary),
+        bonus: money(form.bonus),
       });
       setForm(EMPTY_FORM);
       await load();
@@ -99,10 +115,22 @@ export default function OffersPage() {
         <div className="grid3" style={{ marginBottom: 10 }}>
           <input className="fi" placeholder="Company *" aria-label="Company (required)" value={form.company_name} onChange={(e) => setForm((f) => ({ ...f, company_name: e.target.value }))} />
           <input className="fi" placeholder="Job title *" aria-label="Job title (required)" value={form.job_title} onChange={(e) => setForm((f) => ({ ...f, job_title: e.target.value }))} />
-          <input className="fi" type="number" placeholder="Base salary / yr" aria-label="Base salary / yr" value={form.base_salary} onChange={(e) => setForm((f) => ({ ...f, base_salary: e.target.value }))} />
+          {/* Money is never `type="number"` (see MoneyField): the browser blanks
+              the field on the first decimal point, so "12.5" could not be
+              typed. AmountInput is text + a decimal keypad, and accepts
+              arithmetic — "95000*1.1" is a normal way to state a counter. */}
+          <AmountInput
+            id="offer-base" className="fi" sym={form.currency || '\u20B9'}
+            placeholder="Base salary / yr" ariaLabel="Base salary / yr"
+            value={form.base_salary} onChange={(v) => setForm((f) => ({ ...f, base_salary: v }))}
+          />
         </div>
         <div className="grid3" style={{ marginBottom: 10 }}>
-          <input className="fi" type="number" placeholder="Bonus" aria-label="Bonus" value={form.bonus} onChange={(e) => setForm((f) => ({ ...f, bonus: e.target.value }))} />
+          <AmountInput
+            id="offer-bonus" className="fi" sym={form.currency || '\u20B9'}
+            placeholder="Bonus" ariaLabel="Bonus"
+            value={form.bonus} onChange={(v) => setForm((f) => ({ ...f, bonus: v }))}
+          />
           <input className="fi" placeholder="Equity" aria-label="Equity" value={form.equity} onChange={(e) => setForm((f) => ({ ...f, equity: e.target.value }))} />
           <input className="fi" placeholder="Currency" aria-label="Currency" value={form.currency} onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))} />
         </div>

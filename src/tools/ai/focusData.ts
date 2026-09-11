@@ -22,7 +22,7 @@
 
 import { sanitizeField, sanitizeProse } from '../../lib/sanitize';
 import { allCategories } from '../lib/budget';
-import { computeDailyHeatmap, type CatMeta } from '../lib/expenseAnalytics';
+import { computeDailyHeatmap, computeMonthForecast, type CatMeta } from '../lib/expenseAnalytics';
 import { computeTimeline } from '../lib/budgetTimeline';
 import { computeDashboard, isSpendingCategory, migrateCategory, type ExpenseItem } from '../lib/expense';
 import { monthLabel, prevMonth } from '../lib/month';
@@ -78,7 +78,7 @@ export function buildFocusDetail(focus: AiFocus, input: SnapshotInput): FocusDet
         summary: sanitizeProse(focus.summary, 400),
         note: focus.scope === 'plan'
           ? 'FinatriX scored this BUDGET on four components: savings commitment (30%), realism against the user\u2019s own spending history (25%), coverage and coherence (25%) and discretionary share (20%). Every input is a ratio, never an amount, so the scale is the same at any income. Explain it from the figures below; never recompute it or offer a different number.'
-          : 'FinatriX scored this MONTH on four components: budget fidelity (35%), savings rate (25%), discretionary restraint measured on wants only (20%) and momentum against the previous month (20%). Every input is a ratio, never an amount. Explain it from the figures below; never recompute it or offer a different number.',
+          : 'FinatriX scored this MONTH on four components: budget fidelity against this month\u2019s own plan (45%), savings rate (25%), discretionary restraint measured on wants only (20%) and plan realism — whether the budget matches what those categories usually cost (10%). Every input is a ratio, never an amount. A scheduled charge such as rent is paced by its due date rather than spread across the month, and one that is neither paid nor yet due is left out entirely. Explain it from the figures below; never recompute it or offer a different number.',
       };
     case 'wallet':
       return {
@@ -302,22 +302,31 @@ function timelineDetail(
   granularity: 'daily' | 'weekly' | 'monthly',
   input: SnapshotInput,
 ): FocusDetail {
-  const { items, budgetStore, month, now } = input;
+  const { items, cats, budgetStore, month, now } = input;
 
-  // The same budget lookup the chart itself paces against, so a twelve-month
-  // timeline uses each month's real plan rather than repeating this one.
+  // The same inputs the chart is drawn from: the user's active categories (an
+  // archived category's stale amount must not inflate the plan), spending
+  // against the spending plan, and the month-end forecast as the projection —
+  // so the model is describing the chart the user is looking at, not a
+  // neighbouring one with savings and rent extrapolated into it.
+  const catMeta = new Map<string, CatMeta>(allCategories(cats).map((c) => [c.k, c]));
+  const budgetValsOf = (m: string): Record<string, number> => budgetStore[m]?.vals ?? {};
   const budgetOf = (m: string) => {
-    const vals = budgetStore[m]?.vals ?? {};
-    return Object.values(vals).reduce((s, v) => s + (Number(v) || 0), 0);
+    const vals = budgetValsOf(m);
+    return [...catMeta.keys()].reduce((s, k) => s + Math.max(0, Number(vals[k]) || 0), 0);
   };
+  const forecast = computeMonthForecast({ items, month, now, catMeta, budgetVals: budgetValsOf(month) });
 
-  const t = computeTimeline(items, month, granularity, budgetOf, now);
+  const t = computeTimeline(items, month, granularity, budgetOf, now, { catMeta, budgetValsOf, forecast });
 
   return {
     kind: 'timeline',
     granularity: t.granularity,
     month: t.month,
     monthName: monthLabel(t.month),
+    // Savings and transfers are excluded from both of these, and scheduled
+    // bills are paced on the day they fall due.
+    measures: 'spending (needs and wants) against the spending budget',
     totalBudget: money(t.totalBudget),
     totalSpent: money(t.totalSpent),
     projectedTotal: t.projectedTotal == null ? null : money(t.projectedTotal),
@@ -330,7 +339,7 @@ function timelineDetail(
       spent: money(p.spent),
       cumulative: money(p.cumulative),
       cumulativePct: p.cumulativePct == null ? null : Math.round(p.cumulativePct),
-      evenPaceBudget: p.budgetLine == null ? null : money(p.budgetLine),
+      plannedByThen: p.budgetLine == null ? null : money(p.budgetLine),
       txCount: p.txCount,
       isUnusuallyHigh: p.isAnomaly,
       isFuture: p.isFuture,

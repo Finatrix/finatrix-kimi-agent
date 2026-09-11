@@ -25,6 +25,7 @@ import NotFound from '../pages/NotFound';
 import PageShell from '../marketing/PageShell';
 import { Faq, Section } from '../marketing/ui';
 import { TOOLS } from '../lib/tools';
+import { ScopeBadge, ScopeNote } from './ScopeBadge';
 import { applyContentSchema } from '../lib/seo';
 import {
   LEARN_ROOT,
@@ -60,6 +61,13 @@ function ArticleCard({ article }: { article: Article }) {
         <span className="mt-2.5 flex-1 text-[14px] leading-[1.65] text-ink-2">
           {article.description}
         </span>
+        {/* Only where the article is narrower than its topic. Repeating the
+            topic's own badge on every card in it would be noise, not signal. */}
+        {article.scope && (
+          <span className="mt-3">
+            <ScopeBadge scope={article.scope} />
+          </span>
+        )}
       </Link>
     </li>
   );
@@ -176,6 +184,7 @@ export default function TopicPage() {
       lede={topic.lede}
       crumbs={[{ name: 'Learn', path: LEARN_ROOT }]}
       updated={topic.updated}
+      hero={<ScopeNote scope={topic.scope} />}
     >
       {articles.length > 0 && (
         <Section

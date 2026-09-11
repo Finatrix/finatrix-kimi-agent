@@ -84,7 +84,9 @@ describe('index.html comment stripping', () => {
 
   it('leaves the document structurally intact', () => {
     expect(stripped.startsWith('<!doctype html>')).toBe(true);
-    expect(stripped).toContain('<html lang="en-IN">');
+    // `en`, not `en-IN`: the regional claim moved off the shell and onto the
+    // content that earns it. The Worker and `applySeo` rewrite this per route.
+    expect(stripped).toContain('<html lang="en">');
     expect(stripped).toContain('<div id="root"></div>');
     expect(stripped.trimEnd().endsWith('</html>')).toBe(true);
     // Tag count is unchanged — only comment nodes were removed.

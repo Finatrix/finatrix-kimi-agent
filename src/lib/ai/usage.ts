@@ -9,19 +9,41 @@
 
 import { supabase } from '../supabase';
 
-/** USD per 1,000 tokens, blended prompt+completion. Update as pricing changes. */
-const PRICE_PER_1K_TOKENS: Record<string, number> = {
-  'google/gemini-2.5-flash': 0.0002,
-  'anthropic/claude-sonnet-5': 0.006,
-  'openai/gpt-5.5': 0.005,
-  'moonshotai/kimi-k2': 0.0006,
-  'qwen/qwen3-235b-a22b-2507': 0.0004,
+/**
+ * USD per 1,000 tokens, IN and OUT separately. Checked against OpenRouter's
+ * published prices on 12 September 2026.
+ *
+ * Separate rates rather than one blended figure because output costs four to
+ * six times input on every model here, and the two mixes this product produces
+ * are nothing alike: a money-chat answer is a long data snapshot in and a short
+ * answer out, while a résumé parse is short in and long out. One blended rate
+ * flattered the first and understated the second — and both token counts are
+ * already recorded, so the accurate sum costs nothing.
+ */
+const PRICE_PER_1K: Record<string, { in: number; out: number }> = {
+  'google/gemini-2.5-flash': { in: 0.0003, out: 0.0025 },
+  'google/gemini-3.8-flash': { in: 0.00075, out: 0.00375 },
+  'anthropic/claude-haiku-4.5': { in: 0.001, out: 0.005 },
+  'anthropic/claude-sonnet-5': { in: 0.002, out: 0.010 },
+  'anthropic/claude-opus-5': { in: 0.005, out: 0.025 },
+  'openai/gpt-5.5': { in: 0.005, out: 0.030 },
+  'openai/gpt-5-mini': { in: 0.00025, out: 0.002 },
+  'moonshotai/kimi-k2': { in: 0.00057, out: 0.0023 },
+  'deepseek/deepseek-chat-v3.1': { in: 0.00025, out: 0.00095 },
+  'qwen/qwen3-235b-a22b-2507': { in: 0.00022, out: 0.00088 },
 };
-const DEFAULT_PRICE_PER_1K = 0.0005;
+/** An unpriced model: the middle of the range above, so it is never free. */
+const DEFAULT_PRICE = { in: 0.001, out: 0.005 };
 
-export function estimateCost(model: string, totalTokens: number): number {
-  const rate = PRICE_PER_1K_TOKENS[model] ?? DEFAULT_PRICE_PER_1K;
-  return Math.round(((totalTokens / 1000) * rate) * 1_000_000) / 1_000_000;
+/**
+ * Estimated USD for one call. `completionTokens` may be omitted, in which case
+ * the whole count is priced at the input rate — an underestimate, and the
+ * honest one, since nothing else is known.
+ */
+export function estimateCost(model: string, promptTokens: number, completionTokens = 0): number {
+  const rate = PRICE_PER_1K[model] ?? DEFAULT_PRICE;
+  const usd = (promptTokens / 1000) * rate.in + (completionTokens / 1000) * rate.out;
+  return Math.round(usd * 1_000_000) / 1_000_000;
 }
 
 /** Fire-and-forget usage log — never throws, never blocks the caller. */
@@ -49,6 +71,6 @@ export function logAiUsage(userId: string, fields: {
     cache_hit: fields.cacheHit ?? false,
     success: fields.success ?? true,
     error: (fields.error ?? '').slice(0, 300),
-    cost_estimate: estimateCost(fields.model, totalTokens),
+    cost_estimate: estimateCost(fields.model, promptTokens, completionTokens),
   }).then(() => undefined, () => undefined);
 }

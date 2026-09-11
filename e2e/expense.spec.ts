@@ -25,6 +25,28 @@ async function openAddModal(page: Page) {
   await expect(page.getByRole('dialog')).toBeVisible();
 }
 
+/**
+ * Open the same sheet from the Overview tab's own button.
+ *
+ * The Overview card used to carry a second, smaller structured form of its own,
+ * while the transaction list below opened this richer one — two forms for one
+ * job, and the shorter one could not express a whole transaction. The card now
+ * carries the one-line quick add plus a button onto this sheet, so every test
+ * below that used to drive the inline form drives the sheet instead.
+ */
+async function openAddSheetFromCard(page: Page) {
+  await page.getByRole('button', { name: 'Add an expense' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+/** Save the open sheet. */
+async function saveSheet(page: Page) {
+  await page.getByRole('dialog').getByRole('button', { name: 'Add transaction' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+}
+
 async function addExpense(page: Page, amount: string, category: RegExp) {
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel(/^Amount/).fill(amount);
@@ -66,25 +88,25 @@ test('validates an empty amount inline without saving', async ({ page }) => {
 });
 
 /**
- * The inline "Add an expense" card is a separate form from the modal above,
- * and it used to swallow an empty submission entirely: no message, no invalid
- * state, no focus move — the button simply did nothing.
+ * A rejected submission must always say why. The form this originally guarded
+ * swallowed an empty submit entirely — no message, no invalid state, no focus
+ * move — and the contract survives its move into the sheet.
  */
-test('inline add form refuses an empty amount out loud', async ({ page }) => {
+test('the add sheet refuses an empty amount out loud, from the Overview button', async ({ page }) => {
   await gotoFresh(page);
-  const card = page.locator('.card', { hasText: 'Add an expense' });
-  await card.getByRole('button', { name: 'Add expense' }).click();
+  const dialog = await openAddSheetFromCard(page);
+  await dialog.getByRole('button', { name: 'Add transaction' }).click();
 
-  await expect(card.getByRole('alert')).toContainText(/enter an amount/i);
-  const amount = card.getByLabel(/^Amount/);
+  await expect(dialog.getByRole('alert')).toContainText(/enter an amount/i);
+  const amount = dialog.getByLabel(/^Amount/);
   await expect(amount).toHaveAttribute('aria-invalid', 'true');
   await expect(amount).toBeFocused();
   expect(await page.evaluate(() => localStorage.getItem('fx_expenses'))).toBeNull();
 
   // Correcting the amount clears the rejection and the entry saves.
   await amount.fill('320');
-  await expect(card.getByRole('alert')).toHaveCount(0);
-  await card.getByRole('button', { name: 'Add expense' }).click();
+  await expect(dialog.getByRole('alert')).toHaveCount(0);
+  await saveSheet(page);
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('fx_expenses') || '[]'));
   expect(stored).toHaveLength(1);
   expect(stored[0].amount).toBeCloseTo(320);
@@ -99,16 +121,11 @@ test('inline add form refuses an empty amount out loud', async ({ page }) => {
  */
 test('accepts a negative amount as a refund and nets it against the spend', async ({ page }) => {
   await gotoFresh(page);
-  const card = page.locator('.card', { hasText: 'Add an expense' });
-  const amount = card.getByLabel(/^Amount/);
-  const submit = card.getByRole('button', { name: /add expense|added/i });
-
-  await amount.fill('1200');
-  await submit.click();
-  await amount.fill('-200');
-  await submit.click();
-
-  await expect(card.getByRole('alert')).toHaveCount(0);
+  for (const value of ['1200', '-200']) {
+    const dialog = await openAddSheetFromCard(page);
+    await dialog.getByLabel(/^Amount/).fill(value);
+    await saveSheet(page);
+  }
 
   // Survives a hard reload with its sign intact.
   await page.reload();
@@ -128,12 +145,11 @@ test('accepts a negative amount as a refund and nets it against the spend', asyn
  */
 test('adds up a spreadsheet-style formula and previews the total', async ({ page }) => {
   await gotoFresh(page);
-  const card = page.locator('.card', { hasText: 'Add an expense' });
-  const amount = card.getByLabel(/^Amount/);
+  const dialog = await openAddSheetFromCard(page);
 
-  await amount.fill('=10+5+3+2');
-  await expect(card.getByText('= ₹20')).toBeVisible(); // live preview before saving
-  await card.getByRole('button', { name: /add expense|added/i }).click();
+  await dialog.getByLabel(/^Amount/).fill('=10+5+3+2');
+  await expect(dialog.getByText('= ₹20')).toBeVisible(); // live preview before saving
+  await saveSheet(page);
 
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('fx_expenses') || '[]'));
   expect(stored).toHaveLength(1);
@@ -142,20 +158,37 @@ test('adds up a spreadsheet-style formula and previews the total', async ({ page
 
 test('rejects = used as an operator with the honest character message', async ({ page }) => {
   await gotoFresh(page);
-  const card = page.locator('.card', { hasText: 'Add an expense' });
-  await card.getByLabel(/^Amount/).fill('1=2');
-  await card.getByRole('button', { name: 'Add expense' }).click();
-  await expect(card.getByRole('alert')).toContainText('Use only numbers');
+  const dialog = await openAddSheetFromCard(page);
+  await dialog.getByLabel(/^Amount/).fill('1=2');
+  await dialog.getByRole('button', { name: 'Add transaction' }).click();
+  await expect(dialog.getByRole('alert')).toContainText('Use only numbers');
   expect(await page.evaluate(() => localStorage.getItem('fx_expenses'))).toBeNull();
 });
 
 test('still refuses a zero amount', async ({ page }) => {
   await gotoFresh(page);
-  const card = page.locator('.card', { hasText: 'Add an expense' });
-  await card.getByLabel(/^Amount/).fill('0');
-  await card.getByRole('button', { name: 'Add expense' }).click();
-  await expect(card.getByRole('alert')).toContainText(/enter an amount/i);
+  const dialog = await openAddSheetFromCard(page);
+  await dialog.getByLabel(/^Amount/).fill('0');
+  await dialog.getByRole('button', { name: 'Add transaction' }).click();
+  await expect(dialog.getByRole('alert')).toContainText(/amount other than 0/i);
   expect(await page.evaluate(() => localStorage.getItem('fx_expenses'))).toBeNull();
+});
+
+/**
+ * The one-line route, in a real browser: the words a person would use anyway,
+ * with the category recognised from the ledger's own vocabulary rather than
+ * chosen from a grid.
+ */
+test('logs a spend from the quick-add line, category and all', async ({ page }) => {
+  await gotoFresh(page);
+  await page.getByLabel('Quick add').fill('340 lunch yesterday upi');
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('fx_expenses') || '[]'));
+  expect(stored).toHaveLength(1);
+  expect(stored[0].amount).toBe(340);
+  expect(stored[0].category).toBe('eating_out');
+  expect(stored[0].paymentMethod).toBe('UPI');
 });
 
 test('closed mobile drawer is not reachable by keyboard', async ({ page }) => {

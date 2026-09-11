@@ -26,7 +26,9 @@
  * `computeDashboard` already performs; this module only groups them by period.
  */
 
-import type { ExpenseItem } from './expense';
+import { isSpendingCategory, migrateCategory, splitOutflow, type ExpenseItem } from './expense';
+import type { CatMeta, MonthForecast } from './expenseAnalytics';
+import { classifySpendTiming, type CategoryTiming } from './spendShape';
 import { ymdLocal, ymLocal } from '../../lib/date';
 import { monthLabel } from './month';
 
@@ -75,6 +77,8 @@ export interface Timeline {
   anomalyThreshold: number | null;
   /** True when `now` falls inside the timeline, so pacing and projection apply. */
   inProgress: boolean;
+  /** Savings left out, and bills paced on their due day. See `TimelineShape`. */
+  spendingOnly: boolean;
 }
 
 /** Total monthly budget for a given YYYY-MM. Supplied by the caller. */
@@ -181,9 +185,44 @@ function anomalyThresholdOf(spends: number[]): number | null {
 }
 
 /**
+ * What turns the timeline from "all outflow against the whole budget" into
+ * "spending against the spending plan", the way every other figure on the same
+ * screen already reads.
+ *
+ * WHY IT EXISTS. Without it, the timeline divided everything spent by the days
+ * elapsed and multiplied back by the month — rent and the SIP included. On the
+ * 4th, with rent and a SIP paid on time, it said "At this rate you'd finish
+ * about ₹1.6 lakh over budget" directly beneath a forecast card that correctly
+ * said "comfortably on track": two month-end figures, one screen, one of them
+ * built from the user doing the right thing on time. The same even-pace line
+ * called the rent payment "ahead of pace", and flagged rent day as "unusually
+ * high spending".
+ *
+ * With a shape:
+ *   - savings, investments and transfers are left out of both sides, exactly as
+ *     the forecast and the daily allowance leave them out;
+ *   - the plan line steps up on the day each scheduled bill falls due, and
+ *     accrues the rest of the plan evenly (`classifySpendTiming`);
+ *   - the projection is the month-end forecast's own — same rate for the days
+ *     ahead, same bills still to come — so the chart's last point IS the card's
+ *     headline figure;
+ *   - "unusually high" is judged on day-to-day spending, so a bill landing on
+ *     its due date is not an anomaly.
+ *
+ * Optional, so a caller without category metadata keeps the plain behaviour.
+ */
+export interface TimelineShape {
+  catMeta: ReadonlyMap<string, CatMeta>;
+  /** Each month's plan, per category key. */
+  budgetValsOf: (month: string) => Readonly<Record<string, number>>;
+  /** The month-end forecast for the timeline's month, when that month is running. */
+  forecast: MonthForecast | null;
+}
+
+/**
  * Build the timeline. `budgetOf` supplies the total monthly budget for any
  * month, so the twelve-month view paces against each month's real plan rather
- * than repeating the current one.
+ * than repeating the current one. `shape` is described above.
  */
 export function computeTimeline(
   items: ExpenseItem[],
@@ -191,33 +230,55 @@ export function computeTimeline(
   granularity: Granularity,
   budgetOf: BudgetLookup,
   now: Date,
+  shape?: TimelineShape,
 ): Timeline {
   const buckets =
     granularity === 'daily' ? dailyBuckets(month)
       : granularity === 'weekly' ? weeklyBuckets(month)
         : monthlyBuckets(month);
 
+  const validKeys = shape ? new Set(shape.catMeta.keys()) : null;
+  const ledger = shape && validKeys
+    ? splitOutflow(items, validKeys, shape.catMeta).consumed
+    : items;
+  const budgetFor: BudgetLookup = shape && validKeys
+    ? (m) => spendableBudgetOf(shape.budgetValsOf(m), shape.catMeta)
+    : budgetOf;
+
   const months = granularity === 'monthly'
     ? buckets.map((b) => b.key)
     : [month];
-  const totalBudget = months.reduce((s, m) => s + Math.max(0, budgetOf(m) || 0), 0);
+  const totalBudget = months.reduce((s, m) => s + Math.max(0, budgetFor(m) || 0), 0);
 
   const first = buckets[0]?.start ?? `${month}-01`;
   const last = buckets[buckets.length - 1]?.end ?? `${month}-01`;
   const totalDays = inclusiveDays(first, last);
 
+  // Inside one month, scheduled bills have a day. Across twelve they are just
+  // part of each month's total, and the plain arithmetic is already right.
+  const inMonth = shape && granularity !== 'monthly';
+  const timing = inMonth
+    ? classifySpendTiming(items, [...shape.catMeta.values()].map((c) => ({ k: c.k, section: c.section })), month)
+    : null;
+  const isFixed = (e: ExpenseItem) =>
+    timing != null && validKeys != null && timing.get(migrateCategory(e.category, validKeys))?.shape === 'fixed';
+
+  const keyFor = (date: string) => (granularity === 'monthly'
+    ? date.slice(0, 7)
+    : granularity === 'daily'
+      ? date
+      : `${month}-w${Math.min(4, Math.floor((Number(date.slice(8, 10)) - 1) / 7) + 1)}`);
+
   // Sum spend into its period. One pass over the transactions, one lookup each.
   const spent = new Map<string, number>();
+  const dayToDay = new Map<string, number>();
   const txCount = new Map<string, number>();
-  for (const e of items) {
+  for (const e of ledger) {
     const date = e.date || '';
     if (date < first || date > last) continue;
-    const key = granularity === 'monthly'
-      ? date.slice(0, 7)
-      : granularity === 'daily'
-        ? date
-        : `${month}-w${Math.min(4, Math.floor((Number(date.slice(8, 10)) - 1) / 7) + 1)}`;
+    const key = keyFor(date);
     spent.set(key, (spent.get(key) ?? 0) + e.amount);
+    if (!isFixed(e)) dayToDay.set(key, (dayToDay.get(key) ?? 0) + e.amount);
     txCount.set(key, (txCount.get(key) ?? 0) + 1);
   }
 
@@ -229,9 +290,17 @@ export function computeTimeline(
   const runRate = elapsedDays > 0 ? totalSpent / elapsedDays : 0;
 
   // Only periods that have begun can be "unusual"; a future period is empty by
-  // definition and would drag the mean down.
-  const startedSpends = buckets.filter((b) => b.start <= today).map((b) => spent.get(b.key) ?? 0);
+  // definition and would drag the mean down. With a shape, only day-to-day
+  // spending is judged: rent landing on its due date is not a spike.
+  const judged = inMonth ? dayToDay : spent;
+  const startedSpends = buckets.filter((b) => b.start <= today).map((b) => judged.get(b.key) ?? 0);
   const anomalyThreshold = anomalyThresholdOf(startedSpends);
+
+  const planned = inMonth && timing
+    ? plannedByDay(month, timing, shape.budgetValsOf(month), shape.catMeta)
+    : null;
+  const forecast = shape?.forecast && shape.forecast.isCurrentMonth && inProgress ? shape.forecast : null;
+  const ahead = inMonth && forecast ? projectedByDay(forecast, now.getDate(), daysInMonth(month)) : null;
 
   let cumulative = 0;
   const points: TimelinePoint[] = buckets.map((b) => {
@@ -243,8 +312,9 @@ export function computeTimeline(
     // The projection only continues the line past today; up to today the
     // projection IS the actual, so the two series join without a step.
     const projected = !inProgress ? null
-      : isFuture ? totalSpent + runRate * (elapsedAtEnd - elapsedDays)
-        : cumulative;
+      : !isFuture ? cumulative
+        : ahead ? totalSpent + ahead(Number(b.end.slice(8, 10)))
+          : totalSpent + runRate * (elapsedAtEnd - elapsedDays);
 
     return {
       key: b.key,
@@ -255,13 +325,24 @@ export function computeTimeline(
       spent: periodSpent,
       cumulative,
       cumulativePct: totalBudget > 0 ? (cumulative / totalBudget) * 100 : null,
-      budgetLine: totalBudget > 0 && totalDays > 0 ? (totalBudget * elapsedAtEnd) / totalDays : null,
+      budgetLine: totalBudget <= 0 || totalDays <= 0 ? null
+        : planned ? planned(Number(b.end.slice(8, 10)))
+          : (totalBudget * elapsedAtEnd) / totalDays,
       projected,
       txCount: txCount.get(b.key) ?? 0,
       isFuture,
-      isAnomaly: anomalyThreshold != null && !isFuture && periodSpent > anomalyThreshold,
+      isAnomaly: anomalyThreshold != null && !isFuture && (judged.get(b.key) ?? 0) > anomalyThreshold,
     };
   });
+
+  // The month-end figure. With a forecast it is the forecast's own headline;
+  // across twelve months it is the months already closed plus that headline.
+  const closedBefore = granularity === 'monthly'
+    ? points.slice(0, -1).reduce((s, p) => s + p.spent, 0)
+    : 0;
+  const projectedTotal = !inProgress || elapsedDays <= 0 ? null
+    : forecast ? closedBefore + forecast.projected
+      : runRate * totalDays;
 
   return {
     granularity,
@@ -269,8 +350,71 @@ export function computeTimeline(
     totalBudget,
     points,
     totalSpent,
-    projectedTotal: inProgress && elapsedDays > 0 ? runRate * totalDays : null,
+    projectedTotal,
     anomalyThreshold,
     inProgress,
+    spendingOnly: Boolean(shape),
+  };
+}
+
+/** The spending part of a month's plan: every category except money set aside. */
+function spendableBudgetOf(
+  vals: Readonly<Record<string, number>>,
+  catMeta: ReadonlyMap<string, CatMeta>,
+): number {
+  let total = 0;
+  for (const [k, c] of catMeta) {
+    if (isSpendingCategory({ k, section: c.section })) total += Math.max(0, Number(vals[k]) || 0);
+  }
+  return total;
+}
+
+/**
+ * The plan, as it should stand at the end of each day of `month`.
+ *
+ * Day-to-day categories accrue evenly. A scheduled bill counts in full from the
+ * day it falls due — the day it landed this month, or its usual day — so paying
+ * rent on the 1st is on plan rather than "ahead of pace". A bill with no known
+ * day keeps the even reading, which is the conservative answer.
+ */
+function plannedByDay(
+  month: string,
+  timing: ReadonlyMap<string, CategoryTiming>,
+  vals: Readonly<Record<string, number>>,
+  catMeta: ReadonlyMap<string, CatMeta>,
+): (day: number) => number {
+  const days = daysInMonth(month);
+  let even = 0;
+  const stepped: Array<{ day: number; amount: number }> = [];
+  for (const [k, c] of catMeta) {
+    if (!isSpendingCategory({ k, section: c.section })) continue;
+    const amount = Math.max(0, Number(vals[k]) || 0);
+    if (amount <= 0) continue;
+    const t = timing.get(k);
+    if (t?.shape === 'fixed' && t.dueDay != null) stepped.push({ day: t.dueDay, amount });
+    else even += amount;
+  }
+  return (day) => (even * day) / days
+    + stepped.reduce((s, b) => s + (day >= b.day ? b.amount : 0), 0);
+}
+
+/**
+ * Spending expected between today and the end of `day`, from the month-end
+ * forecast: the days ahead at its rate, and each bill still to come on its day.
+ *
+ * A bill whose usual day has already passed is placed tomorrow — it is late,
+ * not cancelled — and one with no known day is spread over the days left. At
+ * the month's last day this is exactly `forecast.projected − spentSoFar`.
+ */
+function projectedByDay(forecast: MonthForecast, todayDay: number, days: number): (day: number) => number {
+  const daysLeft = Math.max(0, days - todayDay);
+  return (day) => {
+    const ahead = Math.max(0, Math.min(day, days) - todayDay);
+    let bills = 0;
+    for (const b of forecast.stillDue) {
+      if (b.dueDay == null) bills += daysLeft > 0 ? (b.amount * ahead) / daysLeft : 0;
+      else if (day >= Math.max(b.dueDay, todayDay + 1)) bills += b.amount;
+    }
+    return forecast.remainingDailyRate * ahead + bills;
   };
 }

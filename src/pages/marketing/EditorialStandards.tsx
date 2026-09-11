@@ -52,24 +52,23 @@ export default function EditorialStandards() {
         </Grid>
       </Section>
 
-      <Section id="who" title="Who writes this">
+      <Section id="who" title="Who is responsible">
         <P>
-          FinatriX is written and reviewed by the people who build it. There are no invented author
-          personas here: a byline naming a person who does not exist would be the exact opposite of
-          the trust the rest of this site is built on, and a schema field is not a good enough
-          reason to publish one.
+          The FinatriX team maintains the tools and educational guides. Questions and corrections
+          go directly to <a href={SUPPORT_MAILTO} className="fx-prose-link">our published contact address</a>.
+          Include the page, the input you used and the result you expected so we can reproduce the issue.
         </P>
         <P>
-          What that costs is the appearance of a large newsroom. What it buys is that every guide
-          describing a calculation was written by someone who could open the file and check.
+          Check the source links and assumptions alongside a result. These tools explain financial
+          decisions; they do not replace an adviser who understands your circumstances.
         </P>
       </Section>
 
       <Section id="review" title="How pages are reviewed">
         <P>
-          Every guide carries a visible review date, and that date is the same field that fills{' '}
-          <code className="rounded bg-surface-2 px-1.5 py-0.5 text-[13px]">dateModified</code> in
-          the page&rsquo;s structured data. They cannot disagree, because they are one value.
+          Guides show a review date so you can judge how current the information is.
+          A review date does not mean a rate or rule will remain unchanged; check the linked source
+          before relying on time-sensitive information.
         </P>
         <UL>
           <li>

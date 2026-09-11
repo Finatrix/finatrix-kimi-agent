@@ -154,6 +154,21 @@
   --z-undo:    320;    /* undo bar — must clear the launcher                */
   --z-panel:   400;    /* AI panel (backdrop 400, surface 401)              */
   --z-toast:  1000;    /* global toast — above everything by design         */
+
+  /* ── Scroll offset ────────────────────────────────────────────────────
+     How much of the top of the viewport is permanently covered by a bar, and
+     therefore how far above a fragment target the page must stop. Consumed
+     once, by `html { scroll-padding-top }` in index.css, which applies it to
+     every fragment link, every `scrollIntoView({ block: 'start' })` and the
+     browser's own find-in-page.
+
+     57px is the public header (LandingNav: h-14 plus its hairline), fixed at
+     every width; the rest is breathing room so a heading does not sit welded
+     to the bar. `.fx-tools` overrides it in tools.css, where the sticky stack
+     is a different height. Before this token, five components carried a
+     `scroll-mt-*` guess of their own (one 20px, four 24px) and every anchor
+     outside those five landed underneath the header. */
+  --scroll-offset: 72px;
 }
 
 /* ============================================================================

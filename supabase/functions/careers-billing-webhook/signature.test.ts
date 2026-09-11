@@ -188,14 +188,12 @@ describe('periodEnd', () => {
     expect(periodEnd('monthly', new Date('2026-08-15T10:30:45Z'))).toBe('2026-09-15T10:30:45.000Z');
   });
 
-  it.skip('KNOWN GAP (P1): month-end purchases overflow into the following month', () => {
-    // Deliberately skipped rather than deleted, and deliberately NOT asserting
-    // the current behaviour as correct. `setUTCMonth` overflows, so a purchase
-    // on the 31st skips the short month entirely:
-    //   2026-01-31 → 2026-03-03      2026-03-31 → 2026-05-01
-    // The effect is a few days of over-granted access, not a user-visible
-    // failure, which is why it is not in the same batch as the rotation fix.
-    // Un-skip this when the clamping fix lands.
+  it('clamps month-end purchases to the last day of the next month', () => {
     expect(periodEnd('monthly', new Date('2026-01-31T10:00:00Z')).slice(0, 10)).toBe('2026-02-28');
+    expect(periodEnd('monthly', new Date('2026-03-31T10:00:00Z')).slice(0, 10)).toBe('2026-04-30');
+  });
+
+  it('clamps yearly purchases from leap day to February 28 when needed', () => {
+    expect(periodEnd('yearly', new Date('2024-02-29T10:00:00Z')).slice(0, 10)).toBe('2025-02-28');
   });
 });

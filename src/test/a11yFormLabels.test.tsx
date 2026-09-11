@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { CurrencyProvider } from '../tools/CurrencyContext';
+import { MarketProvider } from '../tools/MarketContext';
 import { ToastProvider } from '../tools/ui/Toast';
 import BudgetPage from '../tools/pages/BudgetPage';
 import InvestMatchPage from '../tools/pages/InvestMatchPage';
@@ -84,9 +86,15 @@ describe('InvestMatch — question labelling', () => {
 
   const renderPage = () =>
     render(
-      <ToastProvider>
-        <InvestMatchPage />
-      </ToastProvider>
+      <MemoryRouter>
+        <CurrencyProvider>
+          <MarketProvider>
+            <ToastProvider>
+              <InvestMatchPage />
+            </ToastProvider>
+          </MarketProvider>
+        </CurrencyProvider>
+      </MemoryRouter>
     );
 
   it('labels each numeric question with its own visible prompt', () => {

@@ -15,6 +15,35 @@ import type { CareersError } from '../utils/errors';
 const dialogStack: symbol[] = [];
 
 /**
+ * Everything inside a panel that can take focus, in DOM order.
+ *
+ * `:not([disabled])` and the negative-tabindex filter matter: a disabled
+ * button and a programmatic focus target (`tabIndex={-1}`, which the panel
+ * itself carries) are both reachable by query but neither is a Tab stop, and
+ * treating them as the first or last stop is what makes a hand-rolled trap
+ * park focus on something invisible.
+ */
+const FOCUSABLE = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled]):not([type="hidden"])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]',
+]
+  // `[hidden]` covers the visually-hidden file input the JD analyzer puts
+  // behind its "Upload PDF / DOCX" label, which is focusable by query but is
+  // not a Tab stop the user can see.
+  .map((sel) => `${sel}:not([hidden])`)
+  .join(',');
+
+function focusableIn(panel: HTMLElement): HTMLElement[] {
+  return Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+    (el) => el.tabIndex >= 0 && el.getAttribute('aria-hidden') !== 'true'
+  );
+}
+
+/**
  * Shared shell for every Careers dialog: backdrop, panel, body scroll lock,
  * Escape-to-close (LIFO under stacking), initial focus into the dialog and
  * focus restore to the opener on close. Mount it only while the dialog is
@@ -47,9 +76,45 @@ export function ModalShell({
       (panel.querySelector<HTMLElement>('[data-autofocus]') ?? panel).focus();
     }
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || dialogStack[dialogStack.length - 1] !== id) return;
-      e.preventDefault();
-      closeRef.current();
+      // Only the topmost dialog reacts, so a confirm opened over a workbench
+      // does not close both.
+      if (dialogStack[dialogStack.length - 1] !== id) return;
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeRef.current();
+        return;
+      }
+
+      // Focus containment (ARIA APG "modal dialog"). The dialog set initial
+      // focus and trapped Escape, but Tab still walked straight out into the
+      // page behind the backdrop — where the content is inert to a mouse but
+      // fully reachable by keyboard, so a screen-reader or keyboard user could
+      // silently operate the page they believed was blocked.
+      if (e.key !== 'Tab') return;
+      const panel = panelRef.current;
+      if (!panel) return;
+      const items = focusableIn(panel);
+      if (!items.length) {
+        // Nothing to land on — keep focus on the panel rather than the page.
+        e.preventDefault();
+        panel.focus();
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+      const current = document.activeElement as HTMLElement | null;
+
+      if (!current || !panel.contains(current)) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+      } else if (e.shiftKey && current === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && current === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => {

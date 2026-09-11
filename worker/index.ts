@@ -37,10 +37,15 @@ import type { TopicContent } from '../src/content/types';
 import {
   CANONICAL_ORIGIN,
   ROUTE_SCHEMA_ID,
+  alternatesForPath,
+  languageForPath,
+  ogLocaleForPath,
   seoForPath,
   serialiseJsonLd,
   structuredDataForPath,
 } from '../src/lib/seo';
+import { crawlableBodyFor } from '../src/lib/crawlable';
+import { buildLlmsTxt } from '../src/shared/llms';
 
 interface Env {
   ASSETS: { fetch: (input: Request | URL | string) => Promise<Response> };
@@ -181,7 +186,12 @@ function withSeoMetadata(
   headers.delete('Content-Length');
   headers.delete('ETag');
 
-  return new HTMLRewriter()
+  const rewriter = new HTMLRewriter()
+    // The document's own language, in the raw bytes. A crawler that does not
+    // execute JavaScript reads only this, and until now it read `en-IN` on
+    // every URL — including a careers library that was never India-specific.
+    .on('html', new SetAttribute('lang', languageForPath(pathname).lang))
+    .on('meta[property="og:locale"]', new SetAttribute('content', ogLocaleForPath(pathname)))
     .on('link[rel="canonical"]', new SetAttribute('href', href))
     .on('meta[property="og:url"]', new SetAttribute('content', href))
     .on('meta[name="robots"]', new SetAttribute('content', robots))
@@ -205,12 +215,32 @@ function withSeoMetadata(
     // Per-route structured data. `html: true` because the JSON has already been
     // escaped by `serialiseJsonLd` and must not be entity-encoded a second time
     // — that would leave `&quot;` inside the block and make it unparseable.
-    .on(`script#${ROUTE_SCHEMA_ID}`, new SetText(schema, true))
-    .transform(new Response(response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers,
-    }));
+    .on(`script#${ROUTE_SCHEMA_ID}`, new SetText(schema, true));
+
+  // The page's own content, for every client that does not run JavaScript —
+  // Bing's first pass, AI answer engines, archivers. `<noscript>` is never
+  // rendered by a browser that runs scripts, so readers see no change; see
+  // src/lib/crawlable.ts. Built by `crawlableBodyFor`, which escapes every
+  // string itself, hence `html: true`. Private routes keep the shell's notice.
+  const body = crawlableBodyFor(pathname, copy);
+  if (body) rewriter.on('noscript', new SetText(body, true));
+
+  // hreflang, pointing at THIS route's canonical rather than the shell's
+  // homepage default. Like the canonical tag above, these are consumed by
+  // crawlers reading the served bytes, so the Worker is not a duplicate of the
+  // client pass here — for a non-JS consumer it is the only pass.
+  for (const alternate of alternatesForPath(pathname)) {
+    rewriter.on(
+      `link[rel="alternate"][hreflang="${alternate.hreflang}"]`,
+      new SetAttribute('href', alternate.href),
+    );
+  }
+
+  return rewriter.transform(new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  }));
 }
 
 export default {
@@ -248,6 +278,20 @@ export default {
           Location: redirect,
           // A permanent redirect is cacheable, but keep it short enough that a
           // mistake is recoverable within a day rather than a browser lifetime.
+          'Cache-Control': 'public, max-age=3600',
+        },
+      });
+    }
+
+    // A plain-text map of the site for AI answer engines — the llms.txt
+    // convention — generated from the same registries as sitemap.xml, so the
+    // two can never describe different sites.
+    if (url.pathname === '/llms.txt') {
+      return new Response(buildLlmsTxt(), {
+        status: 200,
+        headers: {
+          ...SECURITY_HEADERS,
+          'Content-Type': 'text/plain; charset=utf-8',
           'Cache-Control': 'public, max-age=3600',
         },
       });

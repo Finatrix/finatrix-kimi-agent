@@ -88,6 +88,33 @@ export const CLUSTERS: Record<Cluster, { name: string; blurb: string }> = {
   },
 };
 
+/**
+ * How far a piece of writing travels.
+ *
+ * The knowledge layer was written for Indian readers and it shows in two very
+ * different ways, which this distinguishes because conflating them would either
+ * hide good writing or mislabel bad:
+ *
+ *   • `'in-only'` — the SUBSTANCE is Indian law. An article about the old and
+ *     new tax regimes, or about EPF versus NPS, is not "an article with rupees
+ *     in it"; it is a description of one country's rulebook and it is wrong
+ *     everywhere else. These are marked in the UI and told to search engines,
+ *     via `contentLocation`, so nobody arrives from a Toronto search expecting
+ *     it to apply.
+ *
+ *   • `'in-examples'` — the substance is universal and the EXAMPLES are Indian.
+ *     Avalanche versus snowball is arithmetic; a 4% withdrawal rate is a study
+ *     about portfolios, not about India. A reader elsewhere loses nothing but
+ *     the familiarity of the numbers, so these stay indexable as plain English
+ *     and simply say what currency the examples are in.
+ *
+ * Absent means neither applies — the careers half is written for anyone.
+ *
+ * A topic sets the default and an article may override it: "where to park
+ * short-term cash" is Indian instruments inside an otherwise portable topic.
+ */
+export type ContentScope = 'in-only' | 'in-examples';
+
 export interface Topic {
   /** URL segment. `/learn/<slug>`. */
   slug: string;
@@ -134,6 +161,8 @@ export interface Topic {
    * many a cluster may mark, so this cannot quietly become "all of them".
    */
   pillar?: boolean;
+  /** Default geographic scope for every article in the topic. */
+  scope?: ContentScope;
   /** ISO date the hub copy was last reviewed. */
   updated: string;
 }
@@ -153,6 +182,7 @@ export const TOPICS: readonly Topic[] = [
     lede: 'A budget is a hypothesis about next month. These guides are about making one you will still be following in week three.',
     tools: ['budget', 'expenses', 'peercompare'],
     pillar: true,
+    scope: 'in-examples',
     updated: REVIEWED,
   },
   {
@@ -166,6 +196,7 @@ export const TOPICS: readonly Topic[] = [
     lede: 'Saving is two separate problems — how much, and where it sits until you need it. They have different answers.',
     tools: ['parksmart', 'goals', 'budget'],
     pillar: true,
+    scope: 'in-examples',
     updated: REVIEWED,
   },
   {
@@ -179,6 +210,7 @@ export const TOPICS: readonly Topic[] = [
     lede: 'The arithmetic of investing is simple and public. These guides show it, so you can check the numbers anyone quotes you.',
     tools: ['investmatch', 'goals', 'lifemap'],
     pillar: true,
+    scope: 'in-examples',
     updated: REVIEWED,
   },
   {
@@ -192,6 +224,7 @@ export const TOPICS: readonly Topic[] = [
     lede: 'Tax is the largest deduction most people never model. These guides show where it lands and what genuinely changes it.',
     tools: ['parksmart', 'budget'],
     pillar: true,
+    scope: 'in-only',
     updated: REVIEWED,
   },
   {
@@ -204,6 +237,7 @@ export const TOPICS: readonly Topic[] = [
     heading: 'Debt',
     lede: 'Debt is arithmetic with a deadline. These guides show the order to clear it in — which is rarely the order that feels best.',
     tools: ['budget', 'expenses'],
+    scope: 'in-examples',
     updated: REVIEWED,
   },
   {
@@ -216,6 +250,7 @@ export const TOPICS: readonly Topic[] = [
     heading: 'Loans',
     lede: 'A loan is one formula and three decisions: how much, how long, and what to do with a surplus.',
     tools: ['budget', 'goals'],
+    scope: 'in-examples',
     updated: REVIEWED,
   },
   {
@@ -228,6 +263,7 @@ export const TOPICS: readonly Topic[] = [
     heading: 'Credit scores',
     lede: 'A credit score summarises how you have handled borrowed money. Most of what people believe moves it does not.',
     tools: ['budget'],
+    scope: 'in-only',
     updated: REVIEWED,
   },
   {
@@ -240,6 +276,7 @@ export const TOPICS: readonly Topic[] = [
     heading: 'Insurance',
     lede: 'Insurance is the cheapest way to stop one bad event undoing a decade of saving — and the most oversold category in the country.',
     tools: ['lifemap', 'budget'],
+    scope: 'in-only',
     updated: REVIEWED,
   },
   {
@@ -253,6 +290,7 @@ export const TOPICS: readonly Topic[] = [
     lede: 'Retirement planning is two numbers: what the corpus has to be, and what you can safely take out of it each year.',
     tools: ['lifemap', 'goals', 'investmatch'],
     pillar: true,
+    scope: 'in-examples',
     updated: REVIEWED,
   },
   {
@@ -265,6 +303,7 @@ export const TOPICS: readonly Topic[] = [
     heading: 'EPF & NPS',
     lede: 'The two accounts most Indian salaries already pay into — what they actually return, and how they compare with super abroad.',
     tools: ['goals', 'lifemap'],
+    scope: 'in-only',
     updated: REVIEWED,
   },
   {
@@ -277,6 +316,7 @@ export const TOPICS: readonly Topic[] = [
     heading: 'Inflation',
     lede: 'Inflation is the quiet term in every calculation. Leave it out and every long-horizon number is wrong in the same direction.',
     tools: ['goals', 'parksmart', 'lifemap'],
+    scope: 'in-examples',
     updated: REVIEWED,
   },
   {
@@ -289,6 +329,7 @@ export const TOPICS: readonly Topic[] = [
     heading: 'Behavioural finance',
     lede: 'The arithmetic of investing is easy. Staying with it through a bad year is the part that actually decides the outcome.',
     tools: ['expenses', 'investmatch'],
+    scope: 'in-examples',
     updated: REVIEWED,
   },
   {
@@ -301,6 +342,7 @@ export const TOPICS: readonly Topic[] = [
     heading: 'Cash flow',
     lede: 'Most money problems that feel like income problems are timing problems, and timing problems have a cheaper fix.',
     tools: ['expenses', 'budget'],
+    scope: 'in-examples',
     updated: REVIEWED,
   },
   {
@@ -313,6 +355,7 @@ export const TOPICS: readonly Topic[] = [
     heading: 'Net worth',
     lede: 'Net worth is the one number that summarises every financial decision you have made. It is also the easiest one to flatter.',
     tools: ['networth', 'lifemap', 'peercompare'],
+    scope: 'in-examples',
     updated: REVIEWED,
   },
   {
@@ -325,6 +368,7 @@ export const TOPICS: readonly Topic[] = [
     heading: 'Financial independence',
     lede: 'Financial independence is a savings-rate problem long before it is an investment-return problem.',
     tools: ['lifemap', 'goals', 'investmatch'],
+    scope: 'in-examples',
     updated: REVIEWED,
   },
 
@@ -512,6 +556,7 @@ export const TOPICS: readonly Topic[] = [
     lede: 'The salary you negotiate once compounds through every percentage raise that follows it.',
     tools: ['budget', 'lifemap'],
     product: ['/careers/features'],
+    scope: 'in-examples',
     updated: REVIEWED,
   },
   {
@@ -596,6 +641,8 @@ export interface Article {
   tools?: readonly ToolId[];
   /** Hand-picked sibling articles, by `<topic>/<slug>`. Never "every other article". */
   related?: readonly string[];
+  /** Overrides the topic's scope when this one article is narrower or wider. */
+  scope?: ContentScope;
 }
 
 export const ARTICLES: readonly Article[] = [
@@ -675,6 +722,9 @@ export const ARTICLES: readonly Article[] = [
   {
     slug: 'where-to-park-short-term-cash',
     topic: 'saving',
+    // Its topic only carries Indian examples, but this article IS the Indian
+    // instrument list — liquid funds, sweep-in FDs, 80TTA. It does not travel.
+    scope: 'in-only',
     kind: 'comparison',
     title: 'Where to Park Short-Term Cash in India, Post-Tax | FinatriX',
     description:
@@ -1583,6 +1633,36 @@ export function articleFor(topic: string | undefined, slug: string | undefined):
 export function articlesInTopic(topicSlug: string): readonly Article[] {
   return ARTICLES.filter((a) => a.topic === topicSlug);
 }
+
+/**
+ * The scope actually in force for an article: its own if it declares one, else
+ * the topic's, else none.
+ *
+ * The one place the inheritance rule lives, so the badge on a card, the badge
+ * on the page, the hub filter and the JSON-LD can never disagree about whether
+ * a guide applies to a reader.
+ */
+export function scopeForArticle(article: Article): ContentScope | undefined {
+  return article.scope ?? topicFor(article.topic)?.scope;
+}
+
+/**
+ * How a scope reads on screen, and what it promises.
+ *
+ * Written as claims about the reader's situation rather than as flags: "Specific
+ * to India" tells someone in Toronto to stop reading, which is the entire point,
+ * and "Examples in ₹" tells them to keep going.
+ */
+export const SCOPE_LABEL: Readonly<Record<ContentScope, { short: string; long: string }>> = {
+  'in-only': {
+    short: 'Specific to India',
+    long: 'This guide describes Indian rules and instruments. The reasoning may still be useful elsewhere, but the specifics will not apply.',
+  },
+  'in-examples': {
+    short: 'Examples in ₹',
+    long: 'The reasoning here applies anywhere. The worked examples use Indian rupees and Indian costs.',
+  },
+};
 
 /**
  * Guides that use a given calculator.

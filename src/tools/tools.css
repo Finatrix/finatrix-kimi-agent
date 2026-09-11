@@ -37,7 +37,7 @@
   --orange-fill: var(--status-warn-fill); --red-fill: var(--status-danger-fill);
   --purple-fill: var(--data-purple-fill); --teal-fill: var(--data-teal-fill);
   --wants-fill: var(--data-wants-fill);
-  --r: var(--radius-xl); --shadow: var(--shadow-2); --glass-blur: blur(14px) saturate(150%);
+  --r: var(--radius-xl); --shadow: var(--shadow-2);
   --spring: var(--ease-spring);
   --ease-in-out: cubic-bezier(.42,0,.58,1);
   --duration-fast: var(--dur-fast); --duration-med: var(--dur-med); --duration-slow: var(--dur-slow);
@@ -182,6 +182,14 @@
 .fx-tools .fx-amb-grid { position: absolute; inset: 0; opacity: var(--amb-grid-opacity); background-image: linear-gradient(var(--grid-line) 1px,transparent 1px),linear-gradient(90deg,var(--grid-line) 1px,transparent 1px); background-size: 52px 52px; -webkit-mask-image: radial-gradient(circle at 50% 18%,#000 0%,transparent 68%); mask-image: radial-gradient(circle at 50% 18%,#000 0%,transparent 68%); }
 .fx-tools .fx-amb-vig { position: absolute; inset: 0; background: radial-gradient(120% 80% at 50% 0%,transparent 58%,var(--vignette) 100%); }
 
+/* The sticky stack in this shell is not the 57px public header the global
+   --scroll-offset is sized for: it is the 48px app bar, plus the 49px tool tab
+   bar on anything wider than a phone. Set on the scroller (`html`) because
+   scroll-padding only has an effect there, and matched to `.fx-tools` so it
+   applies exactly while this shell is mounted. */
+html:has(.fx-tools) { --scroll-offset: 60px; }
+@media(min-width:768px){ html:has(.fx-tools) { --scroll-offset: 109px; } }
+
 /* ============ TOOL NAV (in-page tab bar) ============ */
 .fx-tools .nav-wrap { position: sticky; top: 0; z-index: var(--z-toolnav); background: var(--nav-solid); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-bottom: 1px solid var(--hair); }
 /* The tool bar's layout. The PILLS themselves are styled once, globally, in
@@ -211,6 +219,13 @@
    them. Set by MobileDrawer, which is the only thing that knows. */
 body.fx-drawer-open .fx-wallet-dock,
 body.fx-drawer-open .fx-ai-dock { display: none; }
+
+/* Frosted bars are a translucency effect, and blurring what scrolls beneath
+   them is recomputed every frame. Someone who has asked the system for less
+   transparency gets an opaque bar — clearer to read, and cheaper to scroll. */
+@media (prefers-reduced-transparency: reduce) {
+  .fx-tools .nav-wrap, .fx-mobnav { background: var(--card-solid); backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
 
 /* ---- Mobile bottom navigation (<768px) ---- */
 .fx-tools { --fx-bottomnav-h: 0px; }
@@ -271,7 +286,15 @@ body.fx-drawer-open .fx-ai-dock { display: none; }
 .fx-tools .tool-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 980px; margin-bottom: 14px; }
 
 /* ============ CARDS & FORMS ============ */
-.fx-tools .card { background: var(--card); border: 1px solid var(--hair2); border-radius: var(--r); padding: 24px; box-shadow: var(--shadow); margin-bottom: 16px; backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); transition: box-shadow .25s ease, transform .25s var(--ease-out), border-color .25s ease; }
+/* The card surface. No `backdrop-filter`: it carried blur(14px) saturate(150%)
+   over `.fx-amb`, which is a fixed 120px-blurred glow plus a 4-5% grid — a
+   backdrop already so close to flat that blurring it again changed no pixel
+   (verified by screenshot, both themes). What it did change was the compositor
+   budget: every card, stat cell and metric became its own render surface whose
+   backdrop is re-sampled as the page scrolls, and a tool page carries fifteen
+   of them. The translucency, hairline and shadow are what make this read as
+   glass, and all three stay. */
+.fx-tools .card { background: var(--card); border: 1px solid var(--hair2); border-radius: var(--r); padding: 24px; box-shadow: var(--shadow); margin-bottom: 16px; transition: box-shadow .25s ease, transform .25s var(--ease-out), border-color .25s ease; }
 .fx-tools .card:hover { box-shadow: 0 24px 60px -18px rgba(0,0,0,.6); transform: translateY(-2px); }
 .fx-tools .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .fx-tools .grid3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
@@ -471,7 +494,7 @@ body.fx-drawer-open .fx-ai-dock { display: none; }
    styling at all — the prev/next arrows were the only controls on the page
    that gave no feedback on pointer-down. As classes they pick up the shared
    rungs, and the states below are the same ones every other control uses. */
-.fx-tools .fx-mnav { background: var(--card); border: var(--ctl-bw) solid var(--hair2); border-radius: var(--ctl-r-lg); box-shadow: var(--shadow); padding: 12px 14px; backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); }
+.fx-tools .fx-mnav { background: var(--card); border: var(--ctl-bw) solid var(--hair2); border-radius: var(--ctl-r-lg); box-shadow: var(--shadow); padding: 12px 14px; }
 .fx-tools .fx-mnav-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .fx-tools .fx-mnav-arrow { display: inline-flex; align-items: center; justify-content: center; width: var(--ctl-h-md); height: var(--ctl-h-md); flex-shrink: 0; background: var(--well); border: var(--ctl-bw) solid var(--hair2); border-radius: var(--ctl-r-sm); color: var(--ink2); font-size: 18px; line-height: 1; font-family: inherit; cursor: pointer; transition: background-color var(--ctl-trans), border-color var(--ctl-trans), color var(--ctl-trans), transform var(--ctl-trans); -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 .fx-tools .fx-mnav-arrow:hover:not(:disabled) { background: var(--fill-06); border-color: var(--hair); color: var(--ink); }
@@ -503,7 +526,9 @@ body.fx-drawer-open .fx-ai-dock { display: none; }
    8 / 6 / 5px mix three pages were producing with inline `height` overrides on
    this very class. A track that is a different height on every page is the
    clearest possible tell that a component has no owner. */
-.fx-tools .bar { height: var(--bar-h, 8px); background: var(--well); border-radius: 8px; overflow: hidden; position: relative; }
+/* `contain` keeps the fill's width animation inside the track: each frame's
+   layout is this 8px strip, not the card around it. */
+.fx-tools .bar { height: var(--bar-h, 8px); background: var(--well); border-radius: 8px; overflow: hidden; position: relative; contain: layout paint; }
 .fx-tools .bar-sm { --bar-h: 6px; }
 .fx-tools .bar-fill { height: 100%; border-radius: 8px; transition: width 800ms cubic-bezier(.4,0,.2,1); }
 .fx-tools .hr { height: 1px; background: var(--hair2); margin: 18px 0; }
@@ -541,7 +566,7 @@ body.fx-drawer-open .fx-ai-dock { display: none; }
 }
 .fx-tools .foot a:hover { text-decoration-color: var(--accent-text); }
 
-.fx-tools .stat-cell { background: var(--card); border: 1px solid var(--hair2); border-radius: 16px; padding: 20px 14px; text-align: center; box-shadow: var(--shadow); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); transition: transform .25s ease, box-shadow .25s ease; }
+.fx-tools .stat-cell { background: var(--card); border: 1px solid var(--hair2); border-radius: 16px; padding: 20px 14px; text-align: center; box-shadow: var(--shadow); transition: transform .25s ease, box-shadow .25s ease; }
 .fx-tools .stat-cell:hover { transform: translateY(-3px); box-shadow: 0 8px 28px rgba(0,0,0,.09); }
 .fx-tools .stat-cell .v { font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
 .fx-tools .stat-cell .l { font-size: 11px; color: var(--ink2); margin-top: 4px; font-weight: 500; }
@@ -549,7 +574,7 @@ body.fx-drawer-open .fx-ai-dock { display: none; }
 .fx-tools .big-num { font-size: clamp(34px,6vw,48px); font-weight: 700; letter-spacing: -.025em; }
 .fx-tools .row-line { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--hair2); }
 .fx-tools .row-line:last-child { border-bottom: none; }
-.fx-tools .seg-bar { display: flex; border-radius: 10px; overflow: hidden; height: 14px; margin: 14px 0; }
+.fx-tools .seg-bar { display: flex; border-radius: 10px; overflow: hidden; height: 14px; margin: 14px 0; contain: layout paint; }
 .fx-tools .seg { transition: width .6s ease; }
 .fx-tools .tip { border-radius: 14px; padding: 15px 17px; font-size: 13px; line-height: 1.6; margin-bottom: 9px; color: var(--ink2); }
 .fx-tools .tip b { display: block; font-size: 13px; margin-bottom: 3px; color: var(--ink); }
@@ -578,7 +603,7 @@ body.fx-drawer-open .fx-ai-dock { display: none; }
 .fx-tools .panel-title { font-size: 18px; font-weight: 600; letter-spacing: -.01em; color: var(--ink); margin: 8px 0 2px; }
 .fx-tools .panel-sub { font-size: 13px; color: var(--ink2); line-height: 1.5; }
 .fx-tools .dash-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap: 12px; }
-.fx-tools .metric { background: var(--card); border: 1px solid var(--hair2); border-radius: 16px; padding: 18px; backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); position: relative; overflow: hidden; }
+.fx-tools .metric { background: var(--card); border: 1px solid var(--hair2); border-radius: 16px; padding: 18px; position: relative; overflow: hidden; }
 .fx-tools .metric::before { content: ""; position: absolute; left: 0; top: 0; height: 100%; width: 3px; background: var(--metric-accent,var(--gold)); opacity: .9; }
 .fx-tools .metric .ml { font-size: 11.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--ink2); }
 .fx-tools .metric .mv { font-size: 26px; font-weight: 700; letter-spacing: -.02em; color: var(--ink); margin-top: 7px; line-height: 1.05; }

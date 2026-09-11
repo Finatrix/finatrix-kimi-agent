@@ -45,14 +45,18 @@ export function isImportable(draft: DraftRow): boolean {
  * the two that genuinely needed attention.
  *
  * What is left is the honest list: rows with no category, rows we are not
- * confident about, and rows whose date or amount did not parse cleanly.
+ * confident about, rows whose date or amount did not parse cleanly, and rows a
+ * camera read rather than a file — the last because a misread digit is
+ * indistinguishable from a correct one until a person looks at it.
  */
 export function needsReview(draft: DraftRow): boolean {
   if (draft.issues.includes('credit')) return false;
   if (draft.duplicateOf || draft.duplicateInBatch) return false;
   if (!draft.category) return true;
   if (draft.confidence < CONFIDENT_AT) return true;
-  return draft.issues.some((i) => i === 'no-date' || i === 'no-amount' || i === 'foreign-currency');
+  return draft.issues.some(
+    (i) => i === 'no-date' || i === 'no-amount' || i === 'foreign-currency' || i === 'recognised-text',
+  );
 }
 
 /**

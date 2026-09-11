@@ -16,8 +16,9 @@ import { Breadcrumb } from '../components/Breadcrumb';
 import { TOOLS } from '../lib/tools';
 import { ToastProvider } from '../tools/ui/Toast';
 import { IconSprite } from '../tools/ui/Icon';
-import { CAREERS_HIDDEN_SECTIONS, CAREERS_NAV, CAREERS_ROUTES } from './constants';
+import { CAREERS_HIDDEN_SECTIONS, CAREERS_NAV, CAREERS_ROUTES, CAREERS_SECTION_GROUPS } from './constants';
 import { NotificationsBell } from './components/NotificationsBell';
+import { SectionMenu } from './components/SectionMenu';
 import { CareersProvider } from './context/CareersContext';
 import { CareersGate } from './components/states';
 import { CareersPaywallGate } from './components/CareersPaywallGate';
@@ -154,6 +155,10 @@ export default function CareersLayout() {
                   {item.name}
                 </Link>
               ))}
+              {/* Everything that does not fit the seven-pill focus decision,
+                  one disclosure rather than ten more pills — see
+                  CAREERS_SECTION_GROUPS for why it is not left in Settings. */}
+              <SectionMenu activeId={active} />
               {isAdmin && (
                 <Link
                   to={CAREERS_ROUTES.admin}
@@ -172,7 +177,7 @@ export default function CareersLayout() {
         {/* Page content */}
         <div className="wrap">
           <div style={{ paddingTop: 14 }}>
-            <Breadcrumb current={sectionName(active)} />
+            <Breadcrumb parent={{ label: 'Careers', to: '/careers/dashboard' }} current={sectionName(active)} />
           </div>
           <CareersGate>
             <CareersPaywallGate>
@@ -224,6 +229,9 @@ export default function CareersLayout() {
               key={item.id}
               to={item.href}
               onClick={() => setDrawerOpen(false)}
+              // Colour alone was the only signal for the current page here
+              // (WCAG 1.4.1) — aria-current gives assistive tech the same fact.
+              aria-current={active === item.id ? 'page' : undefined}
               className={`flex items-center gap-3 px-5 py-2.5 text-[15px] hover:bg-hairline-2 ${
                 active === item.id ? 'text-accent-text' : 'text-ink'
               }`}
@@ -242,6 +250,30 @@ export default function CareersLayout() {
               Admin
             </Link>
           )}
+          {/* The desktop bar carries these behind a "More" disclosure; on a
+              phone the drawer IS the navigation, so they are listed in full
+              under the same group headings rather than hidden a level deeper. */}
+          {CAREERS_SECTION_GROUPS.map((group) => (
+            <div key={group.id}>
+              <div className="mt-1 mb-1 px-5 text-[10px] uppercase tracking-[0.12em] text-ink-3 font-mono">
+                {group.name}
+              </div>
+              {group.items.map((item) => (
+                <Link
+                  key={item.id}
+                  to={item.href}
+                  onClick={() => setDrawerOpen(false)}
+                  aria-current={active === item.id ? 'page' : undefined}
+                  className={`flex items-center gap-3 px-5 py-2.5 text-[15px] hover:bg-hairline-2 ${
+                    active === item.id ? 'text-accent-text' : 'text-ink'
+                  }`}
+                >
+                  <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: '#D4AF37' }} />
+                  {item.name}
+                </Link>
+              ))}
+            </div>
+          ))}
           <div className="mt-1 mb-1 px-5 text-[10px] uppercase tracking-[0.12em] text-ink-3 font-mono">Tools</div>
           {TOOLS.map((t) => (
             <Link

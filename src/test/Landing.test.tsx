@@ -30,18 +30,12 @@ describe('Landing nav', () => {
 });
 
 describe('Landing hero', () => {
-  it('shows the wordmark, every tool card, the Careers spotlight card, and the logo hub', () => {
+  it('offers a dashboard and guided setup with honestly labelled sample data', () => {
     render(wrap(<LandingHero />));
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('FinatriX');
-    // Every tool has a card linking to its route (label is "Name — subtitle").
-    const hrefs = screen.getAllByRole('link').map((a) => a.getAttribute('href'));
-    for (const t of TOOLS) {
-      expect(hrefs).toContain(t.href);
-    }
-    // The eighth cell is the premium FinatriX Careers spotlight (AI Powered badge, links to /careers).
-    expect(screen.getByText('FinatriX Careers')).toBeInTheDocument();
-    expect(screen.getByText('AI Powered')).toBeInTheDocument();
-    expect(hrefs).toContain('/careers');
-    expect(screen.getByRole('link', { name: /open all tools/i })).toHaveAttribute('href', '/tools');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('See where your money goes.');
+    expect(screen.getByRole('link', { name: /Open your dashboard/i })).toHaveAttribute('href', '/tools/dashboard');
+    expect(screen.getByRole('link', { name: /Walk me through setup/i })).toHaveAttribute('href', '/welcome');
+    expect(screen.getByText(/Example figures/)).toBeInTheDocument();
+    expect(screen.getByText(/Careers is a separate paid workspace/)).toBeInTheDocument();
   });
 });

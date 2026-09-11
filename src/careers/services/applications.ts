@@ -153,6 +153,18 @@ export interface ApplicationStats {
   successRate: number;   // offers / applied, %
   interviewRate: number; // interviews / applied, %
   offerRate: number;     // offers / interviews, %
+  /**
+   * Share of APPLIED applications that got any reply at all — an interview, an
+   * offer, or a rejection. Silence is what this measures the absence of, so a
+   * "no" counts as a response.
+   *
+   * Computed here rather than at the call site because the dashboard used to
+   * derive it as `(interviews + offers) / applied`, and `interviews` already
+   * contains every offer stage — so a single accepted offer was counted twice
+   * and the card reported a 200% response rate. Set-based, so no application
+   * can contribute more than once no matter how many buckets it belongs to.
+   */
+  responseRate: number;
   monthlyTrend: { month: string; count: number }[];
 }
 
@@ -175,6 +187,16 @@ export function computeApplicationStats(apps: ApplicationRow[]): ApplicationStat
     trend.set(month, (trend.get(month) ?? 0) + 1);
   }
   const pct = (num: number, den: number) => (den ? Math.round((num / den) * 100) : 0);
+
+  // Set-based so an application that is both "interviewed" and "offered"
+  // contributes exactly once. Restricted to `applied` because the denominator
+  // is applications actually sent — an interview booked against a still-saved
+  // role would otherwise push the rate above 100%.
+  const appliedIds = new Set(applied.map((a) => a.id));
+  const respondedIds = new Set<string>();
+  for (const a of interviews) if (appliedIds.has(a.id)) respondedIds.add(a.id);
+  for (const a of apps) if (a.stage === 'rejected' && appliedIds.has(a.id)) respondedIds.add(a.id);
+
   return {
     total: apps.length,
     saved: apps.filter((a) => a.stage === 'saved').length,
@@ -190,6 +212,7 @@ export function computeApplicationStats(apps: ApplicationRow[]): ApplicationStat
     successRate: pct(offers.length, applied.length),
     interviewRate: pct(interviews.length, applied.length),
     offerRate: pct(offers.length, interviews.length),
+    responseRate: pct(respondedIds.size, applied.length),
     monthlyTrend: [...trend.entries()].sort((a, b) => a[0].localeCompare(b[0])).slice(-12)
       .map(([month, count]) => ({ month, count })),
   };

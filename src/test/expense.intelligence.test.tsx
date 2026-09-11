@@ -45,7 +45,18 @@ function renderPage() {
 }
 
 const saved = (): ExpenseItem[] => JSON.parse(localStorage.getItem('fx_expenses') || '[]');
-const amountField = () => screen.getByLabelText(/^Amount/);
+/**
+ * The amount field lives in the add sheet: the Overview tab's inline form was
+ * folded into the same sheet the transaction list opens, so there is one
+ * structured form rather than two.
+ */
+function openAddSheet(): HTMLElement {
+  fireEvent.click(screen.getByRole('button', { name: 'Add an expense' }));
+  return screen.getByRole('dialog');
+}
+const amountField = () => within(screen.getByRole('dialog')).getByLabelText(/^Amount/);
+const saveSheet = () =>
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Add transaction' }));
 
 beforeEach(() => {
   // Re-pin per test: individual suites below advance the clock, and a suite
@@ -65,6 +76,7 @@ afterEach(() => vi.useRealTimers());
 describe('arithmetic in the amount field', () => {
   it('shows what a formula evaluates to before anything is saved', () => {
     renderPage();
+    openAddSheet();
     fireEvent.change(amountField(), { target: { value: '120/4' } });
 
     expect(screen.getByText('= ₹30')).toBeInTheDocument();
@@ -73,8 +85,9 @@ describe('arithmetic in the amount field', () => {
 
   it('saves the evaluated amount, not the text', () => {
     renderPage();
+    openAddSheet();
     fireEvent.change(amountField(), { target: { value: '50+(20*2)' } });
-    fireEvent.click(screen.getByText('Add expense'));
+    saveSheet();
 
     expect(saved()).toHaveLength(1);
     expect(saved()[0].amount).toBe(90);
@@ -82,20 +95,23 @@ describe('arithmetic in the amount field', () => {
 
   it('still accepts a plain number', () => {
     renderPage();
+    openAddSheet();
     fireEvent.change(amountField(), { target: { value: '249.99' } });
-    fireEvent.click(screen.getByText('Add expense'));
+    saveSheet();
 
     expect(saved()[0].amount).toBe(249.99);
   });
 
   it('shows no preview for a plain number — there is nothing to preview', () => {
     renderPage();
+    openAddSheet();
     fireEvent.change(amountField(), { target: { value: '42' } });
     expect(screen.queryByText(/^= /)).not.toBeInTheDocument();
   });
 
   it('says nothing while a formula is still half-typed', () => {
     renderPage();
+    openAddSheet();
     fireEvent.change(amountField(), { target: { value: '12+' } });
     expect(screen.queryByText(/^= /)).not.toBeInTheDocument();
     expect(screen.queryByText(/incomplete/i)).not.toBeInTheDocument();
@@ -103,6 +119,7 @@ describe('arithmetic in the amount field', () => {
 
   it('reports a broken formula once the user leaves the field', () => {
     renderPage();
+    openAddSheet();
     fireEvent.change(amountField(), { target: { value: '(100-25' } });
     fireEvent.blur(amountField());
 
@@ -112,8 +129,9 @@ describe('arithmetic in the amount field', () => {
 
   it('names the reason on submit rather than claiming the amount is empty', () => {
     renderPage();
+    openAddSheet();
     fireEvent.change(amountField(), { target: { value: '10/0' } });
-    fireEvent.click(screen.getByText('Add expense'));
+    saveSheet();
 
     expect(screen.getByRole('alert')).toHaveTextContent(/divide by zero/i);
     expect(saved()).toHaveLength(0);
@@ -121,8 +139,9 @@ describe('arithmetic in the amount field', () => {
 
   it('never evaluates anything but arithmetic', () => {
     renderPage();
+    openAddSheet();
     fireEvent.change(amountField(), { target: { value: 'alert(1)' } });
-    fireEvent.click(screen.getByText('Add expense'));
+    saveSheet();
 
     expect(saved()).toHaveLength(0);
     expect(screen.getByRole('alert')).toHaveTextContent(/only numbers/i);
@@ -130,6 +149,7 @@ describe('arithmetic in the amount field', () => {
 
   it('keeps a numeric keypad on mobile despite being a text field', () => {
     renderPage();
+    openAddSheet();
     // type=number would discard "120/4" outright, so the field is text —
     // inputMode is what preserves the numeric keyboard.
     expect(amountField()).toHaveAttribute('type', 'text');
@@ -218,7 +238,9 @@ describe('undo delete', () => {
   it('leaves the browser’s own text undo alone while typing', () => {
     renderPage();
     deleteFirst();
-    fireEvent.keyDown(amountField(), { key: 'z', ctrlKey: true });
+    // Any text field on the page will do; the quick-add line is the one that is
+    // always there, and is exactly where someone would be mid-word.
+    fireEvent.keyDown(screen.getByLabelText('Quick add'), { key: 'z', ctrlKey: true });
 
     expect(saved()).toHaveLength(1); // the field's undo, not ours
   });

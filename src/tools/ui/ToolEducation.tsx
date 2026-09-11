@@ -114,7 +114,7 @@ export default function ToolEducation({ toolId }: { toolId: ToolId }) {
     <div className="mx-auto mt-12 w-full max-w-[820px] border-t border-hairline px-4 pb-16 pt-10 sm:px-0">
       <h2
         id="about-this-tool"
-        className="scroll-mt-24 text-[20px] font-semibold tracking-[-0.02em] text-ink"
+        className="text-[20px] font-semibold tracking-[-0.02em] text-ink"
       >
         About {tool?.name ?? 'this tool'}
       </h2>

@@ -15,10 +15,12 @@ import { currentMonth } from './month';
 import { computeBudget, allCategories, type BudgetStore } from './budget';
 import { loadCatViewFor } from './budgetCatsMonth';
 import { loadExpenses, migrateCategory, splitOutflow, ET_CATS } from './expense';
-import { computeGoalPlanner } from './goals';
+import { computeGoalPlanner, type GoalResult } from './goals';
 import { computeInvestMatch, IM_DEFAULTS, IM_RL, type ImAnswers } from './investmatch';
 import { readActivity } from './activity';
 import { changeBetween, computeNetWorth, loadAccounts, netWorthSeries, type Change } from './netWorth';
+import { loadMarket, marketFor } from './markets';
+import { converterTo, effectiveRates } from './fx';
 
 export type PillarId = 'budget' | 'expenses' | 'goals' | 'investmatch' | 'parksmart' | 'peercompare' | 'lifemap';
 
@@ -55,7 +57,23 @@ export interface DashboardSnapshot {
   netCashflow: number | null;
   savingsRatePct: number | null;
 
-  goal: { name: string; target: number; years: number; monthlySip: number; progressPct: number } | null;
+  goal: {
+    name: string;
+    target: number;
+    years: number;
+    /** The first return path's contribution — kept for parity with the Goal Planner's first card. */
+    monthlySip: number;
+    /**
+     * The contribution across every return path, lowest to highest.
+     *
+     * The dashboard used to show `monthlySip` alone, and the first path is the
+     * most aggressive one: the smallest monthly figure, presented without its
+     * 14% return assumption as if it were THE plan. The Goal Planner shows all
+     * paths as equals, so the summary of it now does too.
+     */
+    monthlyRange: { low: number; high: number };
+    progressPct: number;
+  } | null;
   /**
    * The current balance sheet, or null when nothing has been recorded.
    *
@@ -105,6 +123,28 @@ function num(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/**
+ * The saved goal, run through the Goal Planner's own engine with `market`'s
+ * assumptions. Null when no valid goal is saved.
+ *
+ * One reader for every surface that summarises the goal — the dashboard card
+ * and FinatriX AI — so they cannot disagree about which goal, which inputs or
+ * which assumptions.
+ */
+export function readSavedGoal(market = marketFor(loadMarket())): GoalResult | null {
+  const g = getJSON<Record<string, string | boolean>>('fx_goals', {});
+  const targetToday = num(g[GOAL_KEYS.target]);
+  if (targetToday < 1000) return null;
+  const res = computeGoalPlanner({
+    name: String(g[GOAL_KEYS.name] ?? 'Your goal'),
+    targetToday,
+    years: num(g[GOAL_KEYS.years]) || 10,
+    existing: num(g[GOAL_KEYS.existing]),
+    inflate: g[GOAL_KEYS.inflate] != null ? Boolean(g[GOAL_KEYS.inflate]) : true,
+  }, market.goals.inflation, market.goals.paths);
+  return res.valid && res.results.length ? res : null;
+}
+
 function healthLabelFor(score: number): string {
   if (score >= 90) return 'Excellent';
   if (score >= 75) return 'Strong';
@@ -115,6 +155,7 @@ function healthLabelFor(score: number): string {
 
 /** Read the whole picture. Safe to call on every render (cheap, synchronous). */
 export function readDashboard(): DashboardSnapshot {
+  const market = marketFor(loadMarket());
   const currency = store.get('fx_currency', 'INR') || 'INR';
   const cm = currentMonth();
 
@@ -238,23 +279,20 @@ export function readDashboard(): DashboardSnapshot {
   let goalsDone = false;
   let goalScore = 0;
   try {
-    const g = getJSON<Record<string, string | boolean>>('fx_goals', {});
-    const targetToday = num(g[GOAL_KEYS.target]);
-    if (targetToday >= 1000) {
-      const res = computeGoalPlanner({
-        name: String(g[GOAL_KEYS.name] ?? 'Your goal'),
-        targetToday,
-        years: num(g[GOAL_KEYS.years]) || 10,
-        existing: num(g[GOAL_KEYS.existing]),
-        inflate: g[GOAL_KEYS.inflate] != null ? Boolean(g[GOAL_KEYS.inflate]) : true,
-      });
-      if (res.valid && res.results.length) {
-        goalsDone = true;
-        const path = res.results[0];
-        const progressPct = res.target > 0 ? Math.max(0, Math.min(100, Math.round((num(g[GOAL_KEYS.existing]) / res.target) * 100))) : 0;
-        goal = { name: res.name, target: res.target, years: res.years, monthlySip: Math.round(path.monthly), progressPct };
-        goalScore = Math.min(100, 50 + Math.round(progressPct * 0.5));
-      }
+    const res = readSavedGoal(market);
+    if (res) {
+      goalsDone = true;
+      const monthly = res.results.map((p) => Math.round(p.monthly));
+      const progressPct = res.target > 0 ? Math.max(0, Math.min(100, Math.round((res.existing / res.target) * 100))) : 0;
+      goal = {
+        name: res.name,
+        target: res.target,
+        years: res.years,
+        monthlySip: monthly[0],
+        monthlyRange: { low: Math.min(...monthly), high: Math.max(...monthly) },
+        progressPct,
+      };
+      goalScore = Math.min(100, 50 + Math.round(progressPct * 0.5));
     }
   } catch { /* goals stay empty */ }
 
@@ -266,7 +304,7 @@ export function readDashboard(): DashboardSnapshot {
     const saved = getJSON<{ a?: Partial<ImAnswers> }>('fx_investmatch', {});
     if (saved.a && Object.keys(saved.a).length > 0) {
       const ans: ImAnswers = { ...IM_DEFAULTS, ...saved.a };
-      const res = computeInvestMatch(ans);
+      const res = computeInvestMatch(ans, market.invest);
       if (!res.tooLow) {
         investDone = true;
         invest = {
@@ -292,8 +330,9 @@ export function readDashboard(): DashboardSnapshot {
     try {
       const accounts = loadAccounts();
       if (!accounts.length) return null;
-      const snapshot = computeNetWorth(accounts, cm);
-      const series = netWorthSeries(accounts, cm);
+      const options = { displayCurrency: currency, convert: converterTo(currency, effectiveRates()) };
+      const snapshot = computeNetWorth(accounts, cm, options);
+      const series = netWorthSeries(accounts, cm, options);
       const prior = series.length > 1 ? series[series.length - 2] : null;
       return {
         month: cm,
@@ -313,7 +352,7 @@ export function readDashboard(): DashboardSnapshot {
     { id: 'expenses', label: 'Track spending', href: '/tools/expenses', done: expensesDone, detail: expensesDone ? 'Logging expenses' : 'Log your first expense' },
     { id: 'goals', label: 'Set a goal', href: '/tools/goals', done: goalsDone, detail: goalsDone && goal ? goal.name : 'Work back to a monthly SIP' },
     { id: 'investmatch', label: 'Invest', href: '/tools/investmatch', done: investDone, detail: investDone && invest ? `${invest.profile} portfolio` : 'Match a portfolio to your risk' },
-    { id: 'parksmart', label: 'Park cash', href: '/tools/parksmart', done: parkUsed, detail: parkUsed ? 'Idle cash optimised' : 'Best post-tax home for cash' },
+    { id: 'parksmart', label: 'Compare cash options', href: '/tools/parksmart', done: parkUsed, detail: parkUsed ? 'Cash options explored' : 'Compare short-term, post-tax returns' },
     { id: 'peercompare', label: 'Benchmark', href: '/tools/peercompare', done: peerUsed, detail: peerUsed ? 'Compared to peers' : 'See where you stand' },
     { id: 'lifemap', label: 'Plan life', href: '/tools/lifemap', done: lifeUsed, detail: lifeUsed ? 'Life simulated' : 'Simulate your whole journey' },
   ];

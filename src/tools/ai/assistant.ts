@@ -17,6 +17,9 @@ import { buildSnapshot, type FinanceSnapshot, type SnapshotInput } from './conte
 import { describeFocus, type AiFocus } from './focus';
 import { buildFocusDetail } from './focusData';
 import {
+  chartIsGrounded, checkAnswer, collectFigures, highlightIsGrounded, type GroundingReport,
+} from './grounding';
+import {
   SYSTEM_PROMPT, buildUserMessage, sanitizeQuestion, MONTHLY_REVIEW_QUESTION,
 } from './prompts';
 import { parseAiAnswer, type AiAnswer } from './validate';
@@ -57,6 +60,13 @@ export interface AskSuccess extends AiAnswer {
    * about a correct answer.
    */
   confidence: Confidence | null;
+  /**
+   * Which of the answer's amounts trace to the user's records — checked here,
+   * against the exact data the model was given, after it answered. Null for a
+   * `general` answer, whose illustrative figures are not claims about the user,
+   * and for an answer that states no amounts at all.
+   */
+  grounding: GroundingReport | null;
 }
 
 export interface AskFailure {
@@ -142,11 +152,31 @@ export async function ask(opts: AskOptions): Promise<AskResult> {
     };
   }
 
+  if (parsed.mode === 'general') {
+    return { ok: true, model: result.model, ...parsed, confidence: null, grounding: null };
+  }
+
+  // The structural half of the grounding contract. The prompt asks for it; this
+  // checks it, against the same snapshot and focus the model was handed. The
+  // headline is checked as a line of its own; tiles and charts, which present a
+  // number as the user's with no prose around it, are withheld if they miss.
+  const known = collectFigures(snapshot, focusDetail);
+  const checked = checkAnswer([parsed.headline, parsed.answer].filter(Boolean).join('\n'), known);
+  const highlights = parsed.highlights.filter((h) => highlightIsGrounded(h, known));
+  const tilesWithheld = parsed.highlights.length - highlights.length;
+  const chartWithheld = parsed.chart != null && !chartIsGrounded(parsed.chart, known);
+  const grounding: GroundingReport | null = checked.checked > 0 || chartWithheld || tilesWithheld > 0
+    ? { ...checked, chartWithheld, ...(tilesWithheld ? { tilesWithheld } : {}) }
+    : null;
+
   return {
     ok: true,
     model: result.model,
     ...parsed,
-    confidence: parsed.mode === 'general' ? null : confidence,
+    highlights,
+    chart: chartWithheld ? null : parsed.chart,
+    confidence,
+    grounding,
   };
 }
 

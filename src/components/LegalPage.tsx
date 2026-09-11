@@ -106,7 +106,7 @@ export function H2({ children, id }: { children: ReactNode; id?: string }) {
   return (
     <h2
       id={id}
-      className="text-ink text-[18px] sm:text-[20px] font-medium mt-9 mb-3 tracking-[-0.01em] scroll-mt-20"
+      className="text-ink text-[18px] sm:text-[20px] font-medium mt-9 mb-3 tracking-[-0.01em]"
     >
       {children}
     </h2>
