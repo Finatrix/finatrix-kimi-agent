@@ -5,10 +5,15 @@ import { useDialogFocus } from '../../hooks/useDialogFocus';
 import { getChartTheme } from '../lib/chartTheme';
 import { useCurrency } from '../CurrencyContext';
 import { PageHead, ToolFoot } from '../ui/common';
+import { ResultExplainer, type MethodRow } from '../ui/ResultExplainer';
+import { MarketNote } from '../ui/MarketNote';
+import { useMarket } from '../MarketContext';
+import { readLifeMapSeed, type LifeMapSeed } from '../lib/lifemapSeed';
+import type { MarketPack } from '../lib/markets';
 import { Icon } from '../ui/Icon';
 import { getJSON, setJSON } from '../lib/storage';
 import {
-  LM_GOALS, LM_MILESTONES, LM_CATS, LM_HEALTH_CATS,
+  LM_GOALS, LM_MILESTONES, LM_CATS, LM_HEALTH_CATS, LM_CAREER_BOOST,
   buildDecisions, buildProfile, updateCustomDecision,
   calcWealth, calcScore, calcHealth,
   type LifeProfile, type Decision,
@@ -17,7 +22,7 @@ import { track } from '../../lib/analytics';
 
 const CAREERS: [string, string][] = [
   ['tech', 'Technology / IT'], ['finance', 'Finance / Banking'], ['health', 'Healthcare / Pharma'],
-  ['creative', 'Creative / Media'], ['govt', 'Government / PSU'], ['startup', 'Startup / Entrepreneur'],
+  ['creative', 'Creative / Media'], ['govt', 'Government / public sector'], ['startup', 'Startup / Entrepreneur'],
   ['engineering', 'Engineering / Manufacturing'], ['education', 'Education / Teaching'], ['law', 'Law / Legal'],
   ['consulting', 'Consulting / Strategy'], ['sales', 'Sales / Marketing'], ['design', 'Design / Architecture'],
   ['science', 'Science / Research'], ['hospitality', 'Hospitality / Tourism'], ['agriculture', 'Agriculture / Farming'],
@@ -36,7 +41,14 @@ const numF = (v: string) => { const n = Number(v); return isFinite(n) ? Math.max
 
 export default function LifeMapPage() {
   const { cfmt, cfmtSh, code, sym } = useCurrency();
-  const [form, setForm] = useState<Form>(() => ({ ...FORM_DEFAULTS, ...getJSON<Form>('fx_lifemap', {}) }));
+  const { market } = useMarket();
+  // Read once, before the first paint. Order matters: FinatriX's own records
+  // beat the placeholder defaults, and anything the user has typed into LifeMap
+  // before beats both — a seeded figure is a head start, never an overwrite.
+  const [seed] = useState<LifeMapSeed>(readLifeMapSeed);
+  const [form, setForm] = useState<Form>(() => ({
+    ...FORM_DEFAULTS, ...seed.values, ...getJSON<Form>('fx_lifemap', {}),
+  }));
   const [goals, setGoals] = useState<Set<string>>(new Set(['home']));
   const [profile, setProfile] = useState<LifeProfile | null>(null);
   const [dec, setDec] = useState<Decision[]>([]);
@@ -77,9 +89,12 @@ export default function LifeMapPage() {
       <div className="fx-page" style={{ paddingBottom: 64 }}>
         <PageHead chip="LifeMap" chipColor="var(--purple)" chipBg="rgba(110,59,212,.1)" icon="lifemap" title="Simulate your entire financial life." chipPadTop={48}>
           Enter your numbers once. Travel through time. See how every decision — good or bad —
-          reshapes your wealth trajectory from today to retirement.
+          reshapes your wealth trajectory from today to retirement. Everything past today is a
+          projection from stated assumptions, not a forecast of what will happen.
         </PageHead>
-        <SetupForm form={form} goals={goals} setField={setField} setGoals={setGoals} onLaunch={launch} launching={launching} sym={sym} />
+        <LifeMapIntro seed={seed} />
+        <SetupForm form={form} goals={goals} seed={seed} setField={setField} setGoals={setGoals} onLaunch={launch} launching={launching} sym={sym} monthlyTerm={market.invest.monthlyTerm} />
+        <MarketNote market={market} />
       </div>
     );
   }
@@ -88,7 +103,7 @@ export default function LifeMapPage() {
     <div className="fx-page" style={{ paddingBottom: 64 }}>
       <AppScreen
         profile={profile} dec={dec} applied={applied} currentAge={currentAge} cat={cat} code={code}
-        cfmt={cfmt}
+        cfmt={cfmt} market={market} seed={seed}
         onAge={setCurrentAge}
         onCat={setCat}
         onToggle={(id) => {
@@ -119,17 +134,90 @@ export default function LifeMapPage() {
   );
 }
 
-/* ───────────────────────── Setup form ───────────────────────── */
-function SetupForm({ form, goals, setField, setGoals, onLaunch, launching, sym }: {
-  form: Form; goals: Set<string>; setField: (k: string, v: string) => void;
-  setGoals: (s: Set<string>) => void; onLaunch: () => void; launching: boolean; sym: string;
-}) {
-  const N = (k: string, label: string, extra?: React.InputHTMLAttributes<HTMLInputElement>) => (
-    <div className="fg">
-      <label className="fl" htmlFor={k}>{label}</label>
-      <input className="fi" id={k} value={form[k]} onChange={(e) => setField(k, e.target.value)} {...extra} />
+/* ───────────────────────── Intro / empty state ───────────────────────── */
+
+/**
+ * What LifeMap is, before a stranger has typed anything.
+ *
+ * The page opened straight onto eleven money fields, which asks for a great deal
+ * of private information from someone who has not yet been told what they get
+ * for it, what happens to it, or how literally to take the answer. Four short
+ * lines, and — when FinatriX already holds the figures — the fact that most of
+ * the form is already filled in.
+ */
+function LifeMapIntro({ seed }: { seed: LifeMapSeed }) {
+  return (
+    <div className="card" style={{ maxWidth: 720, margin: '0 auto 16px' }}>
+      <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 10 }}>Before you start</div>
+      <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <li style={{ fontSize: 13.5, lineHeight: 1.65, color: 'var(--ink2)' }}>
+          <b style={{ color: 'var(--ink)' }}>What it does.</b> Takes today&rsquo;s position and carries
+          it to age 60 under two sets of habits, so you can see what a decision costs or earns over
+          decades rather than months.
+        </li>
+        <li style={{ fontSize: 13.5, lineHeight: 1.65, color: 'var(--ink2)' }}>
+          <b style={{ color: 'var(--ink)' }}>What it needs.</b> Your monthly income and outgoings, what
+          you hold, and what you owe. Estimates are fine — the shape of the answer survives rough
+          numbers, and you can change any of them afterwards.
+        </li>
+        <li style={{ fontSize: 13.5, lineHeight: 1.65, color: 'var(--ink2)' }}>
+          <b style={{ color: 'var(--ink)' }}>Why it helps.</b> A monthly budget cannot show you the
+          cost of a habit you keep for twenty years. This can, and the gap is usually larger than
+          people expect.
+        </li>
+        <li style={{ fontSize: 13.5, lineHeight: 1.65, color: 'var(--ink2)' }}>
+          <b style={{ color: 'var(--ink)' }}>Where it stays.</b> On this device as a guest, or in your
+          account when you are signed in. Nothing is sent anywhere to produce the projection.
+        </li>
+      </ul>
+      {seed.from.length > 0 && (
+        <p className="tip tip-info" style={{ marginTop: 14, marginBottom: 0 }}>
+          <b>Some of this is already filled in</b> from your {listSources(seed.from)}. Change anything
+          that is out of date — editing here does not alter the original records.
+        </p>
+      )}
     </div>
   );
+}
+
+/** `['Budget','Net Worth']` → `"Budget and Net Worth"`. */
+function listSources(from: readonly string[]): string {
+  if (from.length === 1) return from[0];
+  return `${from.slice(0, -1).join(', ')} and ${from[from.length - 1]}`;
+}
+
+/* ───────────────────────── Setup form ───────────────────────── */
+function SetupForm({ form, goals, seed, setField, setGoals, onLaunch, launching, sym, monthlyTerm }: {
+  form: Form; goals: Set<string>; seed: LifeMapSeed; setField: (k: string, v: string) => void;
+  setGoals: (s: Set<string>) => void; onLaunch: () => void; launching: boolean; sym: string;
+  monthlyTerm: string;
+}) {
+  const N = (k: string, label: string, extra?: React.InputHTMLAttributes<HTMLInputElement>) => {
+    const from = seed.sources[k];
+    const hintId = from ? `${k}-from` : undefined;
+    return (
+      <div className="fg">
+        <label className="fl" htmlFor={k}>{label}</label>
+        {/* `step="any"` on every money field. Without it the browser treats a
+            typed decimal point as invalid and refuses the keystroke, so a
+            balance of 12,500.50 could not be entered at all — the same defect
+            MoneyField exists to fix elsewhere in the app. */}
+        <input
+          className="fi"
+          id={k}
+          value={form[k]}
+          aria-describedby={hintId}
+          onChange={(e) => setField(k, e.target.value)}
+          {...extra}
+        />
+        {from && (
+          <p id={hintId} className="note" style={{ marginTop: 5 }}>
+            From your {from}
+          </p>
+        )}
+      </div>
+    );
+  };
   return (
     <div className="card" style={{ maxWidth: 720, margin: '0 auto 16px' }}>
       <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Your financial profile</div>
@@ -137,32 +225,32 @@ function SetupForm({ form, goals, setField, setGoals, onLaunch, launching, sym }
       <div className="grid2">
         {N('lm-name', 'Your name', { type: 'text', placeholder: 'e.g. Nitya Prakash' })}
         {N('lm-age', 'Current age', { type: 'number', min: 16, max: 45, inputMode: 'numeric' })}
-        {N('lm-income', `Monthly income (${sym})`, { type: 'number', min: 0, inputMode: 'decimal' })}
-        {N('lm-expenses', `Monthly expenses (${sym})`, { type: 'number', min: 0, inputMode: 'decimal' })}
+        {N('lm-income', `Monthly income (${sym})`, { type: 'number', step: 'any', min: 0, inputMode: 'decimal' })}
+        {N('lm-expenses', `Monthly expenses (${sym})`, { type: 'number', step: 'any', min: 0, inputMode: 'decimal' })}
       </div>
       <div className="well" style={{ fontSize: 13, color: 'var(--ink2)', lineHeight: 1.6, marginBottom: 18 }}>
         <Icon name="zap" size={14} style={{ display: 'inline', verticalAlign: 'text-bottom', color: 'var(--gold)' }} /> Include all loan EMIs in{' '}
         <b style={{ color: 'var(--ink)' }}>monthly expenses</b>. Savings and investments are entered separately below — don't double-count.
       </div>
       <div className="grid2">
-        {N('lm-savings', `Total savings — bank + FD + cash (${sym})`, { type: 'number', min: 0, inputMode: 'decimal' })}
-        {N('lm-emergency', `Of which, emergency fund (${sym})`, { type: 'number', min: 0, inputMode: 'decimal' })}
-        {N('lm-invest', `Total investments so far (${sym})`, { type: 'number', min: 0, inputMode: 'decimal' })}
+        {N('lm-savings', `Total savings — bank + FD + cash (${sym})`, { type: 'number', step: 'any', min: 0, inputMode: 'decimal' })}
+        {N('lm-emergency', `Of which, emergency fund (${sym})`, { type: 'number', step: 'any', min: 0, inputMode: 'decimal' })}
+        {N('lm-invest', `Total investments so far (${sym})`, { type: 'number', step: 'any', min: 0, inputMode: 'decimal' })}
         <div className="fg">
           <label className="fl" htmlFor="lm-sip-yn">Do you invest monthly?</label>
           <select className="fs" id="lm-sip-yn" value={form['lm-sip-yn']} onChange={(e) => setField('lm-sip-yn', e.target.value)}>
             <option value="no">No, not yet</option><option value="yes">Yes, I do</option>
           </select>
         </div>
-        {form['lm-sip-yn'] === 'yes' && N('lm-sip', `Monthly SIP / investment (${sym})`, { type: 'number', min: 0, inputMode: 'decimal' })}
+        {form['lm-sip-yn'] === 'yes' && N('lm-sip', `Monthly ${monthlyTerm.toLowerCase()} (${sym})`, { type: 'number', step: 'any', min: 0, inputMode: 'decimal' })}
         <div className="fg">
           <label className="fl" htmlFor="lm-debt-yn">Any outstanding loans / debt?</label>
           <select className="fs" id="lm-debt-yn" value={form['lm-debt-yn']} onChange={(e) => setField('lm-debt-yn', e.target.value)}>
             <option value="no">No</option><option value="yes">Yes</option>
           </select>
         </div>
-        {form['lm-debt-yn'] === 'yes' && N('lm-debt-total', `Total debt outstanding (${sym})`, { type: 'number', min: 0, inputMode: 'decimal' })}
-        {form['lm-debt-yn'] === 'yes' && N('lm-debt-emi', `Monthly EMI / repayment (${sym})`, { type: 'number', min: 0, inputMode: 'decimal' })}
+        {form['lm-debt-yn'] === 'yes' && N('lm-debt-total', `Total debt outstanding (${sym})`, { type: 'number', step: 'any', min: 0, inputMode: 'decimal' })}
+        {form['lm-debt-yn'] === 'yes' && N('lm-debt-emi', `Monthly EMI / repayment (${sym})`, { type: 'number', step: 'any', min: 0, inputMode: 'decimal' })}
         <div className="fg">
           <label className="fl" htmlFor="lm-career">Career field</label>
           <select className="fs" id="lm-career" value={form['lm-career']} onChange={(e) => setField('lm-career', e.target.value)}>
@@ -194,9 +282,10 @@ function SetupForm({ form, goals, setField, setGoals, onLaunch, launching, sym }
 }
 
 /* ───────────────────────── App screen ───────────────────────── */
-function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, onAge, onCat, onToggle, onEdit }: {
+function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, market, seed, onAge, onCat, onToggle, onEdit }: {
   profile: LifeProfile; dec: Decision[]; applied: Set<string>; currentAge: number; cat: string; code: string;
-  cfmt: (n: number) => string; onAge: (a: number) => void; onCat: (c: string) => void; onToggle: (id: string) => void; onEdit: () => void;
+  cfmt: (n: number) => string; market: MarketPack; seed: LifeMapSeed;
+  onAge: (a: number) => void; onCat: (c: string) => void; onToggle: (id: string) => void; onEdit: () => void;
 }) {
   const score = calcScore(p, applied);
   const health = calcHealth(p, applied);
@@ -212,6 +301,30 @@ function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, onAg
   const milestones = LM_MILESTONES.filter((m) => m.age >= p.age - 1 && m.age <= 60);
   const scoreTitle = SCORE_TITLES[Math.floor(score / 20)] || 'Financial pro';
 
+  // Inputs are what the reader supplied — including the fields FinatriX filled
+  // in from their own records, which are named so the disclosure is complete.
+  const seededNote = (key: string) => (seed.sources[key] ? ` · from your ${seed.sources[key]}` : '');
+  const inputs: MethodRow[] = [
+    { label: 'Age today', value: `${p.age}` },
+    { label: 'Monthly income', value: cfmt(p.income) + seededNote('lm-income') },
+    { label: 'Monthly expenses', value: cfmt(p.expenses) + seededNote('lm-expenses') },
+    { label: 'Savings held', value: cfmt(p.savings) + seededNote('lm-savings') },
+    { label: 'Invested', value: cfmt(p.invest) + seededNote('lm-invest') },
+    { label: 'Monthly contribution', value: p.sip > 0 ? cfmt(p.sip) + seededNote('lm-sip') : 'None' },
+    { label: 'Debt outstanding', value: cfmt(p.debtTotal) + seededNote('lm-debt-total') },
+    { label: 'Career field', value: CAREERS.find(([v]) => v === p.career)?.[1] ?? p.career },
+  ];
+  // Every figure the model supplies rather than the reader. Stated as rates so
+  // a reader can disagree with a specific number instead of the whole chart.
+  const assumptions: MethodRow[] = [
+    { label: 'Projected to', value: 'Age 60' },
+    { label: 'Growth on the disciplined path', value: '11.5% a year' },
+    { label: 'Growth on the impulsive path', value: '3.8% a year' },
+    { label: 'Share of surplus invested', value: '68% disciplined · 18% impulsive' },
+    { label: 'Career field multiplier', value: `${LM_CAREER_BOOST[p.career] ?? 1}×` },
+    { label: 'Inflation applied', value: 'None — every figure is in today\u2019s money' },
+  ];
+
   return (
     <div id="lm-app">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 0 10px' }}>
@@ -222,11 +335,21 @@ function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, onAg
         <button className="btn btn-ghost btn-sm" onClick={onEdit} style={{ flexShrink: 0 }}>← Edit profile</button>
       </div>
 
+      {/* Which figures are yours and which are modelled. The net-worth tile is
+          the one that changes meaning as the slider moves — at your current age
+          it is the balance you entered, and at every later age it is a
+          projection. Labelling it is the difference between a simulation and a
+          promise. */}
       <div id="lm-kpi" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 16 }}>
-        <Kpi v={cfmt(sNW)} l="Net worth" color={sNW >= 0 ? 'var(--green)' : 'var(--red)'} />
-        <Kpi v={cfmt(surplus)} l="Monthly surplus" color={surplus >= 0 ? 'var(--ink)' : 'var(--red)'} />
-        <Kpi v={String(score)} l="Financial score" color="var(--purple)" />
-        <Kpi v={`${applied.size}/${dec.length}`} l="Decisions activated" />
+        <Kpi
+          v={cfmt(sNW)}
+          l={currentAge > p.age ? `Projected net worth at ${currentAge}` : 'Net worth today'}
+          color={sNW >= 0 ? 'var(--green)' : 'var(--red)'}
+          tag={currentAge > p.age ? 'Projected' : 'You entered'}
+        />
+        <Kpi v={cfmt(surplus)} l="Monthly surplus" color={surplus >= 0 ? 'var(--ink)' : 'var(--red)'} tag="You entered" />
+        <Kpi v={String(score)} l="Financial score" color="var(--purple)" tag="Derived" />
+        <Kpi v={`${applied.size}/${dec.length}`} l="Decisions activated" tag="Your choices" />
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
@@ -257,8 +380,13 @@ function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, onAg
 
       <div className="lm-chart-row" style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 16, marginBottom: 16 }}>
         <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <div style={{ fontSize: 14, fontWeight: 700 }}>Wealth projection</div>
+          {/* `flexWrap` because the heading now carries the "modelled, not
+              forecast" qualifier: without it, title + legend exceed a 360px
+              card and the whole page scrolls sideways. The qualifier stays —
+              a projection chart that does not say it is a projection is the
+              thing this label exists to prevent — so the row wraps instead. */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px 12px', marginBottom: 14 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, minWidth: 0 }}>Wealth projection <span style={{ fontWeight: 500, color: 'var(--ink3)', fontSize: 12 }}>· modelled, not forecast</span></div>
             <div style={{ display: 'flex', gap: 14 }}>
               <Legend color="var(--gold)" label="Smart" /><Legend color="var(--red)" label="Impulsive" />
             </div>
@@ -341,12 +469,46 @@ function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, onAg
           </div>
         </div>
       </div>
+
+      <ResultExplainer
+        toolId="lifemap"
+        market={market}
+        inputs={inputs}
+        assumptions={assumptions}
+        meaning={
+          <>
+            Carrying today&rsquo;s position forward on the assumptions above, the two paths are{' '}
+            {cfmt(s40)} and {cfmt(i40)} apart by age {compareAt} — a gap of {cfmt(diff)} produced by
+            habits, not by income. Almost all of it is compounding: the early years contribute the
+            least on the chart and matter the most, because they are the ones that have time to
+            grow.{' '}
+            {surplus <= 0
+              ? <>Your entered outgoings currently match or exceed your income, so the projection has
+                  no monthly surplus to work with. That single figure moves this chart more than any
+                  decision on the list.</>
+              : <>Your {cfmt(surplus)} monthly surplus is the engine of both lines; the decisions only
+                  change how much of it survives and where it goes.</>}{' '}
+            None of these figures is a forecast. They are what these assumptions imply, and a real
+            forty years will not resemble a smooth curve.
+          </>
+        }
+      />
     </div>
   );
 }
 
-function Kpi({ v, l, color }: { v: string; l: string; color?: string }) {
-  return <div className="stat-cell"><div className="v" style={color ? { color } : undefined}>{v}</div><div className="l">{l}</div></div>;
+function Kpi({ v, l, color, tag }: { v: string; l: string; color?: string; tag?: string }) {
+  return (
+    <div className="stat-cell">
+      <div className="v" style={color ? { color } : undefined}>{v}</div>
+      <div className="l">{l}</div>
+      {tag && (
+        <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ink3)', marginTop: 4 }}>
+          {tag}
+        </div>
+      )}
+    </div>
+  );
 }
 function Legend({ color, label }: { color: string; label: string }) {
   return <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--ink2)' }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: color, display: 'inline-block' }} />{label}</span>;

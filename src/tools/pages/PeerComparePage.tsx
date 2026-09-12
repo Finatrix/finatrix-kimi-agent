@@ -6,6 +6,8 @@ import { computePeerCompare, type PeerResult, type Metric } from '../lib/peercom
 import { useCurrency } from '../CurrencyContext';
 import { useMarket } from '../MarketContext';
 import { MarketNote } from '../ui/MarketNote';
+import { ResultExplainer, type MethodRow } from '../ui/ResultExplainer';
+import { reviewedLabel } from '../../shared/reviewed';
 import type { MarketPack } from '../lib/markets';
 import { track } from '../../lib/analytics';
 
@@ -74,15 +76,15 @@ export default function PeerComparePage() {
           invest: num(f.invest), debt: num(f.debt), rate: num(f.rate), expenses: num(f.expenses),
         }, peer)
       );
-      track('tool_completed', { tool: 'peercompare', market: market.id });
+      track('tool_completed', { tool: 'peercompare', bucket: market.id });
     }, 600);
   };
 
   return (
     <div className="fx-page">
-      <PageHead chip="PeerCompare" chipColor="var(--purple)" chipBg="rgba(110,59,212,.09)" icon="peer" title="How do you really stack up?">
+      <PageHead chip="PeerCompare" chipColor="var(--purple)" chipBg="rgba(110,59,212,.09)" icon="peer" title="Where your figures sit.">
         Benchmarks for {cityEntries.length} locations across {market.name}, adjusted for local incomes
-        and living costs.
+        and living costs. A reference point for reading your own numbers — never a target to hit.
       </PageHead>
 
       {!result ? (
@@ -106,15 +108,15 @@ export default function PeerComparePage() {
           </div>
           <Field label={`Monthly expenses (${sym})`} id="pc-expenses"><input className="fi" type="number" step="any" id="pc-expenses" value={f.expenses} min={0} inputMode="decimal" onChange={(e) => set('expenses', e.target.value)} /></Field>
           <button className={`btn ${loading ? 'btn-loading' : ''}`} disabled={loading} onClick={submit}>
-            {loading ? 'Analysing your data…' : 'See how I stack up'}
+            {loading ? 'Comparing…' : 'Show the comparison'}
           </button>
         </div>
       ) : (
-        <PeerResultView result={result} money={cfmt} onReset={() => setResult(null)} />
+        <PeerResultView result={result} market={market} money={cfmt} onReset={() => setResult(null)} />
       )}
 
       <MarketNote market={market} />
-      <ToolFoot>Built with care by <b>FinatriX</b> · Benchmarks are medians, not targets</ToolFoot>
+      <ToolFoot>Built with care by <b>FinatriX</b> · Benchmarks are reference points, not targets</ToolFoot>
     </div>
   );
 }
@@ -128,10 +130,26 @@ function Field({ label, id, children }: { label: string; id: string; children: R
   );
 }
 
-function PeerResultView({ result, money, onReset }: { result: PeerResult; money: (n: number) => string; onReset: () => void }) {
+function PeerResultView({ result, market, money, onReset }: {
+  result: PeerResult; market: MarketPack; money: (n: number) => string; onReset: () => void;
+}) {
   const { metrics, score, scColor, scHex, msg, bracket, city, eMonths, dti, nw, investedRatio } = result;
   const C = 2 * Math.PI * 56;
   const off = C - (score / 100) * C;
+
+  const behind = metrics.filter((m) => m.status === 'behind');
+  const widest = [...metrics].sort((a, b) => a.pct - b.pct)[0];
+
+  const inputs: MethodRow[] = [
+    { label: 'Age band', value: `${bracket} years` },
+    { label: market.peer.cityLabel, value: city.l },
+    { label: 'Metrics compared', value: String(metrics.length) },
+  ];
+  const assumptions: MethodRow[] = [
+    { label: 'Cost-of-living multiplier', value: `${city.col}×` },
+    { label: 'Benchmarks reviewed', value: reviewedLabel(market.asOf) },
+    { label: 'Score', value: 'Mean of the six percentiles' },
+  ];
 
   return (
     <div>
@@ -150,6 +168,21 @@ function PeerResultView({ result, money, onReset }: { result: PeerResult; money:
         <div className="note" style={{ marginTop: 4 }}>Among {bracket}-year-olds in {city.l}</div>
       </div>
 
+      <aside className="card" aria-label="What you are being compared with" style={{ padding: '16px 20px' }}>
+        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>What you are being compared with</div>
+        <dl className="fx-method-rows" style={{ marginBottom: 10 }}>
+          <div><dt>Group</dt><dd>{market.peer.population}</dd></div>
+          <div><dt>Market</dt><dd>{market.name}</dd></div>
+          <div><dt>Age band</dt><dd>{bracket} years</dd></div>
+          <div><dt>Location tier</dt><dd>{city.l} · cost index {city.col}×</dd></div>
+          <div><dt>Figures reviewed</dt><dd>{reviewedLabel(market.asOf)}</dd></div>
+        </dl>
+        <p className="note" style={{ lineHeight: 1.65 }}>
+          {market.peer.basis} A percentile describes where a figure sits in that group — it is not a
+          score, a grade or a target, and half of any group sits below its own median.
+        </p>
+      </aside>
+
       <div style={{ fontSize: 15, fontWeight: 700, margin: '20px 4px 12px' }}>Metric by metric</div>
       {metrics.map((m) => <MetricCard key={m.k} m={m} cityLabel={city.l} money={money} />)}
 
@@ -165,10 +198,32 @@ function PeerResultView({ result, money, onReset }: { result: PeerResult; money:
 
       {result.tips.length > 0 && (
         <div className="card">
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Personalised tips</div>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Things worth a look</div>
           {result.tips.map((t, i) => <div className={`tip tip-${t[0]}`} key={i}><b>{t[1]}</b>{t[2]}</div>)}
         </div>
       )}
+      <ResultExplainer
+        toolId="peercompare"
+        market={market}
+        inputs={inputs}
+        assumptions={assumptions}
+        meaning={
+          <>
+            Across the six measures, your figures average the {score}th percentile of the group
+            described above — {msg.toLowerCase()}.{' '}
+            {behind.length === 0 ? (
+              <>None of the six sits below the benchmark, so there is no single gap to read into this.</>
+            ) : (
+              <>The widest gap is {widest.l.toLowerCase()}, at the {widest.pct}th percentile, and that is the
+                one worth understanding before any of the others.</>
+            )}{' '}
+            A benchmark describes a group at a point in time. It cannot know your commitments, your
+            health, who depends on you or what you are saving towards — so treat a gap as a question
+            to ask rather than a verdict to accept.
+          </>
+        }
+      />
+
       <button className="btn" onClick={onReset}>Compare again</button>
     </div>
   );

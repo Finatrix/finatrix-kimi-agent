@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup, within, act } from '@testing-library/react';
 import { CurrencyProvider } from '../tools/CurrencyContext';
+import { MemoryRouter } from 'react-router';
 import BudgetPage from '../tools/pages/BudgetPage';
 import { currentMonth, monthLabel, nextMonthUnclamped } from '../tools/lib/month';
 import type { BudgetStore } from '../tools/lib/budget';
@@ -10,7 +11,7 @@ const CM = currentMonth();
 const NM = nextMonthUnclamped(CM);
 
 function renderPage() {
-  return render(<CurrencyProvider><BudgetPage /></CurrencyProvider>);
+  return render(<MemoryRouter><CurrencyProvider><BudgetPage /></CurrencyProvider></MemoryRouter>);
 }
 
 const prefs = (): CatPrefs => JSON.parse(localStorage.getItem('fx_bb_catprefs') || '{}');

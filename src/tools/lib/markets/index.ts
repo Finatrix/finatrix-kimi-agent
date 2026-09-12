@@ -23,10 +23,12 @@ import { IN_MARKET } from './in';
 import { US_MARKET } from './us';
 import { GB_MARKET } from './gb';
 import { AE_MARKET } from './ae';
-import { MARKET_IDS, type MarketId, type MarketPack } from './types';
+import { MARKET_IDS, DEFAULT_MARKET, MARKET_KEY, isMarketId, type MarketId, type MarketPack } from './types';
 
 export type { MarketId, MarketPack } from './types';
-export { MARKET_IDS } from './types';
+// Re-exported from `types.ts`, which is the pack-free half of this registry —
+// see the note there. Every existing importer keeps working unchanged.
+export { MARKET_IDS, MARKET_KEY, DEFAULT_MARKET, isMarketId } from './types';
 
 export const MARKETS: Readonly<Record<MarketId, MarketPack>> = {
   IN: IN_MARKET,
@@ -37,15 +39,6 @@ export const MARKETS: Readonly<Record<MarketId, MarketPack>> = {
 
 /** In display order. India first — it is the default and the largest audience. */
 export const MARKET_LIST: readonly MarketPack[] = MARKET_IDS.map((id) => MARKETS[id]);
-
-export const MARKET_KEY = 'fx_market';
-
-/** The default when nothing is stored and nothing can be detected. */
-export const DEFAULT_MARKET: MarketId = 'IN';
-
-export function isMarketId(v: unknown): v is MarketId {
-  return typeof v === 'string' && (MARKET_IDS as readonly string[]).includes(v);
-}
 
 export function marketFor(id: unknown): MarketPack {
   return isMarketId(id) ? MARKETS[id] : MARKETS[DEFAULT_MARKET];

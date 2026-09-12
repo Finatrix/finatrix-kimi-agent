@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import { LocalClock } from '../tools/ui/LocalClock';
+import { AssumptionsReviewed } from '../tools/ui/AssumptionsReviewed';
 import { SUPPORT_MAILTO } from '../shared/brand';
 import { TOOLS } from '../lib/tools';
 import { COMPARE_ROOT } from '../shared/comparisons';
@@ -153,7 +153,7 @@ export default function LandingFooter() {
                 has not been opened and confirmed. */}
           </p>
 
-          <LocalClock compact />
+          <AssumptionsReviewed compact />
         </div>
       </div>
     </footer>

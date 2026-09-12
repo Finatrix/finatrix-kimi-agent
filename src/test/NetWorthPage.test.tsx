@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { CurrencyProvider } from '../tools/CurrencyContext';
 import { MarketProvider } from '../tools/MarketContext';
 import NetWorthPage from '../tools/pages/NetWorthPage';
@@ -14,11 +15,13 @@ const PM = prevMonth(CM);
 // default and these assertions stay the Indian ones they always were.
 function renderPage() {
   return render(
+    <MemoryRouter>
     <CurrencyProvider>
       <MarketProvider>
         <NetWorthPage />
       </MarketProvider>
     </CurrencyProvider>
+    </MemoryRouter>
   );
 }
 

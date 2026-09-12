@@ -30,12 +30,20 @@ describe('Landing nav', () => {
 });
 
 describe('Landing hero', () => {
-  it('offers a dashboard and guided setup with honestly labelled sample data', () => {
+  it('offers a dashboard and the tool index, with honestly labelled sample data', () => {
     render(wrap(<LandingHero />));
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('See where your money goes.');
     expect(screen.getByRole('link', { name: /Open your dashboard/i })).toHaveAttribute('href', '/tools/dashboard');
-    expect(screen.getByRole('link', { name: /Walk me through setup/i })).toHaveAttribute('href', '/welcome');
+    // The secondary CTA is the guest-accessible tool index, not the onboarding
+    // flow: someone who has not decided yet wants to see what is on offer, and
+    // guided setup is one click further in, from the dashboard's empty state.
+    expect(screen.getByRole('link', { name: /Explore the tools/i })).toHaveAttribute('href', '/tools');
     expect(screen.getByText(/Example figures/)).toBeInTheDocument();
     expect(screen.getByText(/Careers is a separate paid workspace/)).toBeInTheDocument();
+  });
+
+  it('names the four markets in the lede the market examples deliver on', () => {
+    render(wrap(<LandingHero />));
+    expect(screen.getByText(/India, the US, the UK and the UAE/)).toBeInTheDocument();
   });
 });

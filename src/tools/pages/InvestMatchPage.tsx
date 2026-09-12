@@ -9,6 +9,7 @@ import {
 import { useCurrency } from '../CurrencyContext';
 import { useMarket } from '../MarketContext';
 import { MarketNote } from '../ui/MarketNote';
+import { ResultExplainer, type MethodRow } from '../ui/ResultExplainer';
 import type { MarketPack } from '../lib/markets';
 import { track } from '../../lib/analytics';
 
@@ -78,7 +79,7 @@ export default function InvestMatchPage() {
       setShowResult(true);
       // Fired here rather than at `build()` so a submission rejected by the
       // minimum-investment guard above is never counted as a completion.
-      track('tool_completed', { tool: 'investmatch', market: market.id });
+      track('tool_completed', { tool: 'investmatch', bucket: market.id });
     }, 500);
   };
 
@@ -162,7 +163,7 @@ export default function InvestMatchPage() {
             <button className="btn" style={{ flex: 2 }} onClick={goNext}>Next</button>
           ) : (
             <button className={`btn ${building ? 'btn-loading' : ''}`} style={{ flex: 2 }} disabled={building} onClick={build}>
-              {building ? 'Building portfolio…' : 'Build my portfolio'}
+              {building ? 'Working it out…' : 'Show the allocation'}
             </button>
           )}
         </div>
@@ -175,9 +176,10 @@ export default function InvestMatchPage() {
 
 function Head({ market }: { market: MarketPack }) {
   return (
-    <PageHead chip="InvestMatch" chipColor="var(--green)" chipBg="rgba(29,125,70,.09)" icon="invest" title="A portfolio shaped to you.">
-      Six quick questions. One personalised allocation across instruments available in {market.name} —
-      with horizon-aware risk control most tools skip.
+    <PageHead chip="InvestMatch" chipColor="var(--green)" chipBg="rgba(29,125,70,.09)" icon="invest" title="An allocation, illustrated.">
+      Six quick questions. An illustrative split across the instrument classes available in{' '}
+      {market.name}, with the horizon-aware risk control most tools skip. It explains a shape —
+      it never names a product or tells you what to buy.
     </PageHead>
   );
 }
@@ -186,10 +188,28 @@ function InvestResult({ ans, market, money, onReset }: {
   ans: ImAnswers; market: MarketPack; money: (n: number) => string; onReset: () => void;
 }) {
   const r = computeInvestMatch(ans, market.invest);
+  // The horizon guard is the one part of this tool a reader is most likely to
+  // be surprised by — they picked "aggressive" and were shown something calmer.
+  // Saying so in the explanation is the difference between a tool that looks
+  // broken and one that has just taught somebody why horizon outranks appetite.
+  const downgraded = r.effRisk !== ans.risk;
+
+  const inputs: MethodRow[] = [
+    { label: market.invest.monthlyTerm, value: money(ans.monthly) },
+    { label: 'Age', value: String(ans.age) },
+    { label: 'Risk appetite chosen', value: IM_RL[ans.risk] },
+    { label: 'Horizon', value: `${r.years} years` },
+  ];
+  const assumptions: MethodRow[] = [
+    { label: 'Risk band applied', value: `${IM_RL[r.effRisk]}${downgraded ? ' (capped by horizon)' : ''}` },
+    { label: 'Assumed annual return', value: `~${Math.round(r.rate * 100)}%` },
+    { label: 'Inflation used for today\u2019s-money figure', value: `${Math.round(market.goals.inflation * 100)}%` },
+  ];
+
   return (
     <div>
       <div className="result-hero-anim" style={{ textAlign: 'center', margin: '8px 0 22px' }}>
-        <div style={{ fontSize: 13, color: 'var(--ink2)' }}>Your {IM_RL[r.effRisk]} portfolio could grow to</div>
+        <div style={{ fontSize: 13, color: 'var(--ink2)' }}>An illustrative {IM_RL[r.effRisk]} allocation could reach</div>
         <div className="big-num" style={{ color: 'var(--green)' }}>{money(r.fv)}</div>
         <div className="note">in {r.years} years at ~{Math.round(r.rate * 100)}% p.a. · worth {money(r.realFv)} in today's money</div>
       </div>
@@ -203,7 +223,7 @@ function InvestResult({ ans, market, money, onReset }: {
       </div>
 
       <div className="card">
-        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Recommended allocation</div>
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Illustrative allocation</div>
         <div className="seg-bar">
           {r.alloc.map((a) => <div key={a.n} className="seg" style={{ width: `${a.p}%`, background: a.c }} />)}
         </div>
@@ -219,7 +239,7 @@ function InvestResult({ ans, market, money, onReset }: {
 
       {r.insights.length > 0 && (
         <div className="card">
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Smart insights</div>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>What stands out</div>
           {r.insights.map((i, idx) => <div className="tip tip-info" key={idx}>{i}</div>)}
         </div>
       )}
@@ -229,10 +249,34 @@ function InvestResult({ ans, market, money, onReset }: {
         <div className="note" style={{ lineHeight: 2 }}>
           {market.invest.monthlyTerm}: <b style={{ color: 'var(--ink)' }}>{money(ans.monthly)}</b> · Risk:{' '}
           <b style={{ color: 'var(--ink)' }}>{IM_RL[r.effRisk]}</b> · Horizon:{' '}
-          <b style={{ color: 'var(--ink)' }}>{r.years} years</b> · Expected CAGR:{' '}
+          <b style={{ color: 'var(--ink)' }}>{r.years} years</b> · Assumed CAGR:{' '}
           <b style={{ color: 'var(--ink)' }}>~{Math.round(r.rate * 100)}%</b>
         </div>
       </div>
+
+      <ResultExplainer
+        toolId="investmatch"
+        market={market}
+        inputs={inputs}
+        assumptions={assumptions}
+        meaning={
+          <>
+            {downgraded ? (
+              <>You asked for {IM_RL[ans.risk]} exposure, but a {r.years}-year horizon is short enough that
+                the split shown is the {IM_RL[r.effRisk]} one instead — over that period a fall has less time
+                to recover than it needs. </>
+            ) : (
+              <>Answers like yours describe a {IM_RL[r.effRisk]} appetite, and the split above is what that
+                shape of allocation conventionally looks like. </>
+            )}
+            At an assumed {Math.round(r.rate * 100)}% a year, {money(ans.monthly)} a month for {r.years} years
+            reaches {money(r.fv)} — worth {money(r.realFv)} in today&rsquo;s money once inflation is taken
+            out. The return is an assumption, not a promise: real markets deliver that average through years
+            well above and well below it, and the order those years arrive in changes the outcome.
+          </>
+        }
+      />
+
       <button className="btn" onClick={onReset}>Recalculate</button>
     </div>
   );

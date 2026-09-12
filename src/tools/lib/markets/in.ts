@@ -61,6 +61,10 @@ export const IN_MARKET: MarketPack = {
   peer: {
     ...IN_PEER,
     cityLabel: 'Your city',
+    population:
+      'Salaried urban working adults in your age band, in cities of the same cost-of-living tier as yours.',
+    basis:
+      'Reference estimates maintained by FinatriX from published earnings and household-savings distributions, scaled by a city cost-of-living multiplier. Not a survey, and not a sample of FinatriX users.',
     defaults: {
       age: 25, cityKey: 'mumbai', income: 50000, savings: 200000,
       invest: 100000, debt: 0, rate: 20, expenses: 30000,

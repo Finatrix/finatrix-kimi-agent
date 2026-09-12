@@ -1,13 +1,14 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { CurrencyProvider } from '../tools/CurrencyContext';
+import { MemoryRouter } from 'react-router';
 import BudgetPage from '../tools/pages/BudgetPage';
 
 function renderPage() {
   return render(
-    <CurrencyProvider>
+    <MemoryRouter><CurrencyProvider>
       <BudgetPage />
-    </CurrencyProvider>
+    </CurrencyProvider></MemoryRouter>
   );
 }
 

@@ -101,7 +101,7 @@ export const DEFAULT_SOCIAL_DESCRIPTION =
  * purge it short of each platform's own debugger. Bump this whenever
  * `scripts/generate-og-images.py` is re-run with a visual change.
  */
-export const OG_VERSION = '3';
+export const OG_VERSION = '4';
 
 /**
  * Share card for a route. Absolute, because no OG consumer resolves a relative

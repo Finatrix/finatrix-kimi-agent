@@ -175,12 +175,18 @@ export function computePeerCompare(inp: PeerInput, pack: PeerBenchmarks = IN_PEE
   const score = Math.round(metrics.reduce((s, m) => s + m.pct, 0) / metrics.length);
   const scColor = score >= 65 ? 'var(--green)' : score >= 40 ? 'var(--gold)' : 'var(--red)';
   const scHex = score >= 65 ? '#1d7d46' : score >= 40 ? '#b08a36' : '#FF5A52';
+  // Describes where the figures sit in the sample, not how well the reader is
+  // doing at life. The previous wording ("Outstanding — you're way ahead",
+  // "Time to level up") graded the person rather than the comparison, and half
+  // of any population sits below its median by definition — so for half of all
+  // readers the honest reading of a low score was "you are normal", while the
+  // copy said they had failed. The thresholds and the score are unchanged.
   const msg =
-    score >= 75 ? "Outstanding — you're way ahead"
-      : score >= 60 ? 'Great job — ahead of most peers'
-        : score >= 45 ? 'Doing okay, with room to grow'
-          : score >= 30 ? 'Time to level up'
-            : "Let's build the plan from here";
+    score >= 75 ? 'Above the benchmark on most measures'
+      : score >= 60 ? 'Above the benchmark on more measures than not'
+        : score >= 45 ? 'Around the benchmark for this group'
+          : score >= 30 ? 'Below the benchmark on most measures'
+            : 'Below the benchmark across this group';
 
   const investedRatio = savings + invest > 0 ? Math.round((invest / (savings + invest)) * 100) : 0;
 

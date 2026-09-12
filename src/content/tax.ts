@@ -118,6 +118,11 @@ const articles: Record<string, ArticleContent> = {
             kind: 'p',
             text: 'One practical point about timing. Employers ask for a regime declaration early in the financial year and compute your monthly TDS from it, so a declaration made carelessly in April changes your take-home for twelve months. It is usually possible to correct the position when the return is filed, but that means either a refund you waited a year for or a shortfall to settle at once — neither of which is as good as spending ten minutes on the comparison before the declaration is due.',
           },
+          {
+            kind: 'tool',
+            toolId: 'budget',
+            text: 'Whichever regime you land on changes one number that matters more than the tax itself: what actually reaches your bank account each month. Put that figure into the Budget Builder and the difference between the two regimes stops being an abstraction and becomes a line in your month.',
+          },
         ],
       },
     ],

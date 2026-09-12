@@ -104,6 +104,11 @@ const articles: Record<string, ArticleContent> = {
             kind: 'p',
             text: 'The list of things that genuinely help is short and dull: pay on time, every time; keep reported balances low; keep old accounts open; apply for credit sparingly; and check your report for errors, which is where the [dispute process](/learn/credit-scores/credit-report-errors) becomes relevant.',
           },
+          {
+            kind: 'tool',
+            toolId: 'budget',
+            text: 'Every item on that list is really the same item: a month that reliably has room for the payments in it. A budget with the card payment written in as a fixed commitment rather than whatever is left over is the mechanical version of "pay on time, every time".',
+          },
         ],
       },
     ],

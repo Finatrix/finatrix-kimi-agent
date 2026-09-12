@@ -14,12 +14,12 @@ import {
   type SyncStatus,
 } from './cloudSync';
 import { CurrencyProvider, useCurrency } from './CurrencyContext';
-import { MarketProvider } from './MarketContext';
+import { MarketProvider, useMarket } from './MarketContext';
 import { ToastProvider } from './ui/Toast';
 import { IconSprite } from './ui/Icon';
 import { CURRENCY_CODES, currencySym } from './lib/format';
 import { onLocalWrite } from './lib/storage';
-import { LocalClock } from './ui/LocalClock';
+import { AssumptionsReviewed } from './ui/AssumptionsReviewed';
 import { AccountMenu } from '../components/AccountMenu';
 import { MobileDrawer } from '../components/MobileDrawer';
 import { HomeButton } from '../components/HomeButton';
@@ -190,6 +190,19 @@ function MobileTabBar({ activeTool, onMore, moreActive, drawerOpen }: { activeTo
  * page. Shaped like the KPI strip + cards every tool opens with, so content
  * doesn't jump when it arrives.
  */
+/**
+ * The tool shell's review-date line, naming the active market.
+ *
+ * A leaf rather than a call in `ToolsLayout`, because `ToolsLayout` renders
+ * `MarketProvider` — it is above the context, not inside it. Keeping this a
+ * separate component also means the market changing re-renders one line rather
+ * than the entire shell.
+ */
+function MarketReviewNote() {
+  const { market } = useMarket();
+  return <AssumptionsReviewed asOf={market.asOf} scope={market.name} />;
+}
+
 function ToolSkeleton() {
   return (
     <div style={{ minHeight: '50vh', paddingTop: 18 }} role="status" aria-label="Loading your data">
@@ -448,7 +461,7 @@ export default function ToolsLayout() {
             {ready ? <Outlet /> : <ToolSkeleton />}
             {ready && (
               <div style={{ borderTop: '1px solid var(--hair2)', marginTop: 8 }}>
-                <LocalClock />
+                <MarketReviewNote />
               </div>
             )}
           </div>

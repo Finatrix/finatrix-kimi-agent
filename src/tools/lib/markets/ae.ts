@@ -96,6 +96,10 @@ export const AE_MARKET: MarketPack = {
   peer: {
     fallbackCity: 'dubai',
     cityLabel: 'Where you live',
+    population:
+      'Employed residents in your age band, in emirates of the same cost tier as yours. Mostly expatriate, which is what the UAE workforce is.',
+    basis:
+      'Reference estimates built from recruiter salary guides for the UAE and expatriate cost-of-living surveys, scaled by an emirate cost multiplier. Not a survey of FinatriX users.',
     cities: {
       dubai: { l: 'Dubai', tier: 'metro', col: 1.15 },
       abudhabi: { l: 'Abu Dhabi', tier: 'metro', col: 1.1 },

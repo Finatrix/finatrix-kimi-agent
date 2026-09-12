@@ -17,6 +17,7 @@
 
 import { Link } from 'react-router';
 import { TOOLS } from '../lib/tools';
+import { track } from '../lib/analytics';
 import type { Block } from '../content/types';
 import { inline } from './inline';
 
@@ -192,6 +193,7 @@ function ToolCta({ toolId, text }: { toolId: string; text: string }) {
       <Link
         to={`/tools/${tool.id}`}
         className="fx-btn-ghost mt-4 inline-flex items-center gap-2 rounded-full px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.1em]"
+        onClick={() => track('guide_tool_opened', { tool: tool.id, route: `/tools/${tool.id}` })}
       >
         Open {tool.name} <span aria-hidden="true">→</span>
       </Link>

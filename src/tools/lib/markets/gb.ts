@@ -114,6 +114,10 @@ export const GB_MARKET: MarketPack = {
   peer: {
     fallbackCity: 'metroother',
     cityLabel: 'Where you live',
+    population:
+      'Working adults in your age band, in areas of the same cost tier as where you live.',
+    basis:
+      'Reference estimates built from ONS median gross pay by age and ONS household wealth statistics, scaled by a regional cost-of-living multiplier. Not a survey of FinatriX users.',
     cities: {
       london: { l: 'London', tier: 'metro', col: 1.3 },
       cambridge: { l: 'Cambridge', tier: 'metro', col: 1.15 },

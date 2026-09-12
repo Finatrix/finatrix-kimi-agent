@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
 import { CurrencyProvider } from '../tools/CurrencyContext';
+import { MemoryRouter } from 'react-router';
 import BudgetPage from '../tools/pages/BudgetPage';
 import { currentMonth, prevMonth } from '../tools/lib/month';
 import type { BudgetStore } from '../tools/lib/budget';
@@ -42,7 +43,7 @@ function seed(items: ExpenseItem[], vals: Record<string, number> = {}) {
 }
 
 function renderPage() {
-  return render(<CurrencyProvider><BudgetPage /></CurrencyProvider>);
+  return render(<MemoryRouter><CurrencyProvider><BudgetPage /></CurrencyProvider></MemoryRouter>);
 }
 
 const card = () => screen.getByText('Suggested from your spending').closest('.card') as HTMLElement;

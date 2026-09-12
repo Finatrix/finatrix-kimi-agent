@@ -58,6 +58,22 @@ export type AnalyticsEvent =
   // ⌘K command palette — which commands people actually reach for is the only
   // evidence that would justify promoting one into the navigation itself.
   | 'command_run'
+  // ── Comprehension ────────────────────────────────────────────────────────
+  // "Personal finance, with the workings shown" is the product's whole claim.
+  // `methodology_opened` is the only evidence that anyone actually looks at the
+  // workings — without it the claim is a slogan nobody can check, including us.
+  // `next_step_clicked` measures the other half: whether a result leads
+  // anywhere, or whether every calculator is still a dead end with a number in
+  // it. `market_changed` says whether the four market packs are a real feature
+  // or three flags nobody selects.
+  | 'methodology_opened'
+  | 'next_step_clicked'
+  | 'market_changed'
+  // A guide that sends a reader into the tool it describes is the Learn →
+  // Calculate step working. Fired by the in-article tool card, not by the
+  // related-links footer, so it measures contextual relevance rather than
+  // navigation.
+  | 'guide_tool_opened'
   | 'web_vital'
   | 'app_error'
   | 'route_not_found'

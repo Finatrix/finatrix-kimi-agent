@@ -207,7 +207,7 @@ export const TOOL_GUIDES: Record<ToolId, ToolGuide> = {
     method: [
       'Each option carries a representative category rate, shown on the page, and gross return is computed for your amount and horizon.',
       'Tax is then applied by instrument type: interest from savings accounts, deposits, T-bills and debt funds is taxed at your slab; arbitrage funds are taxed as equity, at 20% short-term or 12.5% long-term above the exemption; savings-account interest gets the 80TTA exemption pro-rated to the holding period.',
-      'Options are ranked on the post-tax figure, with a minimum sensible holding period enforced per instrument so nothing is recommended for a horizon it does not suit.',
+      'Options are ranked on the post-tax figure, with a minimum sensible holding period enforced per instrument so nothing is ranked into a horizon it does not suit.',
     ],
     worked: {
       title: 'Why the tax slab reorders the list',

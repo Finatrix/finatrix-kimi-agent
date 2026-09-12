@@ -104,6 +104,10 @@ export const US_MARKET: MarketPack = {
   peer: {
     fallbackCity: 'metroother',
     cityLabel: 'Your metro area',
+    population:
+      'Working adults in your age band, in metro areas of the same cost tier as yours.',
+    basis:
+      'Reference estimates built from Federal Reserve Survey of Consumer Finances medians by age and Census Bureau earnings by age, scaled by a metro cost-of-living multiplier. Not a survey of FinatriX users.',
     cities: {
       sanfrancisco: { l: 'San Francisco Bay Area', tier: 'metro', col: 1.35 },
       newyork: { l: 'New York', tier: 'metro', col: 1.25 },

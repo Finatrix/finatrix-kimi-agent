@@ -747,7 +747,12 @@ export const ARTICLES: readonly Article[] = [
     crumb: 'Sinking funds',
     published: REVIEWED,
     updated: REVIEWED,
-    tools: ['budget', 'goals'],
+    // ParkSmart was added here after `guideToTool.test.ts` caught the article
+    // sending readers to it from the prose while the registry did not list it —
+    // so ParkSmart's own page never offered this guide as a way in. A sinking
+    // fund IS short-term cash waiting for a known date, which is the question
+    // that tool answers.
+    tools: ['budget', 'goals', 'parksmart'],
     related: ['cash-flow/annual-lumps', 'saving/emergency-fund-size'],
   },
 

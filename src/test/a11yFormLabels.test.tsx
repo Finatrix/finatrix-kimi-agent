@@ -36,9 +36,11 @@ describe('Budget Builder — category amount fields', () => {
 
   it('names every category amount field, not just the income field', () => {
     render(
-      <CurrencyProvider>
-        <BudgetPage />
-      </CurrencyProvider>
+      <MemoryRouter>
+        <CurrencyProvider>
+          <BudgetPage />
+        </CurrencyProvider>
+      </MemoryRouter>
     );
 
     // Named, and the name leads with the visible category label (WCAG 2.5.3).
@@ -54,9 +56,11 @@ describe('Budget Builder — category amount fields', () => {
 
   it('names a custom category amount from whatever the row is called', () => {
     render(
-      <CurrencyProvider>
-        <BudgetPage />
-      </CurrencyProvider>
+      <MemoryRouter>
+        <CurrencyProvider>
+          <BudgetPage />
+        </CurrencyProvider>
+      </MemoryRouter>
     );
     fireEvent.click(screen.getAllByText('+ Add Category')[0]);
     fireEvent.change(screen.getByDisplayValue('New category'), { target: { value: 'Gym' } });
@@ -69,9 +73,11 @@ describe('Budget Builder — category amount fields', () => {
 
   it('focuses a category amount when its visible label is clicked', () => {
     render(
-      <CurrencyProvider>
-        <BudgetPage />
-      </CurrencyProvider>
+      <MemoryRouter>
+        <CurrencyProvider>
+          <BudgetPage />
+        </CurrencyProvider>
+      </MemoryRouter>
     );
     const amount = screen.getByRole('textbox', { name: /^Rent amount/ });
     expect(screen.getByText('Rent').getAttribute('for')).toBe(amount.id);

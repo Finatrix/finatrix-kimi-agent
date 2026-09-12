@@ -114,6 +114,11 @@ const articles: Record<string, ArticleContent> = {
             kind: 'p',
             text: 'Before deciding what to ask for, work out what each component is actually worth to you — which is the arithmetic in [comparing two offers](/learn/salary-negotiation/evaluating-a-package). An extra week of leave and a joining amount are not comparable until you have converted both.',
           },
+          {
+            kind: 'tool',
+            toolId: 'budget',
+            text: 'The figure worth negotiating hardest is the one that reaches your account every month, not the headline. Put the offer\'s take-home into the Budget Builder and you can see what an extra five per cent actually buys — which is a far better answer to "is it worth pushing" than a percentage.',
+          },
         ],
       },
     ],

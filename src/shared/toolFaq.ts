@@ -68,7 +68,7 @@ export const TOOL_FAQ: Record<ToolId, readonly FaqEntry[]> = {
       a: 'ParkSmart compares savings accounts, liquid and overnight funds, money-market and ultra-short funds, fixed deposits, T-bills, arbitrage funds and sweep-in FDs on a post-tax basis for the horizon you enter. For very short horizons the ranking usually turns on liquidity and tax treatment rather than headline rate.',
     },
     {
-      q: 'Why does the best option change with my tax slab?',
+      q: 'Why does the top-ranked option change with my tax slab?',
       a: 'Because these instruments are taxed differently. Interest from savings accounts, FDs and debt funds is taxed at your slab, while arbitrage funds are taxed as equity. At a 30% slab that gap can outweigh a higher headline rate entirely — which is the whole point of comparing post-tax rather than gross.',
     },
     {

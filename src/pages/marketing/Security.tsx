@@ -122,6 +122,60 @@ export default function Security() {
         </P>
       </Section>
 
+      <Section
+        id="ai"
+        title="What FinatriX AI sends, and where"
+        intro="The one part of FinatriX that leaves your device on purpose. It is opt-in per question — nothing is sent until you ask something."
+      >
+        <P>
+          When you ask FinatriX AI a question, your question and a snapshot of the financial figures
+          relevant to it are sent to our server, which forwards them to an external model provider
+          and returns the answer. That is a real transfer of personal financial information to a
+          third party, so here is exactly what it involves.
+        </P>
+        <UL>
+          <li>
+            <strong className="text-ink">The browser never holds a provider key.</strong> Every
+            request goes through our own authenticated edge function, which checks your session,
+            meters your daily usage and enforces a model allowlist and token cap before forwarding
+            anything.
+          </li>
+          <li>
+            <strong className="text-ink">What is sent.</strong> Your question, the recent
+            conversation, and figures derived from your own records — monthly totals, category
+            splits, budget targets, detected recurring payments. Merchant names and notes you typed
+            are sanitised before they leave the device, because they are both personal and a
+            prompt-injection route.
+          </li>
+          <li>
+            <strong className="text-ink">What is never sent.</strong> Your name, your email, your
+            account id, or any identifier that would let a provider connect a snapshot to a person.
+            The payload is figures and a question.
+          </li>
+          <li>
+            <strong className="text-ink">The model does not do the arithmetic.</strong> Every number
+            in an AI answer is computed on your device by the same functions the dashboard renders.
+            The model ranks, explains and phrases; it never authors a figure. That is what makes
+            &ldquo;it will not invent numbers&rdquo; a property of the system rather than a hope
+            about the model.
+          </li>
+          <li>
+            <strong className="text-ink">Chat history is yours.</strong> It is kept on your device
+            when you are signed in, and clearing it there does not delete anything a provider has
+            already logged on its own side — which is true of every AI product and worth saying
+            plainly.
+          </li>
+        </UL>
+        <P>
+          You never have to use it. Every calculator, the dashboard and all your records work with
+          the assistant untouched, and the privacy controls in{' '}
+          <Link to="/tools/settings" className="fx-prose-link">
+            Settings
+          </Link>{' '}
+          list what each surface shares.
+        </P>
+      </Section>
+
       <Section id="limitations" title="What we have not done yet">
         <P>
           Being straight about the gaps is part of being trustworthy about the rest. As of the

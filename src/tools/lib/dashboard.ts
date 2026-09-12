@@ -18,6 +18,7 @@ import { loadCatViewFor } from './budgetCatsMonth';
 import { loadExpenses, migrateCategory, splitOutflow, ET_CATS } from './expense';
 import { computeGoalPlanner, type GoalResult } from './goals';
 import { computeInvestMatch, IM_DEFAULTS, IM_RL, type ImAnswers } from './investmatch';
+import { buildProfile, calcWealth } from './lifemap';
 import { readActivity } from './activity';
 import { changeBetween, computeNetWorth, loadAccounts, netWorthSeries, type Change } from './netWorth';
 import { loadMarket, marketFor } from './markets';
@@ -92,6 +93,15 @@ export interface DashboardSnapshot {
     change: Change | null;
   } | null;
   invest: { profile: string; monthly: number; projected: number; years: number; alloc: Array<{ label: string; pct: number }> } | null;
+  /**
+   * LifeMap's baseline projection to age 60 — no decisions applied.
+   *
+   * Like `netWorth`, deliberately NOT a pillar contribution and not part of the
+   * health score: it is a projection rather than something the user has set up,
+   * and folding a modelled figure into a score that describes real progress
+   * would make the score partly fictional.
+   */
+  lifemap: { age: number; surplus: number; projected: number; gap: number } | null;
   topCategories: SpendSlice[];
 
   insights: Array<{ tone: 'ok' | 'info' | 'warn'; text: string }>;
@@ -321,10 +331,52 @@ export function readDashboard(): DashboardSnapshot {
     }
   } catch { /* invest stays empty */ }
 
-  // ── ParkSmart / PeerCompare / LifeMap (presence only) ────────────────────
+  // ── ParkSmart / PeerCompare (presence only) ──────────────────────────────
   const parkUsed = (() => { try { const s = getJSON<Record<string, string>>('fx_parksmart', {}); return num(s['ps-amount']) > 0; } catch { return false; } })();
   const peerUsed = (() => { try { const s = getJSON<Record<string, string>>('fx_peercompare', {}); return Object.keys(s).length > 0; } catch { return false; } })();
-  const lifeUsed = (() => { try { const s = getJSON<Record<string, unknown>>('fx_lifemap', {}); return Object.keys(s).length > 0; } catch { return false; } })();
+
+  /**
+   * LifeMap's baseline projection.
+   *
+   * Presence alone was all the dashboard knew about LifeMap, which made the
+   * product's most distinctive tool the only one whose output never reached the
+   * page that is meant to be the user's financial home. It runs through LifeMap's
+   * OWN `buildProfile` and `calcWealth`, so the figure on the dashboard is the
+   * figure on the tool.
+   *
+   * Deliberately the baseline: no decisions applied, which is what `[]` and an
+   * empty `applied` set produce (both are only ever read to add the bonus of an
+   * ACTIVATED decision). Carrying a user's activated decisions here would show a
+   * number that depends on toggles they set once and cannot see from this page.
+   */
+  const lifemap = (() => {
+    try {
+      const f = getJSON<Record<string, string>>('fx_lifemap', {});
+      if (!Object.keys(f).length) return null;
+      const age = num(f['lm-age']);
+      const income = num(f['lm-income']);
+      if (age <= 0 || income <= 0) return null;
+      const profile = buildProfile({
+        name: f['lm-name'] ?? '', age, income, expenses: num(f['lm-expenses']),
+        savings: num(f['lm-savings']), emergency: num(f['lm-emergency']), invest: num(f['lm-invest']),
+        sipYn: f['lm-sip-yn'] === 'yes', sip: num(f['lm-sip']),
+        debtYn: f['lm-debt-yn'] === 'yes', debtTotal: num(f['lm-debt-total']), debtEmi: num(f['lm-debt-emi']),
+        career: f['lm-career'] ?? 'other', goals: [],
+      });
+      const disciplined = calcWealth(profile, [], new Set(), 60, true);
+      const impulsive = calcWealth(profile, [], new Set(), 60, false);
+      return {
+        age: profile.age,
+        surplus: profile.income - profile.expenses,
+        projected: disciplined,
+        gap: Math.abs(disciplined - impulsive),
+      };
+    } catch {
+      return null;
+    }
+  })();
+  const lifeUsed = lifemap !== null
+    || (() => { try { return Object.keys(getJSON<Record<string, unknown>>('fx_lifemap', {})).length > 0; } catch { return false; } })();
 
   // ── Net worth (read through the tool's own model, never re-derived) ──────
   const netWorth = (() => {
@@ -450,6 +502,7 @@ export function readDashboard(): DashboardSnapshot {
     goal,
     invest,
     netWorth,
+    lifemap,
     topCategories,
     insights: insights.slice(0, 3),
     pillars,

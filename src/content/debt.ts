@@ -217,6 +217,11 @@ const articles: Record<string, ArticleContent> = {
             kind: 'p',
             text: 'Used with the balance cleared every month, a card is a genuinely useful instrument — a free short-term float, a purchase record, and a factor in [what moves a credit score](/learn/credit-scores/what-moves-a-score). The entire difference between useful and expensive is whether the statement is paid in full.',
           },
+          {
+            kind: 'tool',
+            toolId: 'expenses',
+            text: 'The balance that revolves is almost never the purchase anybody remembers making — it is the accumulation of ones nobody logged. A month of recorded spending in the Expense Tracker shows which category is actually filling the statement, and that is the one to attack first.',
+          },
         ],
       },
     ],

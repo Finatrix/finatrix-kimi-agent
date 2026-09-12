@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { loadMarket, marketFor, saveMarket, MARKET_KEY, type MarketId, type MarketPack } from './lib/markets';
 import { onLocalWrite } from './lib/storage';
+import { track } from '../lib/analytics';
 
 /**
  * The active market — whose instruments, tax rules and peer benchmarks the
@@ -49,6 +50,10 @@ export function MarketProvider({ children }: { children: ReactNode }) {
     setId(next);
     setDetected(false);
     saveMarket(next);
+    // The market id is one of four values we chose, never anything the user
+    // typed — see the prop allowlist in lib/analytics.ts. Fired here rather
+    // than at the Settings control so a change made anywhere is counted once.
+    track('market_changed', { bucket: next });
   }, []);
 
   useEffect(() => {

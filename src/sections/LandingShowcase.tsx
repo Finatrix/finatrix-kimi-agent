@@ -16,7 +16,10 @@ export default function LandingShowcase() {
           </h2>
           <p className="mt-5 text-[15px] sm:text-[16px] leading-relaxed text-ink-2">
             Start with your monthly budget and expenses. Add a goal, track your net worth or
-            explore an investment question when you are ready. Market-specific tools show the assumptions they use.
+            explore an investment question when you are ready. Market-specific tools show the
+            assumptions they use — and <Link to="/tools/lifemap" className="fx-prose-link">LifeMap</Link>{' '}
+            carries the whole picture forward to retirement, which is the view a monthly budget
+            cannot give you.
           </p>
         </Reveal>
 
@@ -34,7 +37,14 @@ export default function LandingShowcase() {
                 >
                   <ToolIcon name={t.icon} className="h-[22px] w-[22px]" />
                 </span>
-                <h3 className="mt-5 text-[18px] font-semibold tracking-[-0.01em] text-ink">{t.name}</h3>
+                <h3 className="mt-5 flex flex-wrap items-baseline gap-x-2.5 text-[18px] font-semibold tracking-[-0.01em] text-ink">
+                  {t.name}
+                  {t.id === 'lifemap' && (
+                    <span className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-accent-text">
+                      Flagship
+                    </span>
+                  )}
+                </h3>
                 <p className="mt-2 text-[14px] leading-relaxed text-ink-2 flex-grow">{t.blurb}</p>
                 <span className="mt-4 inline-flex items-center gap-1.5 text-[13px] text-ink-2 transition-colors group-hover:text-accent-text">
                   Open {t.name}

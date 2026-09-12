@@ -87,3 +87,94 @@ describe('dashboard — net worth', () => {
     expect(readDashboard().netWorth).toBeNull();
   });
 });
+
+/**
+ * LifeMap on the dashboard.
+ *
+ * Presence was all the dashboard knew about LifeMap: it could say the tool had
+ * been opened and nothing about what it said. That made the product's most
+ * distinctive output the only one that never reached the page meant to be the
+ * user's financial home.
+ *
+ * Like `netWorth` above, this is deliberately outside the journey and the
+ * health score — it is a PROJECTION, and folding a modelled figure into a score
+ * that describes real progress would make the score partly fictional.
+ */
+describe('dashboard — LifeMap', () => {
+  beforeEach(() => localStorage.clear());
+
+  const seedProfile = (over: Record<string, string> = {}) =>
+    localStorage.setItem('fx_lifemap', JSON.stringify({
+      'lm-name': 'Test', 'lm-age': '30', 'lm-income': '90000', 'lm-expenses': '50000',
+      'lm-savings': '200000', 'lm-emergency': '100000', 'lm-invest': '300000',
+      'lm-sip-yn': 'yes', 'lm-sip': '15000', 'lm-debt-yn': 'no',
+      'lm-debt-total': '0', 'lm-debt-emi': '0', 'lm-career': 'tech', ...over,
+    }));
+
+  it('reports nothing before a profile has been built', () => {
+    expect(readDashboard().lifemap).toBeNull();
+  });
+
+  it('projects to 60 from the profile, and states the gap between the two paths', () => {
+    seedProfile();
+    const lm = readDashboard().lifemap!;
+    expect(lm.age).toBe(30);
+    expect(lm.surplus).toBe(40000); // 90,000 income − 50,000 expenses
+    expect(lm.projected).toBeGreaterThan(0);
+    expect(lm.gap).toBeGreaterThan(0);
+  });
+
+  it('agrees with LifeMap itself, because it runs the same functions', async () => {
+    seedProfile();
+    const { buildProfile, calcWealth } = await import('../tools/lib/lifemap');
+    const profile = buildProfile({
+      name: 'Test', age: 30, income: 90000, expenses: 50000, savings: 200000,
+      emergency: 100000, invest: 300000, sipYn: true, sip: 15000,
+      debtYn: false, debtTotal: 0, debtEmi: 0, career: 'tech', goals: [],
+    });
+    expect(readDashboard().lifemap!.projected).toBe(calcWealth(profile, [], new Set(), 60, true));
+  });
+
+  it('shows the baseline, with no decision toggles applied', () => {
+    // The card must not depend on switches the user flipped once inside the
+    // tool and cannot see from the dashboard.
+    seedProfile();
+    const withoutDecisions = readDashboard().lifemap!.projected;
+    seedProfile({ 'lm-career': 'tech' });
+    expect(readDashboard().lifemap!.projected).toBe(withoutDecisions);
+  });
+
+  it('ignores a profile with no usable income or age', () => {
+    seedProfile({ 'lm-income': '0' });
+    expect(readDashboard().lifemap).toBeNull();
+  });
+
+  it('marks the existing journey step done without adding a new one', () => {
+    // LifeMap has always been one of the pillars — unlike net worth — so
+    // building a profile does complete a step. What must not change is how many
+    // steps there are: reading a projection is not a ninth thing to set up.
+    const before = readDashboard();
+    seedProfile();
+    const after = readDashboard();
+    expect(after.totalPillars).toBe(before.totalPillars);
+    expect(after.pillars.find((p) => p.id === 'lifemap')!.done).toBe(true);
+  });
+
+  it('keeps the projected figure out of the health score', () => {
+    // Two profiles whose projections differ by an order of magnitude. The score
+    // describes how much of the journey is set up; letting a modelled figure
+    // move it would make a real progress number partly fictional.
+    seedProfile({ 'lm-invest': '10000', 'lm-sip': '1000' });
+    const modest = readDashboard();
+    seedProfile({ 'lm-invest': '5000000', 'lm-sip': '200000' });
+    const large = readDashboard();
+    expect(large.lifemap!.projected).toBeGreaterThan(modest.lifemap!.projected * 2);
+    expect(large.healthScore).toBe(modest.healthScore);
+  });
+
+  it('survives corrupt LifeMap storage without taking the dashboard down', () => {
+    localStorage.setItem('fx_lifemap', '{{ not json');
+    expect(() => readDashboard()).not.toThrow();
+    expect(readDashboard().lifemap).toBeNull();
+  });
+});

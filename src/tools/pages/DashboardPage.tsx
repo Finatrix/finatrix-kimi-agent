@@ -376,7 +376,7 @@ export default function DashboardPage() {
             <AllocBar alloc={snap.invest.alloc} />
           </CardShell>
         ) : (
-          <SetupCard eyebrow="Investing" title="Match a portfolio" desc="Answer a few questions and get an allocation matched to your risk and horizon." href="/tools/investmatch" cta="Open InvestMatch" />
+          <SetupCard eyebrow="Investing" title="Explore an allocation" desc="Answer a few questions to see an illustrative split for your risk appetite and horizon. Educational — never a recommendation to buy." href="/tools/investmatch" cta="Open InvestMatch" />
         )}
 
         {/* Spending breakdown */}
@@ -425,6 +425,26 @@ export default function DashboardPage() {
           </CardShell>
         ) : (
           <SetupCard eyebrow="Net worth" title="Track what you own" desc="Record your accounts and your debts, and watch the one number that moves slowly and matters most." href="/tools/networth" cta="Open Net Worth" />
+        )}
+
+        {/* LifeMap — the long view. Last in the grid on purpose: it is the only
+            card showing a projection rather than a record, and it belongs after
+            the figures it is projecting from. */}
+        {snap.lifemap ? (
+          <CardShell eyebrow="LifeMap · projected to 60" href="/tools/lifemap" cta="LifeMap">
+            <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--ink)' }}>
+              {cfmt(snap.lifemap.projected)}
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--ink2)', marginTop: 4 }}>
+              From age {snap.lifemap.age} on the disciplined path, before any decisions are applied
+            </div>
+            <div style={{ fontSize: 11.5, color: 'var(--ink3)', marginTop: 8 }}>
+              {cfmtSh(snap.lifemap.gap)} separates that path from the impulsive one · a projection
+              from stated assumptions, not a forecast
+            </div>
+          </CardShell>
+        ) : (
+          <SetupCard eyebrow="LifeMap" title="Simulate your whole financial life" desc="Carry today's position forward to retirement and see what a habit is worth over decades — the view a monthly budget cannot give you." href="/tools/lifemap" cta="Open LifeMap" />
         )}
       </div>
 

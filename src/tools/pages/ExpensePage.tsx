@@ -12,6 +12,7 @@ import {
 } from '../lib/chartTheme';
 import { useCurrency } from '../CurrencyContext';
 import { PageHead, ToolFoot } from '../ui/common';
+import { ResultExplainer } from '../ui/ResultExplainer';
 import { Icon, type IconName } from '../ui/Icon';
 import { MonthNav } from '../ui/MonthNav';
 import { ExportMenu } from '../ui/ExportMenu';
@@ -935,6 +936,41 @@ export default function ExpensePage() {
           />
         </div>,
         document.body
+      )}
+
+      {items.length > 0 && (
+        <ResultExplainer
+          toolId="expenses"
+          inputs={[
+            { label: 'Month', value: monthLabel(selMonth) },
+            { label: 'Entries recorded', value: String(r.txCount) },
+            { label: 'Recorded spending', value: cfmt(r.monthlySpent) },
+            { label: 'Budget for the month', value: r.monthlyBudget > 0 ? cfmt(r.monthlyBudget) : 'Not set' },
+          ]}
+          assumptions={[
+            { label: 'Days elapsed', value: `${r.daysElapsed} of ${r.daysInMonth}` },
+            { label: 'Savings and transfers', value: 'Counted separately, not as spending' },
+            { label: 'Categories', value: 'Scoped to this month; a change here leaves earlier months alone' },
+          ]}
+          meaning={
+            <>
+              You have logged {r.txCount} {r.txCount === 1 ? 'entry' : 'entries'} totalling{' '}
+              {cfmt(r.monthlySpent)} in {monthLabel(selMonth)}
+              {r.monthlyBudget > 0
+                ? <> against a {cfmt(r.monthlyBudget)} plan — {r.budgetUsedPct}% of it, with{' '}
+                    {r.isCurrentMonth
+                      ? `${r.daysRemaining} ${r.daysRemaining === 1 ? 'day' : 'days'} left to cover`
+                      : 'the month complete'}.</>
+                : <>. There is no budget set for this month yet, so there is nothing to measure the
+                    total against — the figure is a record rather than a verdict.</>}{' '}
+              {r.topCategories.length > 0 && (
+                <>Most of it sits in {r.topCategories[0].l}. </>
+              )}
+              A single month is a snapshot; the pattern that repeats across three is the thing worth
+              acting on, and this page only knows what you have entered into it.
+            </>
+          }
+        />
       )}
 
       {/* The year's carry-over across every category, one tap from anywhere on

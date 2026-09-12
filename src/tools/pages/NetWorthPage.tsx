@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { PageHead, ToolFoot, MethodologyNote } from '../ui/common';
+import { PageHead, ToolFoot } from '../ui/common';
+import { ResultExplainer } from '../ui/ResultExplainer';
 import { Icon } from '../ui/Icon';
 import { MonthNav } from '../ui/MonthNav';
 import { AmountInput } from '../ui/AmountInput';
@@ -321,13 +322,39 @@ export default function NetWorthPage() {
         />
       )}
 
-      <MethodologyNote>
-        Net worth is one subtraction: everything you own, minus everything you owe, on the month
-        you are looking at. Balances carry forward — an account keeps its last recorded value until
-        you enter a new one, so you only update what actually changed — and an account contributes
-        nothing to any month before its first entry. Nothing is projected, no return is assumed and
-        no figure is adjusted for inflation. If you did not type it, it is not on this page.
-      </MethodologyNote>
+      {hasAccounts && (
+        <ResultExplainer
+          toolId="networth"
+          inputs={[
+            { label: 'Month', value: monthLabel(selMonth) },
+            { label: 'Accounts recorded', value: String(accounts.length) },
+            { label: 'Assets', value: cfmt(snapshot.assets) },
+            { label: 'Liabilities', value: cfmt(snapshot.liabilities) },
+          ]}
+          assumptions={[
+            { label: 'Growth assumed', value: 'None — nothing is projected' },
+            { label: 'Inflation applied', value: 'None — every figure is nominal' },
+            { label: 'Unentered months', value: 'Last recorded balance carries forward' },
+            { label: 'Months of history', value: String(series.length) },
+          ]}
+          meaning={
+            <>
+              On {monthLabel(selMonth)} you own {cfmt(snapshot.assets)} and owe{' '}
+              {cfmt(snapshot.liabilities)}, leaving {cfmt(snapshot.net)}.{' '}
+              {change
+                ? <>That is {change.abs >= 0 ? 'up' : 'down'} {cfmt(Math.abs(change.abs))} on the month
+                    before — one month of movement, which is noise until several of them point the
+                    same way.</>
+                : <>There is only one month recorded so far. The figure becomes useful the moment
+                    there is a second one to compare it with, because the direction is the signal and
+                    the level is mostly your circumstances.</>}{' '}
+              Every number here was typed by you: nothing is projected, grown or inflation-adjusted.
+              That also means an illiquid asset counts at full value even though a difficult month
+              could not reach it.
+            </>
+          }
+        />
+      )}
 
       <ToolFoot>
         Stored on this device, and synced to your account when you are signed in. Educational —

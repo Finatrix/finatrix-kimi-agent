@@ -253,6 +253,54 @@ body.fx-drawer-open .fx-ai-dock { display: none; }
 .fx-tools .fx-method-card { background: var(--card); border: 1px solid var(--hair2); border-radius: 14px; padding: 14px 16px; margin-bottom: 16px; }
 .fx-tools .fx-method-card > summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 4px; }
 
+/* ---- The full methodology disclosure (ui/ResultExplainer.tsx) ----
+   The single-paragraph `.fx-method` above is the short form; this is the one
+   that carries method, inputs, assumptions, sources and limits. Its summary
+   reads as a real control rather than a footnote, because opening it is the
+   product's central trust claim and a 12px grey line does not invite that. */
+.fx-tools .fx-method-full > summary { font-size: 13.5px; font-weight: 600; color: var(--ink2); min-height: 24px; }
+.fx-tools .fx-method-full > summary::before { content: "⌄"; font-size: 13px; opacity: .9; transition: transform .2s ease; }
+.fx-tools .fx-method-full[open] > summary::before { transform: rotate(180deg); }
+.fx-tools .fx-method-full > summary:hover { color: var(--ink); }
+.fx-tools .fx-method-body { margin-top: 12px; border-top: 1px solid var(--hair2); padding-top: 14px; display: flex; flex-direction: column; gap: 16px; }
+.fx-tools .fx-method-body h3 { font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink3); margin: 0 0 8px; }
+/* `list-style` explicitly: Tailwind's Preflight sets `ul { list-style: none }`
+   globally, so a padding-left alone indents the text and shows no markers. */
+.fx-tools .fx-method-body ul { margin: 0; padding-left: 18px; list-style: disc; display: flex; flex-direction: column; gap: 6px; }
+.fx-tools .fx-method-body li { font-size: 12.5px; line-height: 1.65; color: var(--ink2); }
+.fx-tools .fx-method-body li::marker { color: var(--gold); }
+.fx-tools .fx-method-hint { font-size: 12px; line-height: 1.65; color: var(--ink3); margin: 8px 0 0; }
+.fx-tools .fx-method-link { color: var(--accent-text); text-decoration: underline; text-underline-offset: 3px; }
+.fx-tools .fx-method-rows { margin: 0; display: flex; flex-direction: column; }
+.fx-tools .fx-method-rows > div { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; padding: 6px 0; border-top: 1px solid var(--hair2); }
+.fx-tools .fx-method-rows > div:first-child { border-top: none; padding-top: 0; }
+.fx-tools .fx-method-rows dt { font-size: 12.5px; color: var(--ink3); }
+.fx-tools .fx-method-rows dd { margin: 0; font-size: 12.5px; font-weight: 600; color: var(--ink2); font-variant-numeric: tabular-nums; text-align: right; }
+/* Right-alignment reads well for a figure sitting opposite its label. Once the
+   row wraps — a narrow screen, or a value that is a sentence rather than an
+   amount — the value lands on its own line and right-aligned prose is simply
+   harder to read, so it goes back to the left there. */
+@media (max-width: 560px) {
+  .fx-tools .fx-method-rows > div { flex-direction: column; gap: 2px; }
+  .fx-tools .fx-method-rows dd { text-align: left; }
+}
+
+/* ---- Result → explanation → action → next step (ui/ResultExplainer.tsx) ---- */
+.fx-tools .fx-outcome { margin: 22px 0 4px; padding-top: 20px; border-top: 1px solid var(--hair2); }
+.fx-tools .fx-outcome-title { font-size: 17px; font-weight: 700; letter-spacing: -.015em; color: var(--ink); margin: 0; }
+.fx-tools .fx-outcome-meaning { font-size: 14.5px; line-height: 1.7; color: var(--ink2); margin: 8px 0 16px; max-width: 68ch; }
+.fx-tools .fx-outcome-sub { font-size: 13px; font-weight: 700; letter-spacing: -.005em; color: var(--ink); margin: 20px 0 10px; }
+.fx-tools .fx-outcome-actions { margin: 0; padding-left: 18px; list-style: disc; display: flex; flex-direction: column; gap: 8px; max-width: 68ch; }
+.fx-tools .fx-outcome-actions li { font-size: 13.5px; line-height: 1.7; color: var(--ink2); }
+.fx-tools .fx-outcome-actions li::marker { color: var(--gold); }
+.fx-tools .fx-outcome-next { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); }
+.fx-tools .fx-outcome-link { display: flex; flex-direction: column; gap: 4px; height: 100%; padding: 13px 15px; border: 1px solid var(--hair2); border-radius: 14px; background: var(--card); text-decoration: none; transition: border-color .2s ease, background .2s ease, transform .2s var(--ease-out); }
+.fx-tools .fx-outcome-link:hover { border-color: color-mix(in srgb, var(--gold) 45%, transparent); background: var(--gold-bg); transform: translateY(-1px); }
+.fx-tools .fx-outcome-link:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.fx-tools .fx-outcome-link-label { font-size: 13.5px; font-weight: 650; color: var(--ink); letter-spacing: -.01em; }
+.fx-tools .fx-outcome-link:hover .fx-outcome-link-label { color: var(--accent-text); }
+.fx-tools .fx-outcome-link-reason { font-size: 12.5px; line-height: 1.5; color: var(--ink3); }
+
 /* ---- Loading skeleton (shared by tools & careers) ---- */
 /* Shimmer placeholder — perceived speed while cloud data or AI responses are
    in flight. The sweep is killed under prefers-reduced-motion (global rule). */
@@ -666,6 +714,14 @@ body.fx-drawer-open .fx-ai-dock { display: none; }
 @media (prefers-reduced-motion: reduce) { .fx-tools .fx-askai { transition: none; } .fx-tools .fx-askai:active { transform: none; } }
 
 /* ============ LIFEMAP RESPONSIVE ============ */
+/* A `1fr` track is `minmax(auto, 1fr)`, and that `auto` minimum refuses to go
+   below the column's min-content width. LifeMap's chart card contains a
+   Chart.js canvas and a legend row whose combined min-content is ~350px, so on
+   a 360px phone the collapsed single-column track stayed 350px wide inside a
+   328px container and the whole page scrolled sideways — every card in that
+   column, not just the chart. `min-width: 0` on the items is what lets the
+   track actually shrink; the canvas is `responsive`, so it follows. */
+.fx-tools .lm-chart-row > *, .fx-tools .lm-dec-uni-row > * { min-width: 0; }
 @media(max-width:860px){ .fx-tools .lm-chart-row { grid-template-columns: 1fr !important; } .fx-tools .lm-dec-uni-row { grid-template-columns: 1fr !important; } }
 @media(max-width:800px){ .fx-tools #lm-kpi { grid-template-columns: 1fr 1fr !important; } .fx-tools .lm-chart-row { grid-template-columns: 1fr !important; } }
 @media(max-width:640px){ .fx-tools #lm-kpi { grid-template-columns: 1fr 1fr !important; } .fx-tools .lm-goals-grid { grid-template-columns: repeat(3,1fr) !important; } .fx-tools .lm-dec-uni-row { grid-template-columns: 1fr !important; } .fx-tools .lm-compare-cols { grid-template-columns: 1fr 1fr !important; } .fx-tools .lm-kpi-grid { grid-template-columns: 1fr 1fr !important; } }

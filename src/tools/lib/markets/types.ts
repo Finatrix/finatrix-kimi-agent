@@ -56,6 +56,25 @@ export type MarketId = 'IN' | 'US' | 'GB' | 'AE';
 
 export const MARKET_IDS: readonly MarketId[] = ['IN', 'US', 'GB', 'AE'];
 
+/**
+ * Where the user's chosen market is stored, and what it is when nothing is.
+ *
+ * Here rather than in `index.ts` because this module is the pack-free half of
+ * the registry: reading which market someone picked costs nothing, while
+ * `index.ts` pulls in all four packs (instrument sets, city tables, benchmark
+ * grids). The landing hero needs the former and must not pay for the latter —
+ * it is on the critical path of the site's most-visited URL. `index.ts`
+ * re-exports both, so every existing importer is unchanged.
+ */
+export const MARKET_KEY = 'fx_market';
+
+/** The default when nothing is stored and nothing can be detected. */
+export const DEFAULT_MARKET: MarketId = 'IN';
+
+export function isMarketId(v: unknown): v is MarketId {
+  return typeof v === 'string' && (MARKET_IDS as readonly string[]).includes(v);
+}
+
 /** ParkSmart: the instruments, plus what the controls around them are called. */
 export interface ParkPack extends ParkInstruments {
   /** Label for the marginal-rate control — "Income-tax slab" vs "Marginal tax rate". */
@@ -98,6 +117,28 @@ export interface PeerPack extends PeerBenchmarks {
   /** Label for the location control — "City" vs "Metro area". */
   cityLabel: string;
   defaults: PeerInput;
+  /**
+   * Who the benchmark table describes. One sentence, specific enough that a
+   * reader can decide whether it describes people like them.
+   *
+   * A percentile is a claim about a POPULATION, and until this field existed the
+   * page showed one without ever saying which population — so "62nd percentile"
+   * could equally have meant "of everyone in the country", "of FinatriX users"
+   * or "of salaried people your age in cities like yours". Only the last is
+   * true, and a comparison whose sample is unstated invites the reader to
+   * assume the most flattering or the most alarming reading of it.
+   */
+  population: string;
+  /**
+   * How the figures were arrived at, and what status they have.
+   *
+   * Deliberately separate from the pack's `sources`, which describe the rates
+   * and tax rules the OTHER tools use. India's `sources` name the RBI, AMFI and
+   * the Income Tax Act — correct for ParkSmart, and none of them a source for a
+   * table of median savings by age. Showing that list under a peer comparison
+   * implied a provenance the numbers do not have.
+   */
+  basis: string;
 }
 
 /** Reverse Goal Planner: what people here save for, and at what scale. */

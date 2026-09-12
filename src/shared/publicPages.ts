@@ -302,6 +302,7 @@ export const PUBLIC_PAGES: readonly PublicPage[] = [
   {
     path: '/pricing',
     name: 'Pricing',
+    ogKey: 'pricing',
     title: 'Pricing — Free Money Tools, Paid Careers Plans | FinatriX',
     description:
       'Every FinatriX money tool is free, forever. Careers plans start at ₹199/month, billed once per period with no auto-renewal. See what each plan includes.',
@@ -348,6 +349,7 @@ export const PUBLIC_PAGES: readonly PublicPage[] = [
   {
     path: '/about',
     name: 'About',
+    ogKey: 'about',
     title: 'About FinatriX — Personal Finance Tools with the Workings Shown',
     description:
       'Why FinatriX exists, how it makes money, what it will never do with your data, and the principles behind every calculator and career tool on the site.',
@@ -361,6 +363,7 @@ export const PUBLIC_PAGES: readonly PublicPage[] = [
   {
     path: '/editorial-standards',
     name: 'Editorial Standards',
+    ogKey: 'editorial-standards',
     title: 'Editorial Standards — How FinatriX Guides Are Written',
     description:
       'How FinatriX writes and reviews its guides: where the numbers come from, what we refuse to publish, how often pages are reviewed and how to report an error.',
@@ -516,6 +519,7 @@ export const PUBLIC_PAGES: readonly PublicPage[] = [
   {
     path: '/security',
     name: 'Trust & Security',
+    ogKey: 'security',
     title: 'Trust & Security — How FinatriX Protects Your Data',
     description:
       'The security controls behind FinatriX: row-level database isolation, encrypted transport, no card data on our servers, and what we deliberately never collect.',

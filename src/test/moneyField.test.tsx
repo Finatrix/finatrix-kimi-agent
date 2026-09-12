@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
 import { CurrencyProvider } from '../tools/CurrencyContext';
+import { MemoryRouter } from 'react-router';
 import BudgetPage from '../tools/pages/BudgetPage';
 
 /**
@@ -25,7 +26,7 @@ import BudgetPage from '../tools/pages/BudgetPage';
  */
 
 function renderPage() {
-  return render(<CurrencyProvider><BudgetPage /></CurrencyProvider>);
+  return render(<MemoryRouter><CurrencyProvider><BudgetPage /></CurrencyProvider></MemoryRouter>);
 }
 
 const savedVals = (): Record<string, number> => {

@@ -7,6 +7,7 @@ import { computeGoalPlanner, type GoalResult, type GoalPathResult } from '../lib
 import { useCurrency } from '../CurrencyContext';
 import { useMarket } from '../MarketContext';
 import { MarketNote } from '../ui/MarketNote';
+import { ResultExplainer, type MethodRow } from '../ui/ResultExplainer';
 import type { MarketPack } from '../lib/markets';
 import { track } from '../../lib/analytics';
 import GoalComparison from '../ui/GoalComparison';
@@ -56,7 +57,7 @@ export default function GoalPlannerPage() {
       existing: Number(f.existing) || 0, inflate: f.inflate,
     }, goals.inflation, goals.paths));
     // The plan is on screen — this visit reached the tool's actual output.
-    track('tool_completed', { tool: 'goals', market: market.id });
+    track('tool_completed', { tool: 'goals', bucket: market.id });
   };
 
   return (
@@ -103,7 +104,7 @@ export default function GoalPlannerPage() {
           </div>
           <label className="fx-checkrow" style={{ fontSize: 14, color: 'var(--ink2)', marginBottom: 18 }}>
             <input type="checkbox" className="fx-check" id="gp-inflate" checked={f.inflate} onChange={(e) => set({ inflate: e.target.checked })} />
-            Adjust target for {Math.round(goals.inflation * 100)}% inflation (recommended)
+            Adjust target for {Math.round(goals.inflation * 100)}% inflation — otherwise the figure is in today&rsquo;s money, not the money you will need
           </label>
           <button className="btn" onClick={submit}>Show me the path</button>
         </div>
@@ -121,6 +122,27 @@ function GoalResultView({ result, market, money, onReset }: {
   result: GoalResult; market: MarketPack; money: (n: number) => string; onReset: () => void;
 }) {
   const { name, target, targetToday, years, existing, inflate, results } = result;
+
+  // The spread across return paths, so the explanation can say what the choice
+  // between them is actually worth. `results` is ordered by the pack; sorting a
+  // copy keeps the cards' order untouched.
+  const byMonthly = [...results].sort((a, b) => a.monthly - b.monthly);
+  const low = byMonthly[0];
+  const high = byMonthly[byMonthly.length - 1];
+
+  const inputs: MethodRow[] = [
+    { label: 'Goal', value: name },
+    { label: 'Target in today\u2019s money', value: money(targetToday) },
+    { label: 'Years to reach', value: String(years) },
+    { label: 'Already saved', value: money(existing) },
+  ];
+  const assumptions: MethodRow[] = [
+    { label: 'Inflation applied', value: inflate ? `${Math.round(market.goals.inflation * 100)}% a year` : 'None — target left in today\u2019s money' },
+    { label: 'Target after inflation', value: money(target) },
+    ...results.map((p) => ({ label: `${p.n} path`, value: `~${Math.round(p.rate * 100)}% a year` })),
+    { label: 'Step-up option', value: '10% more each year' },
+  ];
+
   return (
     <div>
       <div className="result-hero-anim" style={{ textAlign: 'center', margin: '8px 0 24px' }}>
@@ -145,6 +167,27 @@ function GoalResultView({ result, market, money, onReset }: {
           {Math.round(market.goals.inflation * 100)}%. Revisit these assumptions when your circumstances change.
         </div>
       </div>
+
+      <ResultExplainer
+        toolId="goals"
+        market={market}
+        inputs={inputs}
+        assumptions={assumptions}
+        meaning={
+          <>
+            Reaching {money(target)} in {years} years takes between {money(low.monthly)} and{' '}
+            {money(high.monthly)} a month, depending on which return path you assume — the lower figure
+            is the one carrying the most market risk, not the easier plan.
+            {existing > 0 && <> The {money(existing)} you have already saved is counted, and is doing part of the work.</>}{' '}
+            {inflate
+              ? <>The target has been grown from {money(targetToday)} in today&rsquo;s money at {Math.round(market.goals.inflation * 100)}% a year, because that is what the same thing is likely to cost by then.</>
+              : <>The target has not been inflation-adjusted, so it is in today&rsquo;s money — what you actually need in {years} years will be more.</>}{' '}
+            The contributions are arithmetic; the returns behind them are assumptions, and a real market
+            delivers its average through years well above and well below it.
+          </>
+        }
+      />
+
       <button className="btn" onClick={onReset}>Plan another goal</button>
     </div>
   );

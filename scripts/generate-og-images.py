@@ -54,6 +54,7 @@ OG_DIR = IMAGES / "og"
 GEIST = ROOT / "public" / "fonts" / "Geist-Variable.woff2"
 SEO_TS = ROOT / "src" / "lib" / "seo.ts"
 CONTENT_TS = ROOT / "src" / "shared" / "content.ts"
+PUBLIC_PAGES_TS = ROOT / "src" / "shared" / "publicPages.ts"
 
 W, H = 1200, 630
 SS = 2  # supersampling factor — everything is drawn at 2x and downsampled
@@ -218,9 +219,61 @@ def parse_seo() -> tuple[dict[str, dict[str, str]], str, str]:
             "category": entry.group(4),
         }
 
-    home_desc = re.search(r"DEFAULT_SOCIAL_DESCRIPTION =\s*\n?\s*'(.*?)';", src, re.S)
+    # Accepts BOTH quoting styles. This was a single-quoted string when the
+    # cards were first generated and is now a template literal interpolating
+    # TOOL_COUNT_WORD_CAP, so a `'...'`-only pattern silently matched nothing
+    # and produced a homepage card with a headline and no description at all —
+    # the exact silent-drift failure this whole parse-don't-retype approach
+    # exists to prevent, turned on itself. `main` now refuses to write an empty
+    # card, so it cannot happen quietly a second time.
+    home_desc = re.search(
+        r"DEFAULT_SOCIAL_DESCRIPTION =\s*\n?\s*[`'](.*?)[`'];", src, re.S,
+    )
     legal = dict(re.findall(r"'/(privacy|terms)':\s*\{\s*title:\s*'([^']*)'", src))
-    return tools, (home_desc.group(1) if home_desc else ""), legal
+    return tools, resolve_placeholders(home_desc.group(1) if home_desc else "", src), legal
+
+
+def resolve_placeholders(text: str, seo_src: str) -> str:
+    """Substitute the `${...}` constants a template literal interpolates.
+
+    Only the ones that actually appear in card copy. An unresolved placeholder
+    would print literally on the card, which is why anything unknown raises
+    rather than being passed through.
+    """
+    known = {
+        "TOOL_COUNT_WORD_CAP": tool_count_word(True),
+        "TOOL_COUNT_WORD": tool_count_word(False),
+    }
+    def sub(m: re.Match[str]) -> str:
+        name = m.group(1).strip()
+        if name not in known:
+            sys.exit(f"unhandled placeholder ${{{name}}} in card copy — add it to resolve_placeholders")
+        return known[name]
+    return re.sub(r"\$\{([^}]+)\}", sub, text)
+
+
+NUMBER_WORDS = (
+    "zero one two three four five six seven eight nine ten eleven twelve".split()
+)
+
+
+def tool_count_word(cap: bool) -> str:
+    """The word form of TOOL_COUNT, derived from TOOL_IDS in shared/toolCount.ts.
+
+    Counted from the id list rather than read from `TOOL_COUNT_WORD`, because
+    that constant is computed at runtime from the same list and there is no
+    literal in the file to read. Mirrors the NUMBER_WORDS table there; a count
+    past twelve falls back to digits in both places.
+    """
+    src = (ROOT / "src" / "shared" / "toolCount.ts").read_text()
+    block = re.search(r"TOOL_IDS = \[(.*?)\] as const", src, re.S)
+    if not block:
+        sys.exit("could not locate TOOL_IDS in src/shared/toolCount.ts")
+    n = len(re.findall(r"'[a-z]+'", block.group(1)))
+    if n == 0:
+        sys.exit("parsed zero tool ids out of src/shared/toolCount.ts")
+    w = NUMBER_WORDS[n] if n < len(NUMBER_WORDS) else str(n)
+    return w[:1].upper() + w[1:] if cap else w
 
 
 def parse_topics() -> list[dict[str, str]]:
@@ -253,6 +306,45 @@ def parse_topics() -> list[dict[str, str]]:
     return topics
 
 
+# The marketing/trust pages that earn a card of their own.
+#
+# Not all fourteen. A card is worth generating where the URL is actually shared
+# on its own — someone links the pricing page in a comparison thread, or the
+# security page when asked "is this safe?" — and the brand cover is the right
+# answer for /contact or /support, which are shared as part of a conversation
+# rather than as the subject of one. Eyebrow per page, copy read from the
+# registry.
+PUBLIC_CARDS = {
+    "/pricing": "Pricing",
+    "/security": "Trust",
+    "/about": "About",
+    "/editorial-standards": "Standards",
+}
+
+
+def parse_public_pages() -> dict[str, dict[str, str]]:
+    """Read name + description for PUBLIC_CARDS out of src/shared/publicPages.ts.
+
+    Same reasoning as parse_seo: the card must not be able to describe a page
+    differently from that page's own meta description, so the copy is read
+    rather than re-typed here.
+    """
+    src = PUBLIC_PAGES_TS.read_text()
+    found: dict[str, dict[str, str]] = {}
+    for entry in re.finditer(
+        r"path: '([^']+)',\s*\n\s*name: '([^']*)',"
+        r".*?description:\s*\n?\s*'(.*?)',\s*\n\s*heading:",
+        src, re.S,
+    ):
+        path = entry.group(1)
+        if path in PUBLIC_CARDS:
+            found[path] = {"name": entry.group(2), "description": entry.group(3)}
+    missing = set(PUBLIC_CARDS) - set(found)
+    if missing:
+        sys.exit(f"could not parse {sorted(missing)} out of src/shared/publicPages.ts")
+    return found
+
+
 def main() -> None:
     tools, home_desc, legal = parse_seo()
     if not tools:
@@ -265,7 +357,12 @@ def main() -> None:
 
     # The homepage / default card keeps its established filename so links shared
     # before this change still resolve.
-    save(card("Smart money tools for India", "FinatriX", home_desc), IMAGES / "og-cover.jpg")
+    if not home_desc:
+        sys.exit("parsed an empty homepage description out of seo.ts — refusing to write a card with no copy")
+    save(
+        card("Smart money tools · India · US · UK · UAE", "FinatriX", home_desc),
+        IMAGES / "og-cover.jpg",
+    )
 
     for tool_id, meta in sorted(tools.items()):
         save(card(meta["category"], meta["name"], meta["description"]), OG_DIR / f"{tool_id}.jpg")
@@ -273,6 +370,12 @@ def main() -> None:
     for path, title in legal.items():
         name = title.split("|")[0].strip()
         save(card("Legal", name, "How FinatriX works, in plain language."), OG_DIR / f"{path}.jpg")
+
+    for path, meta in sorted(parse_public_pages().items()):
+        save(
+            card(PUBLIC_CARDS[path], meta["name"], meta["description"]),
+            OG_DIR / f"{path.strip('/').replace('/', '-')}.jpg",
+        )
 
     # The knowledge layer: one card for the hub, one per topic. Articles inherit
     # their topic's card — see parse_topics.
@@ -310,7 +413,7 @@ def main() -> None:
         OG_DIR / "companies.jpg",
     )
 
-    total = 2 + len(tools) + len(legal) + 1 + len(topics) + 2
+    total = 2 + len(tools) + len(legal) + len(PUBLIC_CARDS) + 1 + len(topics) + 2
     print(f"\nDone — {total} cards. Bump OG_VERSION in src/lib/seo.ts.")
 
 

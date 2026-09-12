@@ -6,6 +6,7 @@ import { getJSON, setJSON, onLocalWrite } from '../lib/storage';
 import { currentMonth, monthLabel, nextMonthUnclamped, prevMonth } from '../lib/month';
 import { MonthNav } from '../ui/MonthNav';
 import { PageHead, ToolFoot } from '../ui/common';
+import { ResultExplainer } from '../ui/ResultExplainer';
 import { Icon } from '../ui/Icon';
 import { ExportMenu } from '../ui/ExportMenu';
 import { DragHandle, MoveButtons } from '../ui/reorder';
@@ -659,6 +660,35 @@ export default function BudgetPage() {
               ))}
             </div>
           )}
+          <ResultExplainer
+            toolId="budget"
+            inputs={[
+              { label: 'Month', value: monthLabel(month) },
+              { label: 'Take-home income', value: cfmt(r.income) },
+              { label: 'Allocated across categories', value: cfmt(r.spent) },
+            ]}
+            assumptions={[
+              { label: 'Needs target', value: `${r.nPct}% — ${cfmt(r.nT)}` },
+              { label: 'Wants target', value: `${r.wPct}% — ${cfmt(r.wT)}` },
+              { label: 'Savings target', value: `${r.sPct}% — ${cfmt(r.sT)}` },
+            ]}
+            meaning={
+              <>
+                You have allocated {r.allocatedPct}% of {cfmt(r.income)}, which leaves{' '}
+                {r.pos
+                  ? <>{cfmt(r.free)} unassigned. Money with no job attached is the money that goes
+                      missing, so the useful question is which category it belongs in — not whether to
+                      spend it.</>
+                  : <>this plan {cfmt(Math.abs(r.free))} short of the income it has to fit inside. Something
+                      here has to come down before the month starts, or it will come down on its own later.</>}{' '}
+                The plan puts {r.savePct}% towards savings against a {r.sPct}% target
+                {r.savePct >= r.sPct
+                  ? ', which clears it.'
+                  : `, ${cfmt(Math.max(0, r.sT - (r.income * r.savePct) / 100))} short of it.`}{' '}
+                This is a plan, not a record — what you actually spend is the thing to compare it against.
+              </>
+            }
+          />
         </>
       )}
 

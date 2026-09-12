@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { CurrencyProvider } from '../tools/CurrencyContext';
+import { MarketProvider } from '../tools/MarketContext';
 import LifeMapPage from '../tools/pages/LifeMapPage';
 
 // jsdom has no canvas 2D context; stub Chart.js so the app screen can mount.
@@ -14,9 +16,13 @@ vi.mock('chart.js/auto', () => ({
 
 function renderPage() {
   return render(
-    <CurrencyProvider>
-      <LifeMapPage />
-    </CurrencyProvider>
+    <MemoryRouter>
+      <CurrencyProvider>
+        <MarketProvider>
+          <LifeMapPage />
+        </MarketProvider>
+      </CurrencyProvider>
+    </MemoryRouter>
   );
 }
 

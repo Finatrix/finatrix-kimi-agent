@@ -7,7 +7,9 @@ import { getJSON, setJSON } from '../lib/storage';
 import { computeParkSmart, PS_DL, type ParkResult } from '../lib/parksmart';
 import { useCurrency } from '../CurrencyContext';
 import { useMarket } from '../MarketContext';
+import type { MarketPack } from '../lib/markets';
 import { MarketNote } from '../ui/MarketNote';
+import { ResultExplainer, type MethodRow } from '../ui/ResultExplainer';
 import { track } from '../../lib/analytics';
 
 interface Saved { 'ps-amount'?: string; 'ps-duration'?: string; 'ps-slab'?: string }
@@ -43,7 +45,7 @@ export default function ParkSmartPage() {
     }
     // computeParkSmart is synchronous — no artificial delay needed.
     setResult(computeParkSmart(amt, dur, Number(rate) / 100, park));
-    track('tool_completed', { tool: 'parksmart', market: market.id });
+    track('tool_completed', { tool: 'parksmart', bucket: market.id });
   };
 
   return (
@@ -88,7 +90,7 @@ export default function ParkSmartPage() {
             </div>
           </div>
           <button className="btn" onClick={submit}>
-            Find the best options
+            Compare the options
           </button>
         </div>
       ) : (
@@ -96,6 +98,8 @@ export default function ParkSmartPage() {
           result={result}
           amount={Math.max(0, Number(amount) || 0)}
           dur={dur}
+          rate={Number(rate)}
+          market={market}
           money={cfmt}
           keepInMind={park.keepInMind}
           onReset={() => setResult(null)}
@@ -108,17 +112,35 @@ export default function ParkSmartPage() {
   );
 }
 
-function ParkResultView({ result, amount, dur, money, keepInMind, onReset }: {
-  result: ParkResult; amount: number; dur: string;
+function ParkResultView({ result, amount, dur, rate, market, money, keepInMind, onReset }: {
+  result: ParkResult; amount: number; dur: string; rate: number; market: MarketPack;
   money: (n: number) => string; keepInMind: string; onReset: () => void;
 }) {
   const { ranked, best, maxNet, split } = result;
   if (!best) return null;
 
+  // The runner-up, so the "what this means" line can say how much the ranking
+  // is actually worth. A gap of a few hundred rupees over six months is a
+  // different decision from a gap of several thousand, and the number is the
+  // only honest way to say which one this is.
+  const runnerUp = ranked[1];
+  const gap = runnerUp ? best.net - runnerUp.net : 0;
+
+  const inputs: MethodRow[] = [
+    { label: 'Amount', value: money(amount) },
+    { label: 'Duration', value: PS_DL[dur] },
+    { label: market.park.rateLabel, value: `${rate}%` },
+  ];
+  const assumptions: MethodRow[] = [
+    { label: 'Options compared', value: String(ranked.length) },
+    { label: 'Gross rate range', value: `${Math.min(...ranked.map((o) => o.rate))}–${Math.max(...ranked.map((o) => o.rate))}%` },
+    { label: 'Tax treatment', value: market.park.taxNote },
+  ];
+
   return (
     <div>
       <div className="card result-hero-anim" style={{ background: 'linear-gradient(135deg,rgba(20,184,166,.16),rgba(13,13,15,.86) 62%)' }}>
-        <span className="pill" style={{ background: 'rgba(12,128,121,.12)', color: 'var(--teal)' }}>Best Match</span>
+        <span className="pill" style={{ background: 'rgba(12,128,121,.12)', color: 'var(--teal)' }}>Highest post-tax return</span>
         <div style={{ fontSize: 23, fontWeight: 700, letterSpacing: '-.015em', marginTop: 10 }}>
           <Icon name={best.ic} size={18} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> {best.n}
         </div>
@@ -132,10 +154,11 @@ function ParkResultView({ result, amount, dur, money, keepInMind, onReset }: {
 
       {split && (
         <div className="card" style={{ background: 'rgba(12,128,121,.05)' }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--teal)', marginBottom: 8 }}>Smart split idea</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--teal)', marginBottom: 8 }}>One way to split it</div>
           <div className="note" style={{ lineHeight: 1.8 }}>
-            {split.bestName} locks your money. Consider <b style={{ color: 'var(--ink)' }}>{money(split.core)}</b> in {split.bestName} for max
-            returns + <b style={{ color: 'var(--ink)' }}>{money(split.buf)}</b> in {split.bestLiquidName} so 30% stays one tap away.
+            {split.bestName} locks your money up. Splitting it — <b style={{ color: 'var(--ink)' }}>{money(split.core)}</b> in {split.bestName}{' '}
+            and <b style={{ color: 'var(--ink)' }}>{money(split.buf)}</b> in {split.bestLiquidName} — trades a little return for keeping 30%
+            reachable. Which side of that trade suits you depends on how likely you are to need the money.
           </div>
         </div>
       )}
@@ -169,6 +192,28 @@ function ParkResultView({ result, amount, dur, money, keepInMind, onReset }: {
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Keep in mind</div>
         <div className="note">{keepInMind}</div>
       </div>
+
+      <ResultExplainer
+        toolId="parksmart"
+        market={market}
+        inputs={inputs}
+        assumptions={assumptions}
+        meaning={
+          <>
+            On {money(amount)} held for {PS_DL[dur]} at a {rate}% marginal rate, {best.n} keeps the most
+            after tax — {money(best.net)}, an effective {best.effRate.toFixed(2)}%.
+            {runnerUp && gap > 0 ? (
+              <> That is {money(gap)} more than {runnerUp.n}, which is {runnerUp.liquid ? 'liquid' : 'locked'} where
+                this one is {best.liquid ? 'liquid' : 'locked'} — so the ranking is a return comparison, not a
+                verdict on which suits you.</>
+            ) : (
+              <> The options are close enough that liquidity and effort matter more than the return gap.</>
+            )}{' '}
+            Rates move and the ranking moves with them.
+          </>
+        }
+      />
+
       <button className="btn" onClick={onReset}>Try a different amount</button>
     </div>
   );

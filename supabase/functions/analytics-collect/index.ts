@@ -46,6 +46,7 @@ const ALLOWED_EVENTS = new Set([
   'subscription_started', 'subscription_renewed', 'subscription_expired',
   'ai_message_sent', 'report_exported', 'resume_uploaded', 'job_search_completed',
   'match_queue_decided', 'command_run',
+  'methodology_opened', 'next_step_clicked', 'market_changed', 'guide_tool_opened',
 ]);
 // `plan` and `period` are plan identifiers ('professional') and billing periods
 // ('yearly') — low-cardinality enums chosen by us, never anything the user

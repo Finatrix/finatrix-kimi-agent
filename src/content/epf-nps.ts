@@ -219,6 +219,11 @@ const articles: Record<string, ArticleContent> = {
             kind: 'p',
             text: 'For readers making this move as part of a career decision rather than a retirement one, the job-search side is covered in [international students](/learn/international-students/job-search-on-a-visa).',
           },
+          {
+            kind: 'tool',
+            toolId: 'lifemap',
+            text: 'Two retirement pools in two currencies, each unlocking at a different age, is exactly the situation a single balance figure hides. LifeMap projects the combined position to 60 from assumptions it states, which at least puts both pools on one line you can argue with.',
+          },
         ],
       },
     ],
