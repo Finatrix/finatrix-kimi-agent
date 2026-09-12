@@ -174,18 +174,20 @@ function AccountAiPanel({ id, onClose, focus = null, openedAt = 0 }: AiPanelProp
   }, [uid]);
 
   /** Everything the snapshot needs, read at the moment the question is asked. */
-  const readData = useCallback(() => ({
-    items: loadExpenses(),
-    cats: loadCatViewFor(currentMonth()).active,
-    budgetStore: getJSON<BudgetStore>('fx_bb_data', {}),
-    month: currentMonth(),
-    currency: code,
-    now: new Date(),
-    // The goal, net worth, investing plan and emergency fund — so a question
-    // like "can I afford this?" is answered from the whole picture, not the
-    // ledger alone.
-    plan: readPlanContext(code),
-  }), [code]);
+  const focusMonth = focus?.month;
+  const readData = useCallback(() => {
+    const month = focusMonth && /^\d{4}-(0[1-9]|1[0-2])$/.test(focusMonth) ? focusMonth : currentMonth();
+    return {
+      items: loadExpenses(),
+      cats: loadCatViewFor(month).active,
+      budgetStore: getJSON<BudgetStore>('fx_bb_data', {}),
+      month,
+      currency: code,
+      now: new Date(),
+      // Each plan is computed by its own tool and read fresh for this question.
+      plan: readPlanContext(code),
+    };
+  }, [code, focusMonth]);
 
   const send = useCallback(async (question: string, kind: 'chat' | 'review' = 'chat') => {
     const text = question.trim();
@@ -844,10 +846,7 @@ const PANEL_STYLES = `
 /* Evidence badge under an answer */
 .fx-ai-conf{margin:10px 0 0;padding-top:8px;border-top:1px solid var(--hair2);
   font-size:11px;line-height:1.5;color:var(--ink3);}
-.fx-ai-conf > span{font-weight:700;}
-.fx-ai-conf.is-high > span{color:var(--green);}
-.fx-ai-conf.is-medium > span{color:var(--gold);}
-.fx-ai-conf.is-low > span{color:var(--orange);}
+.fx-ai-conf > span{font-weight:700;color:var(--ink);}
 /* Which amounts trace to the user's records. Only data answers carry it, and
    those always carry the evidence badge, so it always sits directly under it. */
 .fx-ai-ground{margin:4px 0 0;font-size:11px;line-height:1.5;color:var(--ink3);}
@@ -866,7 +865,7 @@ const PANEL_STYLES = `
 .fx-ai-tile.is-good{border-color:color-mix(in srgb,var(--green) 30%,transparent);}
 .fx-ai-tile.is-good dd{color:var(--green);}
 .fx-ai-tile.is-warn{border-color:color-mix(in srgb,var(--orange) 30%,transparent);}
-.fx-ai-tile.is-warn dd{color:var(--orange);}
+.fx-ai-tile.is-warn dd{color:var(--ink);}
 .fx-ai-tile.is-bad{border-color:color-mix(in srgb,var(--red) 30%,transparent);}
 .fx-ai-tile.is-bad dd{color:var(--red);}
 .fx-ai-body.is-clamped{max-height:15em;overflow:hidden;

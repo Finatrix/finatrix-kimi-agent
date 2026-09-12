@@ -485,7 +485,7 @@ export function computeStreaks(items: ExpenseItem[], now: Date): SpendingStreak[
     streaks.push({
       type: 'no_spend',
       current: noSpendCurrent,
-      label: `${noSpendCurrent} no-spend day${noSpendCurrent > 1 ? 's' : ''}`,
+      label: `${noSpendCurrent} day${noSpendCurrent > 1 ? 's' : ''} without entries`,
     });
   }
 

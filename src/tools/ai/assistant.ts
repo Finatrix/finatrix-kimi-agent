@@ -121,7 +121,7 @@ export async function ask(opts: AskOptions): Promise<AskResult> {
   const confidence = assessConfidence(snapshot);
 
   const local = localFinancialAnswer(question, snapshot, !!opts.focus);
-  if (local) return { ok: true, ...local, model: 'FinatriX financial engine', origin: 'local', confidence, grounding: null };
+  if (local) return { ok: true, ...local, model: 'FinatriX financial engine', origin: 'local', confidence: { ...confidence, label: 'Record coverage' }, grounding: null };
 
   // A focus that cannot be resolved (a category that no longer exists, say) is
   // not worth failing over — the snapshot alone still answers most questions.

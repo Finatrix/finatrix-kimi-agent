@@ -62,10 +62,11 @@ describe('computeStreaks', () => {
     expect(logging.label).toBe('Start logging daily');
   });
 
-  it('reports consecutive no-spend days ending today', () => {
+  it('describes missing entries without claiming there was no spending', () => {
     const items = [tx(daysBefore(NOW, 4), 100)];
     const noSpend = computeStreaks(items, NOW).find((s) => s.type === 'no_spend');
     expect(noSpend?.current).toBe(4);
+    expect(noSpend?.label).toBe('4 days without entries');
   });
 
   it('reports no no-spend streak on a day that has spending', () => {

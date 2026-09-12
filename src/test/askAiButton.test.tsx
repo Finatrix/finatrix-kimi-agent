@@ -1,3 +1,4 @@
+import { AiMonthScope } from '../tools/ui/AiMonthScope';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
@@ -20,8 +21,8 @@ import type { BudgetStore } from '../tools/lib/budget';
 // The panel is a lazy chunk with its own suite; here we only care that the
 // buttons open it and with what subject.
 vi.mock('../tools/ui/AiPanel', () => ({
-  default: ({ focus }: { focus: { kind: string; label?: string } | null }) => (
-    <div data-testid="panel">panel:{focus ? `${focus.kind}${focus.label ? `:${focus.label}` : ''}` : 'none'}</div>
+  default: ({ focus }: { focus: { kind: string; label?: string; month?: string } | null }) => (
+    <div data-testid="panel" data-month={focus?.month}>panel:{focus ? `${focus.kind}${focus.label ? `:${focus.label}` : ''}` : 'none'}</div>
   ),
 }));
 
@@ -144,4 +145,11 @@ describe('reachability', () => {
     expect(screen.queryByRole('button', { name: /Ask FinatriX AI/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Financial Summary/i })).not.toBeInTheDocument();
   });
+});
+
+
+it('carries the selected month from nested page triggers', async () => {
+  renderInShell(<AiMonthScope month="2025-02"><AskAiButton focus={{ kind: 'category', key: 'groceries', label: 'Groceries' }} /></AiMonthScope>);
+  fireEvent.click(screen.getByRole('button'));
+  expect(await screen.findByTestId('panel')).toHaveAttribute('data-month', '2025-02');
 });

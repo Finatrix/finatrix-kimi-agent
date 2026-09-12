@@ -1,3 +1,5 @@
+import { AiMonthScope } from '../ui/AiMonthScope';
+import { hasBudgetEvidence } from '../lib/budgetEvidence';
 import {
   Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type RefObject,
 } from 'react';
@@ -98,7 +100,10 @@ const TAB_ITEMS: ReadonlyArray<TabItem<Tab>> = [
 /** That month's Budget Builder plan — per-category allocations and total income. */
 function readBudgetMonth(store: BudgetStore, m: string): { vals: Record<string, number>; income: number } {
   const d = store[m];
-  return { vals: d?.vals || {}, income: Math.max(0, Number(d?.income) || 0) };
+  const vals = d?.vals ?? {};
+  const allocated = Object.values(vals).reduce((sum, value) => sum + (Number(value) || 0), 0);
+  const income = hasBudgetEvidence(d?.income, allocated) ? Math.max(0, Number(d?.income) || 0) : 0;
+  return { vals, income };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -743,6 +748,7 @@ export default function ExpensePage() {
   });
 
   return (
+    <AiMonthScope month={selMonth}>
     <div className="fx-page">
       <style>{TAB_STYLES}</style>
 
@@ -941,6 +947,7 @@ export default function ExpensePage() {
         <a href="/terms" target="_top">Terms</a> · Built with care by <b>FinatriX</b>
       </ToolFoot>
     </div>
+    </AiMonthScope>
   );
 }
 
@@ -1019,9 +1026,11 @@ function OverviewTab({
           color="var(--orange)"
         />
         <Kpi
-          v={cfmt(Math.abs(r.remaining))}
-          l={r.remaining >= 0 ? (isFutureMonth ? 'Unscheduled budget' : 'Remaining budget') : 'Over budget by'}
-          color={r.remaining >= 0 ? 'var(--green)' : 'var(--red)'}
+          v={r.monthlyBudget > 0 ? cfmt(Math.abs(r.remaining)) : '—'}
+          l={r.monthlyBudget > 0
+            ? r.remaining >= 0 ? (isFutureMonth ? 'Unscheduled budget' : 'Remaining budget') : 'Over budget by'
+            : 'No budget set'}
+          color={r.monthlyBudget > 0 ? r.remaining >= 0 ? 'var(--green)' : 'var(--red)' : 'var(--ink3)'}
         />
         <Kpi
           v={r.monthlyBudget > 0 ? `${Math.round(r.budgetUsedPct)}%` : '—'}

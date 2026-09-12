@@ -44,7 +44,7 @@ describe('ExpensePage (React) — dashboard wiring', () => {
     expect(screen.getByText(/Export ▾/)).toBeInTheDocument();
     expect(screen.getByText('Monthly budget')).toBeInTheDocument();
     expect(screen.getByText('Monthly spent')).toBeInTheDocument();
-    expect(screen.getByText('Remaining budget')).toBeInTheDocument();
+    expect(screen.getByText('No budget set')).toBeInTheDocument();
     // Needs / Wants / Savings summary block from Budget Builder sections.
     expect(screen.getByText('Needs · Wants · Savings')).toBeInTheDocument();
   });

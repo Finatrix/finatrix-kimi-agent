@@ -28,6 +28,24 @@ beforeEach(() => {
 });
 
 describe('dashboard summary cards', () => {
+  it('does not treat an untouched starter income or absent budget as financial evidence', () => {
+    seedBudget({}, '50000');
+    seedExpenses([['rent', 444, '02']]);
+    renderPage();
+    const flow = screen.getByText('Net cash flow').closest('.fx-metric') as HTMLElement;
+    expect(within(flow).getByText('—')).toBeInTheDocument();
+    expect(screen.getByText('No budget set')).toBeInTheDocument();
+    expect(screen.queryByText('Over budget by')).not.toBeInTheDocument();
+  });
+
+  it('retains income matching the starter amount when the user has allocated a budget', () => {
+    seedBudget({ rent: 1000 }, '50000');
+    seedExpenses([['rent', 444, '02']]);
+    renderPage();
+    const flow = screen.getByText('Net cash flow').closest('.fx-metric') as HTMLElement;
+    expect(within(flow).getByText('₹49,556')).toBeInTheDocument();
+  });
+
   it('shows remaining budget, budget used, days remaining, safe spend, savings and cash flow', () => {
     seedBudget({ rent: 20000, groceries: 10000, emergency: 10000 });
     seedExpenses([['rent', 20000, '02'], ['groceries', 4000, '03'], ['emergency', 5000, '04']]);

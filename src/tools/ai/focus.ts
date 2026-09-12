@@ -23,7 +23,7 @@
 
 import type { Granularity } from '../lib/budgetTimeline';
 
-export type AiFocus =
+export type AiFocus = (
   /** The month overview — totals, budget, savings, cash flow. */
   | { kind: 'overview' }
   /** The budget plan as a whole. */
@@ -45,7 +45,8 @@ export type AiFocus =
    */
   | { kind: 'score'; scope: 'plan' | 'execution'; score: number; grade: string; summary: string }
   /** The year-to-date carry-over across every category. */
-  | { kind: 'wallet' };
+  | { kind: 'wallet' }
+) & { /** The calendar month visible when this question was opened. */ month?: string };
 
 export interface FocusDescription {
   /** Shown as the panel's subject line. */

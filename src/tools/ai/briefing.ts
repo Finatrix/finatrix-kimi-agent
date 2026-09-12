@@ -92,14 +92,17 @@ export function localFinancialAnswer(question: string, s: FinanceSnapshot, focus
       ...base,
       headline: `${s.monthName}: ${priorities[0]?.title.toLowerCase() ?? 'your recorded financial picture'}.`,
       answer: priorities.length
-        ? priorities.map((i) => `### ${i.title}\n${i.detail}\n\n**Next:** ${i.next}`).join('\n\n')
+        ? priorities.map((i) => `## ${i.title}\n${i.detail}\n\n**Next:** ${i.next}`).join('\n\n')
         : 'No priority was identified from the available records. Check that your transactions and plans are complete.',
       highlights: summaryHighlights(s),
     };
   }
   if (q === FORECAST_QUESTION.toLowerCase()) {
-    if (!s.isCurrentMonth || s.projectedMonthEnd === null) return {
+    if (!s.isCurrentMonth) return {
       ...base, answer: 'Month-end forecasting is available for the current month. Historical totals are recorded results, not forecasts.',
+    };
+    if (s.projectedMonthEnd === null) return {
+      ...base, answer: 'There is not enough recorded spending or usable history to estimate this month’s total. No entries does not mean no future spending. Add your transactions and expected bills first.',
     };
     return {
       ...base,

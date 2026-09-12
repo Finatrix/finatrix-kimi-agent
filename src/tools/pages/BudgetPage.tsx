@@ -1,3 +1,5 @@
+import { DEFAULT_BUDGET_INCOME } from '../lib/budgetEvidence';
+import { AiMonthScope } from '../ui/AiMonthScope';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCurrency } from '../CurrencyContext';
 import { getJSON, setJSON, onLocalWrite } from '../lib/storage';
@@ -40,7 +42,7 @@ import { track } from '../../lib/analytics';
 const SECTIONS: CatKey[] = ['needs', 'wants', 'save'];
 
 /** Seeded income for a month that has never been opened (unchanged default). */
-const DEFAULT_INCOME = '50000';
+const DEFAULT_INCOME = DEFAULT_BUDGET_INCOME;
 
 export default function BudgetPage() {
   const { cfmt, sym, code } = useCurrency();
@@ -429,6 +431,7 @@ export default function BudgetPage() {
   };
 
   return (
+    <AiMonthScope month={month}>
     <div className="fx-page">
       <style>{BUDGET_STYLES}</style>
 
@@ -667,6 +670,7 @@ export default function BudgetPage() {
         Built with care by <b>FinatriX</b> · Educational tool, not financial advice
       </ToolFoot>
     </div>
+    </AiMonthScope>
   );
 }
 

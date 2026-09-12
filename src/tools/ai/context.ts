@@ -1,3 +1,4 @@
+import { hasBudgetEvidence } from '../lib/budgetEvidence';
 /**
  * The financial snapshot FinatriX AI is allowed to see.
  *
@@ -185,8 +186,11 @@ export function buildSnapshot({
   const validKeys = new Set(flat.map((c) => c.k));
 
   const monthData = budgetStore[month];
-  const income = Math.max(0, Number(monthData?.income) || 0);
+  const rawIncome = Math.max(0, Number(monthData?.income) || 0);
   const budgetVals = monthData?.vals ?? {};
+  const allocated = Object.values(budgetVals).reduce((sum, value) => sum + (Number(value) || 0), 0);
+  const incomeIsUnconfirmedDefault = rawIncome > 0 && !hasBudgetEvidence(monthData?.income, allocated);
+  const income = incomeIsUnconfirmedDefault ? 0 : rawIncome;
 
   // The dashboard's own numbers, not a second implementation of them.
   const dash = computeDashboard(month, items, cats, budgetVals, now, income);
@@ -261,7 +265,8 @@ export function buildSnapshot({
     .map((t) => ({ month: t.month, label: t.fullLabel, spent: money(t.spent), txCount: t.txCount }));
 
   const gaps: string[] = [];
-  if (income <= 0) gaps.push('No income is recorded for this month, so savings rate and net cash flow cannot be calculated.');
+  if (incomeIsUnconfirmedDefault) gaps.push('Income still matches the untouched starter budget. Confirm your income and spending plan before assessing cash flow or affordability.');
+  else if (income <= 0) gaps.push('No income is recorded for this month, so savings rate and net cash flow cannot be calculated.');
   if (dash.monthlyBudget <= 0) gaps.push('No budget is set for this month, so budget adherence cannot be assessed.');
   if (monthItems.length === 0) gaps.push(`No transactions are logged for ${monthLabel(month)}.`);
   if (!prevHasData) gaps.push(`No transactions are logged for ${monthLabel(prev)}, so month-over-month comparison is not possible.`);
@@ -291,7 +296,11 @@ export function buildSnapshot({
     netCashFlow: dash.netCashFlow == null ? null : money(dash.netCashFlow),
     dailyAverage: money(dash.dailyAvg),
     dailySafeSpend: dash.dailySafeSpend == null ? null : money(dash.dailySafeSpend),
-    projectedMonthEnd: forecast.isCurrentMonth ? money(forecast.projected) : null,
+    // An empty ledger with no usable history is missing evidence, not a
+    // prediction of zero. The engine's arithmetic is unchanged.
+    projectedMonthEnd: forecast.isCurrentMonth
+      && (forecast.projected > 0 || forecast.basis.historyMonths > 0 || thisSplit.consumedTotal > 0)
+      ? money(forecast.projected) : null,
     projectedMonthEndRange: forecastRange,
     forecastUsesMonthsOfHistory: forecast.basis.historyMonths,
 

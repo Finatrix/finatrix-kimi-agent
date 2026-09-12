@@ -195,3 +195,38 @@ describe('an invented amount rarely passes by coincidence', () => {
     expect(passed / trials).toBeLessThan(0.15);
   });
 });
+
+describe('signed, typed and source-bound evidence', () => {
+  it('does not validate the opposite sign or a day count as a percentage', () => {
+    const known = collectFigures({ netCashFlow: -500, daysRemaining: 18, savingsRatePct: 20 });
+    expect(highlightIsGrounded({ label: 'Cash flow', value: 500, unit: 'currency', tone: 'neutral' }, known)).toBe(false);
+    expect(highlightIsGrounded({ label: 'Cash flow', value: -500, unit: 'currency', tone: 'neutral' }, known)).toBe(true);
+    expect(highlightIsGrounded({ label: 'Savings rate', value: 18, unit: 'percent', tone: 'neutral' }, known)).toBe(false);
+    expect(checkAnswer('Cash flow is ₹500.', known).unmatched).toEqual(['₹500']);
+    expect(checkAnswer('Cash flow is −₹500.', known).unmatched).toEqual([]);
+  });
+
+  it.each(['−₹500', '₹-500', 'INR -500', '-500 INR'])('reads the sign of %s', (text) => {
+    expect(amountsIn(text)[0].value).toBe(-500);
+  });
+
+  it('checks zero amounts in prose too', () => {
+    expect(checkAnswer('You spent ₹0.', collectFigures({ spent: 100 })).unmatched).toEqual(['₹0']);
+    expect(checkAnswer('You spent ₹0.', collectFigures({ spent: 0 })).unmatched).toEqual([]);
+  });
+
+  it('requires exact visual amounts rather than a half-percent coincidence', () => {
+    const known = collectFigures({ income: 100000 });
+    expect(highlightIsGrounded({ label: 'Income', value: 100400, unit: 'currency', tone: 'neutral' }, known)).toBe(false);
+  });
+
+  it('checks path, value and unit together', () => {
+    const known = collectFigures({ income: 5000, spent: 300, daysRemaining: 18 });
+    const tile = { label: 'Spent', value: 300, unit: 'currency' as const, tone: 'neutral' as const };
+    expect(highlightIsGrounded({ ...tile, source: 'data.spent' }, known, true)).toBe(true);
+    expect(highlightIsGrounded({ ...tile, source: 'data.income' }, known, true)).toBe(false);
+    expect(highlightIsGrounded(tile, known, true)).toBe(false);
+    expect(highlightIsGrounded({ ...tile, source: '__proto__' }, known, true)).toBe(false);
+    expect(chartIsGrounded({ title: 'Days', unit: 'number', points: [{ label: 'Remaining', value: 18, source: 'data.daysRemaining' }] }, known, true)).toBe(true);
+  });
+});

@@ -22,6 +22,7 @@
 
 import { sanitizeField, sanitizeProse } from '../../lib/sanitize';
 import { allCategories } from '../lib/budget';
+import { hasBudgetEvidence } from '../lib/budgetEvidence';
 import { computeDailyHeatmap, computeMonthForecast, type CatMeta } from '../lib/expenseAnalytics';
 import { computeTimeline } from '../lib/budgetTimeline';
 import { computeDashboard, isSpendingCategory, migrateCategory, type ExpenseItem } from '../lib/expense';
@@ -100,7 +101,8 @@ function categoryDetail(key: string, input: SnapshotInput): FocusDetail {
   const label = sanitizeField(meta.get(key)?.l ?? key, MAX_TEXT);
 
   const monthData = budgetStore[month];
-  const income = Math.max(0, Number(monthData?.income) || 0);
+  const allocated = Object.values(monthData?.vals ?? {}).reduce((sum, value) => sum + (Number(value) || 0), 0);
+  const income = hasBudgetEvidence(monthData?.income, allocated) ? Math.max(0, Number(monthData?.income) || 0) : 0;
   const dash = computeDashboard(month, items, cats, monthData?.vals ?? {}, now, income);
   const row = dash.categories.find((c) => c.k === key) ?? null;
 

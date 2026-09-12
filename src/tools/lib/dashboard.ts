@@ -1,3 +1,4 @@
+import { hasBudgetEvidence } from './budgetEvidence';
 /**
  * Unified dashboard data layer.
  *
@@ -197,7 +198,7 @@ export function readDashboard(): DashboardSnapshot {
         catView,
       );
       // "Meaningfully used" = they entered spending or changed income off the seed.
-      const touched = r.spent > 0 || (num(bdata.income) > 0 && num(bdata.income) !== 50000);
+      const touched = hasBudgetEvidence(bdata.income, r.spent);
       if (touched) {
         budgetDone = true;
         income = r.income;

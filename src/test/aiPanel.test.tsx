@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor, fireEvent, within, cleanup } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within, cleanup, act } from '@testing-library/react';
 import { Markdown } from '../tools/ui/Markdown';
 import AiPanel from '../tools/ui/AiPanel';
 import { CurrencyProvider } from '../tools/CurrencyContext';
@@ -17,6 +17,7 @@ const h = vi.hoisted(() => ({
   completion: { ok: true, content: '', model: 'test-model', ms: 1, promptTokens: 1, completionTokens: 1 } as
     | { ok: true; content: string; model: string; ms: number; promptTokens: number; completionTokens: number }
     | { ok: false; kind: string; message: string },
+  deferred: null as Promise<unknown> | null,
   lastRequest: null as null | { system: string; user: string; task: string },
 }));
 
@@ -35,7 +36,7 @@ vi.mock('../context/AuthContext', async (importOriginal) => {
 vi.mock('../lib/ai/transport', () => ({
   requestCompletion: async (req: { system: string; user: string; task: string }) => {
     h.lastRequest = req;
-    return h.completion;
+    return h.deferred ?? h.completion;
   },
 }));
 
@@ -533,5 +534,65 @@ describe('AiPanel — how much the answer stands on', () => {
     await waitFor(() =>
       expect(screen.getByText(/interest earned on interest/)).toBeInTheDocument());
     expect(screen.queryByText(/confidence/i)).not.toBeInTheDocument();
+  });
+});
+
+
+describe('AiPanel — instant intelligence and session isolation', () => {
+  beforeEach(() => {
+    cleanup();
+    localStorage.clear();
+    h.user = { id: 'user-1' };
+    h.lastRequest = null;
+    h.deferred = null;
+    reply({ answer: 'Private response from the previous account.' });
+  });
+
+  it('shows a financial briefing without calling the AI service', async () => {
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: 'Get my instant financial briefing' }));
+    await waitFor(() => expect(screen.getByText('Calculated on your device · no AI request')).toBeInTheDocument());
+    expect(screen.getByText('Complete your records', { selector: 'h3' })).toBeInTheDocument();
+    expect(h.lastRequest).toBeNull();
+  });
+
+  it('reads the month selected on the originating page', async () => {
+    localStorage.setItem('fx_expenses', JSON.stringify([
+      { id: 'old', date: '2025-02-01', category: 'groceries', amount: 765 },
+      { id: 'now', date: `${currentMonth()}-01`, category: 'groceries', amount: 999 },
+    ]));
+    renderPanel({ focus: { kind: 'overview', month: '2025-02' } });
+    await ask('Explain my spending');
+    await waitFor(() => expect(h.lastRequest).not.toBeNull());
+    const data = JSON.parse(h.lastRequest!.user.match(/<data>\n([\s\S]*?)\n<\/data>/)![1]);
+    expect(data.month).toBe('2025-02');
+    expect(data.spentOnNeedsAndWants).toBe(765);
+    expect(data.projectedMonthEnd).toBeNull();
+  });
+
+  it('drops a pending response after switching accounts', async () => {
+    let resolve!: (value: unknown) => void;
+    h.deferred = new Promise((r) => { resolve = r; });
+    const panel = renderPanel();
+    await ask('Explain my spending');
+    await waitFor(() => expect(h.lastRequest).not.toBeNull());
+    h.user = { id: 'user-2' };
+    panel.rerender(<CurrencyProvider><AiPanel id="fx-ai-panel" onClose={() => {}} /></CurrencyProvider>);
+    await act(async () => { resolve(h.completion); });
+    expect(screen.queryByText('Private response from the previous account.')).not.toBeInTheDocument();
+    expect(localStorage.getItem('fx_ai_chat_user-1')).toBeNull();
+    expect(localStorage.getItem('fx_ai_chat_user-2')).toBeNull();
+    expect(screen.getByLabelText('Send question')).toBeDisabled();
+  });
+
+  it('does not save a response after the panel closes', async () => {
+    let resolve!: (value: unknown) => void;
+    h.deferred = new Promise((r) => { resolve = r; });
+    const panel = renderPanel();
+    await ask('Explain my spending');
+    panel.unmount();
+    localStorage.removeItem('fx_ai_chat_user-1');
+    await act(async () => { resolve(h.completion); });
+    expect(localStorage.getItem('fx_ai_chat_user-1')).toBeNull();
   });
 });

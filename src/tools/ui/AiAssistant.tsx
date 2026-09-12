@@ -2,6 +2,7 @@ import {
   Suspense, createContext, lazy, useCallback, useContext, useEffect, useMemo, useRef, useState,
 } from 'react';
 import type { AiFocus } from '../ai/focus';
+import { useAiMonth } from './AiMonthScope';
 
 /**
  * The FinatriX AI entry point.
@@ -56,7 +57,12 @@ const AiCtx = createContext<AiContextValue | null>(null);
 // fast-refresh boundary in this one file.
 // eslint-disable-next-line react-refresh/only-export-components
 export function useAskAi(): AiContextValue | null {
-  return useContext(AiCtx);
+  const ai = useContext(AiCtx);
+  const month = useAiMonth();
+  return useMemo(() => ai && month ? {
+    ...ai,
+    open: (focus: AiFocus | null = null) => ai.open({ ...(focus ?? { kind: 'overview' }), month }),
+  } : ai, [ai, month]);
 }
 
 export function AiProvider({ enabled = true, children }: {

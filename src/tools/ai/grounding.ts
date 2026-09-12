@@ -76,7 +76,7 @@ function isCountKey(key: string): boolean {
   return /pct$|percent/i.test(key)
     || /^(days|months|weeks)[A-Z]?/.test(key)
     || /count$/i.test(key)
-    || /^(years|weekOfMonth|historyMonths|forecastUsesMonthsOfHistory|weightOnThisMonth|monthsSeen|monthsTested)$/.test(key);
+    || /^(years|throughDay|weekOfMonth|historyMonths|forecastUsesMonthsOfHistory|weightOnThisMonth|monthsSeen|monthsTested)$/.test(key);
 }
 
 /** Every number in the data, by kind. Walks objects and arrays of any depth. */
@@ -150,8 +150,8 @@ export interface WrittenAmount {
  * "12,000" is written to the thousand, so 12,345 is that amount; "12,345" is
  * written to the unit. Half a unit of the last written digit — but never more
  * than 5% of the amount, because "₹2,000" for a figure of 1,675 is not rounding,
- * it is a different number. Plus a small relative margin for a model rounding
- * 4,236.67 to 4,237, and never less than one.
+ * it is a different number. Exact unscaled amounts use half a unit of the last written digit; they do
+ * not receive a relative margin that could validate a different exact amount.
  */
 function toleranceOf(digits: string, scale: number, value: number): number {
   const clean = digits.replace(/,/g, '');
@@ -159,7 +159,7 @@ function toleranceOf(digits: string, scale: number, value: number): number {
   const unit = dot >= 0
     ? 10 ** -(clean.length - dot - 1)
     : 10 ** Math.min((clean.match(/0*$/)?.[0].length ?? 0), clean.length - 1);
-  return Math.max(1, Math.min((unit * scale) / 2, value * 0.05), value * 0.005);
+  return Math.max(0.005, Math.min((unit * scale) / 2, value * 0.05));
 }
 
 function parse(digits: string, scaleWord: string | undefined): { value: number; scale: number } {
