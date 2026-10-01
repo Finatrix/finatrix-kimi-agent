@@ -115,6 +115,13 @@ export default defineConfig(({ command, mode }) => {
       },
     },
     build: {
+      // The engines the bundle is compiled for — written out rather than left
+      // to Vite's default, because the installed apps depend on it: the
+      // Android app refuses politely below this Chrome version instead of
+      // rendering a blank screen (MainActivity.MIN_WEBVIEW_MAJOR, held equal
+      // by src/test/webviewFloor.test.ts). Same values as Vite 7's
+      // 'baseline-widely-available' default at the time of pinning.
+      target: ["chrome107", "edge107", "firefox104", "safari16"],
       // Separate the large, rarely-changing vendors into their own cacheable
       // chunks; route-level code-splitting (React.lazy) handles the rest.
       rollupOptions: {

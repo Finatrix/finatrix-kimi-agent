@@ -4,4 +4,10 @@
     <string name="title_activity_main">FinatriX</string>
     <string name="package_name">co.finatrix.app</string>
     <string name="custom_url_scheme">co.finatrix.app</string>
+    <!-- Shown once at launch when the device's WebView is older than the app is
+         built for (MainActivity.MIN_WEBVIEW_MAJOR). -->
+    <string name="webview_outdated_title">Update needed to run FinatriX</string>
+    <string name="webview_outdated_message">FinatriX runs on your phone\'s Android System WebView, and the version installed is too old to open it. Update Android System WebView from the Play Store, then reopen FinatriX.</string>
+    <string name="webview_outdated_update">Update</string>
+    <string name="webview_outdated_continue">Continue anyway</string>
 </resources>
