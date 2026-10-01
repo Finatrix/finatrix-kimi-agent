@@ -67,6 +67,7 @@ enrolment) is active.
 | **XLSX fallback inflater** (`fflate`, lazy, size-capped) | iOS 15.4–16.3 lack `DecompressionStream('deflate-raw')` | `xlsxImport.test.ts` with `DecompressionStream` removed |
 | **Finance wording** — "assumes ~12% a year, not guaranteed"; instruments shown as "examples to research, not a recommendation" | Avoid reading as a personalised recommendation or a promised return | All 546 parity tests unchanged (no rate or formula touched). Final classification is a **LEGAL REVIEW** item |
 | **Privacy policy** — Android backup paragraph | Behaviour changed | Live on finatrix.co since Worker `b3436291` |
+| **Play screenshot 4 (Goal plan) recaptured** | It showed the old "Suggested instruments / ~12% CAGR" copy | `android/store/screenshots/4-goal-plan.png`, 1080×1920 RGB, fictional data, demo status bar — upload it to the listing |
 | **iOS App Store screenshots** | None existed | 6 × 1320×2868, opaque RGB, fictional data — `ios/store/screenshots/`, repeatable via `ios/store/seed-demo-data.py` + `capture-screenshots.sh` |
 
 ## 4. Store rules in force (checked 2026-10-01)
@@ -133,7 +134,6 @@ enrolment) is active.
 - iOS Universal Links: set `APPLE_APP_ID_PREFIX` in `wrangler.jsonc` and deploy the Worker once the Team ID exists.
 
 ### P2
-- Play listing screenshot 4 (Goal plan) shows the old "Suggested instruments / ~12% CAGR" copy — recapture from build code 4 (1080×1920, demo status bar).
 - Website still on `9201151`; deploy `1873172` so finatrix.co gets the same compatibility work as the apps (READY FOR OWNER APPROVAL).
 - `careers-ai` deny routing is switched off by the owner's secret — decide after one signed-in AI test.
 - Capacitor logs "Error injecting safe area CSS" once on API 30 (its own timing; nothing visible).
@@ -190,4 +190,5 @@ release. Deletion: in-app and web URL. Payments: none. Target API 36.
 Permissions minimal. Financial features: budgeting and education only. App
 access: guest mode. Content rating: answer the AI question "Yes". Misleading
 claims: none found. Testing eligibility: UNKNOWN. **Would hold today on the
-outdated Goal-plan screenshot and the stale Data Safety form.**
+stale Data Safety form and the listing's old Goal-plan screenshot until the
+new one is uploaded.**
