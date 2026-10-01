@@ -6,6 +6,7 @@ import { TOOLS } from '../lib/tools';
 import { COMPARE_ROOT } from '../shared/comparisons';
 import { COMPANIES_ROOT } from '../shared/companies';
 import { LEARN_ROOT, PILLAR_TOPICS, topicPath } from '../shared/content';
+import { canPurchaseInApp, isPurchasePage } from '../native/platform';
 
 /**
  * The site footer, and — since it renders on the landing page and on every
@@ -91,6 +92,18 @@ const COLUMNS: Array<{ heading: string; links: FooterLink[] }> = [
   },
 ];
 
+/**
+ * The columns for this surface. In an app, links to pages that exist to sell
+ * are dropped (`isPurchasePage` — the app redirects them anyway, so the link
+ * would advertise a page it cannot show), and a column left empty goes too.
+ */
+function visibleColumns() {
+  if (canPurchaseInApp()) return COLUMNS;
+  return COLUMNS
+    .map((col) => ({ ...col, links: col.links.filter((l) => !isPurchasePage(l.to)) }))
+    .filter((col) => col.links.length > 0);
+}
+
 export default function LandingFooter() {
   return (
     <footer className="relative z-10 border-t border-hairline bg-surface-footer">
@@ -108,7 +121,7 @@ export default function LandingFooter() {
           aria-label="Footer"
           className="grid grid-cols-2 gap-8 sm:grid-cols-3 sm:gap-6 lg:grid-cols-5"
         >
-          {COLUMNS.map((col) => (
+          {visibleColumns().map((col) => (
             <div key={col.heading}>
               <h2 className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-3">
                 {col.heading}

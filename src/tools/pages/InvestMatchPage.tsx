@@ -108,7 +108,7 @@ export default function InvestMatchPage() {
         <Head market={market} />
         <InvestResult ans={ans} market={market} money={cfmt} onReset={reset} />
         <MarketNote market={market} />
-        <ToolFoot>Projections use historical averages · Built with care by <b>FinatriX</b> · Not financial advice</ToolFoot>
+        <ToolFoot>Projections assume historical averages repeat, which is not guaranteed · Built with care by <b>FinatriX</b> · Not financial advice</ToolFoot>
       </div>
     );
   }
@@ -199,7 +199,7 @@ export default function InvestMatchPage() {
       </div>
       </>}
       <MarketNote market={market} />
-      <ToolFoot>Projections use historical averages · Built with care by <b>FinatriX</b> · Not financial advice</ToolFoot>
+      <ToolFoot>Projections assume historical averages repeat, which is not guaranteed · Built with care by <b>FinatriX</b> · Not financial advice</ToolFoot>
     </div>
   );
 }
@@ -281,8 +281,8 @@ function InvestResult({ ans, market, money, onReset }: {
         <div className="note" style={{ lineHeight: 2 }}>
           {market.invest.monthlyTerm}: <b style={{ color: 'var(--ink)' }}>{money(ans.monthly)}</b> · Risk:{' '}
           <b style={{ color: 'var(--ink)' }}>{IM_RL[r.effRisk]}</b> · Horizon:{' '}
-          <b style={{ color: 'var(--ink)' }}>{r.years} years</b> · Assumed CAGR:{' '}
-          <b style={{ color: 'var(--ink)' }}>~{Math.round(r.rate * 100)}%</b>
+          <b style={{ color: 'var(--ink)' }}>{r.years} years</b> · Assumed return:{' '}
+          <b style={{ color: 'var(--ink)' }}>~{Math.round(r.rate * 100)}% a year</b>
         </div>
       </div>
 

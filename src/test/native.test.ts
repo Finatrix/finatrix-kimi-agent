@@ -301,20 +301,40 @@ describe('deep links', () => {
     Object.defineProperty(window, 'location', { configurable: true, value: realLocation });
   });
 
-  it('replays an OAuth return at the requested screen, tokens intact', () => {
-    handleOpenUrl(`${NATIVE_AUTH_CALLBACK}?next=%2Ftools%2Fbudget#access_token=a&refresh_token=b`, navigate);
+  it('redeems a PKCE return on the sign-in screen, keeping the requested destination', () => {
+    handleOpenUrl(`${NATIVE_AUTH_CALLBACK}?next=%2Ftools%2Fbudget&code=0b6d2c1e-auth-code`, navigate);
     expect(browser.close).toHaveBeenCalled();
-    expect(replace).toHaveBeenCalledWith('https://localhost/tools/budget#access_token=a&refresh_token=b');
+    expect(replace).toHaveBeenCalledWith('https://localhost/login?next=%2Ftools%2Fbudget&code=0b6d2c1e-auth-code');
   });
 
-  it('merges a PKCE code into an existing destination query before its fragment', () => {
-    handleOpenUrl(`${NATIVE_AUTH_CALLBACK}?next=${encodeURIComponent('/tools/expenses?month=2026-09#entries')}&code=auth-code`, navigate);
-    expect(replace).toHaveBeenCalledWith('https://localhost/tools/expenses?month=2026-09&code=auth-code#entries');
+  it('keeps a destination that carries its own query and anchor intact in `next`', () => {
+    handleOpenUrl(`${NATIVE_AUTH_CALLBACK}?next=${encodeURIComponent('/tools/expenses?month=2026-09#entries')}&code=c`, navigate);
+    const target = new URL(replace.mock.calls[0][0] as string);
+    expect(target.pathname).toBe('/login');
+    expect(target.searchParams.get('next')).toBe('/tools/expenses?month=2026-09#entries');
+    expect(target.searchParams.get('code')).toBe('c');
+    expect(target.hash).toBe('');
   });
 
-  it('replaces a destination fragment with the auth fragment so tokens can be read', () => {
-    handleOpenUrl(`${NATIVE_AUTH_CALLBACK}?next=${encodeURIComponent('/tools/goals#saved')}#access_token=a&refresh_token=b`, navigate);
-    expect(replace).toHaveBeenCalledWith('https://localhost/tools/goals#access_token=a&refresh_token=b');
+  /**
+   * The app only ever starts PKCE sign-ins, so tokens on its custom scheme were
+   * put there by someone else. Accepting them would let any app or page that
+   * can open `co.finatrix.app://` sign the person into the attacker's account.
+   */
+  it('refuses implicit-flow tokens on the custom scheme and never forwards them', () => {
+    handleOpenUrl(`${NATIVE_AUTH_CALLBACK}?next=%2Ftools%2Fbudget#access_token=a&refresh_token=b`, navigate);
+    expect(replace).toHaveBeenCalledTimes(1);
+    const target = replace.mock.calls[0][0] as string;
+    expect(target).not.toMatch(/access_token|refresh_token/);
+    const parsed = new URL(target);
+    expect(parsed.pathname).toBe('/login');
+    expect(parsed.searchParams.get('next')).toBe('/tools/budget');
+    expect(parsed.searchParams.get('error_description')).toMatch(/could not be completed/i);
+  });
+
+  it('drops every parameter other than the code and destination', () => {
+    handleOpenUrl(`${NATIVE_AUTH_CALLBACK}?next=%2Ftools&code=c&type=recovery&redirect=https%3A%2F%2Fevil.example`, navigate);
+    expect(replace).toHaveBeenCalledWith('https://localhost/login?next=%2Ftools&code=c');
   });
 
   it('accepts only the exact registered callback, not a path with the same prefix', () => {
@@ -335,8 +355,8 @@ describe('deep links', () => {
   });
 
   it('refuses an OAuth `next` that points off-site (open redirect)', () => {
-    handleOpenUrl(`${NATIVE_AUTH_CALLBACK}?next=https%3A%2F%2Fevil.example%2F#access_token=a`, navigate);
-    expect(replace).toHaveBeenCalledWith('https://localhost/tools#access_token=a');
+    handleOpenUrl(`${NATIVE_AUTH_CALLBACK}?next=https%3A%2F%2Fevil.example%2F&code=c`, navigate);
+    expect(replace).toHaveBeenCalledWith('https://localhost/login?next=%2Ftools&code=c');
   });
 
   it('opens a finatrix.co App Link as the matching in-app screen', () => {

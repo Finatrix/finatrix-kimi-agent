@@ -168,3 +168,13 @@ describe('production configuration', () => {
     }
   });
 });
+
+describe('Careers deep links before launch', () => {
+  it('neither app claims /careers while the apps contain no Careers screens', async () => {
+    const { CAREERS_AVAILABLE } = await import('../shared/careersAvailability');
+    if (CAREERS_AVAILABLE) return; // Launched: claiming it again is a product decision, not a regression.
+    const manifest = read('android/app/src/main/AndroidManifest.xml');
+    expect(manifest).not.toMatch(/android:path(Prefix)?="\/careers/);
+    expect(IOS_LINK_COMPONENTS.map((c) => String(c['/']))).not.toContain('/careers/*');
+  });
+});

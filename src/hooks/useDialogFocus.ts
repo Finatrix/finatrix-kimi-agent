@@ -1,4 +1,5 @@
 import { useEffect, type RefObject } from 'react';
+import { useInertOutside } from './useInertOutside';
 
 /**
  * Keyboard focus behaviour for a modal dialog: trap it, then give it back.
@@ -74,6 +75,9 @@ export interface DialogFocusOptions {
 }
 
 export function useDialogFocus({ containerRef, open, initialFocusRef }: DialogFocusOptions): void {
+  // The Tab trap below covers keyboards; this covers screen readers that move
+  // by swiping through the accessibility tree instead (see useInertOutside).
+  useInertOutside(containerRef, open);
   useEffect(() => {
     if (!open) return;
     const container = containerRef.current;

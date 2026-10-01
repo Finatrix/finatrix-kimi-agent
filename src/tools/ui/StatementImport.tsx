@@ -20,6 +20,7 @@
  */
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useInertOutside } from '../../hooks/useInertOutside';
 import { createPortal } from 'react-dom';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import { Icon } from './Icon';
@@ -78,6 +79,7 @@ export default function StatementImport({
   const [dragging, setDragging] = useState(false);
 
   const cardRef = useRef<HTMLDivElement>(null);
+  useInertOutside(cardRef);
   const lastFocused = useRef<HTMLElement | null>(null);
   const titleId = useId();
   const descId = useId();
@@ -160,7 +162,7 @@ export default function StatementImport({
               <p id={descId} className="fx-imp-sub">
                 {phase === 'review'
                   ? `${fileName} · nothing is saved until you press Import`
-                  : 'Read in this browser. Your file is never uploaded.'}
+                  : 'Read on this device. Your file is never uploaded.'}
               </p>
             </div>
             <button type="button" className="fx-imp-btn fx-imp-icon" onClick={close} aria-label="Close import">✕</button>
@@ -408,7 +410,7 @@ function IdlePane({
       </div>
 
       <ul className="fx-imp-points">
-        <li>Your file is read in this browser and never uploaded — photos included.</li>
+        <li>Your file is read on this device and never uploaded — photos included.</li>
         <li>Amounts, dates and balances are read from the file itself — the assistant only names merchants and picks categories.</li>
         <li>Every row stays a draft until you review it and press Import.</li>
         <li>Rows read from a photo are always held back for you to check first.</li>

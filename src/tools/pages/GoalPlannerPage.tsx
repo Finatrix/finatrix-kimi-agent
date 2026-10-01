@@ -122,7 +122,7 @@ export default function GoalPlannerPage() {
       )}
 
       <MarketNote market={market} />
-      <ToolFoot>Returns are historical averages · Built with care by <b>FinatriX</b> · Not financial advice</ToolFoot>
+      <ToolFoot>Return rates are illustrative assumptions from historical averages, not guarantees · Built with care by <b>FinatriX</b> · Not financial advice</ToolFoot>
     </div>
   );
 }
@@ -209,7 +209,7 @@ function PathCard({ p, money, monthlyTerm }: {
   return (
     <div className="card result-card-anim" style={{ borderLeft: `4px solid ${p.c}` }}>
       <div style={{ fontSize: 17, fontWeight: 700, color: p.c }}>{p.n}</div>
-      <div className="note" style={{ margin: '3px 0 14px' }}>{p.d} · ~{Math.round(p.rate * 100)}% CAGR</div>
+      <div className="note" style={{ margin: '3px 0 14px' }}>{p.d} · assumes ~{Math.round(p.rate * 100)}% a year, not guaranteed</div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', padding: '14px 0', borderTop: '1px solid var(--hair2)' }}>
         <div>
           <div className="note">{monthlyTerm} needed</div>
@@ -238,7 +238,7 @@ function PathCard({ p, money, monthlyTerm }: {
         </div>
         <div className="bar"><div className="bar-fill" style={{ width: `${p.investPct}%`, background: p.c }} /></div>
       </div>
-      <div className="note" style={{ marginTop: 12 }}><b style={{ color: 'var(--ink)' }}>Suggested instruments:</b> {p.inst}</div>
+      <div className="note" style={{ marginTop: 12 }}><b style={{ color: 'var(--ink)' }}>What a mix like this typically holds</b> (examples to research, not a recommendation): {p.inst}</div>
       {p.milestones.length > 3 && (
         <details style={{ marginTop: 14 }}>
           <summary style={{ fontSize: 13, fontWeight: 600, cursor: 'pointer', color: p.c }}>Journey milestones</summary>

@@ -38,6 +38,7 @@ import {
   type Topic,
 } from '../shared/content';
 import { topicContentPromise } from './content';
+import { canPurchaseInApp, isPurchasePage } from '../native/platform';
 
 const KIND_LABEL: Record<Article['kind'], string> = {
   explainer: 'Explainer',
@@ -175,7 +176,11 @@ export default function TopicPage() {
     .map((id) => TOOLS.find((t) => t.id === id))
     .filter((t) => t !== undefined)
     .map((t) => ({ to: t.href, name: t.name, blurb: t.blurb }));
-  const product = productLinksFor(topic).map((p) => ({ to: p.path, name: p.name, blurb: p.blurb }));
+  // In an app, never a card for a page that exists to sell: the app redirects
+  // it, so the card would promise something the reader cannot open.
+  const product = productLinksFor(topic)
+    .filter((p) => canPurchaseInApp() || !isPurchasePage(p.path))
+    .map((p) => ({ to: p.path, name: p.name, blurb: p.blurb }));
 
   return (
     <PageShell

@@ -23,9 +23,11 @@ export default function AuthShell({
         <div className="absolute inset-0" style={{ backgroundImage: 'var(--hero-grid)', opacity: 'var(--hero-grid-opacity)', backgroundSize: '52px 52px', maskImage: 'radial-gradient(circle at 50% 30%, black 0%, transparent 70%)', WebkitMaskImage: 'radial-gradient(circle at 50% 30%, black 0%, transparent 70%)' }} />
       </div>
 
-      {/* Persistent unified nav */}
+      {/* Persistent unified nav. In the apps `/` IS the tools dashboard, so
+          "Home" would be a second "Tools"; "Tools" stays as the way out of a
+          sign-in screen reached by a deep link with no history behind it. */}
       <nav className="absolute top-4 right-4 z-20 flex items-center gap-4" aria-label="Primary">
-        <Link to="/" className="font-mono text-[11px] uppercase tracking-[0.08em] text-ink-3 hover:text-ink transition-colors">Home</Link>
+        <Link to="/" data-web-only className="font-mono text-[11px] uppercase tracking-[0.08em] text-ink-3 hover:text-ink transition-colors">Home</Link>
         <Link to="/tools" className="font-mono text-[11px] uppercase tracking-[0.08em] text-ink-3 hover:text-ink transition-colors">Tools</Link>
         <ThemeToggle />
       </nav>

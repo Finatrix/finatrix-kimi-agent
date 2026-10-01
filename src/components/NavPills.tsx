@@ -2,6 +2,7 @@ import { CAREERS_AVAILABLE, CAREERS_LAUNCH_YEAR } from '../shared/careersAvailab
 import { Link, useLocation } from 'react-router';
 import { TOOLS } from '../lib/tools';
 import { CAREERS_ROUTES } from '../careers/constants';
+import { showCareersEntry } from '../lib/careersEntry';
 
 /**
  * The one row of navigation pills the whole site uses.
@@ -80,18 +81,28 @@ export function NavPills({ variant, label = 'Tools', hideBelow, className }: Nav
     color: t.color,
   }));
 
+  // In-app navigation goes to the WORKSPACE, not the public landing page at
+  // /careers — inside the signed-in shell "Careers" means the section, not the
+  // pitch. Absent altogether in the installed apps until Careers launches
+  // (`showCareersEntry`).
+  const careers: Pill[] = showCareersEntry()
+    ? [{
+        key: 'careers',
+        to: variant === 'app' && CAREERS_AVAILABLE ? CAREERS_ROUTES.dashboard : '/careers',
+        label: CAREERS_AVAILABLE ? 'Careers' : `Careers · ${CAREERS_LAUNCH_YEAR}`,
+        color: GOLD,
+      }]
+    : [];
+
   const pills: Pill[] = variant === 'app'
     ? [
         { key: 'dashboard', to: '/tools/dashboard', label: 'Dashboard', color: GOLD },
         ...tools,
         { key: 'reports', to: '/tools/reports', label: 'Reports', color: GOLD },
         { key: 'calendar', to: '/tools/calendar', label: 'Calendar', color: GOLD },
-        // In-app navigation goes to the WORKSPACE, not the public landing page
-        // at /careers — inside the signed-in shell "Careers" means the section,
-        // not the pitch.
-        { key: 'careers', to: CAREERS_AVAILABLE ? CAREERS_ROUTES.dashboard : '/careers', label: CAREERS_AVAILABLE ? 'Careers' : `Careers · ${CAREERS_LAUNCH_YEAR}`, color: GOLD },
+        ...careers,
       ]
-    : [...tools, { key: 'careers', to: '/careers', label: CAREERS_AVAILABLE ? 'Careers' : `Careers · ${CAREERS_LAUNCH_YEAR}`, color: GOLD }];
+    : [...tools, ...careers];
 
   /** The active tool id from the URL, so both variants highlight the same way. */
   const activeTool = /^\/tools\/([a-z]+)/i.exec(pathname)?.[1]?.toLowerCase() ?? '';

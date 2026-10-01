@@ -14,6 +14,7 @@ import {
   buildCommands, searchCommands, spendCommandFor, loadRecents, rememberRecent,
   type Command, type CommandGroup,
 } from '../lib/commands';
+import { useInertOutside } from '../../hooks/useInertOutside';
 
 /**
  * ⌘K — one keyboard-first way to reach anything in the money workspace.
@@ -77,6 +78,9 @@ export default function CommandPalette({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // Swipe-driven screen readers ignore the Tab handling below (useInertOutside).
+  useInertOutside(dialogRef);
   const opener = useRef<HTMLElement | null>(null);
 
   useBodyScrollLock(true);
@@ -214,6 +218,7 @@ export default function CommandPalette({
     >
       <style>{STYLES}</style>
       <div
+        ref={dialogRef}
         className="fx-cmdk"
         role="dialog"
         aria-modal="true"

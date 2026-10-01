@@ -15,6 +15,7 @@ import { RESET_PASSWORD_PATH } from '../shared/routes';
 import { track } from '../lib/analytics';
 import { safeInternalPath } from '../lib/safePath';
 import type { OAuthProvider } from '../lib/authProviders';
+import { beginNativePkce, exchangeNativeCode, readNativeAuthCode, stripAuthCodeFromUrl } from '../lib/nativeOAuth';
 
 /**
  * `@supabase/supabase-js` is 54 KB gzipped — 38% of the landing page's entire
@@ -163,7 +164,8 @@ interface AuthContextValue {
   /**
    * The failure this page load arrived carrying, if it is the return leg of an
    * auth link that GoTrue rejected — an expired recovery token, a confirmation
-   * link already used. Null on an ordinary load. See `readCallbackError`.
+   * link already used — or, in an app, of a provider sign-in whose code could
+   * not be redeemed. Null on an ordinary load. See `readCallbackError`.
    */
   callbackError: string | null;
   /**
@@ -301,13 +303,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    */
   const [loading, setLoading] = useState(() => isSupabaseConfigured && mayHaveSession());
   const [recovery, setRecovery] = useState(isRecoveryReturn);
+  /**
+   * State rather than a ref because it has two sources: the URL at first render
+   * (an error GoTrue redirected back with), and, in an app, a PKCE code that
+   * could not be redeemed — which is only known after the exchange.
+   */
+  const [callbackError, setCallbackError] = useState(readCallbackError);
 
   const mounted = useRef(true);
   const unsubscribe = useRef<(() => void) | undefined>(undefined);
   const subscribed = useRef(false);
   /** Read once, at first render — the client strips these params when it loads. */
   const oauthReturn = useRef(isOAuthReturn());
-  const callbackError = useRef(readCallbackError());
+  /** An app's sign-in return leg (`/login?code=…`), redeemed once in the effect below. */
+  const nativeAuthCode = useRef(readNativeAuthCode(window.location.search, isNativeApp()));
   const signupReported = useRef(false);
 
   /**
@@ -391,6 +400,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       void (async () => {
         try {
           const supabase = await ensureClient();
+          // An app's PKCE return leg: redeem the code before reading the
+          // session, so this load ends signed in rather than flashing signed
+          // out first. `setSession` stores it and emits SIGNED_IN to the
+          // listener `ensureClient` just installed, which is what reports an
+          // OAuth sign-up. See src/lib/nativeOAuth.ts.
+          const code = nativeAuthCode.current;
+          if (code) {
+            nativeAuthCode.current = null;
+            const { session: exchanged, error } = await exchangeNativeCode(code);
+            stripAuthCodeFromUrl();
+            if (exchanged) {
+              const { error: setError } = await supabase.auth.setSession(exchanged);
+              if (setError && mounted.current) setCallbackError(authErrorMessage(setError, 'Could not sign in. Please try again.'));
+            } else if (mounted.current) {
+              setCallbackError(error);
+            }
+          }
           const { data } = await supabase.auth.getSession();
           if (!mounted.current) return;
           setSession(data.session);
@@ -483,12 +509,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // sign-in page in an embedded WebView at all ("disallowed_useragent"), and
       // Apple's is no different in kind — so both go through the system browser: a
       // Chrome Custom Tab on Android, an SFSafariViewController on iOS.
+      //
+      // The return is on the app's custom scheme, which another app can also
+      // claim, so it carries a one-time PKCE code instead of tokens (the code
+      // challenge in `queryParams` is what makes GoTrue use the code flow for
+      // this one request). See src/lib/nativeOAuth.ts.
       if (isNativeApp()) {
+        const challenge = await beginNativePkce();
         const { data, error } = await supabase.auth.signInWithOAuth({
           provider,
           options: {
             redirectTo: `${NATIVE_AUTH_CALLBACK}?next=${encodeURIComponent(target)}`,
             skipBrowserRedirect: true,
+            queryParams: { ...challenge },
           },
         });
         if (error || !data?.url) {
@@ -597,7 +630,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         loading,
         configured: isSupabaseConfigured,
-        callbackError: callbackError.current,
+        callbackError,
         recovery,
         signUp,
         signIn,

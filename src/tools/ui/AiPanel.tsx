@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useInertOutside } from '../../hooks/useInertOutside';
 import { useAuth } from '../../context/AuthContext';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import { useCurrency } from '../CurrencyContext';
@@ -145,6 +146,9 @@ function AccountAiPanel({ id, onClose, focus = null, openedAt = 0 }: AiPanelProp
       lastFocused.current?.focus?.();
     };
   }, []);
+
+  // The page behind is out of reach for swipe-driven screen readers too.
+  useInertOutside(cardRef);
 
   // Escape closes; Tab is trapped inside the dialog.
   useEffect(() => {

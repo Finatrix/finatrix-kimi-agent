@@ -1,11 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- allowBackup: Android's encrypted, user-owned device backup carries a
-         guest's on-device budget and expenses to a new phone. Nothing leaves
-         the user's own Google account. -->
+    <!-- Backup: a phone-to-phone transfer carries everything (Android 12+);
+         cloud backup excludes the WebView storage, which holds the session's
+         refresh token in the same database as on-device tool data. Rules and
+         reasons: res/xml/data_extraction_rules.xml (API 31+) and
+         res/xml/backup_rules.xml (API 24–30). -->
     <application
         android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -45,7 +49,10 @@
                 <data android:host="www.finatrix.co" />
                 <data android:pathPrefix="/tools" />
                 <data android:pathPrefix="/learn" />
-                <data android:pathPrefix="/careers/" />
+                <!-- No /careers/ while Careers is unlaunched: the app has no
+                     Careers screens to open (src/lib/careersEntry.ts), so those
+                     links belong to the website. Add it back, with the iOS
+                     twin in src/shared/appleAppSite.ts, when Careers ships. -->
                 <data android:path="/login" />
                 <data android:path="/signup" />
                 <data android:path="/reset-password" />

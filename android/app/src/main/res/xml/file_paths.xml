@@ -1,5 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<paths xmlns:android="http://schemas.android.com/apk/res/android">
-    <external-path name="my_images" path="." />
-    <cache-path name="my_cache_images" path="." />
+<!-- What the app's FileProvider may hand to another app, and nothing more.
+
+     The only user of this provider is Capacitor's WebView file chooser
+     (BridgeWebChromeClient.createImageFileUri): when a page asks for a camera
+     capture it creates the photo in getExternalFilesDir(DIRECTORY_PICTURES) and
+     gives the camera app a content:// URI to write it to. That directory is the
+     app's own, so it is the whole grant.
+
+     The Capacitor template granted `external-path "."` — the root of shared
+     storage, i.e. any file a URI could be minted for — plus the cache
+     directory, which only a plugin with a different authority (".provider")
+     would use. Neither is needed: exports go through FileExportPlugin's system
+     "Save as" picker, and imports through the system file picker, which grants
+     access to the chosen file only. -->
+<paths>
+    <external-files-path name="captured_images" path="Pictures/" />
 </paths>

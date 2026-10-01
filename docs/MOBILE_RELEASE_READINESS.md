@@ -81,8 +81,8 @@ decides when it can go public.
 | Android theme | PASS | Light/dark toggle; status-bar icons stay legible |
 | Android process death | PASS | `am kill` while backgrounded → relaunch 0.91 s with state intact |
 | Android cold start | measured | 3.44 s first launch after install, then 1.72 s / 1.19 s (emulator under heavy host load) |
-| iOS universal links | **FAIL** | Apex `apple-app-site-association` → 404 HTML; www → 301. The deployed Worker predates the AASA route, and `APPLE_APP_ID_PREFIX` is empty |
-| iOS backend access | **FAIL** | Deployed edge functions answer `Origin: capacitor://localhost` with `Access-Control-Allow-Origin: https://finatrix.co` (account-delete, careers-ai, analytics-collect, …). The fix exists only as an uncommitted repo change |
+| iOS universal links | **FAIL (pending paid team)** | Since the 2026-10-01 Worker deploy both hosts answer `404 text/plain` with no redirect — the AASA route is live and waits only for `APPLE_APP_ID_PREFIX`. The only Apple team on this Mac is a **free Personal Team** (`AY79GYWLDP`), which cannot use Associated Domains, so it was deliberately not published |
+| iOS backend access | **PASS (fixed 2026-10-01)** | Edge functions redeployed from `e1aa533`; all six echo `capacitor://localhost`; `verify:native` CORS checks 14/14 |
 | Sign in with Apple | **FAIL** | Live `/auth/v1/settings` → `"apple": false`; `/authorize?provider=apple` → 400 "Unsupported provider" |
 | iOS launch / layout | PASS | Simulator iPhone 17 Pro, 17 Pro Max and iPad Air 11 (compat): launches to dashboard, clear of the Dynamic Island and home indicator |
 | Account deletion data model | PASS | Live DB catalog: 49 FKs to `auth.users` CASCADE, 6 SET NULL, 0 RESTRICT; no user-id column without an FK; only storage bucket `resumes` (private), purged by the function |
@@ -111,9 +111,9 @@ decides when it can go public.
 ### P0 — publication blockers
 **iOS**
 1. **Sign in with Apple is not configured on Supabase**, yet the iOS app shows it first. A reviewer gets an error (2.1, 4.8). USER ACTION: IOS.md §4.3.
-2. **Deployed edge functions reject the iOS origin**, so in-app account deletion (5.1.1(v)), FinatriX AI and analytics all fail on iOS. Deploy the functions from the current tree (owner approval required).
-3. **The live privacy policy does not cover the iOS app** (camera, AI consent, statement-import AI). Deploy the website from the current tree.
-4. **Missing submission prerequisites**: Apple team and signing, App Store Connect record, 6.9″ screenshots (none exist; Simulator captures must be flattened — they carry alpha), App Privacy and age-rating answers, a demo account.
+2. ~~Deployed edge functions reject the iOS origin~~ — **resolved 2026-10-01** (functions redeployed; CORS verified).
+3. ~~The live privacy policy does not cover the iOS app~~ — **resolved 2026-10-01** (website deployed; live policy dated 1 October 2026 covers both apps, the camera, statement-import AI and the consent rule).
+4. **Missing submission prerequisites**: a **paid Apple Developer Program** membership (only a free Personal Team is visible on this Mac — free teams cannot use Associated Domains, Sign in with Apple or App Store distribution), Apple team and signing, App Store Connect record, 6.9″ screenshots (none exist; Simulator captures must be flattened — they carry alpha), App Privacy and age-rating answers, a demo account.
 
 **Android**
 5. **Play production access gate** — 12 testers × 14 days. Applicability and progress are UNKNOWN without Play Console access.
@@ -198,3 +198,17 @@ These are built from an **uncommitted** tree. Commit first, then rebuild from th
 | `npm run lint` | clean, 10.6 s | — |
 | `npm run audit:prod` | clean | xlsx accepted (write-only, tripwire passes); DOMPurify low |
 | `npm run verify:native` | 9 failures | All iOS: AASA ×2, CORS for `capacitor://localhost` ×7 (two preflights also returned a transient 503) |
+
+## 10. Deployment log
+
+### 2026-10-01 — backend and website from commit `e1aa533`
+| What | Result |
+|---|---|
+| Pre-flight drift check | Downloaded every deployed function (`functions download --use-api`) and diffed against the commit: the only runtime differences were the iOS origin in `_shared/origins.ts` and `careers-billing-checkout` using `isNativeAppOrigin` for its Stripe return target. All 7 migrations already applied |
+| Edge functions | `account-delete` v3, `analytics-collect` v25, `careers-ai` v39, `careers-email` v25, `careers-jobs` v45 (all `verify_jwt=false`, as before) and `careers-billing-checkout` v13 (`verify_jwt=true`, as before). `careers-billing-webhook` untouched (v11) |
+| Function checks | All six echo `capacitor://localhost`, `https://localhost` and `https://finatrix.co`; `analytics-collect` still refuses an unknown origin; account-delete 401 without a session and 405 on GET; careers-ai 401; checkout 401 at the gateway; analytics allowlist probe 502 for `page_view` and 204 for a bogus event (nothing stored) |
+| Website + Worker | `wrangler deploy` → `finatrix-co` version `1d3f57a0-19c0-454d-969e-acb3c4f97cca`, custom domains `finatrix.co` and `www.finatrix.co`; bundle built with real credentials |
+| `npm run verify:production` | all green — "https://finatrix.co matches this repository" |
+| `npm run verify:native` | **14/16** — every CORS check passes for both apps; the 2 failures are the iOS association file (needs a paid-team ID) |
+| Live privacy policy | "Last updated: 1 October 2026"; covers the Android and iOS apps, iOS camera, statement-import AI and the consent rule |
+| Noted, not caused by this deploy | Cloudflare injects its Web Analytics beacon and Bot Management "JavaScript detections" script at the edge; the site CSP blocks both (console errors on every page, nothing runs). Turning them off is a Cloudflare dashboard setting |

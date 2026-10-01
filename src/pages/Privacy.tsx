@@ -159,11 +159,14 @@ export default function Privacy() {
         the chosen file only.
       </P>
       <P>
-        <b>Device backup.</b> Android&rsquo;s own device backup may include the app&rsquo;s
-        on-device data in your Google account backup, and iOS may include it in your iCloud
-        or encrypted local backup. Both are your own backups, held under your Google or
-        Apple account rather than ours, and both can be turned off in your phone&rsquo;s
-        settings.
+        <b>Device backup.</b> On Android, the app&rsquo;s on-device data moves with you when
+        you transfer to a new phone directly from your old one, but it is not included in
+        Android&rsquo;s cloud backup to your Google account, because that data also holds your
+        sign-in. If you use the app without an account, a lost or reset phone therefore
+        cannot restore it from that backup &mdash; sign in if you want your figures kept in
+        your account. On iOS, the app&rsquo;s data may be included in your iCloud or encrypted
+        local backup. Those backups are your own, held under your Google or Apple account
+        rather than ours, and can be turned off in your phone&rsquo;s settings.
       </P>
 
       <H2>Data retention</H2>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+ (API 31+). What leaves the phone in a backup or a transfer.
+
+     The WebView's storage (app_webview/) holds two things in ONE database that
+     cannot be split: the person's on-device budget and expenses, and — when
+     signed in — the Supabase session, including its long-lived refresh token.
+
+     Cloud backup stores a copy in the person's Google Drive, off the device, to
+     be restored to any phone later. A refresh token there is a credential at
+     rest somewhere we do not control, so app_webview/ is excluded. Signed-in
+     data is unaffected (it syncs from the account); guest data is not carried
+     by a cloud restore, which the privacy policy says.
+
+     Device-to-device transfer is the person moving to a new phone, both devices
+     in hand. Carrying everything there — guest data and the session — is the
+     point of the feature and stays within their control, so it is allowed.
+
+     Android 11 and below use backup_rules.xml, which cannot tell the two apart
+     and therefore excludes the WebView storage from both. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" path="app_webview/" />
+    </cloud-backup>
+    <!-- No <device-transfer> element: Android then transfers everything,
+         which is the intent. Listing includes instead would silently drop any
+         storage domain the list forgot. -->
+</data-extraction-rules>

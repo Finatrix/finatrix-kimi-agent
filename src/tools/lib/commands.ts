@@ -25,6 +25,7 @@
 import { CAREERS_AVAILABLE, CAREERS_LAUNCH_MESSAGE } from '../../shared/careersAvailability';
 import { TOOLS } from '../../lib/tools';
 import { CAREERS_HIDDEN_SECTIONS, CAREERS_NAV } from '../../careers/constants';
+import { showCareersEntry } from '../../lib/careersEntry';
 import { TOPICS, ARTICLES, topicPath, articlePath } from '../../shared/content';
 import { CURRENCY_CODES, currencySym } from './format';
 import { parseQuickAdd } from './quickAdd';
@@ -252,7 +253,9 @@ export function buildCommands(ctx: CommandContext): Command[] {
     });
   }
 
-  if (!CAREERS_AVAILABLE) list.push({
+  // The website announces the launch; an installed app offers nothing it
+  // cannot open (see `showCareersEntry`).
+  if (!CAREERS_AVAILABLE && showCareersEntry()) list.push({
     id: 'careers:coming-soon', promoted: ctx.surface === 'careers', title: CAREERS_LAUNCH_MESSAGE,
     subtitle: 'Explore the launch information', group: 'Careers', icon: 'lock',
     effect: { kind: 'navigate', to: '/careers' },

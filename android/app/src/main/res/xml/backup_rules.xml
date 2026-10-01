@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and below (API 24–30) — `android:fullBackupContent`.
+
+     These rules govern cloud backup AND device-to-device transfer alike, so the
+     WebView storage (app_webview/, which holds the Supabase refresh token in the
+     same database as on-device tool data) is excluded from both. See
+     data_extraction_rules.xml for the Android 12+ split. -->
+<full-backup-content>
+    <exclude domain="root" path="app_webview/" />
+</full-backup-content>

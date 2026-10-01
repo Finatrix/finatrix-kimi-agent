@@ -169,7 +169,7 @@ export default function TransactionList({
         <div className="tx-warnbar" role="alert">
           <Icon name="warn" size={15} style={{ color: 'var(--orange)', flexShrink: 0 }} />
           <span>
-            Storage is unavailable in this browser, so transactions won’t be saved after you close the tab.
+            Storage is unavailable here, so transactions won’t be saved once you close FinatriX.
             Export a copy before you leave.
           </span>
         </div>

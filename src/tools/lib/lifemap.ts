@@ -93,7 +93,7 @@ export function buildDecisions(p: LifeProfile, sh: ShortFmt): Decision[] {
   /* INVEST */
   if (p.sip === 0) {
     const sug = Math.max(1000, Math.round((surplus * 0.3) / 500) * 500);
-    list.push({ id: 'start_sip', cat: 'invest', ic: 'sip', c: 'rgba(0,113,227,.09)', t: `Start SIP of ${sh(sug)}/mo`, s: '~30% of surplus into a Nifty 50 index fund — tap ✏️ to set amount', smart: sug * 12 * 9, bad: 0, custom: true, ck: 'start', ca: sug, minAge: p.age, imp: `+${sh(sug * 12 * 15)} by 45` });
+    list.push({ id: 'start_sip', cat: 'invest', ic: 'sip', c: 'rgba(0,113,227,.09)', t: `Start SIP of ${sh(sug)}/mo`, s: 'For example, ~30% of surplus into a low-cost index fund — tap ✏️ to set amount', smart: sug * 12 * 9, bad: 0, custom: true, ck: 'start', ca: sug, minAge: p.age, imp: `+${sh(sug * 12 * 15)} by 45` });
   } else {
     const top = Math.max(1000, Math.round((p.sip * 0.5) / 500) * 500);
     list.push({ id: 'boost_sip', cat: 'invest', ic: 'trending', c: 'rgba(0,113,227,.09)', t: `Step up SIP by ${sh(top)}/mo`, s: `Currently investing ${sh(p.sip)}/mo — tap ✏️ to customise`, smart: top * 12 * 8, bad: 0, custom: true, ck: 'stepup', ca: top, minAge: p.age, imp: `+${sh(top * 12 * 12)} by 45` });

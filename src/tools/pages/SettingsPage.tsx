@@ -108,7 +108,7 @@ export default function SettingsPage() {
 
         {detected && (
           <p className="note" style={{ marginTop: 10 }}>
-            We guessed {market.name} from your browser. It is only a guess — picking it yourself makes
+            We guessed {market.name} from your language settings. It is only a guess — picking it yourself makes
             it stick.
           </p>
         )}

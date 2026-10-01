@@ -1,9 +1,14 @@
-import { Link, Outlet } from 'react-router';
+import { Link, Navigate, Outlet } from 'react-router';
 import PageShell from '../../marketing/PageShell';
 import { CAREERS_AVAILABLE, CAREERS_LAUNCH_MESSAGE } from '../../shared/careersAvailability';
+import { showCareersEntry } from '../../lib/careersEntry';
 
 export default function CareersAvailability() {
   if (CAREERS_AVAILABLE) return <Outlet />;
+  // The apps offer no way into Careers before launch (`showCareersEntry`); a
+  // stray link that still gets here lands on the dashboard rather than on a
+  // "coming soon" page inside a store binary.
+  if (!showCareersEntry()) return <Navigate to="/tools/dashboard" replace />;
   return (
     <PageShell name="Careers" heading={CAREERS_LAUNCH_MESSAGE}
       lede="A workspace for your next career move is on its way. Careers access and plan purchases are currently closed.">

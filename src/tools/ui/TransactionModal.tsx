@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useInertOutside } from '../../hooks/useInertOutside';
 import { createPortal } from 'react-dom';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import { Icon, type IconName } from './Icon';
@@ -116,6 +117,8 @@ export default function TransactionModal({
   const confirmRef = useRef<HTMLDivElement>(null);
   const cancelDeleteRef = useRef<HTMLButtonElement>(null);
   const deleteTriggerRef = useRef<HTMLButtonElement>(null);
+  useInertOutside(cardRef);
+  useInertOutside(confirmRef, confirmDel);
   const lastFocused = useRef<HTMLElement | null>(null);
   const titleId = useId();
   const descId = useId();

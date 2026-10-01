@@ -21,6 +21,8 @@ const h = vi.hoisted(() => ({
   signInWithOAuth: vi.fn(),
   resetPasswordForEmail: vi.fn(),
   updateUser: vi.fn(),
+  setSession: vi.fn(),
+  openAuthBrowser: vi.fn(),
   unsubscribe: vi.fn(),
 }));
 
@@ -48,10 +50,13 @@ vi.mock('../lib/supabase', () => {
         signInWithOAuth: h.signInWithOAuth,
         resetPasswordForEmail: h.resetPasswordForEmail,
         updateUser: h.updateUser,
+        setSession: h.setSession,
       },
     },
   };
 });
+
+vi.mock('../native/bridge', () => ({ openAuthBrowser: h.openAuthBrowser }));
 
 vi.mock('../lib/analytics', () => ({ track: vi.fn(), trackPageView: vi.fn() }));
 
@@ -81,6 +86,8 @@ beforeEach(() => {
   h.signInWithOAuth.mockReset().mockResolvedValue({ error: null });
   h.resetPasswordForEmail.mockReset().mockResolvedValue({ error: null });
   h.updateUser.mockReset().mockResolvedValue({ error: null });
+  h.setSession.mockReset().mockResolvedValue({ error: null });
+  h.openAuthBrowser.mockReset().mockResolvedValue(undefined);
   localStorage.clear();
 });
 
@@ -240,5 +247,110 @@ describe('AuthProvider — error messages', () => {
   it('never surfaces a garbled error object to the user', async () => {
     const msg = await signInReporting({ message: '{}' });
     expect(msg).toBe('Could not sign in. Please try again.');
+  });
+});
+
+/**
+ * Provider sign-in inside the apps uses PKCE (src/lib/nativeOAuth.ts): the
+ * return on the app's custom scheme carries a one-time code, never tokens, and
+ * the code is redeemed on the sign-in screen with a verifier only this device
+ * holds. The website is untouched by any of it.
+ */
+describe('AuthProvider — app sign-in with PKCE', () => {
+  const fetchMock = vi.fn();
+
+  function enterApp() {
+    (window as unknown as { Capacitor?: unknown }).Capacitor = {
+      isNativePlatform: () => true,
+      getPlatform: () => 'android',
+    };
+  }
+
+  function CallbackProbe({ useAuth }: { useAuth: AuthModule['useAuth'] }) {
+    const { loading, callbackError } = useAuth();
+    return <p data-testid="cb">{loading ? 'loading' : callbackError ?? 'ok'}</p>;
+  }
+
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.stubGlobal('fetch', fetchMock);
+  });
+
+  afterEach(() => {
+    delete (window as unknown as { Capacitor?: unknown }).Capacitor;
+    vi.unstubAllGlobals();
+    window.history.replaceState(null, '', '/');
+  });
+
+  it('asks the provider for a code bound to an S256 challenge, returning on the app scheme', async () => {
+    enterApp();
+    h.signInWithOAuth.mockResolvedValue({ data: { url: 'https://project.supabase.co/auth/v1/authorize?x=1' }, error: null });
+    const { AuthProvider, useAuth } = await loadProvider();
+    const { result: auth } = renderHook(useAuth, { wrapper: AuthProvider });
+
+    await act(async () => {
+      const result = await auth.current.signInWithProvider('google', '/tools/goals');
+      expect(result).toEqual({ error: null, closed: true });
+    });
+
+    const { provider, options } = h.signInWithOAuth.mock.calls[0][0];
+    expect(provider).toBe('google');
+    expect(options.redirectTo).toBe('co.finatrix.app://auth/callback?next=%2Ftools%2Fgoals');
+    expect(options.skipBrowserRedirect).toBe(true);
+    expect(options.queryParams.code_challenge_method).toBe('s256');
+    expect(options.queryParams.code_challenge).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(localStorage.getItem('fx_oauth_pkce')).not.toBeNull();
+    expect(h.openAuthBrowser).toHaveBeenCalledWith('https://project.supabase.co/auth/v1/authorize?x=1');
+  });
+
+  it('leaves the website’s sign-in exactly as it was — no PKCE parameters, no verifier', async () => {
+    const { AuthProvider, useAuth } = await loadProvider();
+    const { result: auth } = renderHook(useAuth, { wrapper: AuthProvider });
+    await act(async () => {
+      await auth.current.signInWithProvider('google', '/tools');
+    });
+    const { options } = h.signInWithOAuth.mock.calls[0][0];
+    expect(options.queryParams).toBeUndefined();
+    expect(options.skipBrowserRedirect).toBeUndefined();
+    expect(localStorage.getItem('fx_oauth_pkce')).toBeNull();
+  });
+
+  it('redeems the returned code, signs in, and removes the code from the address', async () => {
+    enterApp();
+    const { beginNativePkce } = await import('../lib/nativeOAuth');
+    await beginNativePkce();
+    window.history.replaceState(null, '', '/login?next=%2Ftools&code=returned-code');
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ access_token: 'at', refresh_token: 'rt' }), { status: 200 }));
+    h.getSession.mockResolvedValue({ data: { session: { user: { id: 'u9' } } } });
+
+    const { AuthProvider, useAuth } = await loadProvider();
+    render(<AuthProvider><CallbackProbe useAuth={useAuth} /></AuthProvider>);
+
+    await waitFor(() => expect(screen.getByTestId('cb')).toHaveTextContent('ok'));
+    expect(h.setSession).toHaveBeenCalledWith({ access_token: 'at', refresh_token: 'rt' });
+    expect(window.location.search).toBe('?next=%2Ftools');
+    // setSession must run before the session is read, or the load flashes signed out.
+    expect(h.setSession.mock.invocationCallOrder[0]).toBeLessThan(h.getSession.mock.invocationCallOrder[0]);
+  });
+
+  it('refuses a code it never asked for and explains on the sign-in screen', async () => {
+    enterApp();
+    window.history.replaceState(null, '', '/login?next=%2Ftools&code=injected');
+
+    const { AuthProvider, useAuth } = await loadProvider();
+    render(<AuthProvider><CallbackProbe useAuth={useAuth} /></AuthProvider>);
+
+    await waitFor(() => expect(screen.getByTestId('cb')).toHaveTextContent(/could not be completed/i));
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(h.setSession).not.toHaveBeenCalled();
+  });
+
+  it('does not treat a `code` parameter on the website as an app sign-in', async () => {
+    window.history.replaceState(null, '', '/login?code=something-else');
+    const { AuthProvider, useAuth } = await loadProvider();
+    render(<AuthProvider><CallbackProbe useAuth={useAuth} /></AuthProvider>);
+    await waitFor(() => expect(screen.getByTestId('cb')).toHaveTextContent('ok'));
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(h.setSession).not.toHaveBeenCalled();
   });
 });

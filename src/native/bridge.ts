@@ -216,31 +216,41 @@ export function handleOpenUrl(raw: string, navigate: BridgeOptions['navigate']):
     return;
   }
 
-  // OAuth return: co.finatrix.app://auth/callback?next=/tools#access_token=…
+  // OAuth return: co.finatrix.app://auth/callback?next=/tools&code=…
   const callback = new URL(NATIVE_AUTH_CALLBACK);
   if (url.protocol === callback.protocol && url.host === callback.host
     && url.pathname === callback.pathname && !url.username && !url.password) {
     void Browser.close().catch(() => {});
     const next = safeInternalPath(url.searchParams.get('next'), '/tools');
-    const params = new URLSearchParams(url.search);
-    params.delete('next');
     // A refused or failed sign-in (consent declined, provider error) carries
-    // `error=…` instead of tokens. Only the sign-in screen explains that
+    // `error=…` instead of a code. Only the sign-in screen explains that
     // (`callbackError`); landing on `next` would drop the person on a screen
     // that silently shows them still signed out. They go back to sign-in,
     // with `next` kept for the retry.
     if (/(^|[#&?])error(_description|_code)?=/.test(url.hash + url.search)) {
+      const params = new URLSearchParams(url.search);
       params.set('next', next);
       reloadAt(`/login?${params.toString()}${url.hash}`);
       return;
     }
-    // `next` can already carry a query or an anchor. Appending another '?' or
-    // '#' would bury the code/tokens inside that value instead of letting the
-    // auth client read them. Merge the URL components separately.
-    const destination = new URL(next, PUBLIC_ORIGIN);
-    params.forEach((value, key) => destination.searchParams.set(key, value));
-    if (url.hash) destination.hash = url.hash;
-    reloadAt(`${destination.pathname}${destination.search}${destination.hash}`);
+    // The PKCE code is redeemed on the sign-in screen the person started from
+    // (AuthContext + src/lib/nativeOAuth.ts), which then sends them on to
+    // `next` exactly as a password sign-in does — and explains a failure in
+    // place. Only `code` and `next` are carried over.
+    const code = url.searchParams.get('code');
+    const login = new URLSearchParams({ next });
+    if (code) {
+      login.set('code', code);
+      reloadAt(`/login?${login.toString()}`);
+      return;
+    }
+    // Anything else on this URL — notably implicit-flow tokens in the fragment
+    // — was not requested by this app, which only starts PKCE sign-ins. It is
+    // dropped unread: a page or app that can open our scheme must not be able
+    // to sign the person into an account of its choosing.
+    login.set('error', 'invalid_request');
+    login.set('error_description', 'Sign-in could not be completed. Please try again.');
+    reloadAt(`/login?${login.toString()}`);
     return;
   }
 

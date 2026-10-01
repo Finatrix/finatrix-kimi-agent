@@ -36,6 +36,7 @@ import { NotificationsBell } from './ui/NotificationsBell';
 import { AiProvider, AiLauncher } from './ui/AiAssistant';
 import { warnIfOverdue } from '../reference/review';
 import { isNativeApp } from '../native/platform';
+import { showCareersEntry } from '../lib/careersEntry';
 import './tools.css';
 
 // Lazy on purpose: the palette carries the whole command registry (including
@@ -607,15 +608,19 @@ export default function ToolsLayout() {
               <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: '#D4AF37' }} />
               Calendar
             </Link>
-            <div className="mt-2 mb-1 px-5 text-[10px] uppercase tracking-[0.12em] text-ink-3 font-mono">Careers</div>
-            <Link
-              to={CAREERS_ROUTES.dashboard}
-              onClick={() => setDrawerOpen(false)}
-              className="flex items-center gap-3 px-5 py-2.5 text-[15px] text-ink hover:bg-hairline-2"
-            >
-              <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: '#D4AF37' }} />
-              FinatriX Careers
-            </Link>
+            {showCareersEntry() && (
+              <>
+                <div className="mt-2 mb-1 px-5 text-[10px] uppercase tracking-[0.12em] text-ink-3 font-mono">Careers</div>
+                <Link
+                  to={CAREERS_ROUTES.dashboard}
+                  onClick={() => setDrawerOpen(false)}
+                  className="flex items-center gap-3 px-5 py-2.5 text-[15px] text-ink hover:bg-hairline-2"
+                >
+                  <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: '#D4AF37' }} />
+                  FinatriX Careers
+                </Link>
+              </>
+            )}
             <div className="my-2 mx-5 border-t border-hairline-2" />
             <Link to="/profile" onClick={() => setDrawerOpen(false)} className="block px-5 py-2.5 text-[15px] text-ink hover:bg-hairline-2">Profile</Link>
             <Link to="/tools/settings" onClick={() => setDrawerOpen(false)} className={`block px-5 py-2.5 text-[15px] hover:bg-hairline-2 ${activeTool === 'settings' ? 'text-accent-text' : 'text-ink'}`}>Settings</Link>

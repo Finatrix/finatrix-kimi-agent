@@ -47,6 +47,10 @@ const TEAM_ID = /^[A-Z0-9]{10}$/;
  * already has would be a worse experience than Safari, and on iOS `/pricing`
  * is not even reachable in the app (App Review 3.1.1, see `isPurchasePage`).
  *
+ * `/careers/*` is deliberately absent while Careers is unlaunched: the apps
+ * contain no Careers screens yet (`src/lib/careersEntry.ts`), so a Careers link
+ * belongs to the website. Restore it here and in the Android filter together.
+ *
  * `/.well-known/*` is excluded first and explicitly. Without it a Universal
  * Link could route this very file into the app, and any future `/.well-known`
  * resource — a `security.txt`, an OAuth discovery document — with it.
@@ -56,7 +60,6 @@ export const IOS_LINK_COMPONENTS: ReadonlyArray<Readonly<Record<string, unknown>
   { '/': '/tools/*', comment: 'The money tools' },
   { '/': '/tools', comment: 'The tools index' },
   { '/': '/learn/*', comment: 'Guides and articles' },
-  { '/': '/careers/*', comment: 'Careers (excluding the public pricing pages, which the app does not show)' },
   { '/': '/login', comment: 'Sign in, and the OAuth/error return leg' },
   { '/': '/signup', comment: 'Create an account' },
   { '/': '/reset-password', comment: 'Password reset link from email' },

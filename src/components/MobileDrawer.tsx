@@ -86,7 +86,7 @@ export function MobileDrawer({
       inert={!open}
       aria-hidden={!open || undefined}
     >
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
       <nav
         ref={panelRef}
         aria-label={label}
