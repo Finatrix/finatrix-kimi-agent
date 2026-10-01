@@ -96,6 +96,11 @@ export type AnalyticsEvent =
   | 'subscription_expired'
   // ── Feature engagement ───────────────────────────────────────────────────
   | 'ai_message_sent'
+  // A user flagging an AI answer (offensive, harmful, wrong). Required of any
+  // app with generative AI by Google Play's AI-generated content policy, and
+  // the signal that says whether the grounding rules are holding in the wild.
+  // `kind` is the reason the user picked — never the answer text.
+  | 'ai_answer_reported'
   | 'report_exported'
   | 'resume_uploaded'
   | 'job_search_completed'
@@ -337,6 +342,38 @@ export function flush(): void {
     // Swallow — analytics is best-effort and never throws into the app — but
     // keep the events rather than losing them to a transport that never ran.
     requeue(batch);
+  }
+}
+
+/**
+ * Deliver one report the user deliberately sent — today, flagging an AI answer —
+ * and say whether it arrived.
+ *
+ * Not analytics, so not gated by the analytics opt-out: someone who switched off
+ * usage counting and then taps "Report" is asking to tell us something, and
+ * silently dropping it while the UI says "reported" would be both a broken
+ * promise and a gap in what Google Play's AI-content policy requires. What it
+ * carries is the same allowlisted, sanitised props as any event (a reason code
+ * — never the answer), under a fresh one-off id that links it to nothing else
+ * this session did. The privacy policy says reports are sent this way.
+ *
+ * A plain-text body keeps it a CORS "simple" request — no preflight to fail on
+ * a flaky mobile connection. The ingest parses the body whatever its type.
+ */
+export async function sendUserReport(event: 'ai_answer_reported', props: AnalyticsProps): Promise<boolean> {
+  if (!ENDPOINT || typeof fetch === 'undefined') return false;
+  const payload = JSON.stringify({ sid: safeUUID(), events: [{ e: event, p: sanitize(props), t: 0 }] });
+  try {
+    const res = await fetch(ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      body: payload,
+      credentials: 'omit',
+      keepalive: true,
+    });
+    return res.ok;
+  } catch {
+    return false;
   }
 }
 

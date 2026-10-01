@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, cleanup, act } from '@testing-library/react';
+import { render, screen, cleanup, act, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router';
 
 /**
@@ -11,7 +11,7 @@ import { MemoryRouter, Routes, Route } from 'react-router';
  */
 
 const h = vi.hoisted(() => {
-  const state: { resolveLoad?: (s: 'saved') => void } = {};
+  const state: { resolveLoad?: (s: 'saved' | 'error') => void; lastUid?: string } = {};
   const pushSpy = vi.fn(async () => 'saved' as const);
   return { state, pushSpy };
 });
@@ -35,13 +35,13 @@ vi.mock('../tools/cloudSync', async (importOriginal) => {
   const real = await importOriginal<typeof import('../tools/cloudSync')>();
   return {
     ...real,
-    getLastUid: () => null, // first run on this device → the seed also pushes
+    getLastUid: () => h.state.lastUid ?? null,
     setLastUid: vi.fn(),
     loadCloudIntoLocal: vi.fn(
-      () => new Promise<'saved'>((res) => { h.state.resolveLoad = res; })
+      () => new Promise<'saved' | 'error'>((res) => { h.state.resolveLoad = res; })
     ),
     // Never settles: proves the first paint does not wait on the write-back.
-    pushLocalToCloud: vi.fn(() => new Promise<'saved'>(() => {})),
+    pushLocalToCloud: h.pushSpy,
   };
 });
 
@@ -62,7 +62,9 @@ function renderShell() {
 describe('Tools shell — the window before cloud data lands', () => {
   beforeEach(() => {
     localStorage.clear();
+    h.state.lastUid = undefined;
     h.pushSpy.mockClear();
+    h.pushSpy.mockImplementation(() => new Promise<'saved'>(() => {}));
   });
   afterEach(cleanup);
 
@@ -88,5 +90,39 @@ describe('Tools shell — the window before cloud data lands', () => {
     // on screen anyway, and the placeholder is gone.
     expect(await screen.findByText('tool-outlet-content')).toBeInTheDocument();
     expect(screen.queryByRole('status', { name: 'Loading your data' })).toBeNull();
+  });
+
+  it('never writes back a failed cloud read and offers a safe retry', async () => {
+    renderShell();
+    await act(async () => h.state.resolveLoad?.('error'));
+    expect(screen.getByRole('alert')).toHaveTextContent('Your saved data couldn’t be loaded');
+    expect(screen.queryByText('tool-outlet-content')).toBeNull();
+    expect(h.pushSpy).not.toHaveBeenCalled();
+    const { store } = await import('../tools/lib/storage');
+    await act(async () => store.set('fx_expenses', '[]'));
+    expect(h.pushSpy).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(screen.getByRole('status', { name: 'Loading your data' })).toBeInTheDocument();
+    await act(async () => h.state.resolveLoad?.('saved'));
+    expect(screen.getByText('tool-outlet-content')).toBeInTheDocument();
+    expect(h.pushSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps an existing account usable offline and queues edits until a successful retry', async () => {
+    h.state.lastUid = 'user-a';
+    localStorage.setItem('fx_expenses', '["saved-on-this-device"]');
+    renderShell();
+    await act(async () => h.state.resolveLoad?.('error'));
+    expect(screen.getByText('tool-outlet-content')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
+    const { store } = await import('../tools/lib/storage');
+    const { hasPendingCloudChanges } = await import('../tools/cloudSync');
+    await act(async () => store.set('fx_expenses', '["offline-edit"]'));
+    expect(hasPendingCloudChanges('user-a')).toBe(true);
+    expect(h.pushSpy).not.toHaveBeenCalled();
+    fireEvent(window, new Event('online'));
+    await act(async () => h.state.resolveLoad?.('saved'));
+    expect(h.pushSpy).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('tool-outlet-content')).toBeInTheDocument();
   });
 });

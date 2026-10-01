@@ -6,6 +6,7 @@
 
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
+import { downloadBlob } from '../../lib/download';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
@@ -90,20 +91,19 @@ export default function CareersSettings() {
     }
   };
 
-  const exportAll = () => {
+  const exportAll = async () => {
     const payload = {
       exportedAt: new Date().toISOString(),
       profile,
       resumes,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'finatrix-careers-export.json';
-    a.click();
-    URL.revokeObjectURL(url);
-    notify('Export downloaded.', 'ok');
+    try {
+      const saved = await downloadBlob('finatrix-careers-export.json', blob);
+      if (saved) notify('Export ready.', 'ok');
+    } catch (error) {
+      notify(toCareersError(error).message, 'error');
+    }
   };
 
   const wipeAll = async () => {

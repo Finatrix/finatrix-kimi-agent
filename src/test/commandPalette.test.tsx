@@ -274,6 +274,22 @@ describe('CommandPalette in the tools shell', () => {
     fireEvent.keyDown(input, { key: 'Escape' });
     expect(document.activeElement).toBe(trigger);
   });
+
+  /**
+   * WebKit — Safari and the iOS app's WKWebView — does not focus a button on
+   * click or tap, exactly like fireEvent.click here. The trigger has to take
+   * focus itself, or the palette records <body> as its opener and Escape
+   * strands the user at the top of the document.
+   */
+  it('returns focus to the trigger even when the click itself did not focus it', async () => {
+    await renderShell();
+    const trigger = screen.getByRole('button', { name: 'Search tools, guides and actions' });
+    expect(document.activeElement).not.toBe(trigger);
+    fireEvent.click(trigger);
+    const input = await screen.findByRole('combobox', { name: 'Search tools, guides and actions' });
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(document.activeElement).toBe(trigger);
+  });
 });
 
 /**
@@ -311,7 +327,7 @@ describe('CommandPalette on the Careers surface', () => {
 
   it('opens on the Careers sections rather than the calculators', () => {
     renderCareersPalette();
-    expect(screen.getByRole('option', { name: /Job Search/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /coming in 2027/ })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: /Budget Builder/ })).not.toBeInTheDocument();
   });
 
@@ -322,10 +338,10 @@ describe('CommandPalette on the Careers surface', () => {
     expect(here()).toBe('/tools/budget');
   });
 
-  it('reaches a section that the Careers tab bar does not show', () => {
+  it('routes locked Careers searches to launch information', () => {
     const { input } = renderCareersPalette();
-    fireEvent.change(input, { target: { value: 'offers' } });
+    fireEvent.change(input, { target: { value: 'resume' } });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(here()).toBe('/careers/offers');
+    expect(here()).toBe('/careers');
   });
 });

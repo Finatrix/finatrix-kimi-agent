@@ -146,7 +146,7 @@ describe('seoForPath', () => {
     ]) {
       const seo = seoForPath(p);
       expect(seo.robots).toBe('noindex, nofollow');
-      expect(seo.canonical).toBeNull();
+      expect(seo.canonical).toBe(p.startsWith('/careers/') ? `${CANONICAL_ORIGIN}/careers` : null);
     }
   });
 
@@ -207,7 +207,7 @@ describe('seoForPath', () => {
       '/',
       ...TOOL_IDS.map((t) => `/tools/${t}`),
       ...PUBLIC_PAGE_PATHS,
-    ];
+    ].filter((path) => seoForPath(path).robots === INDEXABLE);
     const titles = new Set<string>();
     const descriptions = new Set<string>();
 
@@ -235,7 +235,7 @@ describe('seoForPath', () => {
     // Not an SEO surface — every one of these is noindex — but the title is the
     // first thing a screen reader announces after a navigation.
     for (const [path, expected] of [
-      ['/careers/jobs', 'Job Search — FinatriX'],
+      ['/careers/jobs', 'FinatriX Careers — coming in 2027'],
       ['/tools/dashboard', 'Dashboard — FinatriX'],
       ['/login', 'Sign In — FinatriX'],
     ] as const) {
@@ -382,7 +382,7 @@ describe('applySeo', () => {
     expect(document.querySelector('meta[name="robots"]')!.getAttribute('content'))
       .toBe('noindex, nofollow');
     expect(document.querySelector('link[rel="canonical"]')!.getAttribute('href'))
-      .toBe(`${CANONICAL_ORIGIN}/`);
+      .toBe(`${CANONICAL_ORIGIN}/careers`);
   });
 
   it('restores an indexable state when navigating back to a public page', () => {

@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  FinatriX's privacy manifest.
+
+  This is the machine-readable half of the App Privacy declaration; the other
+  half is the questionnaire in App Store Connect, and the two must agree. Both
+  are derived from the same audit in docs/APP_STORE_SUBMISSION.md, which cites
+  the file and line each entry comes from so a reviewer (or the next engineer)
+  can check it rather than trust it.
+
+  NSPrivacyTracking is false and NSPrivacyTrackingDomains is empty, and that is a
+  statement about the code, not an aspiration: analytics go to FinatriX's own
+  ingest endpoint (supabase/functions/analytics-collect), carry a per-session
+  random UUID and no account id, send `credentials: 'omit'`, set no cookie, and
+  are not combined with data from anyone else (src/lib/analytics.ts). There is no
+  advertising SDK, no attribution SDK and no third-party analytics in the bundle.
+  That is exactly the boundary App Tracking Transparency draws, so the app must
+  NOT show an ATT prompt — and does not.
+-->
+<plist version="1.0">
+<dict>
+	<!--
+	  Required-reason APIs.
+
+	  FileTimestamp is declared because Capacitor's WKURLSchemeHandler reads file
+	  attributes of the web bundle inside the app's own container when serving a
+	  Range request (WebViewAssetHandler.swift). C617.1 is precisely that reason:
+	  files inside the app container, for a purpose the user initiated. Nothing
+	  read this way leaves the device.
+
+	  Nothing else applies. Capacitor 8's KeyValueStore is file-based rather than
+	  UserDefaults-backed (KeyValueStore.swift `FileStore`), so the UserDefaults
+	  category is genuinely not used — checked in the source rather than assumed
+	  from the plugin list.
+	-->
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>C617.1</string>
+			</array>
+		</dict>
+	</array>
+
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array>
+		<!-- Account email. Supabase Auth; needed to sign in and to send
+		     confirmation and password-reset mail. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeEmailAddress</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<!-- Display name, given at sign-up. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeName</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<!-- Budgets, expenses, debts, net worth: the figures the person types
+		     into the tools. They live in on-device storage for everyone; for a
+		     signed-in user they also sync to their own row in `tool_data` so the
+		     same data is there on another device. Row-level security scopes it to
+		     the owner. Not collected at all for a guest. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeOtherFinancialInfo</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<!-- Careers: résumés, cover letters and application notes the person
+		     uploads or writes. Only for signed-in users who use that section. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeOtherUserContent</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<!-- Which screens and tools get used. Anonymous: a random per-session id,
+		     never the account id, so it cannot be tied back to a person. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeProductInteraction</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+		<!-- Handled JavaScript errors, over the same anonymous channel. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeCrashData</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<!-- Web vitals: how quickly screens render. Same anonymous channel. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypePerformanceData</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+	</array>
+
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyTracking</key>
+	<false/>
+</dict>
+</plist>

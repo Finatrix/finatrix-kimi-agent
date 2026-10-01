@@ -9,6 +9,7 @@ import AuthShell, {
   OrDivider,
   SocialButton,
 } from '../components/AuthShell';
+import { authProviders, PROVIDER_LABEL, type OAuthProvider } from '../lib/authProviders';
 
 /** Where a successful sign-in lands when nothing better was requested. */
 const DEFAULT_DESTINATION = '/tools';
@@ -44,7 +45,13 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
+  // `?deleted=1` is where DeleteAccount lands after a successful deletion — the
+  // one confirmation that the irreversible thing actually happened.
+  const [info, setInfo] = useState<string | null>(() =>
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('deleted') === '1'
+      ? 'Your account and its data have been deleted.'
+      : null,
+  );
   const [busy, setBusy] = useState(false);
 
   const destination = safeDestination(search);
@@ -83,14 +90,17 @@ export default function Login() {
     navigate(destination, { replace: true });
   }
 
-  async function onProvider(provider: 'google') {
+  async function onProvider(provider: OAuthProvider) {
     setError(null);
     setInfo(null);
     setBusy(true);
-    const { error } = await signInWithProvider(provider, destination);
+    const { error, closed } = await signInWithProvider(provider, destination);
     if (error) {
       setBusy(false);
       setError(error);
+    } else if (closed) {
+      // In an app: the sign-in browser was closed without finishing.
+      setBusy(false);
     }
     // On success the browser redirects to the provider, so no further action here.
   }
@@ -153,12 +163,16 @@ export default function Login() {
       {error && <Notice kind="error">{error}</Notice>}
       {info && <Notice kind="success">{info}</Notice>}
 
-      <SocialButton
-        disabled={busy || !configured}
-        onClick={() => onProvider('google')}
-      >
-        Continue with Google
-      </SocialButton>
+      {authProviders().map((provider) => (
+        <SocialButton
+          key={provider}
+          provider={provider}
+          disabled={busy || !configured}
+          onClick={() => onProvider(provider)}
+        >
+          {PROVIDER_LABEL[provider]}
+        </SocialButton>
+      ))}
 
       <OrDivider label="or sign in with email" />
 

@@ -98,6 +98,8 @@ describe('AiPanel', () => {
   beforeEach(() => {
     cleanup();
     localStorage.clear();
+    // Permission to send to the AI provider is its own concern (aiConsent.test.tsx).
+    localStorage.setItem('fx_ai_consent', '1');
     h.user = { id: 'user-1' };
     h.lastRequest = null;
     reply({ answer: 'You spent 670 this month.' });
@@ -404,6 +406,8 @@ describe('AiPanel — opened from a figure', () => {
   beforeEach(() => {
     cleanup();
     localStorage.clear();
+    // Permission to send to the AI provider is its own concern (aiConsent.test.tsx).
+    localStorage.setItem('fx_ai_consent', '1');
     h.user = { id: 'user-1' };
     h.lastRequest = null;
     reply({ answer: 'Groceries are steady.' });
@@ -491,6 +495,8 @@ describe('AiPanel — how much the answer stands on', () => {
   beforeEach(() => {
     cleanup();
     localStorage.clear();
+    // Permission to send to the AI provider is its own concern (aiConsent.test.tsx).
+    localStorage.setItem('fx_ai_consent', '1');
     h.user = { id: 'user-1' };
     reply({ answer: 'You spent 670 this month.' });
   });
@@ -542,6 +548,8 @@ describe('AiPanel — instant intelligence and session isolation', () => {
   beforeEach(() => {
     cleanup();
     localStorage.clear();
+    // Permission to send to the AI provider is its own concern (aiConsent.test.tsx).
+    localStorage.setItem('fx_ai_consent', '1');
     h.user = { id: 'user-1' };
     h.lastRequest = null;
     h.deferred = null;

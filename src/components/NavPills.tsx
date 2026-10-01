@@ -1,3 +1,4 @@
+import { CAREERS_AVAILABLE, CAREERS_LAUNCH_YEAR } from '../shared/careersAvailability';
 import { Link, useLocation } from 'react-router';
 import { TOOLS } from '../lib/tools';
 import { CAREERS_ROUTES } from '../careers/constants';
@@ -88,9 +89,9 @@ export function NavPills({ variant, label = 'Tools', hideBelow, className }: Nav
         // In-app navigation goes to the WORKSPACE, not the public landing page
         // at /careers — inside the signed-in shell "Careers" means the section,
         // not the pitch.
-        { key: 'careers', to: CAREERS_ROUTES.dashboard, label: 'Careers', color: GOLD },
+        { key: 'careers', to: CAREERS_AVAILABLE ? CAREERS_ROUTES.dashboard : '/careers', label: CAREERS_AVAILABLE ? 'Careers' : `Careers · ${CAREERS_LAUNCH_YEAR}`, color: GOLD },
       ]
-    : [...tools, { key: 'careers', to: '/careers', label: 'Careers', color: GOLD }];
+    : [...tools, { key: 'careers', to: '/careers', label: CAREERS_AVAILABLE ? 'Careers' : `Careers · ${CAREERS_LAUNCH_YEAR}`, color: GOLD }];
 
   /** The active tool id from the URL, so both variants highlight the same way. */
   const activeTool = /^\/tools\/([a-z]+)/i.exec(pathname)?.[1]?.toLowerCase() ?? '';

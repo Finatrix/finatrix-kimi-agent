@@ -103,14 +103,41 @@
 
     /* …and stop short of the header that covers the top of the viewport, so a
        heading scrolled to is a heading you can read. See --scroll-offset. */
-    scroll-padding-top: var(--scroll-offset);
+    scroll-padding-top: calc(var(--scroll-offset) + var(--fx-safe-top));
   }
 
+  /* Edge to edge: the page draws under the status bar, so everything starts
+     below it and the sticky/fixed headers pin at `top: var(--fx-safe-top)`.
+     Both are 0 on a browser tab; they matter in the Android app and the
+     installed iOS PWA (`black-translucent` status bar). The left/right insets
+     only bite in landscape on a cutout device. */
   body {
     background: var(--surface-base);
     color: var(--ink);
     font-family: 'Geist', system-ui, -apple-system, sans-serif;
     overflow-x: hidden;
+    padding-top: var(--fx-safe-top);
+    padding-left: var(--fx-safe-left);
+    padding-right: var(--fx-safe-right);
+  }
+
+  /* The status bar's own backdrop. Content scrolling up passes beneath a
+     frosted strip in the header's colour instead of colliding with the clock
+     and battery icons. Zero-height — so invisible — wherever there is no top
+     inset. Sits above every sticky header (they pin just below it) and under
+     modals, whose backdrops are meant to dim the whole screen. */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--fx-safe-top);
+    z-index: calc(var(--z-header) + 1);
+    background: var(--nav-bg);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+    pointer-events: none;
   }
 
   /* Default hairline colour for any bordered element without an explicit
@@ -477,4 +504,75 @@
 @media (prefers-reduced-motion: reduce) {
   .fx-navpill, .fx-navpill-dot { transition: none; }
   .fx-navpill:hover .fx-navpill-dot { transform: none; }
+}
+
+/* ============================================================================
+   ANDROID APP (html.fx-native — set before first paint by src/native/platform)
+   ----------------------------------------------------------------------------
+   The same bundle runs in the Play Store app. These rules remove what makes a
+   WebView read as a web page — the grey tap flash, long-press link previews,
+   selectable navigation labels, chrome that duplicates the system BACK — and
+   nothing else. Content stays selectable: people copy figures out of a finance
+   app, and blocking that would be a regression dressed as polish.
+   ========================================================================== */
+html.fx-native {
+  -webkit-tap-highlight-color: transparent;
+  /* Font scaling belongs to the OS accessibility setting, which the WebView
+     already honours; this only stops a second, heuristic boost on top of it. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+html.fx-native a,
+html.fx-native button,
+html.fx-native img,
+html.fx-native svg {
+  -webkit-touch-callout: none;
+}
+html.fx-native header,
+html.fx-native nav,
+html.fx-native button,
+html.fx-native [role="tab"],
+html.fx-native .fx-navpill {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Web-only affordances: marketing links, the breadcrumb + Back pill that the
+   system BACK gesture replaces, the "Home" that means the landing page. */
+html.fx-native [data-web-only] { display: none !important; }
+
+/* Press feedback for the navigation controls. A browser gives none on touch;
+   a native tab bar does. (`.fx-tools .btn` already has its own pressed state.) */
+html.fx-native .fx-mobnav-item:active,
+html.fx-native .fx-navpill:active {
+  transform: scale(0.97);
+  transition: transform 80ms var(--ease-out, ease-out);
+}
+
+/* The on-screen keyboard. The WebView shrinks to sit above it, which would
+   carry the tab bar and floating buttons up into the middle of the form being
+   filled. Hidden while it is open; back the moment it closes. */
+html.fx-native.fx-kb-open .fx-mobnav,
+html.fx-native.fx-kb-open .fx-ai-dock,
+html.fx-native.fx-kb-open .fx-wallet-dock {
+  display: none !important;
+}
+
+/* Large system font (html.fx-text-lg — src/native/bridge.ts syncTextZoom).
+   WebView text zoom grows the text but not the viewport, so the app bar's one
+   row stops fitting: at 200% the wordmark ran under the search button and
+   "Sign in" was pushed off the screen. The logo alone still links home (it
+   carries the "FinatriX home" name), so the wordmark text is what gives way. */
+html.fx-native.fx-text-lg .fx-wordmark { display: none; }
+/* The tab bar's five labels cannot sit side by side at 200%. Like Android's own
+   navigation bars, they stop growing at 150% (the rendered size is the declared
+   size × the zoom, hence the division); the full label stays in the
+   accessibility tree, and an ellipsis is only the last-resort guard. */
+html.fx-native.fx-text-lg .fx-mobnav-item {
+  font-size: calc(10.5px * min(var(--fx-text-zoom, 1), 1.5) / var(--fx-text-zoom, 1));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.fx-native .fx-mobnav-item:active,
+  html.fx-native .fx-navpill:active { transform: none; }
 }

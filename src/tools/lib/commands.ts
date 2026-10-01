@@ -22,6 +22,7 @@
  * the Expense Tracker's own quick-add line, which still previews and commits it
  * through the existing path — the palette never writes a transaction itself.
  */
+import { CAREERS_AVAILABLE, CAREERS_LAUNCH_MESSAGE } from '../../shared/careersAvailability';
 import { TOOLS } from '../../lib/tools';
 import { CAREERS_HIDDEN_SECTIONS, CAREERS_NAV } from '../../careers/constants';
 import { TOPICS, ARTICLES, topicPath, articlePath } from '../../shared/content';
@@ -238,7 +239,7 @@ export function buildCommands(ctx: CommandContext): Command[] {
   }
 
   // ── Careers ──────────────────────────────────────────────────────────────
-  for (const section of CAREERS_SECTIONS) {
+  for (const section of CAREERS_AVAILABLE ? CAREERS_SECTIONS : []) {
     list.push({
       id: `careers:${section.id}`,
       title: section.name,
@@ -250,6 +251,13 @@ export function buildCommands(ctx: CommandContext): Command[] {
       promoted: ctx.surface === 'careers' && CAREERS_NAV.some((n) => n.id === section.id),
     });
   }
+
+  if (!CAREERS_AVAILABLE) list.push({
+    id: 'careers:coming-soon', promoted: ctx.surface === 'careers', title: CAREERS_LAUNCH_MESSAGE,
+    subtitle: 'Explore the launch information', group: 'Careers', icon: 'lock',
+    effect: { kind: 'navigate', to: '/careers' },
+    keywords: ['jobs', 'resume', 'cv', 'interviews', 'career coach', 'applications'],
+  });
 
   // ── Learn ────────────────────────────────────────────────────────────────
   // Money cluster only: the palette opens over the money workspace, and a
@@ -427,6 +435,8 @@ export function scoreCommand(query: string, cmd: Command): number {
   return base < 0 ? -1 : base + GROUP_WEIGHT[cmd.group];
 }
 
+const REQUEST_FILLER = new Set(['i', 'my', 'me', 'a', 'an', 'the', 'to', 'for', 'how', 'do', 'can', 'want', 'please', 'show', 'open', 'help', 'with', 'of']);
+
 /** The textual half of the score, with no group preference applied. */
 function textScore(q: string, cmd: Command): number {
   const title = norm(cmd.title);
@@ -449,6 +459,15 @@ function textScore(q: string, cmd: Command): number {
   }
 
   if (subtitle.includes(q)) return 180;
+
+  // Match a request across title + aliases, without letting filler words dominate.
+  const terms = q.split(/[^a-z0-9]+/).filter((word) => word && !REQUEST_FILLER.has(word));
+  if (terms.length > 0) {
+    const vocabulary = `${title} ${(cmd.keywords ?? []).map(norm).join(' ')}`.split(/[^a-z0-9]+/);
+    if (terms.every((term) => vocabulary.some((word) => word === term || (term.length >= 4 && word.startsWith(term))))) {
+      return 300;
+    }
+  }
 
   const density = subsequenceDensity(q, title);
   if (density >= 0) return 60 + Math.round(density * 60);
@@ -530,10 +549,10 @@ export function spendCommandFor(query: string, now: Date): Command | null {
   const text = query.trim();
   if (!text) return null;
   const parsed = parseQuickAdd(text, now);
-  if (!parsed.ok || parsed.amount <= 0) return null;
+  if (!parsed.ok || parsed.amount === 0) return null;
   return {
     id: 'action:log-spend:parsed',
-    title: `Log spend: ${text}`,
+    title: `Log ${parsed.amount < 0 ? 'refund' : 'spend'}: ${text}`,
     subtitle: parsed.parts.length ? parsed.parts.join(' · ') : 'Opens the quick-add line, ready to confirm',
     group: 'Actions',
     icon: 'zap',

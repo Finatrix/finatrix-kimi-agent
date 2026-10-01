@@ -109,36 +109,6 @@
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://finatrix.co/careers/features</loc>
-    <lastmod>2026-08-01</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>https://finatrix.co/careers/compare</loc>
-    <lastmod>2026-08-01</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://finatrix.co/careers/compare/linkedin</loc>
-    <lastmod>2026-08-01</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
-  </url>
-  <url>
-    <loc>https://finatrix.co/careers/compare/naukri</loc>
-    <lastmod>2026-08-01</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
-  </url>
-  <url>
-    <loc>https://finatrix.co/careers/compare/indeed</loc>
-    <lastmod>2026-08-01</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
-  </url>
-  <url>
     <loc>https://finatrix.co/compare</loc>
     <lastmod>2026-08-01</lastmod>
     <changefreq>monthly</changefreq>
@@ -260,7 +230,7 @@
   </url>
   <url>
     <loc>https://finatrix.co/privacy</loc>
-    <lastmod>2026-07-11</lastmod>
+    <lastmod>2026-10-01</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>

@@ -78,6 +78,7 @@ const FUNCTIONS = [
   'careers-billing-checkout',
   'careers-billing-webhook',
   'analytics-collect',
+  'account-delete',
 ];
 
 const results = [];

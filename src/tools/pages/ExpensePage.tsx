@@ -12,6 +12,7 @@ import {
 } from '../lib/chartTheme';
 import { useCurrency } from '../CurrencyContext';
 import { PageHead, ToolFoot } from '../ui/common';
+import { ExpenseRecordReview } from '../ui/ExpenseRecordReview';
 import { ResultExplainer } from '../ui/ResultExplainer';
 import { Icon, type IconName } from '../ui/Icon';
 import { MonthNav } from '../ui/MonthNav';
@@ -620,8 +621,9 @@ export default function ExpensePage() {
   );
 
   /** The whole log, flattened for the CSV — never the filtered on-screen view. */
-  const exportAudit = () => {
-    exportAuditCsv(audit.map((e) => ({
+  const exportAudit = async () => {
+    try {
+    const saved = await exportAuditCsv(audit.map((e) => ({
       changedAt: new Date(e.ts).toLocaleString(),
       action: AUDIT_ACTION_LABEL[e.action],
       category: auditCatLabel(e.category),
@@ -632,7 +634,11 @@ export default function ExpensePage() {
         .map((c) => `${AUDIT_FIELD_LABEL[c.field]}: ${c.before ?? '—'} → ${c.after ?? '—'}`)
         .join('; '),
     })));
+    if (saved === false) return;
     notify(`Exporting ${audit.length} recorded change${audit.length === 1 ? '' : 's'}…`, 'ok');
+    } catch {
+      notify('The export could not be created. Please try again.', 'error');
+    }
   };
 
   const clearAudit = () => {
@@ -655,11 +661,17 @@ export default function ExpensePage() {
     ...(t.paymentMethod ? { paymentMethod: t.paymentMethod } : {}),
   }));
 
-  const runExport = (kind: ExportKind, payload: ExpenseExport) => {
-    if (kind === 'csv') exportExpenseCsv(payload);
-    else if (kind === 'xlsx') void exportExpenseXlsx(payload);
-    else void exportExpensePdf(payload);
-    notify(`Exporting ${payload.transactions.length} transaction${payload.transactions.length === 1 ? '' : 's'}…`, 'ok');
+  const runExport = async (kind: ExportKind, payload: ExpenseExport) => {
+    try {
+      const saved = await (kind === 'csv' ? exportExpenseCsv(payload)
+        : kind === 'xlsx' ? exportExpenseXlsx(payload) : exportExpensePdf(payload));
+      if (saved === false) return false;
+      notify(`Exported ${payload.transactions.length} transaction${payload.transactions.length === 1 ? '' : 's'}.`, 'ok');
+      return true;
+    } catch {
+      notify('The export could not be created. Please try again.', 'error');
+      return false;
+    }
   };
 
   /**
@@ -756,6 +768,8 @@ export default function ExpensePage() {
       <PageHead chip="Expense Manager" chipColor="var(--orange)" chipBg="rgba(194,65,12,.09)" icon="expense" title="Your money, tracked and understood.">
         Categories and budgets flow from Budget Builder — log a spend and watch your Needs, Wants and Savings update live. Explore analytics to discover spending patterns.
       </PageHead>
+
+      {tab === 'overview' && <ExpenseRecordReview items={monthTx} validKeys={validKeys} onEdit={openEdit} cfmt={cfmt} />}
 
       {/* Tab bar — WAI-ARIA tablist with roving tabindex + arrow-key nav. */}
       <Tabs items={TAB_ITEMS} active={tab} onChange={setTab} idBase="fx-exp" label="Expense views" />
@@ -900,6 +914,7 @@ export default function ExpensePage() {
           sym={sym}
           defaultCat={defaultCatKey}
           recentCats={recentCatKeys}
+          learned={learnedWords}
           todayKey={todayKey}
           scheduleLimit={scheduleLimit}
           history={editing ? historyFor(audit, editing.id) : []}
@@ -2128,7 +2143,7 @@ function InsightCard({ insight }: { insight: SpendingInsight }) {
     }}>
       <Icon name={insight.icon} size={18} style={{ color, flexShrink: 0, marginTop: 1 }} />
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color, marginBottom: 2 }}>{insight.title}</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', marginBottom: 2 }}>{insight.title}</div>
         <div style={{ fontSize: 12, color: 'var(--ink2)', lineHeight: 1.5 }}>{insight.body}</div>
         {/* The takeaway, always on screen.
             It used to be behind the assistant button below: the card stated an
@@ -2799,7 +2814,7 @@ function fmtDate(d: string): string {
 /* ── Undo toast styles ── */
 
 const UNDO_STYLES = `
-.fx-undo{position:fixed;left:50%;bottom:calc(22px + var(--fx-bottomnav-h,0px) + env(safe-area-inset-bottom));transform:translateX(-50%);
+.fx-undo{position:fixed;left:50%;bottom:calc(22px + var(--fx-bottomnav-h,0px) + var(--fx-safe-bottom));transform:translateX(-50%);
   z-index:var(--z-undo);border-radius:14px;overflow:hidden;
   background:var(--card-solid,#1c1c1f);border:1px solid var(--hair2);color:var(--ink);
   box-shadow:0 20px 50px -18px rgba(0,0,0,.7);font-size:13px;max-width:calc(100vw - 32px);
@@ -2827,7 +2842,7 @@ const TAB_STYLES = `
 .fx-sched-group:last-child{margin-bottom:0;}
 .fx-sched-mh{display:flex;align-items:center;justify-content:space-between;gap:10px;
   padding:6px 0;border-bottom:1px solid var(--hair2);}
-.fx-sched-mb{background:none;border:none;padding:0;font-family:inherit;font-size:11px;font-weight:700;
+.fx-sched-mb{background:none;border:none;padding:4px 0;margin:-4px 0;font-family:inherit;font-size:11px;font-weight:700;
   letter-spacing:.05em;text-transform:uppercase;color:var(--ink2);cursor:pointer;}
 .fx-sched-mb:hover{color:var(--gold);text-decoration:underline;}
 .fx-sched-row{display:flex;align-items:center;gap:10px;width:100%;padding:9px 6px;background:none;

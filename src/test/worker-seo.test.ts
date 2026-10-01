@@ -134,7 +134,7 @@ describe('worker: server-side canonical + og:url', () => {
   // description in their raw bytes — which is the exact bug this file exists
   // for, reintroduced on twelve new pages at once.
   it('self-canonicalises every public page, including the new marketing surface', async () => {
-    for (const p of PUBLIC_PAGE_PATHS) {
+    for (const p of PUBLIC_PAGE_PATHS.filter((path) => seoForPath(path).robots === INDEXABLE)) {
       const applied = withRewriterStub();
       await get(p);
       expect(valueFor(applied, CANONICAL_SEL), p).toBe(`${CANONICAL_ORIGIN}${p}`);
@@ -145,7 +145,7 @@ describe('worker: server-side canonical + og:url', () => {
 
   it('gives every public page its own title and description in the served bytes', async () => {
     const titles = new Set<string>();
-    for (const p of PUBLIC_PAGE_PATHS) {
+    for (const p of PUBLIC_PAGE_PATHS.filter((path) => seoForPath(path).robots === INDEXABLE)) {
       const applied = withRewriterStub();
       await get(p);
       const seo = seoForPath(p);
@@ -153,7 +153,7 @@ describe('worker: server-side canonical + og:url', () => {
       expect(valueFor(applied, DESCRIPTION_SEL), p).toBe(seo.description);
       titles.add(seo.title);
     }
-    expect(titles.size, 'two public pages share a title').toBe(PUBLIC_PAGE_PATHS.length);
+    expect(titles.size, 'two public pages share a title').toBe(PUBLIC_PAGE_PATHS.filter((path) => seoForPath(path).robots === INDEXABLE).length);
   });
 
   // FAQ rich results only exist if the markup is in the bytes a crawler reads.
@@ -208,7 +208,7 @@ describe('worker: server-side canonical + og:url', () => {
       expect(valueFor(applied, ROBOTS_SEL), p).toBe('noindex, nofollow');
       // Deliberately the site root, matching applySeo: a self-canonical on a
       // noindex page sends contradictory signals.
-      expect(valueFor(applied, CANONICAL_SEL), p).toBe(`${CANONICAL_ORIGIN}/`);
+      expect(valueFor(applied, CANONICAL_SEL), p).toBe(p.startsWith('/careers/') ? `${CANONICAL_ORIGIN}/careers` : `${CANONICAL_ORIGIN}/`);
     }
   });
 
@@ -318,7 +318,7 @@ describe('worker: server-side title, description and structured data', () => {
   it('titles a private route without making it indexable', async () => {
     const applied = withRewriterStub();
     await get('/careers/jobs');
-    expect(valueFor(applied, TITLE_SEL)).toBe('Job Search — FinatriX');
+    expect(valueFor(applied, TITLE_SEL)).toBe('FinatriX Careers — coming in 2027');
     expect(valueFor(applied, ROBOTS_SEL)).toBe('noindex, nofollow');
   });
 });

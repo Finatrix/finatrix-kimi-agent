@@ -38,7 +38,7 @@ export const IN_MARKET: MarketPack = {
     ...IN_PARK,
     rateLabel: 'Income-tax slab',
     rateOptions: [
-      { value: 0, label: '0% (income under ₹12L, new regime)' },
+      { value: 0, label: '0% — total income below the nil-tax threshold (new regime)' },
       { value: 5, label: '5%' },
       { value: 10, label: '10%' },
       { value: 15, label: '15%' },

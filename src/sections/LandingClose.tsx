@@ -8,7 +8,7 @@ const PRINCIPLES: Array<{ title: string; body: string; icon: 'lock' | 'flag' | '
   // sets, tax rules and peer benchmarks for four markets, and a card that says
   // "for India" tells three quarters of that audience the product is not for
   // them.
-  { title: 'Check the assumptions', body: 'India, the US, the UK and the UAE have separate market settings. Tools show their assumptions and source dates so you can judge whether a result applies to you.', icon: 'flag' },
+  { title: 'Check the assumptions', body: 'India, the US, the UK, the UAE, Australia, Singapore and Mainland China have separate market settings. Tools show their assumptions and source dates so you can judge whether a result applies to you.', icon: 'flag' },
   { title: 'Free finance tools', body: 'Budgeting, expense tracking and financial planning are free. The Careers workspace has separate paid plans, listed on our pricing page.', icon: 'spark' },
 ];
 

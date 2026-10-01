@@ -17,12 +17,14 @@ import { computeBudget, allCategories, type BudgetStore } from './budget';
 import { loadCatViewFor } from './budgetCatsMonth';
 import { loadExpenses, migrateCategory, splitOutflow, ET_CATS } from './expense';
 import { computeGoalPlanner, type GoalResult } from './goals';
-import { computeInvestMatch, IM_DEFAULTS, IM_RL, type ImAnswers } from './investmatch';
+import { computeInvestMatch, IM_RL, type ImAnswers } from './investmatch';
+import { investAnswerError } from './comparisonAssist';
 import { buildProfile, calcWealth } from './lifemap';
 import { readActivity } from './activity';
 import { changeBetween, computeNetWorth, loadAccounts, netWorthSeries, type Change } from './netWorth';
 import { loadMarket, marketFor } from './markets';
 import { converterTo, effectiveRates } from './fx';
+import { lifeMapReadiness } from './planningAutomation';
 
 export type PillarId = 'budget' | 'expenses' | 'goals' | 'investmatch' | 'parksmart' | 'peercompare' | 'lifemap';
 
@@ -92,7 +94,12 @@ export interface DashboardSnapshot {
     /** Against the previous month, when there is one to compare with. */
     change: Change | null;
   } | null;
-  invest: { profile: string; monthly: number; projected: number; years: number; alloc: Array<{ label: string; pct: number }> } | null;
+  invest: {
+    profile: string; monthly: number; projected: number; years: number;
+    alloc: Array<{ label: string; pct: number }>;
+    /** Older complete records have no verified currency/market provenance. */
+    provenance: 'confirmed' | 'legacy';
+  } | null;
   /**
    * LifeMap's baseline projection to age 60 — no decisions applied.
    *
@@ -312,9 +319,14 @@ export function readDashboard(): DashboardSnapshot {
   let investDone = false;
   let investScore = 0;
   try {
-    const saved = getJSON<{ a?: Partial<ImAnswers> }>('fx_investmatch', {});
-    if (saved.a && Object.keys(saved.a).length > 0) {
-      const ans: ImAnswers = { ...IM_DEFAULTS, ...saved.a };
+    const saved = getJSON<{ a?: ImAnswers; market?: string; currency?: string }>('fx_investmatch', {});
+    const matchingContext = (saved.market == null || saved.market === market.id)
+      && (saved.currency == null || saved.currency === currency);
+    // A partial record is not a completed plan. Filling it with example answers
+    // manufactures a contribution in Calendar and LifeMap as well as here.
+    if (matchingContext && saved.a && typeof saved.a === 'object' && !Array.isArray(saved.a)
+      && !investAnswerError(saved.a)) {
+      const ans = saved.a;
       const res = computeInvestMatch(ans, market.invest);
       if (!res.tooLow) {
         investDone = true;
@@ -324,6 +336,7 @@ export function readDashboard(): DashboardSnapshot {
           projected: Math.round(res.fv),
           years: res.years,
           alloc: res.alloc.map((a) => ({ label: a.n, pct: a.p })),
+          provenance: saved.market === market.id && saved.currency === currency ? 'confirmed' : 'legacy',
         };
         const share = ans.income > 0 ? ans.monthly / ans.income : 0;
         investScore = Math.min(100, 80 + Math.round(Math.min(share, 0.2) / 0.2 * 20));
@@ -352,7 +365,7 @@ export function readDashboard(): DashboardSnapshot {
   const lifemap = (() => {
     try {
       const f = getJSON<Record<string, string>>('fx_lifemap', {});
-      if (!Object.keys(f).length) return null;
+      if (!Object.keys(f).length || lifeMapReadiness(f).length) return null;
       const age = num(f['lm-age']);
       const income = num(f['lm-income']);
       if (age <= 0 || income <= 0) return null;

@@ -12,9 +12,10 @@
 // Deploy:  supabase functions deploy careers-billing-checkout
 // Secret:  supabase secrets set STRIPE_SECRET_KEY=sk_test_... (or sk_live_...)
 
+import { CAREERS_AVAILABLE, CAREERS_LAUNCH_MESSAGE } from '../_shared/careersAvailability.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { rateLimited } from '../_shared/ratelimit.ts';
-import { corsHeaders, CANONICAL_ORIGIN, ALLOWED_ORIGINS, isLocalOrigin } from '../_shared/origins.ts';
+import { corsHeaders, CANONICAL_ORIGIN, ALLOWED_ORIGINS, isNativeAppOrigin, isLocalOrigin } from '../_shared/origins.ts';
 
 const RATE_PER_MINUTE = Number(Deno.env.get('CAREERS_BILLING_RATE_PER_MINUTE') ?? '10');
 
@@ -43,6 +44,8 @@ Deno.serve(async (req) => {
   const json = jsonWith(CORS);
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json(405, { error: 'Method not allowed' });
+
+  if (!CAREERS_AVAILABLE) return json(503, { error: CAREERS_LAUNCH_MESSAGE });
 
   const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
   if (!stripeKey) return json(503, { error: 'Payments are not configured yet.' });
@@ -92,8 +95,15 @@ Deno.serve(async (req) => {
   // origin here would let a caller land a completed payment on a domain nobody
   // vetted, so this uses the allowlist (plus localhost for dev) and falls back
   // to the canonical apex rather than trusting the header.
+  //
+  // The apps' origins are allow-listed for CORS but are never return targets:
+  // `https://localhost` and `capacitor://localhost` name nothing in the browser
+  // Stripe returns to, and neither app offers a purchase (Play Billing / App
+  // Review 3.1.1) — so a checkout that somehow starts there lands on the real
+  // site. `isNativeAppOrigin` rather than a comparison so adding a platform to
+  // the allowlist can never quietly add a return target with it.
   const origin = req.headers.get('Origin') ?? '';
-  const returnOrigin = ALLOWED_ORIGINS.includes(origin) || isLocalOrigin(origin)
+  const returnOrigin = !isNativeAppOrigin(origin) && (ALLOWED_ORIGINS.includes(origin) || isLocalOrigin(origin))
     ? origin
     : CANONICAL_ORIGIN;
 

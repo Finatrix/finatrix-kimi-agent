@@ -43,6 +43,21 @@ const PATTERNS: Record<Haptic, number | number[]> = {
   select: 8,
 };
 
+/**
+ * The Android app's haptic engine, when running inside it.
+ *
+ * `navigator.vibrate` drives the vibration motor directly with a duration,
+ * which on most Android phones is a coarse buzz. The app routes the same named
+ * events to the system's haptic feedback constants instead — the crisp ticks
+ * the OS keyboard and switches use. Installed by `src/native/bridge.ts`; the
+ * three rules above still hold, because this function still owns the gate.
+ */
+let nativeDriver: ((kind: Haptic) => void) | null = null;
+
+export function setNativeHapticDriver(driver: ((kind: Haptic) => void) | null): void {
+  nativeDriver = driver;
+}
+
 function reducedMotion(): boolean {
   try {
     return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -60,6 +75,10 @@ function reducedMotion(): boolean {
 export function haptic(kind: Haptic): boolean {
   if (reducedMotion()) return false;
   try {
+    if (nativeDriver) {
+      nativeDriver(kind);
+      return true;
+    }
     const nav = typeof navigator !== 'undefined' ? navigator : null;
     if (!nav || typeof nav.vibrate !== 'function') return false;
     return nav.vibrate(PATTERNS[kind]);

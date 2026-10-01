@@ -183,22 +183,18 @@ export function hasAnyReport(month = currentMonth()): boolean {
   return listReports(month).some((r) => r.available);
 }
 
-/** Export a single report in the chosen format. Returns false if no data. */
+/** Export a single report. Returns false if no data or the save was canceled. */
 export async function exportReport(id: ReportId, format: ExportFormat, month = currentMonth()): Promise<boolean> {
   if (id === 'budget') {
     const b = buildBudgetExport(month);
     if (!b) return false;
-    if (format === 'csv') exportBudgetCsv(b);
-    else if (format === 'xlsx') await exportBudgetXlsx(b);
-    else await exportBudgetPdf(b);
-    return true;
+    return (await (format === 'csv' ? exportBudgetCsv(b)
+      : format === 'xlsx' ? exportBudgetXlsx(b) : exportBudgetPdf(b))) !== false;
   }
   const e = buildExpenseExport(month);
   if (!e) return false;
-  if (format === 'csv') exportExpenseCsv(e);
-  else if (format === 'xlsx') await exportExpenseXlsx(e);
-  else await exportExpensePdf(e);
-  return true;
+  return (await (format === 'csv' ? exportExpenseCsv(e)
+    : format === 'xlsx' ? exportExpenseXlsx(e) : exportExpensePdf(e))) !== false;
 }
 
 /** Export every available report in one format (used by "Export all"). */

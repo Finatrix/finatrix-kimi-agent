@@ -79,11 +79,16 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+      # WebKit as well as Chromium: the iOS app renders in WKWebView, and
+      # `e2e/ios-webkit.spec.ts` checks the things Chromium cannot answer for —
+      # safe-area insets, WebKit layout and number parsing, and a real OCR
+      # recognition. Without the binary that whole project would be skipped, and
+      # an iOS regression would reach a TestFlight build instead of this step.
+      - name: Install Playwright browsers (Chromium + WebKit)
+        run: npx playwright install --with-deps chromium webkit
 
-      # Builds a production bundle and drives it in real Chromium (desktop +
-      # mobile) — the Expense Tracker add/persist/edit/delete/undo lifecycle.
+      # Builds a production bundle and drives it in real browsers — Chromium for
+      # desktop and the Android-engine mobile viewport, WebKit for the iOS app.
       # playwright.config.ts builds the bundle it serves. These specs drive the
       # on-device (guest) paths and need no backend, so the same opt-out as the
       # Build step above applies.

@@ -1,0 +1,56 @@
+{
+  "verified": "2026-09-12",
+  "purpose": "Evidence for four historical summary points, not a microdata/distribution licence or percentile approval.",
+  "claims": [
+    {
+      "sourceId": "AUS-ABS-004",
+      "locator": "Table 1a weekly gross household income median and Table 1b household net worth median; observation period 2019–20."
+    },
+    {
+      "sourceId": "SG-DOS-005",
+      "locator": "Printed page 6 median monthly household market income; glossary pages 18–19. 2025 preliminary. Publication day not asserted."
+    },
+    {
+      "sourceId": "CN-NBS-004",
+      "locator": "Section I nationwide median annual per-capita disposable income. English release; original Chinese release dated 19 January."
+    }
+  ],
+  "files": [
+    {
+      "file": "abs-households.html",
+      "url": "https://www.abs.gov.au/statistics/economy/finance/household-income-and-wealth-australia/2019-20",
+      "bytes": 674978,
+      "sha256": "c9399488cd7c97ce3cb50cfa795e775ad38acfba28c9068916a7e27a14d2c830"
+    },
+    {
+      "file": "abs-terms.html",
+      "url": "https://www.abs.gov.au/website-privacy-copyright-and-disclaimer",
+      "bytes": 98905,
+      "sha256": "edf8ffbfc0aad7ae93d1a6d023e72aec57c7f8447952898126169922ed6b8058"
+    },
+    {
+      "file": "singstat-households.pdf",
+      "url": "https://www.singstat.gov.sg/files/b0eafa31-0ac6-4684-b2cd-4a264ce8d820.pdf",
+      "bytes": 10770218,
+      "sha256": "69f3b5a0f68a05f6b77ebf849b531bdb0baf119d3b3ab71c9888d928a2bbf2a0"
+    },
+    {
+      "file": "singstat-terms.html",
+      "url": "https://www.singstat.gov.sg/terms-of-use",
+      "bytes": 356946,
+      "sha256": "3f7df510ff565230917ff4e2da8b4fe6e15bed106aa860f68e18488afa662a0c"
+    },
+    {
+      "file": "nbs-households.html",
+      "url": "https://www.stats.gov.cn/english/PressRelease/202601/t20260120_1962356.html",
+      "bytes": 100443,
+      "sha256": "307d19633e719ddd219d5c3deb64f10721a4a76644a4b19bbdc49a1753738a53"
+    },
+    {
+      "file": "nbs-terms.html",
+      "url": "https://www.stats.gov.cn/english/nbs/200701/t20070104_59236.html",
+      "bytes": 20858,
+      "sha256": "58d4c0ff784c9d187b4636808be3d2727dae4e73632d5f12ab2b8706d23affad"
+    }
+  ]
+}

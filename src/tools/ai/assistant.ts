@@ -212,6 +212,12 @@ function failureFor(kind: string, detail: string): AskFailure {
         retryable: false,
         message: 'Sign in to ask FinatriX AI about your money — it only ever reads your own data.',
       };
+    case 'no-consent':
+      return {
+        ok: false,
+        retryable: false,
+        message: 'Nothing was sent. Allow FinatriX AI to share your question with its AI provider first.',
+      };
     case 'limit':
       return {
         ok: false,

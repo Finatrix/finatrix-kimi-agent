@@ -582,7 +582,7 @@ export default function ApplicationsPage() {
     // "Exporting…" state while jsPDF/xlsx are lazily fetched, which on a slow
     // connection is the difference between "working" and "the button is dead".
     return Promise.resolve(run()).then(
-      () => notify(`${kind.toUpperCase()} export ready.`, 'ok'),
+      (saved) => { if (saved !== false) notify(`${kind.toUpperCase()} export ready.`, 'ok'); return saved; },
       (e) => notify(toCareersError(e).message, 'error')
     );
   };
@@ -659,7 +659,10 @@ export default function ApplicationsPage() {
           onJson={() => doExport('json')}
         />
         {view === 'calendar' && (
-          <button className="btn btn-ghost btn-sm" onClick={() => downloadIcs(toCalendarEvents(eventsOf(apps, reminders)), 'careers-calendar.ics')}>
+          <button className="btn btn-ghost btn-sm" onClick={async () => {
+            try { await downloadIcs(toCalendarEvents(eventsOf(apps, reminders)), 'careers-calendar.ics'); }
+            catch (error) { notify(toCareersError(error).message, 'error'); }
+          }}>
             Export .ics
           </button>
         )}

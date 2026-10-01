@@ -13,6 +13,7 @@ import { Link } from 'react-router';
 import { contentLinkFor } from '../shared/content';
 import type { FaqEntry } from '../shared/publicPages';
 import { publicPageFor } from '../shared/publicPages';
+import { canPurchaseInApp, isPurchasePage } from '../native/platform';
 
 /* ------------------------------------------------------------------------- *
  * Text
@@ -338,7 +339,10 @@ export function RelatedPages({
       if (page) return { path: page.path, name: page.name, blurb: page.lede ?? page.description };
       return contentLinkFor(path);
     })
-    .filter((p) => p !== null);
+    .filter((p) => p !== null)
+    // In the Android app, a purchase page is not a destination (Play Billing
+    // policy) — see isPurchasePage.
+    .filter((p) => canPurchaseInApp() || !isPurchasePage(p.path));
   if (!pages.length) return null;
 
   return (

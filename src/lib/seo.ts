@@ -1,3 +1,4 @@
+import { CAREERS_AVAILABLE, CAREERS_LAUNCH_MESSAGE } from '../shared/careersAvailability';
 /**
  * Per-route SEO metadata for a single-page app.
  *
@@ -77,9 +78,9 @@ export const SITE_NAME = 'FinatriX';
  * substituted, so the page now says what it covers without giving up what it
  * was already known for.
  */
-export const DEFAULT_TITLE = 'FinatriX — Smart Money Tools for India, the US, the UK & the UAE';
+export const DEFAULT_TITLE = 'FinatriX — Smart Money Tools for Seven Markets';
 export const DEFAULT_DESCRIPTION =
-  `${TOOL_COUNT_WORD_CAP} free money tools calibrated for India, the US, the UK and the UAE: budgeting, expenses, investing and a lifelong wealth simulation.`;
+  `${TOOL_COUNT_WORD_CAP} free money tools across seven markets: budget, track expenses, compare scenarios and plan goals with clear assumptions and local references.`;
 
 /**
  * The homepage's social-card description, which is deliberately NOT the meta
@@ -90,7 +91,7 @@ export const DEFAULT_DESCRIPTION =
  * true rather than one.
  */
 export const DEFAULT_SOCIAL_DESCRIPTION =
-  `${TOOL_COUNT_WORD_CAP} free, education-first money tools — calibrated for India, the US, the UK and the UAE, not merely translated for them.`;
+  `${TOOL_COUNT_WORD_CAP} free, education-first money tools across seven markets, with local references and clear planning assumptions.`;
 
 /**
  * Cache-busting token for the share cards.
@@ -296,7 +297,7 @@ const TOOL_SEO: Record<ToolId, ToolSeo> = {
     name: 'Budget Builder',
     title: 'Budget Builder — 50/30/20 Budget Calculator | FinatriX',
     description:
-      'Split your monthly take-home pay the 50/30/20 way across needs, wants and savings. A free, education-first budget calculator for India, the US, the UK and the UAE.',
+      'Split take-home pay across needs, wants and savings. A free budget calculator with seven market settings and transparent 50/30/20 reference guidance.',
     category: 'Budgeting',
   },
   expenses: {
@@ -324,7 +325,7 @@ const TOOL_SEO: Record<ToolId, ToolSeo> = {
     name: 'PeerCompare',
     title: 'PeerCompare — Benchmark Your Money Against Peers | FinatriX',
     description:
-      'See how your savings rate, expenses, investments and emergency buffer compare with peers at a similar income in India, the US, the UK or the UAE.',
+      'Explore financial reference points across seven markets. Read population, period and methodology before comparing your figures with a benchmark.',
     category: 'Benchmarking',
   },
   goals: {
@@ -372,6 +373,7 @@ const PRIVATE_TITLES: Record<string, string> = {
   '/tools/reports': 'Reports',
   '/tools/calendar': 'Calendar',
   '/tools/settings': 'Settings',
+  '/tools/reference': 'Reference Data',
   '/dashboard': 'Dashboard',
   // '/careers' is NOT here any more: it is now the public, indexable Careers
   // landing page (see src/shared/publicPages.ts) rather than an alias for the
@@ -464,6 +466,12 @@ function publicToolId(path: string): ToolId | null {
 export function seoForPath(pathname: string): RouteSeo {
   const p = normalisePath(pathname);
 
+  if (!CAREERS_AVAILABLE && (p === '/careers' || p.startsWith('/careers/'))) return {
+    canonical: `${CANONICAL_ORIGIN}/careers`, robots: p === '/careers' ? INDEXABLE : NOINDEX,
+    socialDescription: CAREERS_LAUNCH_MESSAGE, title: CAREERS_LAUNCH_MESSAGE, description: 'Careers is coming in 2027. Access and plan purchases are currently closed. Explore free money tools in the meantime.',
+    image: OG_IMAGE, imageAlt: CAREERS_LAUNCH_MESSAGE,
+  };
+
   // `/home` renders a redirect to `/`; both must point at one canonical URL so
   // they are never treated as duplicate content.
   if (p === '/' || p === '/home') {
@@ -474,7 +482,7 @@ export function seoForPath(pathname: string): RouteSeo {
       description: DEFAULT_DESCRIPTION,
       socialDescription: DEFAULT_SOCIAL_DESCRIPTION,
       image: OG_IMAGE,
-      imageAlt: `${SITE_NAME} — smart money tools for India, the US, the UK and the UAE`,
+      imageAlt: `${SITE_NAME} — smart money tools for India, the US, the UK, the UAE, Australia, Singapore and Mainland China`,
     };
   }
 
@@ -883,6 +891,7 @@ function learnGraph(
 export function structuredDataForPath(
   pathname: string,
   copy?: TopicContent | null,
+  toolFaq?: ReadonlyArray<{ q: string; a: string }>,
 ): JsonLd | null {
   const p = normalisePath(pathname);
   const seo = seoForPath(p);
@@ -957,7 +966,7 @@ export function structuredDataForPath(
         // The tool page renders these same questions below the calculator
         // (`ToolEducation`), which is what makes the markup legitimate — see
         // the note on `faqPage`.
-        faqPage(url, TOOL_FAQ[tool]),
+        faqPage(url, toolFaq ?? TOOL_FAQ[tool]),
         {
           '@type': 'SoftwareApplication',
           '@id': `${url}#app`,
@@ -1125,4 +1134,11 @@ export function applyContentSchema(pathname: string, copy: TopicContent | null):
   const schema = document.getElementById(ROUTE_SCHEMA_ID);
   if (!schema) return;
   schema.textContent = serialiseJsonLd(structuredDataForPath(pathname, copy));
+}
+
+/** Match a localized tool's JSON-LD to the FAQ actually rendered below it. */
+export function applyToolFaqSchema(pathname: string, faq: ReadonlyArray<{ q: string; a: string }>): void {
+  if (typeof document === 'undefined' || normalisePath(window.location.pathname) !== normalisePath(pathname)) return;
+  const schema = document.getElementById(ROUTE_SCHEMA_ID);
+  if (schema) schema.textContent = serialiseJsonLd(structuredDataForPath(pathname, undefined, faq));
 }

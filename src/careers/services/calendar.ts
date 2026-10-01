@@ -4,6 +4,7 @@
  * format, so a single generator covers "export to any calendar app".
  */
 
+import { downloadBlob } from '../../lib/download';
 import type { CalendarEvent } from '../types/phase3';
 
 function icsEscape(text: string): string {
@@ -41,12 +42,7 @@ export function buildIcs(events: CalendarEvent[]): string {
 }
 
 /** Downloads a .ics file — importable into Google Calendar, Outlook and Apple Calendar. */
-export function downloadIcs(events: CalendarEvent[], filename = 'finatrix-careers.ics'): void {
+export function downloadIcs(events: CalendarEvent[], filename = 'finatrix-careers.ics'): boolean | Promise<boolean> {
   const blob = new Blob([buildIcs(events)], { type: 'text/calendar;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+  return downloadBlob(filename, blob);
 }

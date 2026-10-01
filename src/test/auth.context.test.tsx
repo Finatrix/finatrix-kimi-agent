@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useState } from 'react';
-import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react';
+import { render, renderHook, screen, waitFor, cleanup, fireEvent, act } from '@testing-library/react';
 
 /**
  * `AuthProvider` — session restore and error translation.
@@ -17,6 +17,10 @@ const h = vi.hoisted(() => ({
   getSession: vi.fn(),
   signInWithPassword: vi.fn(),
   resend: vi.fn(),
+  signUp: vi.fn(),
+  signInWithOAuth: vi.fn(),
+  resetPasswordForEmail: vi.fn(),
+  updateUser: vi.fn(),
   unsubscribe: vi.fn(),
 }));
 
@@ -40,6 +44,10 @@ vi.mock('../lib/supabase', () => {
         getSession: h.getSession,
         signInWithPassword: h.signInWithPassword,
         resend: h.resend,
+        signUp: h.signUp,
+        signInWithOAuth: h.signInWithOAuth,
+        resetPasswordForEmail: h.resetPasswordForEmail,
+        updateUser: h.updateUser,
       },
     },
   };
@@ -69,7 +77,33 @@ beforeEach(() => {
   h.getSession.mockReset().mockResolvedValue({ data: { session: null } });
   h.signInWithPassword.mockReset().mockResolvedValue({ error: null });
   h.resend.mockReset().mockResolvedValue({ error: null });
+  h.signUp.mockReset().mockResolvedValue({ data: { session: null }, error: null });
+  h.signInWithOAuth.mockReset().mockResolvedValue({ error: null });
+  h.resetPasswordForEmail.mockReset().mockResolvedValue({ error: null });
+  h.updateUser.mockReset().mockResolvedValue({ error: null });
   localStorage.clear();
+});
+
+describe('AuthProvider — rejected requests', () => {
+  const actions = {
+    signUp: (auth: ReturnType<AuthModule['useAuth']>) => auth.signUp('a@test.invalid', 'password', 'A'),
+    signInWithPassword: (auth: ReturnType<AuthModule['useAuth']>) => auth.signIn('a@test.invalid', 'password'),
+    signInWithOAuth: (auth: ReturnType<AuthModule['useAuth']>) => auth.signInWithProvider('google'),
+    resend: (auth: ReturnType<AuthModule['useAuth']>) => auth.resendVerification('a@test.invalid'),
+    resetPasswordForEmail: (auth: ReturnType<AuthModule['useAuth']>) => auth.resetPassword('a@test.invalid'),
+    updateUser: (auth: ReturnType<AuthModule['useAuth']>) => auth.updatePassword('password'),
+  };
+
+  it.each(Object.keys(actions) as Array<keyof typeof actions>)('returns a recoverable error when %s rejects', async (method) => {
+    h[method].mockRejectedValue(new Error('Connection lost'));
+    const { AuthProvider, useAuth } = await loadProvider();
+    const { result: auth } = renderHook(useAuth, { wrapper: AuthProvider });
+    await act(async () => {
+      const result = await actions[method](auth.current);
+      expect(result.error).toContain('Check your connection and try again');
+      if (method === 'signUp') expect(result).toHaveProperty('needsConfirmation', false);
+    });
+  });
 });
 afterEach(cleanup);
 

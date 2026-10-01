@@ -1,78 +1,90 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { PageHead, ToolFoot, MethodologyNote } from '../ui/common';
 import { Icon } from '../ui/Icon';
 import { ExportMenu } from '../ui/ExportMenu';
 import { MonthNav } from '../ui/MonthNav';
 import { useToast } from '../ui/Toast';
-import { getJSON } from '../lib/storage';
-import { currentMonth } from '../lib/month';
-import { loadExpenses, etMonthsWithData } from '../lib/expense';
-import type { BudgetStore } from '../lib/budget';
-import {
-  listReports, exportReport, exportAllReports, hasAnyReport,
-  type ExportFormat, type ReportId,
-} from '../lib/reports';
-
-/** Months (newest first) that have any expense or budget data saved. */
-function useAvailableMonths(): string[] {
-  return useMemo(() => {
-    const set = new Set<string>();
-    try { etMonthsWithData(loadExpenses(), currentMonth()).forEach((m) => set.add(m)); } catch { /* ignore */ }
-    try { Object.keys(getJSON<BudgetStore>('fx_bb_data', {})).forEach((m) => set.add(m)); } catch { /* ignore */ }
-    set.add(currentMonth());
-    return Array.from(set).sort().reverse();
-  }, []);
-}
+import { onLocalWrite } from '../lib/storage';
+import { currentMonth, monthLabel } from '../lib/month';
+import { type ExportFormat, type ReportId } from '../lib/reports';
+import { exportReviewedReports, readReportReview, reportPeriods } from '../lib/reportsSmartReview';
 
 export default function ReportsPage() {
   const { notify } = useToast();
-  const months = useAvailableMonths();
+  const [revision, setRevision] = useState(0);
   const [selMonth, setSelMonth] = useState(currentMonth());
+  const [selected, setSelected] = useState<ReportId[]>(['budget', 'expenses']);
+  useEffect(() => {
+    const relevant = (key: string | null) => key === null || key === 'fx_expenses' || key === 'fx_currency' || key.startsWith('fx_bb_');
+    const off = onLocalWrite((key) => { if (relevant(key)) setRevision((value) => value + 1); });
+    const refresh = (event: StorageEvent) => { if (relevant(event.key)) setRevision((value) => value + 1); };
+    window.addEventListener('storage', refresh);
+    return () => { off(); window.removeEventListener('storage', refresh); };
+  }, []);
 
-  const reports = useMemo(() => listReports(selMonth), [selMonth]);
-  const anyAvailable = useMemo(() => hasAnyReport(selMonth), [selMonth]);
+  const { review, periods } = useMemo(() => ({ review: readReportReview(selMonth), periods: reportPeriods(), revision }), [selMonth, revision]);
+  const { reports } = review;
+  const { months, latestComplete } = periods;
   const availableCount = reports.filter((r) => r.available).length;
+  const anyAvailable = availableCount > 0;
+  const selectedCount = reports.filter((r) => r.available && selected.includes(r.id)).length;
 
   const doExport = (id: ReportId, format: ExportFormat, title: string) => async () => {
     try {
-      const ok = await exportReport(id, format, selMonth);
-      notify(ok ? `${title} downloaded (${format.toUpperCase()})` : `No data for ${title.toLowerCase()} yet`, ok ? 'ok' : 'info');
+      const ok = await exportReviewedReports(readReportReview(selMonth), [id], format);
+      if (ok) notify(`${title} exported (${format.toUpperCase()})`, 'ok');
+      return ok > 0;
     } catch {
       notify(`Couldn't generate ${title.toLowerCase()}. Please try again.`, 'error');
+      return false;
     }
   };
 
   const doExportAll = (format: ExportFormat) => async () => {
     try {
-      const n = await exportAllReports(format, selMonth);
-      notify(n > 0 ? `Exported ${n} report${n === 1 ? '' : 's'} (${format.toUpperCase()})` : 'No reports available to export yet', n > 0 ? 'ok' : 'info');
+      const n = await exportReviewedReports(readReportReview(selMonth), selected, format);
+      if (n > 0) notify(`Exported ${n} report${n === 1 ? '' : 's'} (${format.toUpperCase()})`, 'ok');
+      return n > 0;
     } catch {
       notify("Couldn't export reports. Please try again.", 'error');
+      return false;
     }
   };
 
   return (
     <div className="fx-page">
       <PageHead chip="Reports" chipColor="var(--gold)" chipBg="rgba(212,175,55,.1)" icon="layers" title="Your finances, ready to share.">
-        Generate branded, on-brand reports from your own data — export any tool to CSV, Excel or PDF.
-        Every figure matches its tool to the rupee; nothing here is estimated or invented.
+        Export your saved budget and expense records to CSV, Excel or PDF.
+        Reports use the same calculations as their source tools and the exact month you select.
       </PageHead>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 200 }}>
           <MonthNav activeMonth={selMonth} months={months} onSwitch={setSelMonth} pastNote="Viewing past month" pastColor="var(--gold)" />
         </div>
-        {availableCount > 0 && (
+        {selectedCount > 0 && (
           <ExportMenu
             source="reports-all"
-            label={`Export all (${availableCount})`}
+            label={`Export selected (${selectedCount})`}
             onCsv={doExportAll('csv')}
             onXlsx={doExportAll('xlsx')}
             onPdf={doExportAll('pdf')}
           />
         )}
       </div>
+
+      <section className="card" aria-label="Smart report preparation">
+        <h2 style={{ fontSize: 17, margin: '0 0 6px' }}>Smart report preparation</h2>
+        <p className="note">{availableCount} of 2 reports ready for {monthLabel(selMonth)}. Readiness updates as your saved data changes. Every export is checked again before it is generated.</p>
+        {latestComplete && latestComplete !== selMonth && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSelMonth(latestComplete)}>Use latest month with both sources: {monthLabel(latestComplete)}</button>}
+        {review.transactionCount > 0 && <p style={{ fontSize: 13 }}>{review.transactionCount} transactions dated {review.firstDate} to {review.lastDate}. This is recorded activity; missing days do not prove there was no spending.</p>}
+        {review.budget && <p style={{ fontSize: 13 }}>Budget preview: {review.budget.currency} {review.budget.spent.toLocaleString()} allocated; {review.budget.free.toLocaleString()} left from recorded income.</p>}
+        {review.checks.length > 0 ? <ul style={{ fontSize: 13, paddingLeft: 20 }}>
+          {review.checks.map((check) => <li key={check.message} style={{ marginBottom: 8 }}>{check.message}{' '}<Link to={check.href}>Review source</Link></li>)}
+        </ul> : <p className="note">{anyAvailable ? 'No issues found in the available saved amounts, dates and budget split. Completeness still depends on what you entered.' : 'Save a budget or transactions for this month to prepare a report.'}</p>}
+        <p className="note">Choose PDF for a readable summary, Excel for analysis, or CSV for moving data into another tool.</p>
+      </section>
 
       {!anyAvailable ? (
         <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }}>
@@ -112,6 +124,11 @@ export default function ReportsPage() {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 {r.available ? (
+                  <>
+                  <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, minHeight: 44 }}>
+                    <input type="checkbox" checked={selected.includes(r.id)} onChange={() => setSelected((ids) => ids.includes(r.id) ? ids.filter((id) => id !== r.id) : [...ids, r.id])} />
+                    Include {r.title.toLowerCase()}
+                  </label>
                   <ExportMenu
                     source="reports-single"
                     label="Export"
@@ -119,6 +136,7 @@ export default function ReportsPage() {
                     onXlsx={doExport(r.id, 'xlsx', r.title)}
                     onPdf={doExport(r.id, 'pdf', r.title)}
                   />
+                  </>
                 ) : (
                   <Link to={r.href} className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}>Set up</Link>
                 )}
@@ -131,7 +149,7 @@ export default function ReportsPage() {
       <MethodologyNote summary="How these reports are generated">
         Reports are built from your saved tool state using the exact same calculators the tools use —
         <b> computeBudget</b> for budgets and <b>computeDashboard</b> for expenses — so every figure matches
-        its tool to the rupee. Nothing is estimated, averaged or invented, and generation happens entirely
+        its source tool. A budget from another month is never substituted. Generation happens entirely
         on your device.
       </MethodologyNote>
 

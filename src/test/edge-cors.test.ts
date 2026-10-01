@@ -102,6 +102,62 @@ describe('edge CORS: single source of truth', () => {
     const { corsHeaders } = await loadOrigins();
     expect(corsHeaders(req(`https://${CANONICAL_HOST}`), PUBLIC).Vary).toBe('Origin');
   });
+
+  /**
+   * Each app's WebView serves the bundle from a device-local origin:
+   * `https://localhost` on Android, `capacitor://localhost` on iOS (WKWebView
+   * refuses to let a scheme handler take `https`, so the two cannot match).
+   * Before the Android origin was allow-listed, every analytics beacon from the
+   * app died in CORS on the emulator — including when a stale secret replaces
+   * nothing, which is the same failure this file exists for. iOS is one line
+   * away from repeating it, so both are pinned here.
+   */
+  it('allows both app origins on the strict, credentialed analytics allowlist', async () => {
+    const { corsHeaders, NATIVE_APP_ORIGIN, IOS_APP_ORIGIN, NATIVE_APP_ORIGINS } = await loadOrigins({
+      CAREERS_ALLOWED_ORIGINS: 'https://finatrix.online',
+    });
+    expect(NATIVE_APP_ORIGIN).toBe('https://localhost');
+    expect(IOS_APP_ORIGIN).toBe('capacitor://localhost');
+    expect(NATIVE_APP_ORIGINS).toEqual([NATIVE_APP_ORIGIN, IOS_APP_ORIGIN]);
+    for (const origin of NATIVE_APP_ORIGINS) {
+      const h = corsHeaders(req(origin), { ...PUBLIC, allowCredentials: true });
+      expect(h['Access-Control-Allow-Origin']).toBe(origin);
+      expect(h['Access-Control-Allow-Credentials']).toBe('true');
+    }
+    // Only those exact origins — not another port, not a lookalike host, and not
+    // some other app's custom scheme. (Plain http://localhost is the separate
+    // dev-server rule, isLocalOrigin.)
+    const near = [
+      'https://localhost:8443',
+      'https://localhost.evil.example',
+      'capacitor://localhost:8443',
+      'capacitor://evil.example',
+      'ionic://localhost',
+    ];
+    for (const origin of near) {
+      expect(corsHeaders(req(origin), { ...PUBLIC, allowCredentials: true })['Access-Control-Allow-Credentials'])
+        .toBeUndefined();
+    }
+  });
+
+  it('does not reflect a custom scheme on the authenticated endpoints either', async () => {
+    const { corsHeaders } = await loadOrigins();
+    // reflectAnyWebOrigin means WEB origins. A custom scheme that is not one of
+    // the app origins gets the canonical fallback, not itself.
+    expect(corsHeaders(req('capacitor://someone-elses-app'), AUTHED)['Access-Control-Allow-Origin'])
+      .toBe(`https://${CANONICAL_HOST}`);
+  });
+
+  it('never makes an app origin a Stripe return target', async () => {
+    const { isNativeAppOrigin } = await loadOrigins();
+    expect(isNativeAppOrigin('https://localhost')).toBe(true);
+    expect(isNativeAppOrigin('capacitor://localhost')).toBe(true);
+    expect(isNativeAppOrigin(`https://${CANONICAL_HOST}`)).toBe(false);
+    // Allow-listing the iOS origin for CORS would otherwise have made
+    // `capacitor://localhost/careers/billing` a Stripe success_url.
+    const src = readFileSync(join(FUNCTIONS_DIR, 'careers-billing-checkout', 'index.ts'), 'utf8');
+    expect(src).toMatch(/const returnOrigin = !isNativeAppOrigin\(origin\) &&/);
+  });
 });
 
 describe('edge CORS: no function rebuilds its own allowlist', () => {

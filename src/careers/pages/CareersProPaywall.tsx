@@ -13,6 +13,7 @@ import { PlanGrid, type BillingPeriod } from '../../marketing/PlanCards';
 import { Icon } from '../../tools/ui/Icon';
 import { track } from '../../lib/analytics';
 import { startCheckout } from '../services/subscriptions';
+import { canPurchaseInApp } from '../../native/platform';
 
 const FEATURES = [
   'AI Match Score',
@@ -55,6 +56,8 @@ export default function CareersProPaywall() {
     // Navigate to the hosted checkout returned by the billing service.
     window.location.href = result.url;
   };
+
+  const purchasable = canPurchaseInApp();
 
   const maybeLater = () => {
     track('careers_paywall_closed');
@@ -99,6 +102,26 @@ export default function CareersProPaywall() {
         </ul>
       </div>
 
+      {!purchasable ? (
+        /* Either app: Google Play and the App Store both forbid selling a digital
+           service through an outside checkout, and pointing buyers at one, so there is no
+           price and no buy button here — see `canPurchaseInApp`. What remains
+           is honest and useful: what Pro is, that an existing membership works
+           here, and a way back to the free tools. */
+        <div className="card" style={{ textAlign: 'center', padding: '24px 20px', marginBottom: 24 }}>
+          <p style={{ fontSize: 14.5, color: 'var(--ink)', margin: '0 0 6px', fontWeight: 600 }}>
+            Careers Pro can't be purchased in the app.
+          </p>
+          <p style={{ fontSize: 13.5, color: 'var(--ink2)', margin: '0 0 18px' }}>
+            Already a member? Sign in with the account that has Careers Pro and everything unlocks here.
+          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
+            <Link className="btn btn-sm" to="/tools/dashboard" style={{ width: 'auto', textDecoration: 'none' }}>
+              Back to money tools
+            </Link>
+          </div>
+        </div>
+      ) : (<>
       {/* The same plan card `/pricing` and the public /careers page render.
           This surface used to draw its own, weaker version: no featured plan,
           no yearly saving, no "who is this for" line, and every button reading
@@ -149,6 +172,7 @@ export default function CareersProPaywall() {
         </Link>
         .
       </p>
+      </>)}
     </div>
   );
 }

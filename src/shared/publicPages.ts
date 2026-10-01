@@ -1,3 +1,4 @@
+import { CAREERS_AVAILABLE, CAREERS_LAUNCH_MESSAGE } from './careersAvailability';
 /**
  * The public, indexable marketing/trust surface — one registry, read by four
  * consumers that previously had no way to agree with each other:
@@ -297,7 +298,7 @@ const COMPARISON_PAGES: PublicPage[] = [
   })),
 ];
 
-export const PUBLIC_PAGES: readonly PublicPage[] = [
+const LAUNCH_PAGES: readonly PublicPage[] = [
   /* ── Product ─────────────────────────────────────────────────────────── */
   {
     path: '/pricing',
@@ -354,7 +355,7 @@ export const PUBLIC_PAGES: readonly PublicPage[] = [
     description:
       'Why FinatriX exists, how it makes money, what it will never do with your data, and the principles behind every calculator and career tool on the site.',
     heading: 'Financial clarity, without the sales pitch',
-    lede: 'FinatriX brings budgeting, expense tracking and financial planning into one educational workspace, with market settings for India, the US, the UK and the UAE. Careers is a separate paid workspace focused on Indian roles.',
+    lede: 'FinatriX brings budgeting, expense tracking and financial planning into one educational workspace, with market settings for India, the US, the UK, the UAE, Australia, Singapore and Mainland China. Careers is a separate paid workspace focused on Indian roles.',
     updated: REVIEWED,
     priority: 0.7,
     changefreq: 'monthly',
@@ -464,7 +465,7 @@ export const PUBLIC_PAGES: readonly PublicPage[] = [
       },
       {
         q: 'Which currencies and countries does FinatriX support?',
-        a: 'Finance tools have market settings for India, the US, the UK and the UAE, with separate instrument, tax and benchmark assumptions. There are 40 display currencies; selecting a currency does not select a market or convert amounts you entered in a budget. Net Worth can convert accounts recorded in different currencies using the displayed exchange-rate assumptions. Check each tool’s market note before using a result.',
+        a: 'Finance tools have market settings for India, the US, the UK, the UAE, Australia, Singapore and Mainland China, with local reference data and explicit tool-specific assumptions. Some comparisons require your own rates or matching historical household figures. There are 40 display currencies; selecting a currency does not select a market or convert amounts you entered in a budget. Net Worth can convert accounts recorded in different currencies using the displayed exchange-rate assumptions. Check each tool’s market note before using a result.',
       },
       {
         q: 'Does FinatriX connect to my bank?',
@@ -651,7 +652,7 @@ export const PUBLIC_PAGES: readonly PublicPage[] = [
     description:
       'How FinatriX handles your data: what is stored locally in your browser, what syncs to your account, what is never collected, and how to delete it all.',
     ogKey: 'privacy',
-    updated: '2026-07-11',
+    updated: '2026-10-01',
     priority: 0.3,
     changefreq: 'yearly',
   },
@@ -671,6 +672,22 @@ export const PUBLIC_PAGES: readonly PublicPage[] = [
     changefreq: 'yearly',
   },
 ] as const;
+
+/** Keep rendered copy, crawler copy and structured data aligned during the launch lock. */
+export const PUBLIC_PAGES: readonly PublicPage[] = LAUNCH_PAGES.map((page) => {
+  if (CAREERS_AVAILABLE) return page;
+  if (page.path === '/careers' || page.path.startsWith('/careers/')) return {
+    ...page, title: CAREERS_LAUNCH_MESSAGE, heading: CAREERS_LAUNCH_MESSAGE,
+    description: 'FinatriX Careers is coming in 2027. Access and plan purchases are currently closed. Explore free money tools and educational guides.',
+    lede: 'A workspace for your next career move is on its way. Careers access and plan purchases are currently closed.',
+    faq: undefined,
+  };
+  if (page.path === '/pricing') return {
+    ...page, description: 'All FinatriX money tools are free. Careers is coming in 2027; paid plans are not available to purchase yet.',
+    lede: 'Free money tools today. FinatriX Careers is coming in 2027.', faq: undefined,
+  };
+  return page;
+});
 
 /** Fast lookup by exact, normalised path. */
 const BY_PATH = new Map(PUBLIC_PAGES.map((p) => [p.path, p]));

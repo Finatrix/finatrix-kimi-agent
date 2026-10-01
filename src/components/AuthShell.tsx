@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Breadcrumb } from './Breadcrumb';
 import ThemeToggle from './ThemeToggle';
+import type { OAuthProvider } from '../lib/authProviders';
 
 export default function AuthShell({
   title,
@@ -15,7 +16,7 @@ export default function AuthShell({
   footer?: ReactNode;
 }) {
   return (
-    <div className="relative min-h-[100dvh] w-full overflow-hidden bg-surface-base text-ink flex flex-col items-center justify-center px-6 py-16">
+    <div className="relative min-h-[calc(100dvh-var(--fx-safe-top))] w-full overflow-hidden bg-surface-base text-ink flex flex-col items-center justify-center px-6 py-16">
       {/* Ambient backdrop (cohesive with the landing) */}
       <div className="pointer-events-none absolute inset-0 z-0">
         <div className="absolute left-1/2 top-[-10%] h-[60vh] w-[60vh] -translate-x-1/2 rounded-full blur-[120px]" style={{ background: 'var(--hero-aurora)', opacity: 'var(--hero-aurora-opacity)' }} />
@@ -122,18 +123,36 @@ export function OrDivider({ label = 'or' }: { label?: string }) {
 }
 
 export function SocialButton({
+  provider,
   children,
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { provider: OAuthProvider }) {
   return (
     <button
       type="button"
       {...props}
       className="w-full flex items-center justify-center gap-3 bg-[var(--tile-bg)] border border-hairline hover:border-[#D4AF37]/50 hover:bg-hairline-2 text-ink text-[14px] py-3 mb-3 rounded-xl transition-colors active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
     >
-      <GoogleIcon />
+      {provider === 'apple' ? <AppleIcon /> : <GoogleIcon />}
       <span>{children}</span>
     </button>
+  );
+}
+
+/**
+ * Apple's mark, drawn in the current text colour.
+ *
+ * `currentColor` rather than a fixed black: Apple's own guidance is a black logo
+ * on light and a white one on dark, and inheriting the button's ink gives exactly
+ * that in both FinatriX themes without a second asset or a theme branch here.
+ * The button around it matches the Google one in size, weight and placement,
+ * which is what Guideline 4.8 means by an equivalent option.
+ */
+function AppleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" fill="currentColor">
+      <path d="M13.07 9.53c-.02-2.03 1.66-3.01 1.73-3.06-.94-1.38-2.41-1.57-2.93-1.59-1.25-.13-2.44.73-3.07.73-.63 0-1.61-.71-2.65-.69-1.36.02-2.62.79-3.32 2.01-1.42 2.46-.36 6.1 1.02 8.09.67.98 1.48 2.07 2.54 2.03 1.02-.04 1.4-.66 2.63-.66s1.58.66 2.65.64c1.09-.02 1.79-.99 2.46-1.98.78-1.13 1.1-2.23 1.11-2.29-.02-.01-2.13-.82-2.15-3.24ZM11.05 3.5c.56-.68.94-1.62.83-2.56-.81.03-1.79.54-2.37 1.21-.52.6-.97 1.56-.85 2.48.9.07 1.83-.46 2.39-1.13Z" />
+    </svg>
   );
 }
 

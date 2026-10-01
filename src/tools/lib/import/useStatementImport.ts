@@ -24,6 +24,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { categorizeDescriptions, type CategoryOption } from '../../ai/statementCategorize';
+import { setAiConsent } from '../../../lib/ai/consent';
 import type { ExpenseItem } from '../expense';
 import { applySuggestions, pendingDescriptions } from './categorize';
 import { markDuplicates } from './dedupe';
@@ -46,7 +47,9 @@ export type ImportPhase =
   /** Nothing usable came out of the file. */
   | 'error';
 
-export type AiPhase = 'skipped' | 'running' | 'done' | 'failed';
+/** `consent`: merchants are waiting to be named, and nothing has been sent — the
+ *  user has not yet allowed third-party AI (lib/ai/consent). */
+export type AiPhase = 'skipped' | 'consent' | 'running' | 'done' | 'failed';
 
 export interface UseStatementImport {
   phase: ImportPhase;
@@ -68,6 +71,10 @@ export interface UseStatementImport {
   dateOrderAssumed: boolean;
   /** Re-read every ambiguous date the other way round. */
   flipDateOrder: () => void;
+  /** Give permission for third-party AI, then name the unrecognised merchants. */
+  allowAi: () => void;
+  /** Keep this import on the device: categorise by hand. */
+  declineAi: () => void;
 
   start: (file: File) => void;
   submitPassword: (password: string) => void;
@@ -146,6 +153,12 @@ export function useStatementImport({
 
       void categorizeDescriptions(pending, categories).then((result) => {
         if (runId.current !== id) return;
+        if (!result.ok && result.needsConsent) {
+          // Nothing left the device. Ask, rather than report a failure.
+          setAiPhase('consent');
+          setAiAsked(0);
+          return;
+        }
         if (!result.ok) {
           setAiPhase('failed');
           setAiMessage(result.message);
@@ -322,10 +335,18 @@ export function useStatementImport({
 
   const summary = useMemo(() => (drafts.length ? summarize(drafts) : EMPTY_SUMMARY), [drafts]);
 
+  const allowAi = useCallback(() => {
+    setAiConsent(true);
+    runAi(drafts, runId.current);
+  }, [drafts, runAi]);
+
+  const declineAi = useCallback(() => setAiPhase('skipped'), []);
+
   return {
     phase, message, fileName, drafts, summary, extraction,
     aiPhase, aiMessage, aiAsked, resumable,
     dateOrder, dateOrderAssumed: extraction?.doc.dateOrderAssumed ?? false, flipDateOrder,
+    allowAi, declineAi,
     start, submitPassword, updateDraft, setAllIncluded,
     resume, discardResumable, confirm, reset,
   };

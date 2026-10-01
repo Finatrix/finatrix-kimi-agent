@@ -11,6 +11,8 @@ import {
   setLastUid,
   loadCloudIntoLocal,
   pushLocalToCloud,
+  recordPendingCloudChange,
+  hasPendingCloudChanges,
   type SyncStatus,
 } from './cloudSync';
 import { CurrencyProvider, useCurrency } from './CurrencyContext';
@@ -32,6 +34,8 @@ import { useCommandPalette } from '../hooks/useCommandPalette';
 import { CAREERS_ROUTES } from '../careers/constants';
 import { NotificationsBell } from './ui/NotificationsBell';
 import { AiProvider, AiLauncher } from './ui/AiAssistant';
+import { warnIfOverdue } from '../reference/review';
+import { isNativeApp } from '../native/platform';
 import './tools.css';
 
 // Lazy on purpose: the palette carries the whole command registry (including
@@ -229,6 +233,8 @@ function ToolSkeleton() {
 export default function ToolsLayout() {
   const { user, loading, signOut, configured } = useAuth();
   const [ready, setReady] = useState(false);
+  const [seedFailed, setSeedFailed] = useState(false);
+  const [seedAttempt, setSeedAttempt] = useState(0);
   // Guards the push scheduler through the one window where a debounced push is
   // destructive: clearSyncedLocal() → loadCloudIntoLocal(). Seeding writes
   // synced keys itself (clear + cloud load notify via fx:write so mounted
@@ -237,11 +243,31 @@ export default function ToolsLayout() {
   // lands — localStorage holds real data from then on, so ordinary writes are
   // free to schedule again even while the seed's own write-back is in flight.
   const readyRef = useRef(false);
+  const canPushRef = useRef(false);
   const [sync, setSync] = useState<SyncStatus>(configured ? 'idle' : 'offline');
   const [drawerOpen, setDrawerOpen] = useMobileDrawer();
   const { open: paletteOpen, openPalette, closePalette } = useCommandPalette();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeTool = useActiveTool();
+
+  /**
+   * One line in the development console when a published reference has gone
+   * past its review date.
+   *
+   * Every value in `src/reference` is owned by an authority outside this
+   * repository that can change it without telling anyone, so the failure mode
+   * is silent: nothing breaks, the figure simply stops being true. This is the
+   * cheapest possible thing that makes the decay visible to whoever is working
+   * on the tools that day.
+   *
+   * Dev only, once per mount, and silent when everything is current — a
+   * maintenance signal that fires on a clean tree is one people learn to ignore.
+   * Tree-shaken out of production entirely, because `import.meta.env.DEV` is a
+   * literal at build time.
+   */
+  useEffect(() => {
+    if (import.meta.env.DEV) warnIfOverdue();
+  }, []);
 
   // Seed localStorage from the cloud (or clear it) before mounting the tools.
   useEffect(() => {
@@ -249,24 +275,41 @@ export default function ToolsLayout() {
     let cancelled = false;
     (async () => {
       setReady(false);
+      setSeedFailed(false);
       readyRef.current = false;
+      canPushRef.current = false;
       if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = null;
       const curUid = user?.id ?? null;
       const lastUid = getLastUid();
       if (configured && curUid) {
         if (lastUid && lastUid !== curUid) clearSyncedLocal(); // account switch
-        const s = await loadCloudIntoLocal(curUid);
+        const s = await loadCloudIntoLocal(curUid, () => !cancelled, { mergeLocal: !lastUid });
         // A newer seed superseded this one (account switch / sign-out) while
         // the read was in flight. It owns the flags and the cloud row now —
         // finishing here would push this account's data over the new one's.
         if (cancelled) return;
-        setLastUid(curUid);
         setSync(s);
+        if (s !== 'saved') {
+          // An unread cloud row must never be overwritten by a partial local
+          // copy. Keep edits gated until the user can safely retry the read.
+          if (lastUid === curUid) {
+            // A previously seeded account has a complete local copy. Keep it
+            // usable offline, but hold uploads until its next successful read.
+            readyRef.current = true;
+            setReady(true);
+          } else {
+            setSeedFailed(true);
+          }
+          return;
+        }
+        setLastUid(curUid);
+        canPushRef.current = true;
         // First run for this account on this device: merge whatever was on the
         // device up to the cloud. This is a write-back, not something the UI
         // reads — awaiting it added a second round-trip to time-to-content, so
         // it now runs alongside the render instead of in front of it.
-        if (!lastUid || lastUid !== curUid) {
+        if (!lastUid || lastUid !== curUid || hasPendingCloudChanges(curUid)) {
           readyRef.current = true;
           void pushLocalToCloud(curUid).then((p) => {
             if (!cancelled) setSync(p);
@@ -287,7 +330,17 @@ export default function ToolsLayout() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, loading, configured]);
+  }, [user?.id, loading, configured, seedAttempt]);
+
+  useEffect(() => {
+    const retry = () => {
+      if (user?.id && (!canPushRef.current || hasPendingCloudChanges(user.id))) {
+        setSeedAttempt((attempt) => attempt + 1);
+      }
+    };
+    window.addEventListener('online', retry);
+    return () => window.removeEventListener('online', retry);
+  }, [user?.id]);
 
   // Debounced push to the cloud whenever a tool writes a synced key. In the old
   // iframe architecture the parent learned of writes via the cross-context
@@ -313,11 +366,14 @@ export default function ToolsLayout() {
       if (!saveTimer.current) return;
       clearTimeout(saveTimer.current);
       saveTimer.current = null;
+      if (!canPushRef.current) return;
       void pushLocalToCloud(uid);
     };
     const schedule = (key: string | null) => {
       if (!readyRef.current) return; // seeding in progress — its own explicit push handles it
       if (key && !SYNC_KEYS.includes(key)) return;
+      recordPendingCloudChange(uid, key);
+      if (!canPushRef.current) return;
       setSync('saving');
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(async () => {
@@ -361,7 +417,7 @@ export default function ToolsLayout() {
             cloud seed lands, so the assistant can never read a half-empty store
             and report figures the page is not showing. */}
         <AiProvider enabled={ready}>
-        <div className="fx-tools" style={{ minHeight: '100dvh' }}>
+        <div className="fx-tools" style={{ minHeight: 'calc(100dvh - var(--fx-safe-top))' }}>
           <div className="fx-amb" aria-hidden="true">
             <div className="fx-amb-glow" />
             <div className="fx-amb-grid" />
@@ -372,7 +428,7 @@ export default function ToolsLayout() {
           {/* Slim app bar */}
           <header
             className="flex items-center justify-between h-12 px-3 sm:px-4 border-b border-hairline-2"
-            style={{ position: 'sticky', top: 0, zIndex: 51, background: 'var(--nav-bg)', backdropFilter: 'saturate(180%) blur(20px)', WebkitBackdropFilter: 'saturate(180%) blur(20px)' }}
+            style={{ position: 'sticky', top: 'var(--fx-safe-top)', zIndex: 51, background: 'var(--nav-bg)', backdropFilter: 'saturate(180%) blur(20px)', WebkitBackdropFilter: 'saturate(180%) blur(20px)' }}
           >
             <div className="flex items-center gap-1.5 sm:gap-2.5">
               <button
@@ -394,7 +450,7 @@ export default function ToolsLayout() {
                   target minimum. Growing the box leaves the artwork untouched. */}
               <Link to="/" aria-label="FinatriX home" className="flex items-center gap-2 group min-h-6">
                 <BrandLogo size={22} className="shrink-0" />
-                <span className="font-mono text-[12px] uppercase tracking-[0.12em] sm:tracking-[0.16em] text-ink group-hover:text-accent-text transition-colors select-none">
+                <span className="fx-wordmark font-mono text-[12px] uppercase tracking-[0.12em] sm:tracking-[0.16em] text-ink group-hover:text-accent-text transition-colors select-none">
                   FinatriX
                 </span>
               </Link>
@@ -424,7 +480,9 @@ export default function ToolsLayout() {
                     items={[
                       { label: 'Profile', to: '/profile' },
                       { label: 'Settings', to: '/tools/settings' },
-                      { label: 'Back to home', to: '/' },
+                      // The landing page is the website's front door; in the
+                      // app, "/" is the dashboard this menu is already on.
+                      ...(isNativeApp() ? [] : [{ label: 'Back to home', to: '/' }]),
                       { label: 'Sign out', onClick: () => void signOut(), danger: true },
                     ]}
                   />
@@ -454,11 +512,17 @@ export default function ToolsLayout() {
           <div className="wrap">
             {/* Orientation left, escape hatch right — Back only renders below
                 the top level, so it never appears as a dead control. */}
-            <div style={{ paddingTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div data-web-only style={{ paddingTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
               <Breadcrumb parent={{ label: 'Money tools', to: '/tools' }} current={activeTool === 'dashboard' ? 'Dashboard' : activeTool === 'reports' ? 'Reports' : activeTool === 'calendar' ? 'Calendar' : activeTool === 'settings' ? 'Settings' : (TOOLS.find((t) => t.id === activeTool)?.name ?? 'Tools')} />
               <BackButton />
             </div>
-            {ready ? <Outlet /> : <ToolSkeleton />}
+            {ready ? <Outlet /> : seedFailed ? (
+              <section role="alert" className="card" style={{ marginTop: 24, padding: 24 }}>
+                <h1 style={{ fontSize: 20, marginBottom: 8 }}>Your saved data couldn’t be loaded</h1>
+                <p style={{ marginBottom: 16 }}>Check your connection and try again. Your saved account data has not been changed.</p>
+                <button type="button" className="btn primary" onClick={() => setSeedAttempt((attempt) => attempt + 1)}>Try again</button>
+              </section>
+            ) : <ToolSkeleton />}
             {ready && (
               <div style={{ borderTop: '1px solid var(--hair2)', marginTop: 8 }}>
                 <MarketReviewNote />
@@ -495,7 +559,7 @@ export default function ToolsLayout() {
               </svg>
               Search everything
             </button>
-            <Link to="/" onClick={() => setDrawerOpen(false)} className="flex items-center gap-3 px-5 py-3 text-[15px] text-ink hover:bg-hairline-2">
+            <Link to="/" data-web-only onClick={() => setDrawerOpen(false)} className="flex items-center gap-3 px-5 py-3 text-[15px] text-ink hover:bg-hairline-2">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M3 11l9-8 9 8" /><path d="M5 10v10h14V10" />
               </svg>

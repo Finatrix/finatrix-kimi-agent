@@ -37,6 +37,18 @@ describe('financial calendar', () => {
     const sip = events.find((e) => e.type === 'invest');
     expect(sip).toBeTruthy();
     expect(sip!.date).toBe(`${CM}-01`);
+    expect(sip!.detail).toContain('confirm its currency and market');
+  });
+
+  it('preserves recurring-event IDs when another bill changes the ranking', () => {
+    const bills = [1, 0].flatMap((back) => [
+      { id: `net-${back}`, amount: 999, category: 'bills', date: `${monthKey(back)}-14`, merchant: 'Fibernet' },
+      { id: `gym-${back}`, amount: 500, category: 'bills', date: `${monthKey(back)}-10`, merchant: 'Gym' },
+    ]);
+    localStorage.setItem('fx_expenses', JSON.stringify(bills));
+    const original = getMonthEvents(CM).find(e => e.title === 'fibernet')!.id;
+    localStorage.setItem('fx_expenses', JSON.stringify(bills.map(bill => bill.merchant === 'Gym' ? { ...bill, amount: 2000 } : bill)));
+    expect(getMonthEvents(CM).find(e => e.title === 'fibernet')!.id).toBe(original);
   });
 
   it('getUpcomingEvents stays within the requested window', () => {

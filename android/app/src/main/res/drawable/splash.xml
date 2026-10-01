@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fallback splash, used only if the Android 12 splash API is unavailable
+     (see @capacitor/splash-screen). Same composition as the themed splash:
+     the mark centred on the app surface. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/fx_window_bg" />
+    <item
+        android:width="160dp"
+        android:height="160dp"
+        android:gravity="center"
+        android:drawable="@mipmap/ic_launcher_foreground" />
+</layer-list>

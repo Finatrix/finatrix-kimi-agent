@@ -61,8 +61,28 @@
   // to do that is a domain whose DNS/SSL is still propagating. When the var is
   // absent entirely, worker/index.ts falls back to CANONICAL_HOST in
   // src/shared/routes.ts, so a deploy is never accidentally non-canonical.
+  //
+  // ANDROID_CERT_SHA256: certificates allowed to open finatrix.co links in the
+  // Android app (published at /.well-known/assetlinks.json; comma-separated).
+  // Public by nature — anyone can read that file — so it lives here, reviewed,
+  // rather than in a secret. Two keys: the Play APP SIGNING key (Play Console →
+  // App integrity → "App signing key certificate" — the key on users' devices)
+  // and the Play UPLOAD key (android/finatrix-upload.jks), which signs locally
+  // built release APKs so App Links can be tested before a Play install.
+  // See docs/ANDROID.md.
+  //
+  // APPLE_APP_ID_PREFIX: the Apple Developer Team ID (Apple writes it as the
+  // "App ID Prefix"), which is what /.well-known/apple-app-site-association needs
+  // in front of the bundle id for iOS Universal Links. Public — it is in every
+  // app's receipt — so it lives here rather than in a secret, exactly like the
+  // Android fingerprints above. Left EMPTY until the Apple Developer account
+  // exists: the Worker then 404s that path, which is a visible state, rather than
+  // publishing a file that names the wrong app and looks healthy while every
+  // finatrix.co link keeps opening in Safari. See docs/IOS.md.
   "vars": {
-    "CANONICAL_HOST": "finatrix.co"
+    "CANONICAL_HOST": "finatrix.co",
+    "APPLE_APP_ID_PREFIX": "",
+    "ANDROID_CERT_SHA256": "B6:E9:AD:C3:E2:55:75:D8:A4:FA:CE:B3:3E:6A:69:1A:76:F6:76:2B:D8:A4:B8:41:8E:99:09:BD:A8:6F:EF:FB,FC:B1:BA:96:DF:61:99:AB:16:78:73:60:C7:D7:3F:2C:58:48:56:01:A9:4B:E1:EA:68:A6:D0:12:10:13:5F:4C"
   },
 
   // Workers Logs: without this, a 5xx at the edge leaves no trace anywhere.

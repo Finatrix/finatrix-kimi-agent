@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { CONTENT_PATHS } from '../src/shared/content';
-import { INDEXABLE } from '../src/lib/seo';
+import { INDEXABLE, seoForPath } from '../src/lib/seo';
 import { PUBLIC_PAGE_PATHS } from '../src/shared/publicPages';
 import { TOOL_IDS } from '../src/shared/routes';
 
@@ -113,18 +113,23 @@ test.describe('every public page, in a browser', () => {
       // `max-*` presentation directives, and this assertion then failed on
       // every one of 150 public pages while `seo.test.ts` — which reads the
       // constant — stayed green. A duplicated value is a value that drifts.
-      expect(head.robots, `${path} robots`).toBe(INDEXABLE);
+      expect(head.robots, `${path} robots`).toBe(seoForPath(path).robots);
       expect(head.canonical, `${path} canonical`).toBe(
-        `https://finatrix.co${path === '/' ? '/' : path}`,
+        seoForPath(path).canonical,
       );
       expect(head.ogImage, `${path} og:image`).toMatch(/^https:\/\/finatrix\.co\/images\/.+\?v=\d+$/);
 
       // The JSON-LD must parse and describe THIS url.
-      expect(head.schema.length, `${path} has no structured data`).toBeGreaterThan(0);
-      const graph = JSON.parse(head.schema)['@graph'] as Array<Record<string, unknown>>;
-      expect(Array.isArray(graph) && graph.length > 0, `${path} empty @graph`).toBe(true);
-      const webpage = graph.find((n) => String(n['@type']).includes('WebPage'));
-      if (webpage) expect(webpage.url, `${path} WebPage url`).toBe(head.canonical);
+      if (head.robots === INDEXABLE) {
+        expect(head.schema.length, `${path} has no structured data`).toBeGreaterThan(0);
+        const graph = JSON.parse(head.schema)['@graph'] as Array<Record<string, unknown>>;
+        expect(Array.isArray(graph) && graph.length > 0, `${path} empty @graph`).toBe(true);
+        const webpage = graph.find((n) => String(n['@type']).includes('WebPage'));
+        if (webpage) expect(webpage.url, `${path} WebPage url`).toBe(head.canonical);
+      } else {
+        expect(head.schema, `${path} must not publish structured data while locked`).toBe('');
+        await expect(h1s).toContainText('coming in 2027');
+      }
 
       expect(errors, `${path} console errors:\n${errors.join('\n')}`).toEqual([]);
       expect(failed, `${path} failed requests:\n${failed.join('\n')}`).toEqual([]);

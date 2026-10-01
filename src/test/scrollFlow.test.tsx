@@ -216,7 +216,9 @@ describe('scroll offset (CSS contract)', () => {
    * token existed: #showcase came to rest at top: 0, under 57px of header.
    */
   it('stops fragment targets clear of the fixed header', () => {
-    expect(index).toMatch(/scroll-padding-top:\s*var\(--scroll-offset\)/);
+    // Plus the status-bar inset, which is 0 in a browser tab and covers the
+    // top of the page in the Android app and the installed iOS PWA.
+    expect(index).toMatch(/scroll-padding-top:\s*calc\(var\(--scroll-offset\)\s*\+\s*var\(--fx-safe-top\)\)/);
     expect(tokens).toMatch(/--scroll-offset:\s*\d+px/);
   });
 

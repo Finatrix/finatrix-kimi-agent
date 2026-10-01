@@ -99,9 +99,12 @@ export default function LoginReminderModal() {
 
   if (!open) return null;
 
+  // z 330: above the floating AI and Wallet docks (--z-fab 310) and the undo
+  // bar (320). At 200 they sat on top of the backdrop, still tappable, while
+  // this dialog declared everything behind it inert.
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center p-5"
+      className="fixed inset-0 z-[330] flex items-center justify-center p-5"
       style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}
       onClick={(e) => {
         if (e.target === e.currentTarget) dismiss();

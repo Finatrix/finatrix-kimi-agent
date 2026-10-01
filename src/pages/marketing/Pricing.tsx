@@ -12,6 +12,7 @@
  * period, no stored mandate, no auto-renewal, no trial.
  */
 
+import { CAREERS_AVAILABLE, CAREERS_LAUNCH_MESSAGE } from '../../shared/careersAvailability';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import MarketingPage from '../../marketing/MarketingPage';
@@ -73,6 +74,7 @@ export default function Pricing() {
         </ul>
       </Section>
 
+      {CAREERS_AVAILABLE ? <>
       <Section
         id="careers-plans"
         title="FinatriX Careers plans"
@@ -154,7 +156,12 @@ export default function Pricing() {
         </Grid>
       </Section>
 
-      {page?.faq && <Faq entries={page.faq} />}
+      </> : <Section id="careers-plans" title={CAREERS_LAUNCH_MESSAGE}>
+        <P>Careers plans are not available to purchase yet. All money tools remain free to use.</P>
+        <CtaRow primary={{ to: "/tools", label: "Explore free money tools" }} secondary={{ to: "/careers", label: "About the launch" }} />
+      </Section>}
+
+      {CAREERS_AVAILABLE && page?.faq && <Faq entries={page.faq} />}
 
       <RelatedPages
         paths={['/careers', '/careers/features', '/refunds', '/terms', '/faq', '/security']}

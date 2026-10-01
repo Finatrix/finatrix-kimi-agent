@@ -169,6 +169,23 @@
      `scroll-mt-*` guess of their own (one 20px, four 24px) and every anchor
      outside those five landed underneath the header. */
   --scroll-offset: 72px;
+
+  /* ── Safe area ─────────────────────────────────────────────────────────
+     The part of the viewport a system bar or display cutout draws over.
+     `index.html` opts into `viewport-fit=cover`, so the page runs edge to
+     edge and every bar that touches a screen edge must clear these.
+
+     The Android app injects `--safe-area-inset-*` (Capacitor SystemBars,
+     `insetsHandling: 'css'`) because Android WebView before Chromium 140
+     reports `env(safe-area-inset-*)` as 0 even when a bar covers the page.
+     Everywhere else — browsers, the installed PWA — the injected variable is
+     absent and `env()` answers, which is 0 on any screen without a cutout.
+     Consume these tokens, never `env(safe-area-inset-*)` directly, or the
+     Android app loses its insets on older WebViews. */
+  --fx-safe-top:    var(--safe-area-inset-top,    env(safe-area-inset-top, 0px));
+  --fx-safe-right:  var(--safe-area-inset-right,  env(safe-area-inset-right, 0px));
+  --fx-safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --fx-safe-left:   var(--safe-area-inset-left,   env(safe-area-inset-left, 0px));
 }
 
 /* ============================================================================

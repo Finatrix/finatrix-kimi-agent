@@ -27,6 +27,10 @@ const TOOLS = [
   '/tools/reports',
   '/tools/calendar',
   '/tools/settings',
+  // Not a calculator, so not in TOOL_IDS — but it is a real reading surface
+  // with tables, a select and several dozen external links, and it is held to
+  // exactly the same floor as everything else under /tools.
+  '/tools/reference',
 ];
 
 const SEED = () => {
@@ -134,7 +138,8 @@ async function audit(page: Page): Promise<Findings> {
       .filter((el) => !el.className.toString().includes('sr-only'))
       .filter((el) => {
         const r = targetOf(el);
-        return r.width < 24 || r.height < 24;
+        // Allow floating-point layout noise (e.g. 23.999999px for a 24px switch).
+        return r.width < 23.99 || r.height < 23.99;
       })
       .map((el) => {
         const r = targetOf(el);

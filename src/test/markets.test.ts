@@ -1,3 +1,4 @@
+import { peerSummariesFor } from '../reference/peerSummaries';
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   MARKETS, MARKET_IDS, MARKET_LIST, MARKET_KEY, DEFAULT_MARKET,
@@ -137,7 +138,10 @@ describe('every market is a complete market', () => {
       });
 
       it('gives every parking option a tax treatment that exists', () => {
-        expect(market.park.options.length).toBeGreaterThan(3);
+        if (market.park.inputMode === 'net-rates') {
+          expect(market.park.options).toEqual([]);
+          expect(market.park.taxNote).toContain('no further tax deduction');
+        } else expect(market.park.options.length).toBeGreaterThan(3);
         for (const opt of market.park.options) {
           expect(market.park.treatments[opt.tax], `${opt.n} → ${opt.tax}`).toBeDefined();
         }
@@ -149,7 +153,8 @@ describe('every market is a complete market', () => {
         // ranking priced at a rate the user was never shown.
         expect(market.park.rateOptions.map((o) => o.value)).toContain(market.park.defaultRate);
         // Without one, "under 1 month" ranks nothing and the tool dead-ends.
-        expect(market.park.options.some((o) => o.liquid && o.minM === 0)).toBe(true);
+        if (market.park.inputMode === 'net-rates') expect(market.park.treatments.enteredNet).toEqual({ exempt: true });
+        else expect(market.park.options.some((o) => o.liquid && o.minM === 0)).toBe(true);
       });
 
       it('quotes amounts above its own minimum', () => {
@@ -175,6 +180,11 @@ describe('every market is a complete market', () => {
       });
 
       it('benchmarks every age bracket the tool can produce', () => {
+        if (market.peer.mode === 'published-context') {
+          expect(market.peer.bench).toEqual({});
+          expect(peerSummariesFor(market.id).length).toBeGreaterThan(0);
+          return;
+        }
         for (const age of [18, 24, 27, 30, 35, 40, 55]) {
           expect(market.peer.bench[pcBracket(age)], String(age)).toBeDefined();
         }
@@ -190,6 +200,11 @@ describe('every market is a complete market', () => {
       });
 
       it('has a fallback city that actually exists', () => {
+        if (market.peer.mode === 'published-context') {
+          expect(market.peer.cities).toEqual({});
+          expect(market.peer.fallbackCity).toBe('');
+          return;
+        }
         expect(market.peer.cities[market.peer.fallbackCity]).toBeDefined();
         expect(market.peer.cities[market.peer.defaults.cityKey]).toBeDefined();
       });
@@ -219,7 +234,8 @@ describe('every market is a complete market', () => {
       it('ranks and computes end to end without a default anywhere', () => {
         const amount = market.park.quickAmounts[market.park.quickAmounts.length - 1];
         const rate = market.park.rateOptions[0].value / 100;
-        const parked = computeParkSmart(amount, '6-12', rate, market.park);
+        const park = market.park.inputMode === 'net-rates' ? { ...market.park, options: [{ n: 'Entered example', rate: 3, tax: 'enteredNet', liquid: true, risk: 'User terms', ic: 'bank' as const, d: 'User input', minM: 0 }] } : market.park;
+        const parked = computeParkSmart(amount, '6-12', rate, park);
         expect(parked.valid).toBe(true);
         expect(parked.ranked.length).toBeGreaterThan(0);
         // Post-tax can never exceed gross, in any jurisdiction.
@@ -229,6 +245,10 @@ describe('every market is a complete market', () => {
         expect(invested.tooLow).toBe(false);
         expect(invested.alloc.length).toBeGreaterThan(0);
 
+        if (market.peer.mode === 'published-context') {
+          expect(peerSummariesFor(market.id).every((r) => r.market === market.id)).toBe(true);
+          return;
+        }
         const compared = computePeerCompare(market.peer.defaults, market.peer);
         expect(compared.score).toBeGreaterThan(0);
         expect(compared.metrics).toHaveLength(6);

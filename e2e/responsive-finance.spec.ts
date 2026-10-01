@@ -29,6 +29,10 @@ const TOOLS = [
   '/tools/reports',
   '/tools/calendar',
   '/tools/settings',
+  // The reference page carries the only data tables under /tools. They scroll
+  // inside their own container by design, and this is what proves the page
+  // body does not scroll with them on a phone.
+  '/tools/reference',
 ];
 
 /** Seed enough real data that charts, bars and long labels actually render. */
@@ -109,5 +113,61 @@ for (const path of TOOLS) {
       const wide = await overflowingElements(page, width);
       expect(wide, `${path} @ ${width}px has elements past the right edge:\n  ${wide.join('\n  ')}`).toEqual([]);
     }
+  });
+}
+
+/**
+ * The same audit, but for a viewport that CHANGES after the page has drawn.
+ *
+ * Every test above navigates at its target width, so nothing on the page has
+ * ever been asked to get smaller. That misses a whole class of defect, and one
+ * specific to this product: Chart.js paints to a `<canvas>` whose pixel width
+ * it sets itself, and a canvas that does not shrink with its container is a
+ * canvas that pushes the page sideways — the layout looks perfect at every
+ * width you load it at and breaks on the one thing a phone does for free.
+ *
+ * Rotating a phone is exactly this. So is opening the keyboard, and so is
+ * Stage Manager on iPad. 320px is the narrowest width the module supports, so
+ * a wide-to-320 shrink is the strongest version of the check.
+ */
+const SHRINK_PAGES: { path: string; reveal?: (page: Page) => Promise<void> }[] = [
+  { path: '/tools/dashboard' },
+  { path: '/tools/expenses' },
+  { path: '/tools/reports' },
+  {
+    // LifeMap draws nothing until a scenario is launched, so without this the
+    // test would pass on a page that has no canvas on it — coverage that reads
+    // green and proves nothing.
+    path: '/tools/lifemap',
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Own a home' }).click();
+      await page.getByRole('button', { name: /Launch my LifeMap/ }).click();
+      await page.locator('canvas').first().waitFor({ state: 'visible' });
+    },
+  },
+];
+
+for (const { path, reveal } of SHRINK_PAGES) {
+  test(`${path} reflows without overflowing when the viewport shrinks after paint`, async ({ page }) => {
+    await page.addInitScript(SEED);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto(path);
+    await page.locator('.fx-tools').first().waitFor({ state: 'visible' });
+    await page.waitForLoadState('networkidle');
+    await reveal?.(page);
+    // Chart.js animates in; measuring mid-animation measures nothing.
+    await page.waitForTimeout(600);
+
+    await page.setViewportSize({ width: 320, height: 900 });
+    // Chart.js resizes from a ResizeObserver, which lands a frame or more later.
+    await page.waitForTimeout(1200);
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth
+    );
+    expect(overflow, `${path} scrolls horizontally by ${overflow}px after shrinking to 320px`).toBeLessThanOrEqual(1);
+
+    const wide = await overflowingElements(page, 320);
+    expect(wide, `${path} has elements past the right edge after shrinking to 320px:\n  ${wide.join('\n  ')}`).toEqual([]);
   });
 }

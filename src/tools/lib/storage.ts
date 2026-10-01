@@ -31,10 +31,14 @@ interface FxStore {
   set(key: string, value: string): void;
   remove(key: string): void;
   readonly persistent: boolean;
+  /** True while any latest value lives only in this session after a failed write. */
+  readonly hasUnpersistedChanges: boolean;
 }
 
 function createStore(): FxStore {
-  const mem: Record<string, string> = {};
+  // A null entry is a failed deletion: it must hide the older disk value just
+  // as a failed write does, including when cloud sync builds its next snapshot.
+  const mem = new Map<string, string | null>();
   let ok = false;
   try {
     localStorage.setItem('__fx_t', '1');
@@ -48,7 +52,7 @@ function createStore(): FxStore {
   // localStorage is unavailable); that in-session value is newer than
   // whatever localStorage holds, so it must win.
   const raw = (key: string): string | null => {
-    if (key in mem) return mem[key];
+    if (mem.has(key)) return mem.get(key) ?? null;
     try {
       if (ok) return localStorage.getItem(key);
     } catch {
@@ -67,7 +71,7 @@ function createStore(): FxStore {
       try {
         if (ok) {
           localStorage.setItem(key, value);
-          delete mem[key]; // localStorage is authoritative again
+          mem.delete(key); // localStorage is authoritative again
           notifyWrite(key);
           return;
         }
@@ -75,19 +79,20 @@ function createStore(): FxStore {
         /* quota/security error — shadow the value in memory so this session
            stays consistent even though the write did not persist */
       }
-      mem[key] = value;
+      mem.set(key, value);
       notifyWrite(key);
     },
     remove(key: string): void {
-      delete mem[key];
       try {
         if (ok) localStorage.removeItem(key);
+        mem.delete(key);
       } catch {
-        /* ignore */
+        mem.set(key, null);
       }
       notifyWrite(key);
     },
     persistent: ok,
+    get hasUnpersistedChanges() { return mem.size > 0; },
   };
 }
 

@@ -9,6 +9,7 @@ import AuthShell, {
   OrDivider,
   SocialButton,
 } from '../components/AuthShell';
+import { authProviders, PROVIDER_LABEL, type OAuthProvider } from '../lib/authProviders';
 
 export default function Signup() {
   const { signUp, signInWithProvider, configured } = useAuth();
@@ -60,17 +61,20 @@ export default function Signup() {
     }
   }
 
-  async function onProvider(provider: 'google') {
+  async function onProvider(provider: OAuthProvider) {
     setError(null);
     if (!agreed)
       return setError(
         'Please accept the Terms & Conditions and Privacy Policy to continue.'
       );
     setBusy(true);
-    const { error } = await signInWithProvider(provider);
+    const { error, closed } = await signInWithProvider(provider);
     if (error) {
       setBusy(false);
       setError(error);
+    } else if (closed) {
+      // In an app: the sign-in browser was closed without finishing.
+      setBusy(false);
     }
     // On success the browser redirects to the provider, so there is no
     // `signup_completed` to send from here — the account is created on the way
@@ -196,12 +200,16 @@ export default function Signup() {
 
       <OrDivider label="or sign up with" />
 
-      <SocialButton
-        disabled={busy || !configured}
-        onClick={() => onProvider('google')}
-      >
-        Continue with Google
-      </SocialButton>
+      {authProviders().map((provider) => (
+        <SocialButton
+          key={provider}
+          provider={provider}
+          disabled={busy || !configured}
+          onClick={() => onProvider(provider)}
+        >
+          {PROVIDER_LABEL[provider]}
+        </SocialButton>
+      ))}
     </AuthShell>
   );
 }

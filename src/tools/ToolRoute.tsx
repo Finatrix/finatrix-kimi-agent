@@ -1,5 +1,7 @@
 import { lazy, Suspense, useEffect, type ComponentType } from 'react';
 import { Navigate, useParams } from 'react-router';
+import { useOptionalMarket } from './MarketContext';
+import { useOptionalCurrency } from './CurrencyContext';
 import { store } from './lib/storage';
 import { track } from '../lib/analytics';
 import { TOOL_IDS, type ToolId } from '../shared/routes';
@@ -29,9 +31,12 @@ const TOOL_PAGES: Record<string, ComponentType> = {
   reports: lazy(() => import('./pages/ReportsPage')),
   calendar: lazy(() => import('./pages/CalendarPage')),
   settings: lazy(() => import('./pages/SettingsPage')),
+  reference: lazy(() => import('./pages/ReferencePage')),
 };
 
 export default function ToolRoute() {
+  const marketId = useOptionalMarket()?.id ?? 'IN';
+  const currency = useOptionalCurrency()?.code ?? 'INR';
   const { toolId = '' } = useParams();
   const id = toolId.toLowerCase();
   const Page = Object.hasOwn(TOOL_PAGES, id) ? TOOL_PAGES[id] : undefined;
@@ -55,14 +60,15 @@ export default function ToolRoute() {
   if (!Page) return <Navigate to="/tools" replace />;
 
   // Only the seven indexable calculators get the educational footer. `/tools/
-  // reports`, `/tools/calendar` and `/tools/settings` are signed-in workspace
-  // screens: they are `noindex`, have no organic role, and have no methodology
-  // to explain — a "how this is calculated" block under Settings would be noise.
+  // reports`, `/tools/calendar`, `/tools/settings` and `/tools/reference` are
+  // workspace screens: they are `noindex`, have no organic role, and have no
+  // methodology to explain — a "how this is calculated" block under Settings
+  // would be noise, and the reference page is nothing but methodology already.
   const isPublicTool = (TOOL_IDS as readonly string[]).includes(id);
 
   return (
     <Suspense fallback={<div style={{ minHeight: '50vh' }} aria-hidden="true" />}>
-      <Page />
+      <Page key={`${id}:${marketId}:${currency}`} />
       {isPublicTool && <ToolEducation toolId={id as ToolId} />}
     </Suspense>
   );

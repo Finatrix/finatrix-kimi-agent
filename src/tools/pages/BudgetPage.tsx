@@ -33,6 +33,7 @@ import { SECTION_COLOR, SECTION_FILL } from '../lib/sectionColors';
 import { BudgetSuggestions } from '../ui/BudgetSuggestions';
 import { WalletDock } from '../ui/WalletDock';
 import { AutoBudgetCard } from '../ui/AutoBudgetCard';
+import { BudgetSmartReview } from '../ui/BudgetSmartReview';
 import { ScoreCard } from '../ui/ScoreCard';
 import { computePlanScore } from '../lib/score';
 import { AskAiButton } from '../ui/AskAiButton';
@@ -102,9 +103,12 @@ export default function BudgetPage() {
    */
   const [spend, setSpend] = useState<ExpenseItem[]>(loadExpenses);
 
-  useEffect(() => onLocalWrite((key) => {
-    if (key === 'fx_expenses') setSpend(loadExpenses());
-  }), []);
+  useEffect(() => {
+    const off = onLocalWrite((key) => { if (key === 'fx_expenses') setSpend(loadExpenses()); });
+    const refresh = (event: StorageEvent) => { if (event.key === 'fx_expenses' || event.key === null) setSpend(loadExpenses()); };
+    window.addEventListener('storage', refresh);
+    return () => { off(); window.removeEventListener('storage', refresh); };
+  }, []);
 
   const cats = useMemo(() => mergedCats(custom), [custom]);
   const view = useMemo(() => applyCatPrefs(cats, prefs), [cats, prefs]);
@@ -561,6 +565,21 @@ export default function BudgetPage() {
               <span>Save <b>{cfmt(r.sL)}</b></span>
             </div>
           </div>
+
+          <BudgetSmartReview
+            key={month}
+            month={month}
+            input={{ incomeRaw: income, needsRaw: needsPct, wantsRaw: wantsPct, saveRaw: savePct, vals }}
+            cats={view.active}
+            items={spend}
+            cfmt={cfmt}
+            onApply={setVals}
+            onAnnounce={say}
+            onReview={(section, key) => {
+              setManage(true);
+              requestAnimationFrame(() => document.getElementById(`bb-amt-${section}-${key}`)?.focus());
+            }}
+          />
 
           {/* Divide each envelope across its categories, from history. Reads the
               percentages set above and never proposes its own — see

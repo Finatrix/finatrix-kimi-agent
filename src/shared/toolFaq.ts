@@ -78,16 +78,16 @@ export const TOOL_FAQ: Record<ToolId, readonly FaqEntry[]> = {
   ],
   peercompare: [
     {
-      q: 'Who am I being compared against?',
-      a: 'A modelled benchmark for your income bracket and city tier, adjusted for local cost of living across 14 Indian cities plus tier-2 and tier-3 groupings. It is a calibrated model, not a survey of real FinatriX users — nobody else’s data is read to produce your comparison.',
+      q: 'What does the benchmark score mean?',
+      a: 'It summarizes six ratios against an illustrative reference grid using a fixed scoring curve. It is not a measured population percentile or a financial-health grade.',
     },
     {
-      q: 'What should I do if I am below the benchmark?',
-      a: 'Treat it as a prompt, not a verdict. The benchmark knows nothing about your dependants, debt, health or where you started. The useful reading is which single metric — savings rate, emergency buffer, investment share — is furthest from the benchmark, because that is usually the one worth attention first.',
+      q: 'Who am I being compared with?',
+      a: 'The displayed references are model estimates selected by age band and location. The comparison does not measure how many people have more or less than you.',
     },
     {
-      q: 'Does comparing myself to peers actually help?',
-      a: 'Only for calibration. A savings rate has no meaning in isolation, and a benchmark gives it one. Beyond that, comparison is a poor motivator — the emergency-buffer and savings-rate numbers on this page are more useful as absolutes than as a ranking.',
+      q: 'Should I aim for the reference amount?',
+      a: 'No. Your own commitments, goals and available cash determine what is appropriate. Read the entered amounts, cash-flow check and balance-sheet figures before interpreting any reference difference.',
     },
   ],
   goals: [

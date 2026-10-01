@@ -1,3 +1,4 @@
+import { CAREERS_AVAILABLE } from './careersAvailability';
 /**
  * sitemap.xml, built from the same registries the app and the edge Worker read.
  *
@@ -44,7 +45,7 @@ export function sitemapEntries(): SitemapEntry[] {
       changefreq: 'monthly',
       priority: 0.8,
     })),
-    ...PUBLIC_PAGES.map((page) => ({
+    ...PUBLIC_PAGES.filter((page) => CAREERS_AVAILABLE || !page.path.startsWith('/careers/')).map((page) => ({
       loc: `${ORIGIN}${page.path}`,
       changefreq: page.changefreq,
       priority: page.priority,

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router';
 import { useToast } from '../ui/Toast';
 import { PageHead, ToolFoot } from '../ui/common';
 import { getJSON, setJSON } from '../lib/storage';
 import {
-  IM_Q, IM_RL, computeInvestMatch, clampAnswer, questionLabel, questionPlaceholder,
+  IM_Q, IM_RL, computeInvestMatch, questionLabel, questionPlaceholder,
   type ImAnswers, type ImNumQuestion,
 } from '../lib/investmatch';
 import { useCurrency } from '../CurrencyContext';
@@ -12,19 +13,24 @@ import { MarketNote } from '../ui/MarketNote';
 import { ResultExplainer, type MethodRow } from '../ui/ResultExplainer';
 import type { MarketPack } from '../lib/markets';
 import { track } from '../../lib/analytics';
+import { investAnswerError, investScenarios } from '../lib/comparisonAssist';
+
+interface SavedAnswers { a?: ImAnswers; market?: string; currency?: string; savedAt?: string }
 
 export default function InvestMatchPage() {
   const { notify } = useToast();
-  const { cfmt, sym } = useCurrency();
+  const { cfmt, sym, code } = useCurrency();
   const { market } = useMarket();
+  const [saved] = useState(() => getJSON<SavedAnswers>('fx_investmatch', {}));
+  const reusable = saved.market === market.id && saved.currency === code && saved.a && !investAnswerError(saved.a);
   const [ans, setAns] = useState<ImAnswers>(() => {
-    const saved = getJSON<{ a?: Partial<ImAnswers> }>('fx_investmatch', {});
-    return { ...market.invest.defaults, ...(saved.a || {}) };
+    return { ...market.invest.defaults };
   });
   const [step, setStep] = useState(0);
   const [numDraft, setNumDraft] = useState('');
   const [showResult, setShowResult] = useState(false);
-  const [building, setBuilding] = useState(false);
+  const [error, setError] = useState('');
+  const [reviewing, setReviewing] = useState(false);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const q = IM_Q[step];
@@ -35,26 +41,33 @@ export default function InvestMatchPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
-  // Persist answers (fx_investmatch shape preserved: { a: answers }).
-  useEffect(() => { setJSON('fx_investmatch', { a: ans }); }, [ans]);
-
   useEffect(() => () => { if (advanceTimer.current) clearTimeout(advanceTimer.current); }, []);
 
-  const commitNum = (a: ImAnswers): ImAnswers => {
+  const commitNum = (a: ImAnswers): ImAnswers | null => {
     if (q.type === 'num') {
-      return { ...a, [q.k]: clampAnswer(q as ImNumQuestion, numDraft) };
+      const value = Number(numDraft);
+      if (!numDraft.trim() || !Number.isFinite(value) || value < q.min || value > (q.max ?? 1e12)) {
+        setError(`Enter ${q.max ? `a value from ${q.min} to ${q.max}` : `a value from ${q.min} to 1 trillion`}. Your answer will not be silently changed.`);
+        return null;
+      }
+      setError('');
+      return { ...a, [q.k]: value };
     }
     return a;
   };
 
   const goNext = () => {
     const a = commitNum(ans);
+    if (!a) return;
+    if (advanceTimer.current) clearTimeout(advanceTimer.current);
     setAns(a);
     if (step < IM_Q.length - 1) setStep(step + 1);
   };
   const goPrev = () => {
+    if (advanceTimer.current) clearTimeout(advanceTimer.current);
     const a = commitNum(ans);
-    setAns(a);
+    if (a) setAns(a);
+    setError('');
     if (step > 0) setStep(step - 1);
   };
   const pick = (k: string, v: string) => {
@@ -66,25 +79,26 @@ export default function InvestMatchPage() {
   };
 
   const build = () => {
-    const a = commitNum(ans);
+    const a = reviewing ? ans : commitNum(ans);
+    if (!a) return;
+    const problem = investAnswerError(a);
+    if (problem) { setError(problem); return; }
     setAns(a);
     const preview = computeInvestMatch(a, market.invest);
     if (preview.tooLow) {
       notify(`Please enter a monthly investment of at least ${cfmt(100)}.`, 'error');
       return;
     }
-    setBuilding(true);
-    setTimeout(() => {
-      setBuilding(false);
-      setShowResult(true);
+    setJSON('fx_investmatch', { ...getJSON<SavedAnswers>('fx_investmatch', {}), a, market: market.id, currency: code, savedAt: new Date().toISOString() });
+    setShowResult(true);
       // Fired here rather than at `build()` so a submission rejected by the
       // minimum-investment guard above is never counted as a completion.
       track('tool_completed', { tool: 'investmatch', bucket: market.id });
-    }, 500);
   };
 
   const reset = () => {
     setShowResult(false);
+    setReviewing(false);
     setStep(0);
   };
 
@@ -102,6 +116,18 @@ export default function InvestMatchPage() {
   return (
     <div className="fx-page">
       <Head market={market} />
+      {step === 0 && !reviewing && reusable && <aside className="card" aria-label="Saved InvestMatch answers">
+        <h2 style={{ fontSize: 17, marginTop: 0 }}>Pick up your last illustration</h2>
+        <p className="note">Saved in InvestMatch for {market.name}, {code}{saved.savedAt && Number.isFinite(Date.parse(saved.savedAt)) ? ` on ${new Date(saved.savedAt).toLocaleDateString()}` : ''}. Review these figures before reusing them.</p>
+        <button className="btn btn-ghost" onClick={() => { setAns({ ...saved.a! }); setReviewing(true); }}>Review saved answers</button>
+      </aside>}
+      {reviewing ? <div className="card">
+        <h2 style={{ fontSize: 18 }}>Review your answers</h2>
+        <dl className="fx-method-rows">{IM_Q.map((question) => <div key={question.k}><dt>{questionLabel(question, sym)}</dt><dd>{question.type === 'opt' ? question.opts.find((o) => o.v === ans[question.k as keyof ImAnswers])?.l : String(ans[question.k as keyof ImAnswers])}</dd></div>)}</dl>
+        <p className="note">Your income, investment amount and commitments may have changed since you saved this illustration.</p>
+        <button className="btn" onClick={build}>Use these answers</button>
+        <button className="btn btn-ghost" onClick={() => { setReviewing(false); setNumDraft(String(ans.age)); }}>Edit answers</button>
+      </div> : <>
       <div>
         <div className="steps">
           {IM_Q.map((_, i) => (
@@ -130,14 +156,16 @@ export default function InvestMatchPage() {
                 max={q.max}
                 inputMode="decimal"
                 aria-labelledby="im-question"
-                aria-describedby="im-range"
+                aria-describedby={error ? 'im-range im-error' : 'im-range'}
+                aria-invalid={Boolean(error)}
                 autoFocus
-                onChange={(e) => setNumDraft(e.target.value)}
+                onChange={(e) => { setNumDraft(e.target.value); setError(''); }}
                 onKeyDown={(e) => { if (e.key === 'Enter') { if (step < IM_Q.length - 1) goNext(); else build(); } }}
               />
               <div id="im-range" className="note" style={{ marginTop: 8 }}>
                 {q.max != null ? `Between ${q.min} and ${q.max}.` : `${q.min} or more.`}
               </div>
+              {q.k === 'monthly' && Number(numDraft) > ans.income && <p className="tip tip-warn">This monthly investment is greater than your entered income. Check that you can fund it after expenses and debt payments.</p>}
             </>
           ) : (
             <div role="group" aria-labelledby="im-question">
@@ -157,17 +185,19 @@ export default function InvestMatchPage() {
             </div>
           )}
         </div>
+        {error && <p id="im-error" role="alert">{error}</p>}
         <div style={{ display: 'flex', gap: 10 }}>
           {step > 0 && <button className="btn btn-ghost" style={{ flex: 1 }} onClick={goPrev}>Back</button>}
           {step < IM_Q.length - 1 ? (
             <button className="btn" style={{ flex: 2 }} onClick={goNext}>Next</button>
           ) : (
-            <button className={`btn ${building ? 'btn-loading' : ''}`} style={{ flex: 2 }} disabled={building} onClick={build}>
-              {building ? 'Working it out…' : 'Show the allocation'}
+            <button className="btn" style={{ flex: 2 }} onClick={build}>
+              Show the allocation
             </button>
           )}
         </div>
       </div>
+      </>}
       <MarketNote market={market} />
       <ToolFoot>Projections use historical averages · Built with care by <b>FinatriX</b> · Not financial advice</ToolFoot>
     </div>
@@ -203,7 +233,7 @@ function InvestResult({ ans, market, money, onReset }: {
   const assumptions: MethodRow[] = [
     { label: 'Risk band applied', value: `${IM_RL[r.effRisk]}${downgraded ? ' (capped by horizon)' : ''}` },
     { label: 'Assumed annual return', value: `~${Math.round(r.rate * 100)}%` },
-    { label: 'Inflation used for today\u2019s-money figure', value: `${Math.round(market.goals.inflation * 100)}%` },
+    { label: 'Inflation used for today\u2019s-money figure', value: `${Math.round(market.invest.inflation * 100)}%` },
   ];
 
   return (
@@ -221,6 +251,8 @@ function InvestResult({ ans, market, money, onReset }: {
           <div><div style={{ fontSize: 19, fontWeight: 700, color: 'var(--gold)' }}>{r.growthPct}%</div><div className="note">Total growth</div></div>
         </div>
       </div>
+
+      <InvestScenarioAssist ans={ans} market={market} money={money} />
 
       <div className="card">
         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Illustrative allocation</div>
@@ -280,4 +312,35 @@ function InvestResult({ ans, market, money, onReset }: {
       <button className="btn" onClick={onReset}>Recalculate</button>
     </div>
   );
+}
+
+function InvestScenarioAssist({ ans, market, money }: { ans: ImAnswers; market: MarketPack; money: (n: number) => string }) {
+  const scenarios = investScenarios(ans, market.invest);
+  const [preview, setPreview] = useState<ImAnswers>(ans);
+  const result = computeInvestMatch(preview, market.invest);
+  const baseline = computeInvestMatch(ans, market.invest);
+  const emergency = ans.goal === 'emergency';
+  return <section className="card" aria-labelledby="im-smart-title">
+    <h2 id="im-smart-title" style={{ fontSize: 18, marginTop: 0 }}>Explore what changes the outcome</h2>
+    <p className="note">These scenarios reuse this calculator and the same market assumptions. Each changes one input; your saved answers stay as entered. Returns are illustrative, before fees and taxes.</p>
+    <h3 style={{ fontSize: 14 }}>Change the monthly contribution</h3>
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      {scenarios.contributions.map((s) => <button key={s.factor} type="button" className="btn btn-ghost btn-sm"
+        aria-pressed={preview.monthly === s.monthly && preview.horizon === ans.horizon}
+        onClick={() => setPreview({ ...ans, monthly: s.monthly })}>{s.factor === 1 ? 'Current' : s.factor < 1 ? '20% less' : '20% more'} · {money(s.monthly)}/mo</button>)}
+    </div>
+    <h3 style={{ fontSize: 14 }}>Change the time horizon</h3>
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      {scenarios.horizons.map((s) => <button key={s.horizon} type="button" className="btn btn-ghost btn-sm"
+        aria-pressed={preview.horizon === s.horizon && preview.monthly === ans.monthly}
+        onClick={() => setPreview({ ...ans, horizon: s.horizon })}>{s.result.years} years · {IM_RL[s.result.effRisk]}</button>)}
+    </div>
+    <div role="status" style={{ marginTop: 18 }}>
+      <p><b>{money(result.fv)}</b> illustrated future value from {money(preview.monthly)}/month over {result.years} years. {money(result.invested)} contributed; {money(result.realFv)} in today’s money.</p>
+      <p className="note">{result.fv === baseline.fv ? 'Your current illustration.' : `${money(Math.abs(result.fv - baseline.fv))} ${result.fv > baseline.fv ? 'more' : 'less'} than your original illustration.`} Applied risk: {IM_RL[result.effRisk]}; assumed return {(result.rate * 100).toFixed(1)}% a year. {result.riskNote}</p>
+      {preview.monthly > ans.income && <p className="tip tip-warn">This scenario exceeds your monthly income. It is a mathematical illustration, not an affordability recommendation.</p>}
+    </div>
+    <div className="tip tip-info">{emergency ? 'You chose an emergency fund. An investment allocation can fluctuate and is not a substitute for accessible cash.' : ans.goal === 'house' || ans.goal === 'retirement' ? 'Turn this illustration into a goal with an amount, deadline and existing savings.' : 'Before increasing a contribution, check the amount left after essentials, debt payments and your cash buffer.'}</div>
+    <Link className="btn btn-ghost btn-sm" to={emergency ? '/tools/parksmart' : ans.goal === 'house' || ans.goal === 'retirement' ? '/tools/goals' : '/tools/budget'}>{emergency ? 'Compare accessible cash' : ans.goal === 'house' || ans.goal === 'retirement' ? 'Plan this goal' : 'Check my monthly budget'}</Link>
+  </section>;
 }

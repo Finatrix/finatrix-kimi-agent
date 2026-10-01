@@ -1,3 +1,4 @@
+import { CAREERS_AVAILABLE, CAREERS_LAUNCH_YEAR } from '../shared/careersAvailability';
 import { Link } from 'react-router';
 import { AssumptionsReviewed } from '../tools/ui/AssumptionsReviewed';
 import { SUPPORT_MAILTO } from '../shared/brand';
@@ -44,7 +45,7 @@ const COLUMNS: Array<{ heading: string; links: FooterLink[] }> = [
   {
     heading: 'Careers',
     links: [
-      { to: '/careers', label: 'FinatriX Careers' },
+      { to: '/careers', label: CAREERS_AVAILABLE ? 'FinatriX Careers' : `Careers · Coming in ${CAREERS_LAUNCH_YEAR}` },
       { to: '/careers/features', label: 'Features' },
       { to: COMPANIES_ROOT, label: 'Company guides' },
       { to: '/careers/compare', label: 'Comparisons' },

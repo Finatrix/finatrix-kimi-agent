@@ -32,7 +32,9 @@ export default function Privacy() {
         <li>
           <strong>Account information</strong> — if you create an account, your email
           address and a securely hashed password (handled by our authentication provider),
-          plus an optional display name you choose.
+          plus an optional display name you choose. If you sign in with Google instead,
+          Google shares your name, email address and a link to your profile picture with us,
+          and those are stored with your account.
         </li>
         <li>
           <strong>Tool data you enter</strong> — figures you type into the tools (for
@@ -76,9 +78,59 @@ export default function Privacy() {
       <P>
         We use trusted processors to run the Service: <strong>Supabase</strong> (account
         authentication, email verification and the database that stores your saved tool
-        data) and <strong>Cloudflare</strong> (website hosting and global content delivery).
-        These providers process data on our behalf under their own security and privacy
-        terms. We do not share your data with anyone else except where required by law.
+        data), <strong>Cloudflare</strong> (website hosting and global content delivery) and,
+        only when you use FinatriX AI, <strong>OpenRouter</strong> and the AI model provider
+        it routes your request to (see below). These providers process data on our behalf
+        under their own security and privacy terms. We do not share your data with anyone
+        else except where required by law.
+      </P>
+
+      <H2 id="ai">FinatriX AI</H2>
+      <P>
+        FinatriX AI is optional and available when you are signed in. When you ask it a
+        question, your question, the recent conversation and the figures from your tools
+        that are relevant to it are sent over an encrypted connection to OpenRouter, which
+        passes them to an AI model provider to generate the answer. We send no name, email
+        address or account identifier with the request. Answers about your own figures are
+        checked against your records before they are shown.
+      </P>
+      <P>
+        Statement import uses the same service for one narrow job: when you import a bank
+        statement while signed in, the descriptions of merchants it does not recognise are
+        sent so they can be named and categorised. Amounts, dates, balances, account numbers
+        and the file itself never leave your device.
+      </P>
+      <P>
+        Nothing is sent to an AI provider until you allow it. The first time either feature
+        would send data, FinatriX asks for your permission; you can withdraw it at any time
+        in Settings &rarr; Privacy, after which it asks again before sending anything.
+      </P>
+      <P>
+        What we keep: a copy of each answer is stored with your account so that the same
+        question asked again within 15 minutes is answered without a second AI request (the
+        question itself is kept only as a one-way fingerprint for that match). Old copies are
+        cleared out automatically, and all of them are deleted with your account. For each
+        request we also record which model answered and how many tokens it used — not the
+        question or the answer — to apply daily limits. The conversation you see in the panel
+        is saved only on your device, and you can clear it in Settings.
+      </P>
+      <P>
+        Reporting an answer: every AI answer has a <b>Report</b> control. A report sends us
+        only the reason you picked (for example &ldquo;Wrong or misleading&rdquo;) — never the
+        answer or your figures — and it is sent even if you have turned product analytics
+        off, because you asked for it to be. If you choose to add details by email, your mail
+        app opens with the answer filled in so you can read and edit it before anything is
+        sent.
+      </P>
+
+      <H2 id="analytics">Product analytics</H2>
+      <P>
+        We count how the product is used — which screens are opened and which features are
+        used — with our own cookieless analytics. When something breaks we record the type
+        of error and the screen it happened on, never the error message. Events carry no
+        amounts, no text you type and no identifier that persists beyond a single visit (in
+        the app, a single launch), and we never read device fingerprints. Analytics are switched off automatically when your browser sends Do
+        Not Track or Global Privacy Control, and you can turn them off in Settings.
       </P>
 
       <H2>Cookies &amp; local storage</H2>
@@ -88,18 +140,59 @@ export default function Privacy() {
         are essential to how the Service works.
       </P>
 
+      <H2 id="apps">The Android and iOS apps</H2>
+      <P>
+        The FinatriX apps are the same Service and this policy applies to them in full.
+        They keep your tool data on your phone in the same way a browser does, and sync it
+        only when you sign in. Neither app contains advertising or third-party analytics
+        SDKs, neither tracks you across other companies&rsquo; apps or websites, and purchases
+        are not offered in either. Links to other websites open in an in-app browser, where
+        that site&rsquo;s own privacy policy applies.
+      </P>
+      <P>
+        <b>Permissions.</b> The Android app asks for no device permission beyond internet
+        access. The iOS app asks for one, and only at the moment you use it: if you choose
+        &ldquo;Take&nbsp;Photo&rdquo; to import a bank statement, it asks for the camera. That photo
+        is read by text recognition running on your phone and is never uploaded to us or to
+        anyone else. Neither app asks for location, contacts, microphone or storage; files
+        you import are chosen by you through the system file picker, which gives access to
+        the chosen file only.
+      </P>
+      <P>
+        <b>Device backup.</b> Android&rsquo;s own device backup may include the app&rsquo;s
+        on-device data in your Google account backup, and iOS may include it in your iCloud
+        or encrypted local backup. Both are your own backups, held under your Google or
+        Apple account rather than ours, and both can be turned off in your phone&rsquo;s
+        settings.
+      </P>
+
       <H2>Data retention</H2>
       <P>
         We keep your account and saved data until you ask us to delete it or delete your
-        account. Guest data remains on your device until you clear your browser storage.
+        account. Guest data remains on your device until you clear your browser storage or
+        uninstall the app.
+      </P>
+
+      <H2 id="delete-account">Deleting your account</H2>
+      <P>
+        You can delete your account yourself, on the website or in either app: sign in,
+        open <b>Profile</b>, choose <b>Delete account</b> and confirm with your email address.
+        This immediately and permanently deletes your login, your synced tool data, your
+        Careers records and any files you uploaded. Nothing is kept for later recovery.
+        Payment records held by our payment processor are retained by that processor as the
+        law requires. If you cannot sign in, email{' '}
+        <a href={SUPPORT_MAILTO} className="fx-prose-link">
+          {SUPPORT_EMAIL}
+        </a>{' '}
+        from the address on the account and we will delete it for you.
       </P>
 
       <H2>Your rights</H2>
       <P>
         Depending on where you live (including under India&rsquo;s Digital Personal Data
         Protection Act and the EU/UK GDPR), you may have the right to access, correct,
-        export or delete your personal data, and to withdraw consent. To exercise any of
-        these — including deleting your account and all associated data — email us at{' '}
+        export or delete your personal data, and to withdraw consent. You can delete your
+        account at any time as described above. To exercise any other right, email us at{' '}
         <a href={SUPPORT_MAILTO} className="fx-prose-link">
           {SUPPORT_EMAIL}
         </a>{' '}

@@ -11,6 +11,8 @@ import { ResultExplainer, type MethodRow } from '../ui/ResultExplainer';
 import type { MarketPack } from '../lib/markets';
 import { track } from '../../lib/analytics';
 import GoalComparison from '../ui/GoalComparison';
+import { GoalSmartAssist } from '../ui/GoalSmartAssist';
+import { ymdLocal } from '../../lib/date';
 
 type Fields = { name: string; target: string; years: string; existing: string; inflate: boolean };
 const BASE_DEFAULTS: Omit<Fields, 'target' | 'years'> = { name: '', existing: '0', inflate: true };
@@ -39,7 +41,7 @@ export default function GoalPlannerPage() {
   const set = (patch: Partial<Fields>) => {
     const next = { ...f, ...patch };
     setF(next);
-    setJSON('fx_goals', { [KEYS.name]: next.name, [KEYS.target]: next.target, [KEYS.years]: next.years, [KEYS.existing]: next.existing, [KEYS.inflate]: next.inflate });
+    setJSON('fx_goals', { ...getJSON('fx_goals', {}), [KEYS.name]: next.name, [KEYS.target]: next.target, [KEYS.years]: next.years, [KEYS.existing]: next.existing, [KEYS.inflate]: next.inflate });
   };
 
   const submit = () => {
@@ -48,7 +50,7 @@ export default function GoalPlannerPage() {
       notify(`Please enter a target of at least ${cfmt(goals.minTarget)}.`, 'error');
       return;
     }
-    if (!Number.isFinite(Number(f.target)) || Number(f.target) > 1e12 || Number(f.existing) < 0 || !Number.isFinite(Number(f.existing)) || Number(f.existing) > 1e12 || !Number.isInteger(Number(f.years)) || Number(f.years) < 1 || Number(f.years) > 40) {
+    if (!f.existing.trim() || !Number.isFinite(Number(f.target)) || Number(f.target) > 1e12 || Number(f.existing) < 0 || !Number.isFinite(Number(f.existing)) || Number(f.existing) > 1e12 || !Number.isInteger(Number(f.years)) || Number(f.years) < 1 || Number(f.years) > 40) {
       notify('Use a whole-year deadline from 1 to 40 and non-negative amounts no greater than 1 trillion.', 'error');
       return;
     }
@@ -56,6 +58,8 @@ export default function GoalPlannerPage() {
       name: f.name, targetToday: Number(f.target) || 0, years: Number(f.years) || 0,
       existing: Number(f.existing) || 0, inflate: f.inflate,
     }, goals.inflation, goals.paths));
+    // Anchor the calendar to a real plan date, not a deadline that moves every day.
+    setJSON('fx_goals', { ...getJSON('fx_goals', {}), [KEYS.name]: f.name, [KEYS.target]: f.target, [KEYS.years]: f.years, [KEYS.existing]: f.existing, [KEYS.inflate]: f.inflate, 'gp-planned-on': ymdLocal(new Date()) });
     // The plan is on screen — this visit reached the tool's actual output.
     track('tool_completed', { tool: 'goals', bucket: market.id });
   };
@@ -107,9 +111,14 @@ export default function GoalPlannerPage() {
             Adjust target for {Math.round(goals.inflation * 100)}% inflation — otherwise the figure is in today&rsquo;s money, not the money you will need
           </label>
           <button className="btn" onClick={submit}>Show me the path</button>
+          <p className="note">This starts a plan from today. Calendar will place its target date the selected number of years from today; generating a new plan resets that starting date.</p>
         </div>
       ) : (
-        <GoalResultView result={result} market={market} money={cfmt} onReset={() => setResult(null)} />
+        <GoalResultView result={result} market={market} money={cfmt} onReset={() => setResult(null)} onUseYears={(years) => {
+          set({ years: String(years) });
+          setResult(computeGoalPlanner({ ...result, years }, goals.inflation, goals.paths));
+          notify(`Updated your goal to ${years} years. All return assumptions are unchanged.`, 'ok');
+        }} />
       )}
 
       <MarketNote market={market} />
@@ -118,8 +127,8 @@ export default function GoalPlannerPage() {
   );
 }
 
-function GoalResultView({ result, market, money, onReset }: {
-  result: GoalResult; market: MarketPack; money: (n: number) => string; onReset: () => void;
+function GoalResultView({ result, market, money, onReset, onUseYears }: {
+  result: GoalResult; market: MarketPack; money: (n: number) => string; onReset: () => void; onUseYears: (years: number) => void;
 }) {
   const { name, target, targetToday, years, existing, inflate, results } = result;
 
@@ -157,7 +166,8 @@ function GoalResultView({ result, market, money, onReset }: {
 
       {results.map((p) => <PathCard key={p.n} p={p} money={money} monthlyTerm={market.invest.monthlyTerm} />)}
 
-      <GoalComparison baseline={result} market={market} money={money} />
+      <GoalSmartAssist result={result} market={market} money={money} onUseYears={onUseYears} />
+      <GoalComparison key={`${result.targetToday}-${result.years}-${result.existing}`} baseline={result} market={market} money={money} />
       <div className="card" style={{ background: 'var(--gold-bg)' }}>
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Before you choose a contribution</div>
         <div className="note">

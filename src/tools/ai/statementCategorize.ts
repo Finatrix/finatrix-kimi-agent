@@ -74,6 +74,8 @@ export interface CategorizeFailure {
   ok: false;
   message: string;
   retryable: boolean;
+  /** Nothing was sent: the user has not yet allowed third-party AI (see lib/ai/consent). */
+  needsConsent?: true;
 }
 
 export type CategorizeResult = CategorizeSuccess | CategorizeFailure;
@@ -171,7 +173,13 @@ export async function categorizeDescriptions(
     maxTokens: MAX_OUTPUT_TOKENS,
   });
 
-  if (!result.ok) return { ok: false, ...describeFailure(result.kind, result.message) };
+  if (!result.ok) {
+    return {
+      ok: false,
+      ...describeFailure(result.kind, result.message),
+      ...(result.kind === 'no-consent' ? { needsConsent: true as const } : {}),
+    };
+  }
 
   const validKeys = new Set(categories.map((c) => c.key));
   const suggestions = parseSuggestions(result.content, descriptions, validKeys);
@@ -235,6 +243,8 @@ function describeFailure(kind: string, detail: string): { message: string; retry
     case 'no-session':
     case 'auth':
       return { message: 'Sign in to have the assistant categorise these transactions. You can still categorise them yourself and import now.', retryable: false };
+    case 'no-consent':
+      return { message: 'Nothing was sent. You can categorise these yourself and import now.', retryable: false };
     case 'limit':
       return { message: "You have used today's AI allowance. Your transactions are still here — set the categories you want and import as usual.", retryable: false };
     case 'network':

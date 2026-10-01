@@ -10,7 +10,7 @@ describe('LandingHero — product positioning', () => {
     render(<MemoryRouter><LandingHero /></MemoryRouter>);
     // The market count leads: it is the claim that distinguishes the product,
     // and it is now backed by real per-market instruments and benchmarks.
-    expect(screen.getByText('India, US, UK and UAE market settings.')).toBeInTheDocument();
+    expect(screen.getByText('Seven market settings, including Australia, Singapore and Mainland China.')).toBeInTheDocument();
     expect(screen.getByText('Local guest records, optional account sync.')).toBeInTheDocument();
     expect(screen.getByText(/Careers is a separate paid workspace/)).toBeInTheDocument();
   });

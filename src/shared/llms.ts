@@ -1,3 +1,4 @@
+import { CAREERS_AVAILABLE, CAREERS_LAUNCH_YEAR } from './careersAvailability';
 /**
  * `/llms.txt` — a plain-text map of the site for AI answer engines.
  *
@@ -26,7 +27,7 @@ export function buildLlmsTxt(): string {
   const lines: string[] = [
     '# FinatriX',
     '',
-    '> Free, education-first personal-finance tools for India, the US, the UK and the UAE — budgeting, expense tracking, goal planning, investing, net worth and a lifelong simulation — with guides that print every formula they use. FinatriX Careers is a separate, paid workspace for job search and interview preparation.',
+    `> Free, education-first personal-finance tools for India, the US, the UK, the UAE, Australia, Singapore and Mainland China — budgeting, expense tracking, goal planning, investing, net worth and a lifelong simulation — with guides that print every formula they use. ${CAREERS_AVAILABLE ? 'FinatriX Careers is a separate, paid workspace for job search and interview preparation.' : `FinatriX Careers is coming in ${CAREERS_LAUNCH_YEAR}; access and plan purchases are currently closed.`}`,
     '',
     'Things worth knowing before citing FinatriX:',
     '',

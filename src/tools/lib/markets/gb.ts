@@ -19,6 +19,16 @@
  * across all holders, and the median holder with a small holding wins less than
  * it — the note on the option says so.
  *
+ * THE FSCS LIMIT IS NOT IN THIS FILE
+ * -----------------------------------
+ * It used to be, four times over, written into instrument descriptions as
+ * "FSCS protected to £85,000". That figure rose to £120,000 on 1 December 2025
+ * and every one of those sentences went on saying £85,000, because prose cannot
+ * carry an effective date and nothing in the product could tell that it had
+ * lapsed. The number now lives once, dated and cited, in
+ * `src/reference/deposits.ts`, and this file refers to it without restating it.
+ * See conflict C-01 in `src/reference/gates.ts`.
+ *
  * Peer benchmarks are anchored on ONS Annual Survey of Hours and Earnings
  * (median gross pay by age) and ONS Household Wealth statistics, interpolated
  * onto this tool's age bands.
@@ -64,14 +74,14 @@ export const GB_MARKET: MarketPack = {
       taxFree: { exempt: true },
     },
     options: [
-      { n: 'Cash ISA (easy access)', rate: 4.2, tax: 'taxFree', liquid: true, risk: 'None', ic: 'shield', d: 'Tax-free for life, and it never touches your Personal Savings Allowance. £20,000 a year across all ISAs. FSCS protected to £85,000.', minM: 0 },
-      { n: 'Easy-access savings', rate: 4.1, tax: 'savings', liquid: true, risk: 'None', ic: 'bank', d: 'Instant access, FSCS protected to £85,000. Interest counts against your Personal Savings Allowance, so the effective rate depends on your tax band.', minM: 0 },
+      { n: 'Cash ISA (easy access)', rate: 4.2, tax: 'taxFree', liquid: true, risk: 'None', ic: 'shield', d: 'Tax-free for life, and it never touches your Personal Savings Allowance. £20,000 a year across all ISAs. Covered by the FSCS deposit limit.', minM: 0 },
+      { n: 'Easy-access savings', rate: 4.1, tax: 'savings', liquid: true, risk: 'None', ic: 'bank', d: 'Instant access, covered by the FSCS deposit limit. Interest counts against your Personal Savings Allowance, so the effective rate depends on your tax band.', minM: 0 },
       { n: 'Money market fund', rate: 4.45, tax: 'savings', liquid: true, risk: 'Very low', ic: 'invest-cat', d: 'Short-dated government and bank paper, settling in a day or two. Not FSCS protected as a deposit — it is an investment, not a bank account.', minM: 0 },
       { n: '90-day notice account', rate: 4.35, tax: 'savings', liquid: false, risk: 'None', ic: 'clock', d: 'Higher rate in exchange for three months of notice before you can withdraw. FSCS protected.', minM: 3 },
       { n: '1-year fixed-rate bond', rate: 4.3, tax: 'savings', liquid: false, risk: 'None', ic: 'lock', d: 'Rate locked for twelve months, FSCS protected. Most providers do not permit early withdrawal at all — not merely at a penalty.', minM: 12 },
       { n: 'Short gilt fund', rate: 4.25, tax: 'savings', liquid: true, risk: 'Low', ic: 'bills', d: 'UK government bonds under five years. No credit risk, small price moves when rates shift. Gilts are exempt from capital gains tax.', minM: 3 },
       { n: 'Premium Bonds', rate: 3.6, tax: 'taxFree', liquid: true, risk: 'None', ic: 'award', d: 'NS&I, backed by HM Treasury, prizes free of tax. The rate shown is the published annual prize fund rate — an average. With a small holding the most likely outcome is winning less than it.', minM: 0 },
-      { n: 'NS&I Direct Saver', rate: 3.75, tax: 'savings', liquid: true, risk: 'None', ic: 'layers', d: '100% Treasury backed with no FSCS limit, which matters above £85,000. Rarely a best buy on rate alone.', minM: 0 },
+      { n: 'NS&I Direct Saver', rate: 3.75, tax: 'savings', liquid: true, risk: 'None', ic: 'layers', d: '100% Treasury backed with no FSCS cap at all, which matters once a balance passes the deposit limit. Rarely a best buy on rate alone.', minM: 0 },
     ],
     rateLabel: 'Income tax band',
     rateOptions: [
@@ -83,7 +93,7 @@ export const GB_MARKET: MarketPack = {
     defaultRate: 20,
     quickAmounts: [1000, 5000, 20000, 50000, 100000],
     taxNote: 'Returns are shown after income tax, with your Personal Savings Allowance applied — £1,000 at the basic rate, £500 at the higher rate, nothing at the additional rate.',
-    keepInMind: 'Rates shown are indicative averages and the best-buy tables move weekly — a legacy high-street account is often 3% behind the market. Use the ISA allowance before a taxable account: it never touches your Personal Savings Allowance and never has to be declared. FSCS protection is £85,000 per banking licence, not per account, so two accounts at brands sharing a licence are covered once. And whatever you choose, keep 3–6 months of expenses in something instant-access.',
+    keepInMind: 'Rates shown are indicative averages and the best-buy tables move weekly — a legacy high-street account is often 3% behind the market. Use the ISA allowance before a taxable account: it never touches your Personal Savings Allowance and never has to be declared. FSCS protection applies per authorised firm, not per account, so two accounts at brands sharing a licence are covered once — the current limit and its conditions are shown below. And whatever you choose, keep 3–6 months of expenses in something instant-access.',
   },
 
   invest: {

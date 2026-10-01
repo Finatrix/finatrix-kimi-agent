@@ -42,8 +42,8 @@ describe('Landing hero', () => {
     expect(screen.getByText(/Careers is a separate paid workspace/)).toBeInTheDocument();
   });
 
-  it('names the four markets in the lede the market examples deliver on', () => {
+  it('names the seven markets in the lede the market examples deliver on', () => {
     render(wrap(<LandingHero />));
-    expect(screen.getByText(/India, the US, the UK and the UAE/)).toBeInTheDocument();
+    expect(screen.getByText(/India, the US, the UK, the UAE, Australia, Singapore and Mainland China/)).toBeInTheDocument();
   });
 });

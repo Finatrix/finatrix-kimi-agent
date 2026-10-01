@@ -4,14 +4,14 @@
  * truth for "what is my data", and reuses the exporters' download helper. A JSON
  * backup is shaped so a future cloud-sync/import can consume it unchanged.
  */
-import { SYNC_KEYS } from '../cloudSync';
+import { ACCOUNT_LOCAL_KEYS, SYNC_KEYS } from '../cloudSync';
 import { ymdLocal } from '../../lib/date';
 import { downloadBlob } from './exporters';
 import { clearNotificationState } from './notifications';
 import { store } from './storage';
 
 /** Non-synced local keys that still belong to the user and should be reset. */
-const LOCAL_ONLY_KEYS = ['fx_activity', 'fx_last_tool', 'fx_notif_read', 'fx_notif_dismissed', 'fx_notif_seen_at', 'fx_dash_layout', 'fx_exp_catsort', 'fx_onboarding_done'];
+const LOCAL_ONLY_KEYS = ['fx_last_backup_export', 'fx_activity', 'fx_last_tool', 'fx_notif_read', 'fx_notif_dismissed', 'fx_notif_seen_at', 'fx_dash_layout', 'fx_exp_catsort', 'fx_onboarding_done'];
 
 /** Human labels for the tool data keys (for the storage summary). */
 const KEY_LABEL: Record<string, string> = {
@@ -51,7 +51,7 @@ export function hasAnyData(): boolean {
 }
 
 /** Download a portable JSON backup of every FinatriX key the user owns. */
-export function exportBackup(now = new Date()): boolean {
+export function exportBackup(now = new Date()): boolean | Promise<boolean> {
   const payload: Record<string, unknown> = {};
   for (const k of SYNC_KEYS) {
     const raw = readRaw(k);
@@ -68,8 +68,7 @@ export function exportBackup(now = new Date()): boolean {
   };
   // Local, not UTC: the filename should name the day the user pressed Export.
   const stamp = ymdLocal(now);
-  downloadBlob(`finatrix-backup-${stamp}.json`, new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' }));
-  return true;
+  return downloadBlob(`finatrix-backup-${stamp}.json`, new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' }));
 }
 
 /** Permanently clear all of the user's local data. Returns keys cleared. */
@@ -78,7 +77,7 @@ export function resetAllData(): number {
   // nothing is written back afterwards (leaves storage genuinely empty).
   clearNotificationState();
   let n = 0;
-  for (const k of [...SYNC_KEYS, ...LOCAL_ONLY_KEYS]) {
+  for (const k of [...SYNC_KEYS, ...ACCOUNT_LOCAL_KEYS, ...LOCAL_ONLY_KEYS]) {
     try {
       if (store.raw(k) != null) { store.remove(k); n += 1; }
     } catch { /* ignore */ }

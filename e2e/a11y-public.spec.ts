@@ -1,3 +1,4 @@
+import { CAREERS_AVAILABLE } from '../src/shared/careersAvailability';
 import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { CONTENT_PATHS } from '../src/shared/content';
@@ -115,6 +116,16 @@ for (const theme of ['light', 'dark'] as const) {
 test('the pricing CTAs are keyboard reachable and distinctly named', async ({ page }) => {
   await page.goto('/pricing', { waitUntil: 'networkidle' });
 
+  if (!CAREERS_AVAILABLE) {
+    await expect(page.getByRole('link', { name: /^Get / })).toHaveCount(0);
+    const launch = page.getByRole('link', { name: 'About the launch' });
+    await launch.focus();
+    await expect(launch).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('coming in 2027');
+    return;
+  }
+
   const ctas = page.getByRole('link', { name: /^Get / });
   const count = await ctas.count();
   expect(count, 'pricing must offer at least one self-serve plan CTA').toBeGreaterThan(0);
@@ -139,6 +150,11 @@ test('the billing period toggle is operable by keyboard', async ({ page }) => {
   await page.goto('/pricing', { waitUntil: 'networkidle' });
 
   const group = page.getByRole('radiogroup', { name: /billing period/i });
+  if (!CAREERS_AVAILABLE) {
+    await expect(group).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: /coming in 2027/ })).toBeVisible();
+    return;
+  }
   await expect(group).toBeVisible();
 
   const monthly = group.getByRole('radio', { name: 'Monthly' });

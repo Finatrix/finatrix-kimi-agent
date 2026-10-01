@@ -16,7 +16,7 @@ export default function LandingHero() {
     <div className="fx-home-intro">
       <p className="fx-home-kicker">Personal finance, with the workings shown</p>
       <h1>See where your money goes.<br /><span>Decide what comes next.</span></h1>
-      <p className="fx-home-lede">Budget, track, plan and understand your money with transparent tools built for India, the US, the UK and the UAE. Review the month, spot repeat payments and compare plans before you commit.</p>
+      <p className="fx-home-lede">Budget, track, plan and understand your money with transparent tools built for India, the US, the UK, the UAE, Australia, Singapore and Mainland China. Review the month, spot repeat payments and compare plans before you commit.</p>
       <div className="fx-home-actions">
         <Link to="/tools/dashboard" className="fx-btn-gold">Open your dashboard <span aria-hidden="true">→</span></Link>
         <Link to="/tools" className="fx-home-text-link">Explore the tools</Link>
@@ -45,7 +45,7 @@ export default function LandingHero() {
     </div>
     <div className="fx-home-foundations">
       <div><strong>Start with the everyday</strong><p>Income, bills and a plan for the month.</p></div>
-      <div><strong>Understand the assumptions</strong><p>India, US, UK and UAE market settings.</p></div>
+      <div><strong>Understand the assumptions</strong><p>Seven market settings, including Australia, Singapore and Mainland China.</p></div>
       <div><strong>Keep control of your data</strong><p>Local guest records, optional account sync.</p></div>
     </div>
   </section>;

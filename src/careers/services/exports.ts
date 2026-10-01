@@ -1,3 +1,4 @@
+import { downloadBlob, downloadPdf } from '../../lib/download';
 /**
  * Exports for the Careers module. Tabular data (applications, companies,
  * recruiter contacts, timelines, analytics) exports to CSV / JSON / Excel /
@@ -107,13 +108,8 @@ export function analyticsTable(stats: ApplicationStats): ExportTable {
 
 // ─────────────────────────── format writers ───────────────────────────
 
-function download(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+function download(blob: Blob, filename: string): boolean | Promise<boolean> {
+  return downloadBlob(filename, blob);
 }
 
 function safeName(title: string): string {
@@ -124,33 +120,33 @@ export function csvOf(table: ExportTable): string {
   return toCsv([table.columns, ...table.rows]);
 }
 
-export function exportCsv(table: ExportTable): void {
+export function exportCsv(table: ExportTable): boolean | Promise<boolean> {
   // UTF-8 BOM so Excel opens the UTF-8 CSV with correct encoding.
-  download(csvBlob([table.columns, ...table.rows]), `${safeName(table.title)}.csv`);
+  return download(csvBlob([table.columns, ...table.rows]), `${safeName(table.title)}.csv`);
 }
 
-export function exportJson(table: ExportTable): void {
+export function exportJson(table: ExportTable): boolean | Promise<boolean> {
   const objects = table.rows.map((row) =>
     Object.fromEntries(table.columns.map((col, i) => [col, row[i]]))
   );
-  download(
+  return download(
     new Blob([JSON.stringify({ title: table.title, exportedAt: new Date().toISOString(), rows: objects }, null, 2)],
       { type: 'application/json' }),
     `${safeName(table.title)}.json`
   );
 }
 
-export async function exportExcel(table: ExportTable): Promise<void> {
+export async function exportExcel(table: ExportTable): Promise<boolean> {
   const XLSX = await import('xlsx');
   const ws = XLSX.utils.aoa_to_sheet([table.columns, ...table.rows.map((r) => r.map((v) => v ?? ''))]);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, table.title.slice(0, 31));
   const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
-  download(new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+  return download(new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
     `${safeName(table.title)}.xlsx`);
 }
 
-export async function exportTablePdf(table: ExportTable): Promise<void> {
+export async function exportTablePdf(table: ExportTable): Promise<boolean> {
   const { jsPDF } = await import('jspdf');
   const autoTable = (await import('jspdf-autotable')).default;
   const doc = new jsPDF({ orientation: table.columns.length > 6 ? 'landscape' : 'portrait' });
@@ -165,7 +161,7 @@ export async function exportTablePdf(table: ExportTable): Promise<void> {
     styles: { fontSize: 8, cellPadding: 1.5 },
     headStyles: { fillColor: [212, 175, 55], textColor: [26, 20, 0] },
   });
-  doc.save(`${safeName(table.title)}.pdf`);
+  return downloadPdf(`${safeName(table.title)}.pdf`, doc);
 }
 
 // ─────────────────────────── cover letters ───────────────────────────
@@ -174,19 +170,19 @@ export function coverLetterMarkdown(letter: CoverLetterRow): string {
   return `# ${letter.name}\n\n*${letter.job_title} — ${letter.company}*\n\n${letter.content_text}`;
 }
 
-export function exportLetterTxt(letter: CoverLetterRow): void {
-  download(new Blob([letter.content_text], { type: 'text/plain;charset=utf-8' }), `${safeName(letter.name)}.txt`);
+export function exportLetterTxt(letter: CoverLetterRow): boolean | Promise<boolean> {
+  return download(new Blob([letter.content_text], { type: 'text/plain;charset=utf-8' }), `${safeName(letter.name)}.txt`);
 }
 
-export function exportLetterMarkdown(letter: CoverLetterRow): void {
-  download(new Blob([coverLetterMarkdown(letter)], { type: 'text/markdown;charset=utf-8' }), `${safeName(letter.name)}.md`);
+export function exportLetterMarkdown(letter: CoverLetterRow): boolean | Promise<boolean> {
+  return download(new Blob([coverLetterMarkdown(letter)], { type: 'text/markdown;charset=utf-8' }), `${safeName(letter.name)}.md`);
 }
 
 export async function copyLetterToClipboard(letter: CoverLetterRow): Promise<void> {
   await navigator.clipboard.writeText(letter.content_text);
 }
 
-export async function exportLetterPdf(letter: CoverLetterRow): Promise<void> {
+export async function exportLetterPdf(letter: CoverLetterRow): Promise<boolean> {
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF();
   const margin = 20;
@@ -202,10 +198,10 @@ export async function exportLetterPdf(letter: CoverLetterRow): Promise<void> {
     doc.text(line, margin, y);
     y += 6;
   }
-  doc.save(`${safeName(letter.name)}.pdf`);
+  return downloadPdf(`${safeName(letter.name)}.pdf`, doc);
 }
 
-export async function exportLetterDocx(letter: CoverLetterRow): Promise<void> {
+export async function exportLetterDocx(letter: CoverLetterRow): Promise<boolean> {
   const { Document, Packer, Paragraph, TextRun } = await import('docx');
   const paragraphs = letter.content_text.split(/\n\n+/).map(
     (para) =>
@@ -218,7 +214,7 @@ export async function exportLetterDocx(letter: CoverLetterRow): Promise<void> {
   );
   const doc = new Document({ sections: [{ children: paragraphs }] });
   const blob = await Packer.toBlob(doc);
-  download(blob, `${safeName(letter.name)}.docx`);
+  return download(blob, `${safeName(letter.name)}.docx`);
 }
 
 /** mailto: link with the letter pre-filled ("email ready"). */

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Capabilities FinatriX asks Apple for. One entry here without the matching
+  capability on the App ID in the Developer portal is a code-signing failure, so
+  docs/IOS.md lists them side by side.
+
+  `applinks:` is Universal Links — a finatrix.co link to one of the product's own
+  screens (an email confirmation, a password reset, a shared guide) opens in the
+  app instead of Safari. BOTH hosts are listed because iOS verifies each one
+  separately against its own /.well-known/apple-app-site-association and does not
+  follow redirects; www would silently fail to verify if it were left out. The
+  Android twin of this is the autoVerify intent filter in AndroidManifest.xml.
+
+  `webcredentials:` lets iOS offer the finatrix.co password already saved in the
+  user's keychain when they sign in inside the app — less typing, and one less
+  reason to pick a password weak enough to remember.
+
+  NOT here, deliberately:
+    com.apple.developer.applesignin  Sign in with Apple runs through Supabase's
+                                     OAuth flow in an SFSafariViewController, the
+                                     same return leg Google uses, so it needs a
+                                     Services ID in the Developer portal rather
+                                     than this entitlement. See docs/IOS.md §
+                                     "Sign in with Apple".
+    aps-environment                  No push notifications.
+    com.apple.developer.icloud-*     No iCloud. Sync is Supabase's, so it works
+                                     on Android and the web too.
+-->
+<plist version="1.0">
+<dict>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:finatrix.co</string>
+		<string>applinks:www.finatrix.co</string>
+		<string>webcredentials:finatrix.co</string>
+		<string>webcredentials:www.finatrix.co</string>
+	</array>
+</dict>
+</plist>

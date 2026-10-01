@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import AuthShell, { Field, PrimaryButton, Notice } from '../components/AuthShell';
+import DeleteAccount from '../components/DeleteAccount';
 
 export default function Profile() {
   const { user, loading, signOut, configured } = useAuth();
@@ -106,6 +107,8 @@ export default function Profile() {
       >
         Sign out
       </button>
+
+      {user.email && <DeleteAccount email={user.email} />}
     </AuthShell>
   );
 }

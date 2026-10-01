@@ -1,3 +1,4 @@
+import { CAREERS_AVAILABLE, CAREERS_LAUNCH_YEAR } from '../shared/careersAvailability';
 /**
  * The page, in the bytes a crawler receives.
  *
@@ -99,10 +100,10 @@ function landing(): string {
   const pillars = TOPICS.filter((t) => t.pillar)
     .map((t) => `<li>${link(topicPath(t), t.name)} — ${esc(t.description)}</li>`).join('');
   return `<h1>See where your money goes. Decide what comes next.</h1>
-<p>Budget, track, plan and understand your money with transparent tools built for India, the US, the UK and the UAE. Review the month, spot repeat payments and compare plans before you commit. Free money tools — no account needed to start.</p>
+<p>Budget, track, plan and understand your money with transparent tools built for India, the US, the UK, the UAE, Australia, Singapore and Mainland China. Review the month, spot repeat payments and compare plans before you commit. Free money tools — no account needed to start.</p>
 <section><h2>Free money tools</h2><ul>${tools}</ul></section>
 <section><h2>Guides, with every formula shown</h2><ul>${pillars}</ul><p>${link(LEARN_ROOT, 'Browse every guide')}</p></section>
-<section><h2>FinatriX Careers</h2><p>A separate, paid workspace for job search, résumés and interview preparation. ${link('/careers', 'See FinatriX Careers')}.</p></section>`;
+<section><h2>FinatriX Careers</h2><p>${CAREERS_AVAILABLE ? 'A separate, paid workspace for job search, résumés and interview preparation.' : `Coming in ${CAREERS_LAUNCH_YEAR}. Careers access and plan purchases are currently closed.`} ${link('/careers', 'See FinatriX Careers')}.</p></section>`;
 }
 
 function tool(id: ToolId): string {

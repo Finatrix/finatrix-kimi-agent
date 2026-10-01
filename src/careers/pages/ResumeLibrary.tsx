@@ -7,6 +7,8 @@
 
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
+import { downloadBlob } from '../../lib/download';
+import { isNativeApp } from '../../native/platform';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
 import { Icon } from '../../tools/ui/Icon';
@@ -167,17 +169,25 @@ export default function ResumeLibrary() {
   const onDownloadOriginal = async (v: ResumeVersionRow) => {
     try {
       const url = await getResumeFileUrl(v.file_path);
+      if (isNativeApp()) {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('The resume file could not be downloaded.');
+        await downloadBlob(v.file_name, await response.blob());
+        return;
+      }
       const a = document.createElement('a');
       a.href = url;
       a.download = v.file_name;
       a.rel = 'noopener';
+      document.body.appendChild(a);
       a.click();
+      a.remove();
     } catch (e) {
       notify(toCareersError(e).message, 'error');
     }
   };
 
-  const onDownloadJson = (r: ResumeWithVersions, v: ResumeVersionRow) => {
+  const onDownloadJson = async (r: ResumeWithVersions, v: ResumeVersionRow) => {
     const payload = {
       resume: r.name,
       version: v.version_number,
@@ -191,12 +201,11 @@ export default function ResumeLibrary() {
       parsed: v.parsed,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${r.name.replace(/[^\w-]+/g, '_')}_v${v.version_number}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      await downloadBlob(`${r.name.replace(/[^\w-]+/g, '_')}_v${v.version_number}.json`, blob);
+    } catch (error) {
+      notify(toCareersError(error).message, 'error');
+    }
   };
 
   const onRetry = async (v: ResumeVersionRow) => {

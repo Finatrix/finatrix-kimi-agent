@@ -167,8 +167,11 @@ export default function CompaniesPage() {
           <button className="btn btn-ghost btn-sm" onClick={() => setCompareOpen(true)}>Compare ({compareIds.length})</button>
         )}
         <span style={{ flex: 1 }} />
-        <button className="btn btn-ghost btn-sm" onClick={() => exportCsv(companiesTable(visible))}>CSV</button>
-        <button className="btn btn-ghost btn-sm" onClick={() => void exportExcel(contactsTable(contacts)).then(() => notify('Contacts exported.', 'ok'), (e) => notify(toCareersError(e).message, 'error'))}>
+        <button className="btn btn-ghost btn-sm" onClick={async () => {
+          try { await exportCsv(companiesTable(visible)); }
+          catch (error) { notify(toCareersError(error).message, 'error'); }
+        }}>CSV</button>
+        <button className="btn btn-ghost btn-sm" onClick={() => void exportExcel(contactsTable(contacts)).then((saved) => { if (saved) notify('Contacts exported.', 'ok'); }, (e) => notify(toCareersError(e).message, 'error'))}>
           Contacts Excel
         </button>
       </div>

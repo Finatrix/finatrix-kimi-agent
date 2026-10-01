@@ -90,10 +90,14 @@ function payload(over: Partial<ExpenseExport> = {}): ExpenseExport {
  * so these assert the document is BUILT rather than delivered. That is the part
  * this change touched and the part that can throw: the cover, the comparison
  * section and their arithmetic all run before save is reached.
+ *
+ * It resolves to the save outcome (`downloadPdf`): `true` once a browser save is
+ * handed off, `false` only when the native save sheet is cancelled — callers
+ * test `!== false`, so `true` is the contract here, not merely "did not throw".
  */
 describe('expense PDF report', () => {
   it('produces a document for a full month', async () => {
-    await expect(exportExpensePdf(payload())).resolves.toBeUndefined();
+    await expect(exportExpensePdf(payload())).resolves.toBe(true);
     expect(saved).toEqual(['finatrix-expenses-august-2026.pdf']);
   });
 
@@ -104,7 +108,7 @@ describe('expense PDF report', () => {
         totalSpent: 14800,
         byCategory: { Rent: 9000, Groceries: 3100, Travel: 2700 },
       },
-    }))).resolves.toBeUndefined();
+    }))).resolves.toBe(true);
   });
 
   /**
@@ -117,7 +121,7 @@ describe('expense PDF report', () => {
       monthlySavings: 0, netCashFlow: null, budgetUsedPct: 0,
       categoryBudgets: [], breakdown: [], transactions: [],
       previous: { label: 'July 2026', totalSpent: 0, byCategory: {} },
-    }))).resolves.toBeUndefined();
+    }))).resolves.toBe(true);
   });
 
   it('handles a category that exists in only one of the two months', async () => {
@@ -128,14 +132,14 @@ describe('expense PDF report', () => {
         // Travel is absent this month; Eating Out is absent last month.
         byCategory: { Rent: 9000, Travel: 2700 },
       },
-    }))).resolves.toBeUndefined();
+    }))).resolves.toBe(true);
   });
 
   it('handles a refund (negative amount) without breaking the layout', async () => {
     await expect(exportExpensePdf(payload({
       breakdown: [{ label: 'Shopping', amount: -1200, pct: -10, spending: true }],
       transactions: [{ date: '2026-08-11', category: 'Shopping', amount: -1200, note: 'returned' }],
-    }))).resolves.toBeUndefined();
+    }))).resolves.toBe(true);
   });
 });
 

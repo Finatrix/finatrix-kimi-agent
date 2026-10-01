@@ -191,7 +191,7 @@ html:has(.fx-tools) { --scroll-offset: 60px; }
 @media(min-width:768px){ html:has(.fx-tools) { --scroll-offset: 109px; } }
 
 /* ============ TOOL NAV (in-page tab bar) ============ */
-.fx-tools .nav-wrap { position: sticky; top: 0; z-index: var(--z-toolnav); background: var(--nav-solid); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-bottom: 1px solid var(--hair); }
+.fx-tools .nav-wrap { position: sticky; top: var(--fx-safe-top); z-index: var(--z-toolnav); background: var(--nav-solid); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-bottom: 1px solid var(--hair); }
 /* The tool bar's layout. The PILLS themselves are styled once, globally, in
    src/index.css — the landing page renders the identical component outside
    `.fx-tools`, where none of this file's colour tokens resolve, so a second
@@ -230,9 +230,12 @@ body.fx-drawer-open .fx-ai-dock { display: none; }
 /* ---- Mobile bottom navigation (<768px) ---- */
 .fx-tools { --fx-bottomnav-h: 0px; }
 @media(max-width:767px){ .fx-tools { --fx-bottomnav-h: 60px; } }
-.fx-mobnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-mobilenav); display: grid; grid-template-columns: repeat(5, 1fr); align-items: stretch; gap: 2px; padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); background: var(--nav-solid); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-top: 1px solid var(--hair); }
+.fx-mobnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-mobilenav); display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: stretch; gap: 2px; padding: 6px 6px calc(6px + var(--fx-safe-bottom)); background: var(--nav-solid); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-top: 1px solid var(--hair); }
 .fx-mobnav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 48px; padding: 6px 2px; border: none; background: none; border-radius: 12px; font-family: inherit; font-size: 10.5px; font-weight: 600; letter-spacing: -.01em; color: color-mix(in srgb, var(--ink) 62%, transparent); text-decoration: none; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: color .2s var(--ease-out), background .2s var(--ease-out); }
 .fx-mobnav-item svg { opacity: .9; }
+/* Equal columns (minmax(0,1fr) above) even when a label is wider than its
+   fifth — large system text in the Android app — with an ellipsis, not overlap. */
+.fx-mobnav-item > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fx-mobnav-item:active { background: var(--fill-06); }
 .fx-mobnav-item.on { color: var(--accent-text); }
 .fx-mobnav-item.on svg { opacity: 1; }
@@ -285,6 +288,119 @@ body.fx-drawer-open .fx-ai-dock { display: none; }
   .fx-tools .fx-method-rows dd { text-align: left; }
 }
 
+/* Known / Assumed / Published tags on the methodology drawer's subsections.
+   Sibling of the h3 rather than a child, so the heading's accessible name stays
+   the heading; the negative top margin pulls it up beside the h3's own bottom
+   margin instead of introducing a row of its own. */
+.fx-tools .fx-tier { display: inline-block; margin: -4px 0 8px; padding: 2px 8px; border-radius: 980px;
+  font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  background: var(--hair2); color: var(--ink3); }
+.fx-tools .fx-tier[data-tier="KNOWN"] { background: color-mix(in srgb, var(--green) 13%, transparent); color: var(--green); }
+.fx-tools .fx-tier[data-tier="ASSUMED"] { background: var(--gold-bg); color: var(--accent-text); }
+.fx-tools .fx-tier[data-tier="REFERENCE"] { background: color-mix(in srgb, var(--blue) 13%, transparent); color: var(--blue); }
+.fx-tools .fx-tier-legend b { color: var(--ink2); font-weight: 650; }
+
+/* ---- The reference data page (pages/ReferencePage.tsx) ----
+   A reading surface rather than a working one: wider measure, generous spacing
+   between sections, and tables that scroll inside themselves rather than
+   pushing the page sideways on a phone. */
+.fx-tools .fx-refpage-picker { display: flex; flex-direction: column; gap: 8px; }
+.fx-tools .fx-refpage-label { font-size: 12px; font-weight: 600; color: var(--ink2); }
+.fx-tools .fx-refpage-picker-note { margin: 2px 0 0; }
+.fx-tools .fx-refpage-market { font-size: 20px; font-weight: 700; letter-spacing: -.015em; color: var(--ink); margin: 26px 0 10px; }
+.fx-tools .fx-refpage-status { padding: 12px 14px; border: 1px solid var(--hair2); border-radius: 12px; margin-bottom: 8px; }
+.fx-tools .fx-refpage-status[data-available="false"] { border-color: color-mix(in srgb, var(--orange) 30%, transparent); background: color-mix(in srgb, var(--orange) 6%, transparent); }
+.fx-tools .fx-refpage-status-tag { display: inline-block; margin-bottom: 6px; padding: 2px 8px; border-radius: 980px;
+  font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  background: color-mix(in srgb, var(--green) 13%, transparent); color: var(--green); }
+.fx-tools .fx-refpage-status[data-available="false"] .fx-refpage-status-tag { background: color-mix(in srgb, var(--orange) 14%, transparent); color: var(--orange); }
+.fx-tools .fx-refpage-section { margin-top: 14px; }
+.fx-tools .fx-refpage-h2 { font-size: 15px; font-weight: 700; letter-spacing: -.01em; color: var(--ink); margin: 0 0 10px; }
+.fx-tools .fx-refpage-h3 { font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ink3); margin: 16px 0 6px; }
+.fx-tools .fx-refpage-headline { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 14px; margin-bottom: 8px; }
+.fx-tools .fx-refpage-authority { font-size: 13.5px; font-weight: 650; color: var(--ink2); }
+.fx-tools .fx-refpage-figure { font-size: 19px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.fx-tools .fx-refpage-period { font-size: 12px; color: var(--ink3); }
+.fx-tools .fx-refpage-absent { color: var(--orange); font-weight: 600; }
+.fx-tools .fx-refpage-fine { font-size: 12px; line-height: 1.65; color: var(--ink3); margin-top: 8px; max-width: 72ch; }
+.fx-tools .fx-refpage-list { margin: 0; padding-left: 18px; list-style: disc; display: flex; flex-direction: column; gap: 5px; }
+.fx-tools .fx-refpage-list li { font-size: 12.5px; line-height: 1.65; color: var(--ink2); }
+.fx-tools .fx-refpage-list li::marker { color: var(--gold); }
+.fx-tools .fx-refpage-schedule,
+.fx-tools .fx-refpage-dataset,
+.fx-tools .fx-refpage-gate { padding-top: 14px; margin-top: 14px; border-top: 1px solid var(--hair2); }
+.fx-tools .fx-refpage-scope { font-weight: 600; color: var(--ink3); text-transform: none; letter-spacing: 0; }
+/* The shared definition rows right-align their value, which is right for a
+   figure sitting opposite a label and wrong here: these values are sentences
+   ("A foreign bank's branch is not an Australian-incorporated ADI"), and
+   right-aligned prose is measurably harder to read. Stack them instead. */
+.fx-tools .fx-refpage-section .fx-method-rows > div { flex-direction: column; gap: 2px; padding: 8px 0; }
+.fx-tools .fx-refpage-section .fx-method-rows dd { text-align: left; font-weight: 500; color: var(--ink2); }
+.fx-tools .fx-refpage-section .fx-method-rows dt { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+/* Wide content scrolls inside its own box; the page body never scrolls sideways. */
+.fx-tools .fx-refpage-tablewrap { overflow-x: auto; margin-top: 8px; }
+.fx-tools .fx-refpage-table { width: 100%; border-collapse: collapse; }
+.fx-tools .fx-refpage-caption { text-align: left; font-size: 11.5px; color: var(--ink3); padding-bottom: 6px; }
+.fx-tools .fx-refpage-table th,
+.fx-tools .fx-refpage-table td { text-align: left; padding: 7px 10px 7px 0; border-top: 1px solid var(--hair2); font-size: 12.5px; white-space: nowrap; }
+.fx-tools .fx-refpage-table thead th { border-top: none; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ink3); }
+.fx-tools .fx-refpage-table tbody th { font-weight: 500; color: var(--ink2); }
+.fx-tools .fx-refpage-table td { font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; text-align: right; }
+
+/* ---- Reference data disclosure (ui/ReferenceDisclosure.tsx) ----
+   Sits inside the methodology drawer, so it inherits that block's type scale
+   and only needs the structure the drawer does not already provide. Colour
+   comes from the shared status tokens rather than fresh hex, so the "due for
+   review" chip is the same amber as every other caution in the product. */
+.fx-tools .fx-ref-list { display: flex; flex-direction: column; gap: 14px; }
+.fx-tools .fx-ref-row { padding-top: 12px; border-top: 1px solid var(--hair2); }
+.fx-tools .fx-ref-row:first-child { padding-top: 0; border-top: none; }
+.fx-tools .fx-ref-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 14px; }
+.fx-tools .fx-ref-label { font-size: 12.5px; font-weight: 650; color: var(--ink2); }
+.fx-tools .fx-ref-value { font-size: 13px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+/* An absent value is set in the muted ink rather than a warning colour: it is
+   an honest gap, not an error the reader has made. */
+.fx-tools .fx-ref-value.fx-ref-absent { color: var(--ink3); font-weight: 600; font-variant-numeric: normal; }
+.fx-tools .fx-ref-note { margin: 6px 0 0; font-size: 12px; line-height: 1.65; color: var(--ink3); max-width: 68ch; }
+.fx-tools .fx-ref-absent-note { color: var(--ink2); font-weight: 600; }
+.fx-tools .fx-ref-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 7px; font-size: 11px; color: var(--ink3); }
+/* `--orange` for the ink and a mix of it for the ground. The bare `-fill`
+   tokens are saturated solids meant for chart marks; used as a background they
+   put dark amber text on bright amber and fail contrast. Everything tinted in
+   this file mixes toward transparent so it sits on whichever surface it lands
+   on, light or dark. */
+.fx-tools .fx-ref-chip { padding: 2px 7px; border-radius: 980px; font-size: 10px; font-weight: 700; letter-spacing: .02em;
+  background: color-mix(in srgb, var(--orange) 14%, transparent); color: var(--orange); }
+.fx-tools .fx-ref-chip[data-tone="stale"] { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+.fx-tools .fx-ref-sources { margin: 7px 0 0; padding-left: 16px; list-style: disc; display: flex; flex-direction: column; }
+.fx-tools .fx-ref-sources li { font-size: 11.5px; line-height: 1.55; color: var(--ink3); }
+.fx-tools .fx-ref-sources li::marker { color: var(--hair); }
+/* Each of these is a standalone link on its own line, so the WCAG 2.2 "inline"
+   exemption — which covers a link whose height is dictated by prose around it —
+   does not apply. At 11.5px the text box is 15px tall; the padding carries it
+   past the 24px minimum pointer target and doubles as the spacing between
+   rows, which is why the list itself no longer sets a gap. */
+.fx-tools .fx-ref-sources a { display: inline-block; padding: 5px 0; }
+
+/* The protection card that sits in the ParkSmart result itself, not the drawer.
+   Neutral by default; amber only when the entered amount is above the limit,
+   because a balance within the cap is not a caution. */
+.fx-tools .fx-protect { border: 1px solid var(--hair2); }
+/* Amber only where there is something to weigh — a balance above the cap, or a
+   market where the scheme could not be verified. A balance within cover is not
+   a caution and is left in the ordinary card treatment. The tint stays light:
+   this is context that informs a decision, not an error to be corrected. */
+.fx-tools .fx-protect[data-state="above"],
+.fx-tools .fx-protect[data-state="unverified"] {
+  border-color: color-mix(in srgb, var(--orange) 32%, transparent);
+  background: color-mix(in srgb, var(--orange) 7%, transparent);
+}
+.fx-tools .fx-protect-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.fx-tools .fx-protect-title { font-size: 13px; font-weight: 700; color: var(--ink); }
+.fx-tools .fx-protect-limit { font-size: 15px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.fx-tools .fx-protect-body { margin-top: 8px; line-height: 1.75; }
+.fx-tools .fx-protect-fine { margin-top: 8px; font-size: 11.5px; line-height: 1.6; color: var(--ink3); }
+
 /* ---- Result → explanation → action → next step (ui/ResultExplainer.tsx) ---- */
 .fx-tools .fx-outcome { margin: 22px 0 4px; padding-top: 20px; border-top: 1px solid var(--hair2); }
 .fx-tools .fx-outcome-title { font-size: 17px; font-weight: 700; letter-spacing: -.015em; color: var(--ink); margin: 0; }
@@ -310,6 +426,10 @@ body.fx-drawer-open .fx-ai-dock { display: none; }
 
 /* ---- Notification bell + panel (shared by tools & careers) ---- */
 .fx-tools .bell-wrap { position: relative; }
+/* The wrapper carries .fx-tools for its colour tokens (the panel also renders
+   outside the tools shell) — but not the tools PAGE surface that class paints,
+   which showed as an opaque square behind the bell in the translucent header. */
+.bell-wrap.fx-tools { background: none; min-height: 0; }
 .fx-tools .bell-dot { position: absolute; top: -2px; right: -2px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 980px; background: var(--red); color: #fff; font-size: 9.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
 .fx-tools .bell-panel { position: absolute; right: 0; top: calc(100% + 10px); width: min(92vw, 360px); max-height: 420px; overflow-y: auto; background: var(--card-solid); border: 1px solid var(--hair); border-radius: 14px; box-shadow: 0 24px 60px -18px rgba(0,0,0,.75); z-index: var(--z-popover); animation: fxMenuIn 160ms var(--ease-out) both; transform-origin: top right; }
 .fx-tools .bell-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--hair2); position: sticky; top: 0; background: var(--card-solid); }
@@ -317,7 +437,7 @@ body.fx-drawer-open .fx-ai-dock { display: none; }
 .fx-tools .bell-item:last-child { border-bottom: none; }
 .fx-tools .bell-item.unread { background: rgba(212,175,55,.05); }
 
-.fx-tools .wrap { max-width: 1024px; margin: 0 auto; padding: 0 16px calc(64px + var(--fx-bottomnav-h) + env(safe-area-inset-bottom)); position: relative; z-index: var(--z-raised); }
+.fx-tools .wrap { max-width: 1024px; margin: 0 auto; padding: 0 16px calc(64px + var(--fx-bottomnav-h) + var(--fx-safe-bottom)); position: relative; z-index: var(--z-raised); }
 
 /* ============ TYPE ============ */
 .fx-tools .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent-text); margin-bottom: 8px; }
@@ -684,7 +804,7 @@ body.fx-drawer-open .fx-ai-dock { display: none; }
 .fx-tools .fx-page { animation: fxPageEnter var(--duration-med) var(--ease-out) backwards; }
 
 /* ============ TOAST ============ */
-.fx-toast-wrap { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: var(--z-toast); display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+.fx-toast-wrap { position: fixed; left: 50%; bottom: calc(24px + var(--fx-safe-bottom)); transform: translateX(-50%); z-index: var(--z-toast); display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
 .fx-toast { display: flex; align-items: center; gap: 10px; max-width: min(92vw,420px); background: rgba(20,20,23,.92); border: 1px solid rgba(255,255,255,.12); border-radius: 14px; padding: 12px 16px; color: #F5F5F0; font-size: 13.5px; line-height: 1.45; box-shadow: 0 18px 50px -12px rgba(0,0,0,.7); backdrop-filter: blur(16px) saturate(160%); -webkit-backdrop-filter: blur(16px) saturate(160%); transform: translateY(12px); opacity: 0; transition: opacity var(--trans-overlay), transform var(--trans-overlay); font-family: 'Geist', system-ui, sans-serif; }
 .fx-toast.show { transform: none; opacity: 1; }
 .fx-toast .ti { flex: 0 0 auto; width: 22px; height: 22px; border-radius: 7px; display: flex; align-items: center; justify-content: center; background: rgba(212,175,55,.18); color: #D4AF37; font-weight: 700; font-size: 13px; font-style: normal; }
@@ -731,3 +851,21 @@ body.fx-drawer-open .fx-ai-dock { display: none; }
   .fx-tools *, .fx-tools *::before, .fx-tools *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
   .fx-toast { transition-duration: .001ms !important; }
 }
+
+/* Explainable assistance shared across finance tools. */
+.fx-smart-assist { margin-bottom: 16px; min-width: 0; }
+.fx-smart-title { font-size: 16px; line-height: 1.4; font-weight: 700; margin: 0 0 7px; color: var(--ink); }
+.fx-smart-description { margin-bottom: 14px; max-width: 78ch; }
+.fx-smart-summary { min-height: 44px; padding: 10px 0; cursor: pointer; color: var(--ink); font-size: 13px; font-weight: 600; }
+.fx-smart-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.fx-smart-actions .btn, .fx-smart-list .btn { width: auto; white-space: normal; text-decoration: none; }
+.fx-smart-list { padding: 0; margin: 10px 0 0; list-style: none; }
+.fx-smart-list > li { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 13px 0; border-top: 1px solid var(--hair); font-size: 13px; }
+.fx-smart-list > li > div { flex: 1 1 230px; min-width: 0; overflow-wrap: anywhere; }
+.fx-smart-list .note { margin: 4px 0 0; }
+.fx-smart-assist details > .note { margin-top: 10px; }
+.fx-smart-check { display: flex; align-items: center; gap: 9px; min-height: 44px; font-size: 13px; cursor: pointer; }
+
+/* Android app: the breadcrumb row is web-only (the system BACK replaces it),
+   so the page keeps the breathing room that row used to give it. */
+html.fx-native .fx-tools .wrap { padding-top: 14px; }

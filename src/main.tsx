@@ -10,6 +10,10 @@ import { initWebVitals } from './lib/webVitals'
 import { initErrorReporting } from './lib/errorReporting'
 import { initActivityTracking } from './tools/lib/activity'
 import { registerServiceWorker } from './lib/serviceWorker'
+import { isNativeApp, markPlatform } from './native/platform'
+
+// Before anything renders, so `html.fx-native` styles apply to the first frame.
+markPlatform()
 
 // Privacy-first observability. Each initialiser is a no-op unless an analytics
 // endpoint is configured AND the user has not opted out (DNT / GPC).
@@ -22,7 +26,10 @@ initActivityTracking()
 // shell is cached the whole of Budget, Expenses and Goals works with no
 // connection at all — which is the point: people check their spending on the
 // move, where the connection is worst.
-registerServiceWorker()
+//
+// Not in the Android app: its shell is already on the device, inside the APK,
+// and a worker there could only ever serve a build older than the one installed.
+if (!isNativeApp()) registerServiceWorker()
 
 // Preconnect to Supabase so the first authenticated request skips DNS/TLS
 // setup. Done here (not index.html) because the URL comes from the env.

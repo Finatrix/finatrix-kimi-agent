@@ -46,6 +46,8 @@ import {
 } from '../src/lib/seo';
 import { crawlableBodyFor } from '../src/lib/crawlable';
 import { buildLlmsTxt } from '../src/shared/llms';
+import { buildAssetLinks, parseFingerprints } from '../src/shared/assetLinks';
+import { buildAppleAppSiteAssociation } from '../src/shared/appleAppSite';
 
 interface Env {
   ASSETS: { fetch: (input: Request | URL | string) => Promise<Response> };
@@ -54,6 +56,14 @@ interface Env {
    *  Worker var stays as an override (set it to "" to make redirects inert,
    *  e.g. while a new domain's DNS is still propagating). */
   CANONICAL_HOST?: string;
+  /** SHA-256 fingerprints of the Android app's signing certificates,
+   *  comma-separated. Publishes /.well-known/assetlinks.json; unset → 404.
+   *  See src/shared/assetLinks.ts. */
+  ANDROID_CERT_SHA256?: string;
+  /** The Apple Developer Team ID (App ID Prefix), e.g. `A1B2C3D4E5`. Publishes
+   *  /.well-known/apple-app-site-association; unset → 404. Not a secret.
+   *  See src/shared/appleAppSite.ts. */
+  APPLE_APP_ID_PREFIX?: string;
 }
 
 /**
@@ -257,6 +267,38 @@ export default {
           ...SECURITY_HEADERS,
           'Content-Type': 'application/json',
           'Cache-Control': 'no-store',
+        },
+      });
+    }
+
+    // App deep-link verification, for both stores. Answered BEFORE the
+    // canonical-host redirect: each platform checks every host the app claims
+    // (finatrix.co AND www.finatrix.co) separately and neither follows
+    // redirects, so a 301 here would silently fail verification for www.
+    //
+    // Both are served as `application/json` with no charset. Apple is strict
+    // about the content type and, unlike Android, caches the answer in its own
+    // CDN and reads it at INSTALL time — so a wrong answer here outlives the
+    // deploy that fixes it. Neither file is published at all until its
+    // identifier is configured: a 404 is a state somebody can notice, while a
+    // file naming the wrong app looks healthy until a real link fails on a real
+    // device. See src/shared/assetLinks.ts and src/shared/appleAppSite.ts.
+    const deepLinkFile =
+      url.pathname === '/.well-known/assetlinks.json'
+        ? buildAssetLinks(parseFingerprints(env.ANDROID_CERT_SHA256))
+        : url.pathname === '/.well-known/apple-app-site-association'
+          ? buildAppleAppSiteAssociation(env.APPLE_APP_ID_PREFIX)
+          : undefined;
+    if (deepLinkFile !== undefined) {
+      if (deepLinkFile === null) {
+        return new Response('Not found', { status: 404, headers: { ...SECURITY_HEADERS, 'Cache-Control': 'no-store' } });
+      }
+      return new Response(JSON.stringify(deepLinkFile), {
+        status: 200,
+        headers: {
+          ...SECURITY_HEADERS,
+          'Content-Type': 'application/json',
+          'Cache-Control': 'public, max-age=3600',
         },
       });
     }

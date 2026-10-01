@@ -53,8 +53,60 @@ export const CANONICAL_ORIGIN = `https://${CANONICAL_HOST}`;
 /** Local dev servers: `vite dev` (5173) and `vite preview` (4173). */
 const DEV_ORIGINS = ['http://localhost:5173', 'http://localhost:4173'];
 
+/**
+ * The FinatriX Android app. Capacitor serves the bundled site from
+ * `https://localhost` inside the app's own WebView (`capacitor.config.ts`,
+ * `androidScheme: 'https'`), so that is the Origin every request from the app
+ * carries. It is not reachable from any other device, and a page on someone's
+ * own machine claiming it gains nothing a bearer token would not already give.
+ */
+export const NATIVE_APP_ORIGIN = 'https://localhost';
+
+/**
+ * The FinatriX iOS app. A DIFFERENT origin, and not by choice.
+ *
+ * iOS serves the bundle through a `WKURLSchemeHandler`, and WKWebView refuses to
+ * hand over a scheme it already handles — `setURLSchemeHandler` rejects `https`
+ * outright. Capacitor validates this (`WKWebView.handlesURLScheme(scheme)` in
+ * CAPInstanceDescriptor.swift) and silently falls back to its default scheme, so
+ * `iosScheme: 'https'` would not produce `https://localhost`; it would produce
+ * this, with the app appearing to be misconfigured for a reason nothing logs.
+ *
+ * So the iOS app cannot share Android's origin, and this entry is what stands
+ * between it and a total, silent CORS failure — the exact shape of the outage
+ * described at the top of this file. `analytics-collect` does strict membership,
+ * so without this line every event, error report and web vital from every iOS
+ * user is dropped by the browser with nothing on the server to show it.
+ *
+ * Trust-wise it is the same claim as the Android origin: a device-local page,
+ * unreachable from anywhere else, on cookieless bearer-token endpoints.
+ */
+export const IOS_APP_ORIGIN = 'capacitor://localhost';
+
+/**
+ * Every device-local app origin.
+ *
+ * Exists so that "is this one of the apps?" is one list rather than a growing
+ * chain of `!==` comparisons. Those origins are allowed to CALL the functions,
+ * but they name nothing outside the device, so anywhere a value is handed to a
+ * third party to redirect a real browser to — a Stripe `success_url` above all —
+ * must reject them and fall back to the canonical site. Adding a platform means
+ * adding it here, and every such site inherits the exclusion.
+ */
+export const NATIVE_APP_ORIGINS: readonly string[] = [NATIVE_APP_ORIGIN, IOS_APP_ORIGIN];
+
+/** True for an origin that only exists inside an installed FinatriX app. */
+export function isNativeAppOrigin(origin: string): boolean {
+  return NATIVE_APP_ORIGINS.includes(origin);
+}
+
 /** Origins that are always allowed, whatever the environment says. */
-const BASE_ORIGINS = [CANONICAL_ORIGIN, `https://www.${CANONICAL_HOST}`, ...DEV_ORIGINS];
+const BASE_ORIGINS = [
+  CANONICAL_ORIGIN,
+  `https://www.${CANONICAL_HOST}`,
+  ...NATIVE_APP_ORIGINS,
+  ...DEV_ORIGINS,
+];
 
 /**
  * The effective allowlist: the built-in origins plus anything named in
@@ -75,7 +127,13 @@ export function isLocalOrigin(origin: string): boolean {
   return /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
 }
 
-/** A well-formed http(s) web origin with no path, e.g. `https://finatrix.co`. */
+/**
+ * A well-formed http(s) web origin with no path, e.g. `https://finatrix.co`.
+ *
+ * Deliberately http(s) only: `capacitor://localhost` is not a web origin and is
+ * granted by the allowlist above instead, so widening this regex to please the
+ * iOS app would also start reflecting every other custom scheme on earth.
+ */
 export function isWebOrigin(origin: string): boolean {
   return /^https?:\/\/[a-z0-9.-]+(:\d+)?$/i.test(origin);
 }

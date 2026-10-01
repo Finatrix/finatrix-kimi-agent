@@ -58,7 +58,40 @@ export const SYNC_KEYS = [
   // bothered to look up should not have to be looked up again on their phone.
   'fx_fx_overrides',
 ];
+/** Sensitive statement drafts stay on this device but belong to its account. */
+export const ACCOUNT_LOCAL_KEYS = ['fx_import_staged'];
 const LAST_UID_KEY = 'fx_last_uid';
+const PENDING_KEY = 'fx_sync_pending';
+
+interface PendingChanges {
+  userId: string;
+  keys: string[];
+}
+
+function pendingChanges(userId: string): Record<string, string | null> {
+  try {
+    const pending = JSON.parse(store.get(PENDING_KEY, 'null')) as PendingChanges | null;
+    if (pending?.userId !== userId || !Array.isArray(pending.keys)) return {};
+    return Object.fromEntries(pending.keys.filter((key) => SYNC_KEYS.includes(key)).map((key) => [key, store.raw(key)]));
+  } catch {
+    return {};
+  }
+}
+
+/** Keep offline edits separate so a later cloud read cannot erase them. */
+export function recordPendingCloudChange(userId: string, key: string | null) {
+  const values = pendingChanges(userId);
+  for (const changedKey of key ? [key] : SYNC_KEYS) {
+    if (SYNC_KEYS.includes(changedKey)) values[changedKey] = store.raw(changedKey);
+  }
+  // Persist just the keys: duplicating a large ledger here can exhaust device
+  // quota. Its latest value already lives in the normal storage key.
+  store.set(PENDING_KEY, JSON.stringify({ userId, keys: Object.keys(values) }));
+}
+
+export function hasPendingCloudChanges(userId: string): boolean {
+  return Object.keys(pendingChanges(userId)).length > 0;
+}
 
 export type SyncStatus = 'idle' | 'saving' | 'saved' | 'offline' | 'error';
 
@@ -90,7 +123,8 @@ function lsRemove(k: string) {
 // mount after seeding (ToolsLayout gates on `ready`), but those providers
 // mount before it.
 export function clearSyncedLocal() {
-  SYNC_KEYS.forEach((k) => store.remove(k));
+  [...SYNC_KEYS, ...ACCOUNT_LOCAL_KEYS].forEach((k) => store.remove(k));
+  store.remove(PENDING_KEY);
 }
 
 export function getLastUid(): string | null {
@@ -101,20 +135,44 @@ export function setLastUid(id: string | null) {
   else lsRemove(LAST_UID_KEY);
 }
 
-/** Load the user's cloud data into localStorage (cloud wins for keys it has). */
-export async function loadCloudIntoLocal(userId: string): Promise<SyncStatus> {
+/** Load cloud data, preserving this account's confirmed but unsaved edits. */
+export async function loadCloudIntoLocal(
+  userId: string,
+  shouldApply: () => boolean = () => true,
+  { mergeLocal = false }: { mergeLocal?: boolean } = {},
+): Promise<SyncStatus> {
   if (!isSupabaseConfigured) return 'offline';
-  const { data, error } = await supabase
-    .from('tool_data')
-    .select('data')
-    .eq('user_id', userId)
-    .maybeSingle();
-  if (error) return 'error';
-  const blob = (data?.data || {}) as Record<string, string>;
-  SYNC_KEYS.forEach((k) => {
-    if (k in blob && blob[k] != null) store.set(k, blob[k]);
-  });
-  return 'saved';
+  try {
+    const { data, error } = await supabase
+      .from('tool_data')
+      .select('data')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (error) return 'error';
+    // The caller can switch account or unmount while the request is pending.
+    // Check before writing anything, not after this function has mutated storage.
+    if (!shouldApply()) return 'idle';
+    const blob: unknown = data?.data ?? {};
+    if (!blob || typeof blob !== 'object' || Array.isArray(blob)) return 'error';
+    const values = blob as Record<string, unknown>;
+    if (SYNC_KEYS.some((k) => values[k] != null && typeof values[k] !== 'string')) return 'error';
+    const pending = pendingChanges(userId);
+    SYNC_KEYS.forEach((k) => {
+      if (typeof values[k] === 'string') store.set(k, values[k]);
+      // An existing row is a complete snapshot, so omitted keys were deleted.
+      // Preserve guest data only for the explicit first-account merge.
+      else if (data && !mergeLocal) store.remove(k);
+    });
+    // The device may have been edited while offline. Those confirmed edits
+    // override the older cloud values; untouched areas still come from cloud.
+    for (const [key, value] of Object.entries(pending)) {
+      if (value === null) store.remove(key);
+      else store.set(key, value);
+    }
+    return 'saved';
+  } catch {
+    return 'error';
+  }
 }
 
 /**
@@ -134,9 +192,22 @@ export async function pushLocalToCloud(userId: string): Promise<SyncStatus> {
     const v = store.raw(k);
     if (v != null) blob[k] = v;
   });
-  const { error } = await supabase.from('tool_data').upsert(
-    { user_id: userId, data: blob, updated_at: new Date().toISOString() },
-    { onConflict: 'user_id' }
-  );
-  return error ? 'error' : 'saved';
+  try {
+    const { error } = await supabase.from('tool_data').upsert(
+      { user_id: userId, data: blob, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    );
+    if (error) return 'error';
+    const pending = pendingChanges(userId);
+    if (!Object.keys(pending).length) return 'saved';
+    for (const [key, value] of Object.entries(pending)) {
+      // Preserve a newer edit made while this save was in flight.
+      if (value === (blob[key] ?? null)) delete pending[key];
+    }
+    if (Object.keys(pending).length) store.set(PENDING_KEY, JSON.stringify({ userId, keys: Object.keys(pending) }));
+    else store.remove(PENDING_KEY);
+    return 'saved';
+  } catch {
+    return 'error';
+  }
 }

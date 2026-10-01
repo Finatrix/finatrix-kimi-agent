@@ -15,6 +15,7 @@ import { useToast } from '../../tools/ui/Toast';
 import { Tabs } from '../../tools/ui/Tabs';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
 import { track } from '../../lib/analytics';
+import { canPurchaseInApp } from '../../native/platform';
 import { EmptyState, PageLoading, ErrorCard } from '../components/states';
 import { useCareers } from '../context/CareersContext';
 import {
@@ -200,6 +201,7 @@ export default function BillingPage() {
   };
 
   if (loading) return <PageLoading />;
+  const purchasable = canPurchaseInApp();
 
   return (
     <div className="fx-page">
@@ -233,6 +235,18 @@ export default function BillingPage() {
         </div>
       )}
 
+      {/* Neither Google Play nor the App Store allows an app to sell digital
+          services through an outside checkout, or to point buyers at one — see
+          `canPurchaseInApp`. The app shows the plan a member already has and
+          its receipts; the plan list and its checkout are web-only. */}
+      {!purchasable ? (
+        <div className="card" style={{ marginBottom: 20 }}>
+          <div className="panel-eyebrow">Plans</div>
+          <p style={{ fontSize: 13.5, color: 'var(--ink2)', margin: 0 }}>
+            Plans can't be purchased in the app. Your current plan and receipts are shown here.
+          </p>
+        </div>
+      ) : (<>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
         <div className="panel-eyebrow" style={{ marginBottom: 0 }}>Plans</div>
         <Tabs items={PERIODS} active={period} onChange={setPeriod} label="Billing period" />
@@ -264,6 +278,7 @@ export default function BillingPage() {
           );
         })}
       </div>
+      </>)}
 
       <div className="panel-eyebrow" style={{ marginBottom: 10 }}>Billing history</div>
       {!history.length ? (
@@ -280,7 +295,9 @@ export default function BillingPage() {
         </div>
       )}
 
-      <ToolFoot><b>Billing</b> · one-time payment per period via Stripe — plans don't auto-renew, so renew before your period ends to keep your limits</ToolFoot>
+      {purchasable && (
+        <ToolFoot><b>Billing</b> · one-time payment per period via Stripe — plans don't auto-renew, so renew before your period ends to keep your limits</ToolFoot>
+      )}
     </div>
   );
 }

@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  FinatriX for iOS.
+
+  Deliberate omissions, because a permission this file does not ask for is one
+  the App Store listing does not advertise and the user is never prompted for:
+
+    NSPhotoLibraryUsageDescription   Not required. A WKWebView file input reads
+                                     the photo library through the system's
+                                     out-of-process picker, which returns the
+                                     chosen file without granting the app
+                                     library access. Verified against Apple's
+                                     documentation, not assumed.
+    NSMicrophoneUsageDescription     Not required: no `accept` list in the app
+                                     names a video type, so the camera sheet
+                                     offers stills only. Adding `video/*`
+                                     anywhere would make this mandatory.
+    NSLocationWhenInUseUsageDescription / contacts / calendar / Bluetooth /
+    NSUserTrackingUsageDescription   FinatriX does none of these. See
+                                     PrivacyInfo.xcprivacy — analytics are
+                                     first-party, anonymous and cookieless, so
+                                     App Tracking Transparency does not apply.
+
+    NSAppTransportSecurity           Absent ON PURPOSE. No key means the
+                                     strictest App Transport Security: HTTPS
+                                     only, TLS 1.2+, no exception domains. The
+                                     bundle is served from the app's own
+                                     scheme, and every network call goes to
+                                     https endpoints, so nothing needs an
+                                     exemption and adding one would weaken the
+                                     app for no gain.
+-->
+<plist version="1.0">
+<dict>
+	<key>CAPACITOR_DEBUG</key>
+	<string>$(CAPACITOR_DEBUG)</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>FinatriX</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+
+	<!-- The OAuth return leg. Google refuses to render its sign-in page in an
+	     embedded WebView, so it opens in an SFSafariViewController, and this is
+	     what lets that hand the result back to the app:
+	     co.finatrix.app://auth/callback (src/native/platform.ts
+	     NATIVE_AUTH_CALLBACK). The same scheme the Android manifest claims, and
+	     the same one Supabase must list under Auth → URL Configuration →
+	     Redirect URLs. `CFBundleURLName` is the reverse-DNS owner of the scheme,
+	     which is how iOS breaks ties if another app claims it. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>co.finatrix.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>co.finatrix.app</string>
+			</array>
+		</dict>
+	</array>
+
+	<!-- Export compliance. FinatriX uses only HTTPS and the platform's own
+	     cryptography, which is exempt, so declaring it here answers the
+	     encryption question once instead of on every TestFlight upload. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+
+	<!-- The ONLY permission the app asks for, and only when the person taps
+	     "Take Photo" in the file picker to photograph a statement or a payslip.
+	     Without this string iOS terminates the app at that moment rather than
+	     prompting. The image is read by Tesseract on the device (src/lib/ocr.ts)
+	     and never uploaded, which is what the sentence has to earn belief for. -->
+	<key>NSCameraUsageDescription</key>
+	<string>FinatriX uses the camera so you can photograph a bank statement or payslip and have its figures read on this device. The photo is never uploaded.</string>
+
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>Default Configuration</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+					<key>UISceneStoryboardFile</key>
+					<string>Main</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
+
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+
+	<!-- arm64, not the template's `armv7`. No device that can run iOS 15 has a
+	     32-bit ARM processor, so armv7 described a device that cannot install
+	     this app and would be flagged on upload. -->
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>arm64</string>
+	</array>
+
+	<!-- iPhone, portrait and both landscapes — matching the Android app, which
+	     does not lock orientation either. The layout is the website's, which is
+	     already fluid down to 320px and up through tablet widths.
+	     UISupportedInterfaceOrientations~ipad is deliberately absent: this
+	     release ships as an iPhone app (TARGETED_DEVICE_FAMILY = 1). -->
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+
+	<!-- Light status-bar content at launch, because the launch screen and the
+	     splash are always the dark charcoal surface (#060607) whatever the
+	     system appearance is. After boot, src/native/bridge.ts drives the real
+	     value from the IN-APP theme through SystemBars.setStyle, which is why
+	     this needs to be right only for the first few hundred milliseconds. -->
+	<key>UIStatusBarStyle</key>
+	<string>UIStatusBarStyleLightContent</string>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<true/>
+</dict>
+</plist>

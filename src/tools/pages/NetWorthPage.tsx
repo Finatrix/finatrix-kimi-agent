@@ -7,8 +7,9 @@ import { AmountInput } from '../ui/AmountInput';
 import { useOptionalToast } from '../ui/Toast';
 import { useCurrency } from '../CurrencyContext';
 import { useMarket } from '../MarketContext';
-import { converterTo, effectiveRates } from '../lib/fx';
+import { converterTo, effectiveRates, FX_OVERRIDES_KEY } from '../lib/fx';
 import { FxNote } from '../ui/FxNote';
+import { NetWorthSmartReview } from '../ui/NetWorthSmartReview';
 import { CURRENCY_CODES, currencySym, cfmt as cfmtDisplay } from '../lib/format';
 import { currentMonth, monthLabel } from '../lib/month';
 import { onLocalWrite } from '../lib/storage';
@@ -60,6 +61,7 @@ export default function NetWorthPage() {
   const { market } = useMarket();
   const toast = useOptionalToast();
   const [accounts, setAccounts] = useState<NetWorthAccount[]>(loadAccounts);
+  const [rates, setRates] = useState(effectiveRates);
   const [selMonth, setSelMonth] = useState(currentMonth);
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState<DraftAccount>(EMPTY_DRAFT);
@@ -71,9 +73,11 @@ export default function NetWorthPage() {
   useEffect(() => {
     const off = onLocalWrite((key) => {
       if (key === NET_WORTH_KEY) setAccounts(loadAccounts());
+      if (key === FX_OVERRIDES_KEY) setRates(effectiveRates());
     });
     const onStorage = (e: StorageEvent) => {
-      if (e.key === NET_WORTH_KEY) setAccounts(loadAccounts());
+      if (e.key === NET_WORTH_KEY || e.key === null) setAccounts(loadAccounts());
+      if (e.key === FX_OVERRIDES_KEY || e.key === null) setRates(effectiveRates());
     };
     window.addEventListener('storage', onStorage);
     return () => {
@@ -91,8 +95,8 @@ export default function NetWorthPage() {
   // One converter for the whole page, rebuilt only when the display currency
   // changes. Every total below is therefore in `code` and adds like with like.
   const nwOpts = useMemo(
-    () => ({ displayCurrency: code, convert: converterTo(code, effectiveRates()) }),
-    [code],
+    () => ({ displayCurrency: code, convert: converterTo(code, rates) }),
+    [code, rates],
   );
   const foreign = useMemo(() => hasForeignAccounts(accounts, code), [accounts, code]);
   // Every currency actually in play, so the FX note only ever discusses rates
@@ -173,9 +177,13 @@ export default function NetWorthPage() {
     commit(setBalance(accounts, id, selMonth, parsed.value));
   };
 
-  const exportCsv = () => {
-    downloadBlob(`finatrix-net-worth-${selMonth}.csv`, csvBlob(exportRows(accounts, code)));
-    track('report_exported', { kind: 'csv', where: 'networth' });
+  const exportCsv = async () => {
+    try {
+      const saved = await downloadBlob(`finatrix-net-worth-${selMonth}.csv`, csvBlob(exportRows(accounts, code)));
+      if (saved !== false) track('report_exported', { kind: 'csv', where: 'networth' });
+    } catch {
+      toast?.notify('The export could not be created. Please try again.', 'error');
+    }
   };
 
   const hasAccounts = accounts.length > 0;
@@ -238,6 +246,8 @@ export default function NetWorthPage() {
               foot={snapshot.debtRatio === null ? 'No assets recorded yet' : `${snapshot.debtRatio.toFixed(0)}% of assets`}
             />
           </div>
+
+          <NetWorthSmartReview key={selMonth} accounts={accounts} month={selMonth} options={nwOpts} cfmt={cfmt} onCommit={commit} />
 
           {series.length > 1 && <Trend series={series} cfmtSh={cfmtSh} cfmt={cfmt} />}
 
@@ -595,11 +605,12 @@ function Row({ row, month, sym, displayCode, labels, blank = false, onBalance, o
   // actually holds in that account. Seeding from the converted figure would
   // rewrite "1000 USD" as "88000" the moment it rendered, and the next
   // keystroke would save that back as dollars.
-  const [text, setText] = useState(blank ? '' : String(native));
+  const [draftText, setText] = useState<string | null>(null);
+  const text = draftText ?? (blank ? '' : String(native));
   const [seedMonth, setSeedMonth] = useState(month);
   if (seedMonth !== month) {
     setSeedMonth(month);
-    setText(blank ? '' : String(native));
+    setText(null);
   }
 
   const fieldId = `nw-bal-${account.id}`;
@@ -626,6 +637,7 @@ function Row({ row, month, sym, displayCode, labels, blank = false, onBalance, o
           className="fi-sm"
           value={text}
           onChange={(v) => { setText(v); onBalance(account.id, v); }}
+          onBlur={() => { if (!text.trim() || evaluateFormula(text).ok) setText(null); }}
           sym={isForeign ? currencySym(currency) : sym}
           placeholder="0"
         />

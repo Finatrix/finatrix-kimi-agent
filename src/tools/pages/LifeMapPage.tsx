@@ -8,6 +8,7 @@ import { PageHead, ToolFoot } from '../ui/common';
 import { ResultExplainer, type MethodRow } from '../ui/ResultExplainer';
 import { MarketNote } from '../ui/MarketNote';
 import { useMarket } from '../MarketContext';
+import { lifeMapDecisionsForMarket } from '../lib/markets/lifeMapPresentation';
 import { readLifeMapSeed, type LifeMapSeed } from '../lib/lifemapSeed';
 import type { MarketPack } from '../lib/markets';
 import { Icon } from '../ui/Icon';
@@ -19,6 +20,8 @@ import {
   type LifeProfile, type Decision,
 } from '../lib/lifemap';
 import { track } from '../../lib/analytics';
+import { lifeMapReadiness } from '../lib/planningAutomation';
+import { LifeMapSmartAssist } from '../ui/LifeMapSmartAssist';
 
 const CAREERS: [string, string][] = [
   ['tech', 'Technology / IT'], ['finance', 'Finance / Banking'], ['health', 'Healthcare / Pharma'],
@@ -45,9 +48,14 @@ export default function LifeMapPage() {
   // Read once, before the first paint. Order matters: FinatriX's own records
   // beat the placeholder defaults, and anything the user has typed into LifeMap
   // before beats both — a seeded figure is a head start, never an overwrite.
-  const [seed] = useState<LifeMapSeed>(readLifeMapSeed);
+  const [seed, setSeed] = useState<LifeMapSeed>(() => {
+    const fresh = readLifeMapSeed();
+    const saved = getJSON<Form>('fx_lifemap', {});
+    const sources = Object.fromEntries(Object.entries(fresh.sources).filter(([key]) => saved[key] === undefined));
+    return { ...fresh, sources, from: fresh.from.filter((source) => Object.values(sources).includes(source)) };
+  });
   const [form, setForm] = useState<Form>(() => ({
-    ...FORM_DEFAULTS, ...seed.values, ...getJSON<Form>('fx_lifemap', {}),
+    ...FORM_DEFAULTS, ...(market.planningNote ? { 'lm-income': String(market.invest.defaults.income), 'lm-expenses': '', 'lm-savings': '', 'lm-emergency': '', 'lm-invest': '', 'lm-sip': '' } : {}), ...seed.values, ...getJSON<Form>('fx_lifemap', {}),
   }));
   const [goals, setGoals] = useState<Set<string>>(new Set(['home']));
   const [profile, setProfile] = useState<LifeProfile | null>(null);
@@ -56,17 +64,20 @@ export default function LifeMapPage() {
   const [currentAge, setCurrentAge] = useState(22);
   const [cat, setCat] = useState('invest');
   const [dialog, setDialog] = useState<{ d: Decision; amt: string } | null>(null);
-  const [launching, setLaunching] = useState(false);
 
   const setField = (k: string, v: string) => {
     const next = { ...form, [k]: v };
     setForm(next);
     setJSON('fx_lifemap', next);
+    if (seed.sources[k]) {
+      const sources = { ...seed.sources };
+      delete sources[k];
+      setSeed({ ...seed, sources, from: seed.from.filter((source) => Object.values(sources).includes(source)) });
+    }
   };
 
   const launch = () => {
-    setLaunching(true);
-    setTimeout(() => {
+    if (lifeMapReadiness(form).length) return;
       const p = buildProfile({
         name: form['lm-name'], age: numF(form['lm-age']), income: numF(form['lm-income']),
         expenses: numF(form['lm-expenses']), savings: numF(form['lm-savings']), emergency: numF(form['lm-emergency']),
@@ -75,13 +86,11 @@ export default function LifeMapPage() {
         career: form['lm-career'], goals: [...goals],
       });
       setProfile(p);
-      setDec(buildDecisions(p, (n) => cfmtSh(n)));
+      setDec(lifeMapDecisionsForMarket(buildDecisions(p, (n) => cfmtSh(n)), market));
       setApplied(new Set());
       setCurrentAge(p.age);
       setCat('invest');
-      setLaunching(false);
       track('tool_completed', { tool: 'lifemap' });
-    }, 700);
   };
 
   if (!profile) {
@@ -93,7 +102,13 @@ export default function LifeMapPage() {
           projection from stated assumptions, not a forecast of what will happen.
         </PageHead>
         <LifeMapIntro seed={seed} />
-        <SetupForm form={form} goals={goals} seed={seed} setField={setField} setGoals={setGoals} onLaunch={launch} launching={launching} sym={sym} monthlyTerm={market.invest.monthlyTerm} />
+        <SetupForm form={form} goals={goals} seed={seed} setField={setField} setGoals={setGoals} onLaunch={launch} sym={sym} monthlyTerm={market.invest.monthlyTerm} onRefresh={() => {
+          const fresh = readLifeMapSeed();
+          setSeed(fresh);
+          const next = { ...form, ...fresh.values };
+          setForm(next);
+          setJSON('fx_lifemap', next);
+        }} />
         <MarketNote market={market} />
       </div>
     );
@@ -101,11 +116,13 @@ export default function LifeMapPage() {
 
   return (
     <div className="fx-page" style={{ paddingBottom: 64 }}>
+      {market.planningNote && <p className="note" style={{ marginBottom: 16 }}>LifeMap uses a shared illustrative simulation, not country-specific salary forecasts or statutory benefits. Indian tax-product and fixed-price decision cards are excluded for this market. The remaining effects are model assumptions.</p>}
       <AppScreen
         profile={profile} dec={dec} applied={applied} currentAge={currentAge} cat={cat} code={code}
         cfmt={cfmt} market={market} seed={seed}
         onAge={setCurrentAge}
         onCat={setCat}
+        onResetDecisions={() => setApplied(new Set())}
         onToggle={(id) => {
           const d = dec.find((x) => x.id === id);
           if (!d) return;
@@ -121,8 +138,9 @@ export default function LifeMapPage() {
           onCancel={() => setDialog(null)}
           onChange={(amt) => setDialog({ ...dialog, amt })}
           onConfirm={() => {
-            const amt = Math.max(500, numF(dialog.amt) || 1000);
-            const updated = updateCustomDecision(dialog.d, amt, (n) => cfmtSh(n));
+            const amt = Number(dialog.amt);
+            if (!dialog.amt.trim() || !Number.isFinite(amt) || amt < 500 || amt > 1e12) return;
+            const updated = lifeMapDecisionsForMarket([updateCustomDecision(dialog.d, amt, (n) => cfmtSh(n))], market)[0];
             setDec((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
             setApplied((prev) => new Set(prev).add(updated.id));
             setDialog(null);
@@ -187,11 +205,12 @@ function listSources(from: readonly string[]): string {
 }
 
 /* ───────────────────────── Setup form ───────────────────────── */
-function SetupForm({ form, goals, seed, setField, setGoals, onLaunch, launching, sym, monthlyTerm }: {
+function SetupForm({ form, goals, seed, setField, setGoals, onLaunch, sym, monthlyTerm, onRefresh }: {
   form: Form; goals: Set<string>; seed: LifeMapSeed; setField: (k: string, v: string) => void;
-  setGoals: (s: Set<string>) => void; onLaunch: () => void; launching: boolean; sym: string;
-  monthlyTerm: string;
+  setGoals: (s: Set<string>) => void; onLaunch: () => void; sym: string;
+  monthlyTerm: string; onRefresh: () => void;
 }) {
+  const issues = lifeMapReadiness(form);
   const N = (k: string, label: string, extra?: React.InputHTMLAttributes<HTMLInputElement>) => {
     const from = seed.sources[k];
     const hintId = from ? `${k}-from` : undefined;
@@ -222,6 +241,11 @@ function SetupForm({ form, goals, seed, setField, setGoals, onLaunch, launching,
     <div className="card" style={{ maxWidth: 720, margin: '0 auto 16px' }}>
       <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Your financial profile</div>
       <div className="note" style={{ marginBottom: 22 }}>Your inputs are private — kept on your device as a guest, or saved to your account when signed in.</div>
+      <details style={{ marginBottom: 20 }}>
+        <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Refresh from your other tools</summary>
+        <p className="note">Replace available income, spending, savings, investment and debt fields with your latest saved Budget, Expenses, Net Worth and InvestMatch figures. Fields without a source stay as entered. Review partial-month spending before continuing.</p>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={onRefresh}>Use latest saved figures</button>
+      </details>
       <div className="grid2">
         {N('lm-name', 'Your name', { type: 'text', placeholder: 'e.g. Nitya Prakash' })}
         {N('lm-age', 'Current age', { type: 'number', min: 16, max: 45, inputMode: 'numeric' })}
@@ -274,18 +298,21 @@ function SetupForm({ form, goals, seed, setField, setGoals, onLaunch, launching,
           })}
         </div>
       </div>
-      <button className={`btn ${launching ? 'btn-loading' : ''}`} style={{ marginTop: 22 }} disabled={launching} onClick={onLaunch}>
-        {launching ? 'Simulating your life…' : 'Launch my LifeMap →'}
+      {issues.length > 0 && <div className="tip tip-info" role="status" style={{ marginTop: 16 }}><b>Check these inputs before simulating</b><ul>{issues.map((issue) => <li key={issue}>{issue}</li>)}</ul></div>}
+      {Number(form['lm-expenses']) >= Number(form['lm-income']) && <p className="note">Expenses meet or exceed income. The model has no positive monthly surplus to grow.</p>}
+      {form['lm-sip-yn'] === 'yes' && Number(form['lm-sip']) > Math.max(0, Number(form['lm-income']) - Number(form['lm-expenses'])) && <p className="note">Your monthly investment exceeds income minus expenses. Check whether you have counted it twice or are drawing on existing savings.</p>}
+      <button className="btn" style={{ marginTop: 22 }} disabled={issues.length > 0} onClick={onLaunch}>
+        Launch my LifeMap →
       </button>
     </div>
   );
 }
 
 /* ───────────────────────── App screen ───────────────────────── */
-function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, market, seed, onAge, onCat, onToggle, onEdit }: {
+function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, market, seed, onAge, onCat, onToggle, onEdit, onResetDecisions }: {
   profile: LifeProfile; dec: Decision[]; applied: Set<string>; currentAge: number; cat: string; code: string;
   cfmt: (n: number) => string; market: MarketPack; seed: LifeMapSeed;
-  onAge: (a: number) => void; onCat: (c: string) => void; onToggle: (id: string) => void; onEdit: () => void;
+  onAge: (a: number) => void; onCat: (c: string) => void; onToggle: (id: string) => void; onEdit: () => void; onResetDecisions: () => void;
 }) {
   const score = calcScore(p, applied);
   const health = calcHealth(p, applied);
@@ -322,7 +349,7 @@ function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, mark
     { label: 'Growth on the impulsive path', value: '3.8% a year' },
     { label: 'Share of surplus invested', value: '68% disciplined · 18% impulsive' },
     { label: 'Career field multiplier', value: `${LM_CAREER_BOOST[p.career] ?? 1}×` },
-    { label: 'Inflation applied', value: 'None — every figure is in today\u2019s money' },
+    { label: 'Inflation applied', value: 'None — future values are nominal, not adjusted for purchasing power' },
   ];
 
   return (
@@ -342,7 +369,7 @@ function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, mark
           promise. */}
       <div id="lm-kpi" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 16 }}>
         <Kpi
-          v={cfmt(sNW)}
+          v={cfmt(currentAge > p.age ? sNW : p.savings + p.invest - p.debtTotal)}
           l={currentAge > p.age ? `Projected net worth at ${currentAge}` : 'Net worth today'}
           color={sNW >= 0 ? 'var(--green)' : 'var(--red)'}
           tag={currentAge > p.age ? 'Projected' : 'You entered'}
@@ -351,6 +378,8 @@ function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, mark
         <Kpi v={String(score)} l="Financial score" color="var(--purple)" tag="Derived" />
         <Kpi v={`${applied.size}/${dec.length}`} l="Decisions activated" tag="Your choices" />
       </div>
+
+      <LifeMapSmartAssist profile={p} decisions={dec} applied={applied} age={currentAge} money={cfmt} onToggle={onToggle} onReset={onResetDecisions} onAge={onAge} />
 
       <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
@@ -591,6 +620,7 @@ function SipDialog({ dialog, sh, onCancel, onChange, onConfirm }: {
   onCancel: () => void; onChange: (amt: string) => void; onConfirm: () => void;
 }) {
   const isStart = dialog.d.ck === 'start';
+  const validAmount = dialog.amt.trim() !== '' && Number.isFinite(Number(dialog.amt)) && Number(dialog.amt) >= 500 && Number(dialog.amt) <= 1e12;
   const cardRef = useRef<HTMLDivElement>(null);
   const amountRef = useRef<HTMLInputElement>(null);
   // `aria-modal` below claims the rest of the page is inert; this is what makes
@@ -604,14 +634,15 @@ function SipDialog({ dialog, sh, onCancel, onChange, onConfirm }: {
         <div style={{ fontSize: 13, color: 'var(--ink2)', marginBottom: 18, lineHeight: 1.55 }}>
           {isStart ? 'How much do you want to invest every month?' : `You invest ${sh(dialog.d.ca ?? 0)}/mo. How much extra do you want to add monthly?`}
         </div>
-        <input ref={amountRef} className="fi" type="number" step="any" min={500} inputMode="decimal" value={dialog.amt}
+        <input ref={amountRef} className="fi" type="number" step="any" min={500} max={1e12} inputMode="decimal" value={dialog.amt} aria-invalid={!validAmount}
           aria-label={isStart ? 'Monthly SIP amount' : 'Extra monthly SIP amount'}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') onConfirm(); else if (e.key === 'Escape') onCancel(); }}
           style={{ marginBottom: 16 }} />
+        {!validAmount && <p className="note" role="status">Enter an amount from 500 to 1 trillion.</p>}
         <div style={{ display: 'flex', gap: 10 }}>
           <button type="button" onClick={onCancel} style={{ flex: 1, padding: 13, borderRadius: 980, border: '1px solid var(--hair)', background: 'rgba(255,255,255,.03)', color: 'var(--ink)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-          <button type="button" onClick={onConfirm} style={{ flex: 2, padding: 13, borderRadius: 980, border: 'none', background: 'linear-gradient(180deg,var(--gold-2),var(--gold))', color: '#1a1400', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Confirm</button>
+          <button type="button" onClick={onConfirm} disabled={!validAmount} style={{ flex: 2, padding: 13, borderRadius: 980, border: 'none', background: 'linear-gradient(180deg,var(--gold-2),var(--gold))', color: '#1a1400', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Confirm</button>
         </div>
       </div>
     </div>

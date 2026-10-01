@@ -9,7 +9,7 @@
  * invisible to buyers again.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, cleanup, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { AuthProvider } from '../context/AuthContext';
@@ -111,3 +111,8 @@ describe('public Careers surface is not gated', () => {
     }
   });
 });
+
+// Preserve coverage of the workspace for the explicitly enabled launch state.
+vi.mock('../shared/careersAvailability', async (original) => ({
+  ...await original<typeof import('../shared/careersAvailability')>(), CAREERS_AVAILABLE: true,
+}));

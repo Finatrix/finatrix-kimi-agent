@@ -12,6 +12,8 @@
  * pdfReport.ts (masthead, stat cards, charts, ruled tables, page numbers).
  */
 import { csvBlob } from '../../lib/csv';
+import { downloadBlob, downloadPdf } from '../../lib/download';
+export { downloadBlob } from '../../lib/download';
 import { ymdLocal } from '../../lib/date';
 import { cfmt } from './format';
 import { budgetTone, TONE_EXPORT_LABEL } from './budgetStatus';
@@ -28,39 +30,6 @@ function stamp(): string {
   return new Date().toLocaleString(undefined, {
     day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
   });
-}
-
-/**
- * Hand a generated file to the browser.
- *
- * Two details are load-bearing, and both were wrong:
- *
- *  - The anchor is put IN the document before it is clicked. A synthetic click
- *    on a detached anchor is ignored outright by some engines, which is a silent
- *    failure — no download, no error, nothing in the console.
- *  - The object URL is revoked on a later task, not on the next line. Revoking
- *    synchronously after `click()` races the browser's own read of the blob:
- *    Chrome had usually finished, but Firefox and WebKit frequently had not, and
- *    the download aborted. The user's only signal was an Export button that
- *    appeared to do nothing — on the report that took the longest to generate.
- *
- * The delay is generous because the cost of being wrong is asymmetric: an object
- * URL held a moment too long costs a few bytes, one released too early costs the
- * export.
- */
-export function downloadBlob(filename: string, blob: Blob) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.rel = 'noopener';
-  a.style.display = 'none';
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => {
-    a.remove();
-    URL.revokeObjectURL(url);
-  }, 10_000);
 }
 
 /** Y position after the last autoTable (added on the doc by the plugin at runtime). */
@@ -128,7 +97,7 @@ function budgetMatrix(b: BudgetExport): (string | number)[][] {
 }
 
 export function exportBudgetCsv(b: BudgetExport) {
-  downloadBlob(`finatrix-budget-${slug(b.monthLabel)}.csv`, csvBlob(budgetMatrix(b)));
+  return downloadBlob(`finatrix-budget-${slug(b.monthLabel)}.csv`, csvBlob(budgetMatrix(b)));
 }
 
 export async function exportBudgetXlsx(b: BudgetExport) {
@@ -169,7 +138,7 @@ export async function exportBudgetXlsx(b: BudgetExport) {
     XLSX.utils.book_append_sheet(wb, tips, 'Recommendations');
   }
   const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-  downloadBlob(`finatrix-budget-${slug(b.monthLabel)}.xlsx`,
+  return downloadBlob(`finatrix-budget-${slug(b.monthLabel)}.xlsx`,
     new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
 }
 
@@ -267,7 +236,7 @@ export async function exportBudgetPdf(b: BudgetExport) {
   }
 
   stampFooters(doc, FOOT_NOTE);
-  doc.save(`finatrix-budget-${slug(b.monthLabel)}.pdf`);
+  return downloadPdf(`finatrix-budget-${slug(b.monthLabel)}.pdf`, doc);
 }
 
 /* ────────────────────────── Expense ────────────────────────── */
@@ -426,7 +395,7 @@ function expenseMatrix(e: ExpenseExport): (string | number)[][] {
 }
 
 export function exportExpenseCsv(e: ExpenseExport) {
-  downloadBlob(`finatrix-expenses-${slug(e.monthLabel)}.csv`, csvBlob(expenseMatrix(e)));
+  return downloadBlob(`finatrix-expenses-${slug(e.monthLabel)}.csv`, csvBlob(expenseMatrix(e)));
 }
 
 export async function exportExpenseXlsx(e: ExpenseExport) {
@@ -475,7 +444,7 @@ export async function exportExpenseXlsx(e: ExpenseExport) {
   XLSX.utils.book_append_sheet(wb, tx, 'Transactions');
 
   const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-  downloadBlob(`finatrix-expenses-${slug(e.monthLabel)}.xlsx`,
+  return downloadBlob(`finatrix-expenses-${slug(e.monthLabel)}.xlsx`,
     new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
 }
 
@@ -509,7 +478,7 @@ export function exportAuditCsv(rows: AuditExportRow[], now = new Date()) {
     ['Changed at', 'Action', 'Transaction', 'Category', 'Transaction date', 'Amount', 'What changed'],
     ...rows.map((r) => [r.changedAt, r.action, r.label, r.category, r.txDate, r.amount, r.changes]),
   ];
-  downloadBlob(`finatrix-expense-history-${ymdLocal(now)}.csv`, csvBlob(matrix));
+  return downloadBlob(`finatrix-expense-history-${ymdLocal(now)}.csv`, csvBlob(matrix));
 }
 
 /**
@@ -730,5 +699,5 @@ export async function exportExpensePdf(e: ExpenseExport) {
   });
 
   stampFooters(doc, FOOT_NOTE);
-  doc.save(`finatrix-expenses-${slug(e.monthLabel)}.pdf`);
+  return downloadPdf(`finatrix-expenses-${slug(e.monthLabel)}.pdf`, doc);
 }

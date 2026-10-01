@@ -58,6 +58,10 @@ export const HOME_EXAMPLES: Readonly<Record<MarketId, HomeExample>> = {
   US: { currency: 'USD', locale: 'en-US', income: 4_800, spending: 2_200, setAside: 950 },
   GB: { currency: 'GBP', locale: 'en-GB', income: 3_200, spending: 1_450, setAside: 640 },
   AE: { currency: 'AED', locale: 'en-AE', income: 18_000, spending: 8_200, setAside: 3_600 },
+  // Authored illustrations, not earnings or expenditure benchmarks.
+  AU: { currency: 'AUD', locale: 'en-AU', income: 6_000, spending: 2_750, setAside: 1_200 },
+  SG: { currency: 'SGD', locale: 'en-SG', income: 5_000, spending: 2_300, setAside: 1_000 },
+  CN: { currency: 'CNY', locale: 'zh-CN', income: 10_000, spending: 4_600, setAside: 2_000 },
 };
 
 export interface HomeExampleView {

@@ -13,6 +13,7 @@ import { MobileDrawer } from '../components/MobileDrawer';
 import { HomeButton } from '../components/HomeButton';
 import { BrandLogo } from '../components/BrandLogo';
 import { Breadcrumb } from '../components/Breadcrumb';
+import { isNativeApp } from '../native/platform';
 import { TOOLS } from '../lib/tools';
 import { ToastProvider } from '../tools/ui/Toast';
 import { IconSprite } from '../tools/ui/Icon';
@@ -67,7 +68,7 @@ export default function CareersLayout() {
 
   return (
     <ToastProvider>
-      <div className="fx-tools" style={{ minHeight: '100dvh' }}>
+      <div className="fx-tools" style={{ minHeight: 'calc(100dvh - var(--fx-safe-top))' }}>
         <div className="fx-amb" aria-hidden="true">
           <div className="fx-amb-glow" />
           <div className="fx-amb-grid" />
@@ -78,7 +79,7 @@ export default function CareersLayout() {
         {/* Slim app bar */}
         <header
           className="flex items-center justify-between h-12 px-3 sm:px-4 border-b border-hairline-2"
-          style={{ position: 'sticky', top: 0, zIndex: 51, background: 'var(--nav-bg)', backdropFilter: 'saturate(180%) blur(20px)', WebkitBackdropFilter: 'saturate(180%) blur(20px)' }}
+          style={{ position: 'sticky', top: 'var(--fx-safe-top)', zIndex: 51, background: 'var(--nav-bg)', backdropFilter: 'saturate(180%) blur(20px)', WebkitBackdropFilter: 'saturate(180%) blur(20px)' }}
         >
           <div className="flex items-center gap-1.5 sm:gap-2.5">
             <button
@@ -114,7 +115,7 @@ export default function CareersLayout() {
                   { label: 'Dashboard', to: '/tools/dashboard' },
                   { label: 'Money tools', to: '/tools' },
                   { label: 'Profile & settings', to: '/profile' },
-                  { label: 'Home', to: '/' },
+                  ...(isNativeApp() ? [] : [{ label: 'Home', to: '/' }]),
                   { label: 'Sign out', onClick: () => void signOut(), danger: true },
                 ]}
               />
@@ -176,7 +177,7 @@ export default function CareersLayout() {
 
         {/* Page content */}
         <div className="wrap">
-          <div style={{ paddingTop: 14 }}>
+          <div data-web-only style={{ paddingTop: 14 }}>
             <Breadcrumb parent={{ label: 'Careers', to: '/careers/dashboard' }} current={sectionName(active)} />
           </div>
           <CareersGate>

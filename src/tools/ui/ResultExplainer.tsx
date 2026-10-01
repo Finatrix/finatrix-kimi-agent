@@ -42,19 +42,38 @@
  * workings shown" is a real differentiator rather than a slogan.
  */
 
-import { useCallback, useRef, type ReactNode } from 'react';
+import { useCallback, useMemo, useRef, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { track } from '../../lib/analytics';
-import { TOOL_GUIDES } from '../../shared/toolGuides';
+import { guideForMarket } from '../lib/markets/guides';
 import { outcomeFor } from '../../shared/nextSteps';
 import type { ToolId } from '../../shared/routes';
 import type { MarketPack } from '../lib/markets';
 import { reviewedLabel } from '../../shared/reviewed';
+import { ReferenceRows } from './ReferenceDisclosure';
+import { referenceLimitsFor } from '../../reference/methodology';
 
 /** One `label: value` row in the "your inputs" / "assumptions" tables. */
 export interface MethodRow {
   label: string;
   value: string;
+}
+
+/**
+ * Which of the three kinds of number a block contains.
+ *
+ * Rendered as a sibling of the `h3` rather than inside it, deliberately: inside,
+ * it would become part of the heading's accessible name, so a screen-reader user
+ * would hear "Your inputs, Known" where a sighted reader sees a heading and a
+ * tag. The legend at the foot of the drawer defines the three words once.
+ */
+function TierTag({ tier }: { tier: 'KNOWN' | 'ASSUMED' | 'REFERENCE' }) {
+  const label = tier === 'KNOWN' ? 'Known' : tier === 'ASSUMED' ? 'Assumed' : 'Published';
+  return (
+    <span className="fx-tier" data-tier={tier}>
+      {label}
+    </span>
+  );
 }
 
 function Rows({ rows }: { rows: readonly MethodRow[] }) {
@@ -81,6 +100,18 @@ export interface MethodologyProps {
   market?: MarketPack | null;
   /** Overrides the default summary label. */
   summary?: string;
+  /**
+   * The sum this result is about, where there is one.
+   *
+   * Lets the reference rows say how a figure sits against a statutory limit.
+   * Amount and currency travel together in one object because they are only
+   * meaningful together: a bare number compared against a limit denominated in
+   * something else produces a confident sentence about two unrelated figures.
+   *
+   * Optional, and its absence simply removes that one sentence — this drawer is
+   * opened before any input exists as often as after.
+   */
+  subject?: { readonly amount: number; readonly currency: string };
 }
 
 /**
@@ -96,8 +127,20 @@ export function Methodology({
   assumptions,
   market,
   summary = 'How this is calculated',
+  subject,
 }: MethodologyProps) {
-  const guide = TOOL_GUIDES[toolId];
+  const guide = guideForMarket(toolId, market);
+  /**
+   * Limitations that come from the reference DATA rather than from the method.
+   *
+   * Kept separate from `guide.limits` in the registry and merged only here, at
+   * the point of display: the two answer different questions ("what this
+   * calculation does not do" versus "what the evidence for this market does not
+   * support"), they change on different schedules, and a reader wants both in
+   * one list. Hooks must run unconditionally, so this is computed for every
+   * tool and is simply empty for the ones with no market data.
+   */
+  const referenceLimits = useMemo(() => referenceLimitsFor(toolId, market?.id ?? 'IN'), [toolId, market?.id]);
   // `onToggle` fires on close as well as open; only the open is interesting,
   // and a ref rather than state because nothing renders differently either way.
   const opened = useRef(false);
@@ -133,6 +176,7 @@ export function Methodology({
         {inputs && inputs.length > 0 && (
           <div>
             <h3>Your inputs</h3>
+            <TierTag tier="KNOWN" />
             <Rows rows={inputs} />
           </div>
         )}
@@ -140,10 +184,10 @@ export function Methodology({
         {assumptions && assumptions.length > 0 && (
           <div>
             <h3>Assumptions used</h3>
+            <TierTag tier="ASSUMED" />
             <Rows rows={assumptions} />
             <p className="fx-method-hint">
-              These are FinatriX&rsquo;s figures, not yours. They are indicative averages — change
-              your market in{' '}
+              These are the assumptions used for this result, as labelled above. They are not forecasts. Check your market in{' '}
               <Link to="/tools/settings" className="fx-method-link">
                 Settings
               </Link>{' '}
@@ -155,6 +199,7 @@ export function Methodology({
         {market && (
           <div>
             <h3>Market and sources</h3>
+            <TierTag tier="REFERENCE" />
             <Rows
               rows={[
                 { label: 'Market', value: market.name },
@@ -162,10 +207,21 @@ export function Methodology({
               ]}
             />
             <p className="fx-method-hint">
-              Sources: {market.sources.join('; ')}. Maintained by hand and reviewed on the date
-              above — check the current rate with the provider before you act on it.
+              Sources: {market.sources.join('; ')}. Maintained by hand. Published references carry their own dates. User-entered rates and illustrative planning scenarios are not measured market averages.
             </p>
           </div>
+        )}
+
+        {/* Published rules and statistics, each with its own effective date,
+            review status and link. Renders nothing for a tool whose answer
+            depends on no external figure. */}
+        {market && (
+          <ReferenceRows
+            toolId={toolId}
+            market={market.id}
+            amount={subject?.amount}
+            amountCurrency={subject?.currency}
+          />
         )}
 
         <div>
@@ -174,8 +230,22 @@ export function Methodology({
             {guide.limits.map((l) => (
               <li key={l}>{l}</li>
             ))}
+            {market &&
+              referenceLimits.map((l) => (
+                <li key={l}>{l}</li>
+              ))}
           </ul>
         </div>
+
+        {/* Defined once, at the foot, rather than repeated as a tooltip on every
+            tag. The distinction it draws — measured, chosen, published — is the
+            one a reader needs in order to know which numbers on the screen they
+            are allowed to disagree with. */}
+        <p className="fx-method-hint fx-tier-legend">
+          <b>Known</b> — entered from your information. <b>Assumed</b> — a planning choice you can
+          change. <b>Published</b> — an external figure, with its source and date. Every result
+          above is calculated from these and is not a forecast.
+        </p>
 
         <p className="fx-method-hint">
           This is an educational model, not financial advice, and none of it is personalised to
@@ -203,6 +273,7 @@ export function ResultExplainer({
   inputs,
   assumptions,
   market,
+  subject,
 }: MethodologyProps & { meaning: ReactNode }) {
   const outcome = outcomeFor(toolId);
 
@@ -213,7 +284,13 @@ export function ResultExplainer({
       </h2>
       <p className="fx-outcome-meaning">{meaning}</p>
 
-      <Methodology toolId={toolId} inputs={inputs} assumptions={assumptions} market={market} />
+      <Methodology
+        toolId={toolId}
+        inputs={inputs}
+        assumptions={assumptions}
+        market={market}
+        subject={subject}
+      />
 
       {outcome && outcome.actions.length > 0 && (
         <>

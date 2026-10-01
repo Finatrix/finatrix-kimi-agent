@@ -1,5 +1,5 @@
 import {
-  useCallback, useEffect, useMemo, useRef, useState,
+  useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState,
 } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router';
@@ -95,13 +95,16 @@ export default function CommandPalette({
     return spend ? [spend, ...hits.filter((c) => c.effect.kind !== 'logSpend')] : hits;
   }, [query, commands, recents]);
 
-  // Remember what opened us, then take the caret. Focus lands after paint so
-  // the browser does not scroll the page behind the overlay while the dialog is
-  // still being laid out.
-  useEffect(() => {
+  // Remember what opened us, then take the caret — before paint, so the first
+  // frame the user sees already has the caret in the box. This deferred a frame
+  // via rAF to stop the browser scrolling the page behind the overlay; that is
+  // what `preventScroll` is for, and the frame it cost was a frame in which
+  // ⌘K-then-type sent its first character to whatever the palette had covered.
+  // Same defect the transaction sheet had, one frame instead of forty
+  // milliseconds. See TransactionModal.tsx.
+  useLayoutEffect(() => {
     opener.current = document.activeElement as HTMLElement | null;
-    const id = requestAnimationFrame(() => inputRef.current?.focus());
-    return () => cancelAnimationFrame(id);
+    inputRef.current?.focus({ preventScroll: true });
   }, []);
 
   // Return focus to the trigger, but only when it is still in the document and

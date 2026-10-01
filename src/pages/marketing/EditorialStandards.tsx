@@ -88,7 +88,7 @@ export default function EditorialStandards() {
       <Section
         id="sources"
         title="Where the market figures come from"
-        intro={`Every market pack carries a review month and a source list, and both are shown inside the tools that use them. Last reviewed across all four markets: ${reviewedLabel(ASSUMPTIONS_REVIEWED)}.`}
+        intro={`Every market pack carries a review month and a source list, and both are shown inside the tools that use them. Reference layer reviewed across seven markets; individual records carry their own dates. Pack baseline: ${reviewedLabel(ASSUMPTIONS_REVIEWED)}.`}
       >
         <P>
           The calculators are arithmetic, and arithmetic needs inputs: deposit rates, tax

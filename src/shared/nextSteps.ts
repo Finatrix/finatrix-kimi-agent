@@ -166,20 +166,20 @@ export const TOOL_OUTCOMES: Record<ToolId, ToolOutcome> = {
 
   peercompare: {
     actions: [
-      'Read a percentile as a description of a sample, not as a target. Half of any population sits below the median by definition.',
-      'Check the sample this is drawn from — age band, location and income range — before deciding whether it describes people like you at all.',
-      'Look at the metrics where the gap is largest rather than at the overall figure. The overall figure cannot tell you what to change.',
+      'Treat an illustrative benchmark score as a model output. It does not measure your statistical rank or how many people have more or less.',
+      'Check the reference definition, currency, age band and location before interpreting a comparison.',
+      'Review your actual income, spending, assets and debts. A difference from a reference does not establish what you need or what to change.',
     ],
     next: [
       {
         href: '/tools/budget',
-        label: 'Work on the metric with the widest gap',
-        reason: 'Savings rate and spending are the two comparisons a budget can actually move.',
+        label: 'Understand your monthly cash flow',
+        reason: 'A budget puts your own income, expenses and commitments together.',
       },
       {
         href: '/tools/networth',
         label: 'Track your own trend instead',
-        reason: 'Your figure last quarter is a fairer benchmark than a stranger with your postcode.',
+        reason: 'Compare your recorded assets and debts over time using consistent definitions.',
       },
       DASHBOARD,
     ],

@@ -37,7 +37,7 @@ describe('ToolsLayout shell', () => {
       expect(within(nav).getByText(t.short)).toBeInTheDocument();
     }
     // …plus the screens that only exist behind sign-in.
-    for (const label of ['Dashboard', 'Reports', 'Calendar', 'Careers']) {
+    for (const label of ['Dashboard', 'Reports', 'Calendar', 'Careers · 2027']) {
       expect(within(nav).getByText(label)).toBeInTheDocument();
     }
     // Currency selector defaults to INR. There are TWO in the DOM by design —

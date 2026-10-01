@@ -126,7 +126,7 @@ describe('topic registry', () => {
     for (const t of TOPICS) {
       for (const path of t.product ?? []) {
         expect(publicPageFor(path), `${t.slug} → ${path}`).not.toBeNull();
-        expect(seoForPath(path).robots, `${t.slug} → ${path} is noindex`).toBe(INDEXABLE);
+        expect(seoForPath(path).robots, `${t.slug} → ${path}`).toBe(path.startsWith('/careers/') ? 'noindex, nofollow' : INDEXABLE);
       }
       expect(productLinksFor(t).length, `${t.slug} product links`).toBe((t.product ?? []).length);
     }

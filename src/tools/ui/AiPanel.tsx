@@ -12,7 +12,8 @@ import { loadCatViewFor } from '../lib/budgetCatsMonth';
 import { type BudgetStore } from '../lib/budget';
 import { ask, askForMonthlyReview, type AskResult } from '../ai/assistant';
 import { describeFocus, type AiFocus, type FocusDescription } from '../ai/focus';
-import { track } from '../../lib/analytics';
+import { sendUserReport, track } from '../../lib/analytics';
+import { SUPPORT_MAILTO } from '../../shared/brand';
 import { SUGGESTED_PROMPTS, MAX_QUESTION_CHARS } from '../ai/prompts';
 import {
   loadHistory, saveHistory, clearHistory, pruneOtherUsers, newMessageId,
@@ -22,6 +23,7 @@ import type { AiChart, AiHighlight } from '../ai/validate';
 import type { GroundingReport } from '../ai/grounding';
 import { setupHelp, SETUP_QUESTIONS } from '../ai/setupHelp';
 import { readPlanContext } from '../ai/planContext';
+import { AI_RECIPIENT, hasAiConsent, setAiConsent } from '../../lib/ai/consent';
 import { BRIEFING_QUESTION } from '../ai/briefing';
 
 /**
@@ -98,6 +100,10 @@ function AccountAiPanel({ id, onClose, focus = null, openedAt = 0 }: AiPanelProp
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  // A question held back until the user says whether it may go to a
+  // third-party AI (lib/ai/consent). Nothing has been sent while this is set.
+  const [consentFor, setConsentFor] = useState<{ text: string; kind: 'chat' | 'review' } | null>(null);
+  const allowRef = useRef<HTMLButtonElement>(null);
 
   const cardRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -126,6 +132,10 @@ function AccountAiPanel({ id, onClose, focus = null, openedAt = 0 }: AiPanelProp
   useEffect(() => {
     lastFocused.current = document.activeElement as HTMLElement | null;
     const t = setTimeout(() => {
+      // Something inside the dialog already has focus — the consent card's
+      // "Allow and send", say — so this deferred default must not take it back.
+      const current = document.activeElement;
+      if (current && current !== cardRef.current && cardRef.current?.contains(current)) return;
       const input = inputRef.current;
       if (input && !input.disabled) input.focus();
       else cardRef.current?.focus();
@@ -192,6 +202,13 @@ function AccountAiPanel({ id, onClose, focus = null, openedAt = 0 }: AiPanelProp
   const send = useCallback(async (question: string, kind: 'chat' | 'review' = 'chat') => {
     const text = question.trim();
     if (!text || busy || pending.current) return;
+    // Explicit permission before the first question leaves for a third-party
+    // AI (App Review 5.1.2(i)). Setup help is answered on the device and a
+    // guest's question never leaves it, so neither needs asking.
+    if (uid && !hasAiConsent() && !(kind === 'chat' && setupHelp(text))) {
+      setConsentFor({ text, kind });
+      return;
+    }
     pending.current = true;
 
     const asked: ChatMessage = {
@@ -275,6 +292,24 @@ function AccountAiPanel({ id, onClose, focus = null, openedAt = 0 }: AiPanelProp
     setBusy(false);
     inputRef.current?.focus();
   }, [busy, messages, persist, readData, focus, subject, uid]);
+
+  useEffect(() => {
+    if (consentFor) allowRef.current?.focus();
+  }, [consentFor]);
+
+  const allowAi = () => {
+    const held = consentFor;
+    setAiConsent(true);
+    setConsentFor(null);
+    if (held) void send(held.text, held.kind);
+  };
+
+  const declineAi = () => {
+    // The question goes back in the box, unsent, so declining loses nothing.
+    if (consentFor?.kind === 'chat') setDraft(consentFor.text);
+    setConsentFor(null);
+    inputRef.current?.focus();
+  };
 
   const doClear = () => {
     if (uid) clearHistory(uid);
@@ -397,6 +432,22 @@ function AccountAiPanel({ id, onClose, focus = null, openedAt = 0 }: AiPanelProp
           )}
         </div>
 
+        {consentFor && (
+          <div className="fx-ai-consent" role="group" aria-labelledby={`${id}-consent`}>
+            <p id={`${id}-consent`} className="fx-ai-consent-head">Send this to an AI provider?</p>
+            <p className="fx-ai-consent-body">
+              To answer, FinatriX sends your question{consentFor.kind === 'chat' ? ', the recent conversation' : ''} and
+              the figures from your tools that it needs to {AI_RECIPIENT}. Your name, email address and account ID are
+              not sent. Answers are educational, not financial advice.
+            </p>
+            <div className="fx-ai-consent-actions">
+              <button ref={allowRef} type="button" className="fx-ai-review" onClick={allowAi}>Allow and send</button>
+              <button type="button" className="fx-ai-ghost" onClick={declineAi}>Not now</button>
+            </div>
+            <p className="fx-ai-consent-note">You can withdraw this at any time in Settings → Privacy.</p>
+          </div>
+        )}
+
         <form
           className="fx-ai-composer"
           onSubmit={(e) => { e.preventDefault(); void send(draft); }}
@@ -428,7 +479,7 @@ function AccountAiPanel({ id, onClose, focus = null, openedAt = 0 }: AiPanelProp
             general money questions too, so this says whose records it can read
             rather than what it is allowed to talk about. */}
         <p className="fx-ai-foot">
-          Setup help and instant briefings stay on your device. AI answers send your question and relevant financial context to our AI service. Educational only. <a href="/tools/settings">Privacy controls</a>
+          Setup help and instant briefings stay on your device. AI answers send your question and the relevant figures to OpenRouter and a third-party AI model, only after you allow it. Educational only. <a href="/tools/settings">Privacy controls</a>
         </p>
       </div>
     </div>
@@ -541,6 +592,7 @@ function Turn({ message, onFollowUp, busy }: {
             should be able to tell those from their own figures at a glance. */}
         {message.grounding && <GroundingNote report={message.grounding} />}
       </div>
+      {!message.failed && message.origin !== 'local' && <ReportAnswer text={message.text} />}
       {!!message.followUps?.length && (
         <div className="fx-ai-chips">
           {message.followUps.map((f) => (
@@ -551,6 +603,97 @@ function Turn({ message, onFollowUp, busy }: {
         </div>
       )}
     </div>
+  );
+}
+
+const REPORT_REASONS = [
+  { kind: 'harmful', label: 'Offensive or harmful' },
+  { kind: 'wrong', label: 'Wrong or misleading' },
+  { kind: 'other', label: 'Something else' },
+] as const;
+
+/**
+ * Flag an AI answer.
+ *
+ * Google Play requires apps with generative AI to let people report offensive
+ * output from inside the app, and the product needs the signal regardless: a
+ * reported answer is the clearest evidence the grounding rules missed
+ * something. The report itself is a reason code only — the answer text never
+ * leaves the device this way. It is delivered even when usage analytics is
+ * switched off (see `sendUserReport`), and "reported" is only said once the
+ * server has it. Sending the text is the user's own choice, through an email
+ * they can read and edit before it goes anywhere.
+ */
+export function ReportAnswer({ text }: { text: string }) {
+  const [state, setState] = useState<'idle' | 'choosing' | 'sending' | 'sent' | 'failed'>('idle');
+  const reportRef = useRef<HTMLButtonElement>(null);
+  const firstReasonRef = useRef<HTMLButtonElement>(null);
+  const outcomeRef = useRef<HTMLParagraphElement>(null);
+  const returning = useRef(false);
+
+  // Each step replaces the control that had focus, so move focus with it —
+  // otherwise it falls to <body> and a keyboard or TalkBack user is lost.
+  useEffect(() => {
+    if (state === 'choosing') firstReasonRef.current?.focus();
+    else if (state === 'sent' || state === 'failed') outcomeRef.current?.focus();
+    else if (state === 'idle' && returning.current) reportRef.current?.focus();
+    returning.current = false;
+  }, [state]);
+
+  async function report(kind: (typeof REPORT_REASONS)[number]['kind']) {
+    setState('sending');
+    setState((await sendUserReport('ai_answer_reported', { kind })) ? 'sent' : 'failed');
+  }
+
+  if (state === 'idle') {
+    return (
+      <button ref={reportRef} type="button" className="fx-ai-report" onClick={() => setState('choosing')} aria-label="Report this answer">
+        Report
+      </button>
+    );
+  }
+  if (state === 'choosing' || state === 'sending') {
+    const sending = state === 'sending';
+    return (
+      <div className="fx-ai-chips" role="group" aria-label="Why are you reporting this answer?" aria-busy={sending}>
+        {REPORT_REASONS.map((r, i) => (
+          <button
+            key={r.kind}
+            ref={i === 0 ? firstReasonRef : undefined}
+            type="button"
+            className="fx-ai-chip"
+            disabled={sending}
+            onClick={() => void report(r.kind)}
+          >
+            {r.label}
+          </button>
+        ))}
+        <button
+          type="button"
+          className="fx-ai-chip"
+          disabled={sending}
+          onClick={() => {
+            returning.current = true;
+            setState('idle');
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+    );
+  }
+  const body = encodeURIComponent(`Reported FinatriX AI answer:\n\n${text.slice(0, 1500)}\n\nWhat was wrong:\n`);
+  const mailto = `${SUPPORT_MAILTO}?subject=${encodeURIComponent('Reported AI answer')}&body=${body}`;
+  return state === 'sent' ? (
+    <p ref={outcomeRef} tabIndex={-1} className="fx-ai-reported" role="status">
+      Thanks — reported.{' '}
+      <a href={mailto}>Add details by email</a>
+    </p>
+  ) : (
+    <p ref={outcomeRef} tabIndex={-1} className="fx-ai-reported" role="alert">
+      The report could not be sent — check your connection.{' '}
+      <a href={mailto}>Report it by email instead</a>
+    </p>
   );
 }
 
@@ -758,9 +901,10 @@ const PANEL_STYLES = `
 @keyframes fxAiIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
 
 /* Mobile-first: a sheet that stops short of the status bar. */
-.fx-ai-card{left:0;right:0;bottom:0;top:8vh;border-radius:18px 18px 0 0;}
+.fx-ai-card{left:0;right:0;bottom:0;top:calc(8vh + var(--fx-safe-top));border-radius:18px 18px 0 0;
+  padding-bottom:var(--fx-safe-bottom);}
 @media(min-width:768px){
-  .fx-ai-card{left:auto;right:20px;bottom:20px;top:auto;width:min(430px,calc(100vw - 40px));
+  .fx-ai-card{left:auto;right:20px;bottom:20px;top:auto;padding-bottom:0;width:min(430px,calc(100vw - 40px));
     height:min(660px,calc(100dvh - 40px));border-radius:18px;}
 }
 
@@ -824,7 +968,19 @@ const PANEL_STYLES = `
 .fx-ai-send{flex-shrink:0;width:42px;height:42px;border-radius:12px;border:1px solid #B8962E;background:var(--gold);
   color:#1a1400;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s,opacity .15s;}
 .fx-ai-send:disabled{opacity:.4;cursor:default;}
+.fx-ai-report{align-self:flex-start;min-height:24px;padding:2px 4px;border:none;background:none;
+  color:var(--ink3);font:inherit;font-size:11px;cursor:pointer;text-decoration:underline;text-underline-offset:2px;}
+.fx-ai-report:hover{color:var(--ink2);}
+.fx-ai-report:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:4px;}
+.fx-ai-reported{font-size:11.5px;color:var(--ink3);margin:0;}
+.fx-ai-reported a{color:var(--accent-text);}
 .fx-ai-foot{font-size:10.5px;color:var(--ink3);margin:0;padding:0 16px 12px;line-height:1.5;flex-shrink:0;}
+.fx-ai-consent{margin:0 16px 10px;padding:14px;border-radius:14px;background:var(--well);border:1px solid var(--well-border);flex-shrink:0;}
+.fx-ai-consent-head{margin:0 0 6px;font-size:14px;font-weight:700;color:var(--ink);}
+.fx-ai-consent-body{margin:0 0 12px;font-size:12.5px;line-height:1.5;color:var(--ink2);}
+.fx-ai-consent-actions{display:flex;flex-wrap:wrap;gap:8px;}
+.fx-ai-consent-actions button{min-height:44px;}
+.fx-ai-consent-note{margin:10px 0 0;font-size:11px;color:var(--ink3);}
 .fx-ai-shell .fx-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
 
 /* Markdown inside a bubble */

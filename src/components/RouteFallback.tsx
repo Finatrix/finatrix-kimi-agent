@@ -35,7 +35,7 @@ export default function RouteFallback() {
       `}</style>
 
       {/* Slim indeterminate progress bar, pinned to the top edge */}
-      <div className="fixed inset-x-0 top-0 h-[2px] overflow-hidden bg-hairline-2">
+      <div className="fixed inset-x-0 top-[var(--fx-safe-top)] h-[2px] overflow-hidden bg-hairline-2">
         <div className="fx-fallback-bar h-full w-1/4 rounded-full bg-[#D4AF37]" />
       </div>
 

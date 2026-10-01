@@ -28,6 +28,7 @@ import type { ExpenseItem } from '../lib/expense';
 import { ACCEPT_ATTRIBUTE } from '../lib/import/extract';
 import { needsReview, isImportable } from '../lib/import/status';
 import { useStatementImport } from '../lib/import/useStatementImport';
+import { AI_RECIPIENT } from '../../lib/ai/consent';
 import type { DraftRow, CategoryOrigin, ImportSummary } from '../lib/import/types';
 
 interface Props {
@@ -67,7 +68,7 @@ export default function StatementImport({
   const trip = useStatementImport({ categories, existing, aiEnabled });
   const {
     phase, message, fileName, drafts, summary, extraction,
-    aiPhase, aiMessage, resumable, dateOrder, dateOrderAssumed, flipDateOrder,
+    aiPhase, aiMessage, resumable, dateOrder, dateOrderAssumed, flipDateOrder, allowAi, declineAi,
     start, submitPassword, updateDraft, setAllIncluded, resume, discardResumable, confirm, reset,
   } = trip;
 
@@ -249,6 +250,23 @@ export default function StatementImport({
                   </p>
                 )}
 
+                {aiPhase === 'consent' && (
+                  <div className="fx-imp-banner" role="group" aria-labelledby="fx-imp-ai-consent">
+                    <p id="fx-imp-ai-consent" style={{ margin: '0 0 8px' }}>
+                      Some merchants weren&rsquo;t recognised. FinatriX AI can name and categorise them by
+                      sending only their descriptions to {AI_RECIPIENT} — never amounts, balances or
+                      account numbers. Nothing has been sent.
+                    </p>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      <button type="button" className="fx-imp-btn fx-imp-primary" onClick={allowAi}>
+                        Allow and categorise
+                      </button>
+                      <button type="button" className="fx-imp-btn" onClick={declineAi}>
+                        I&rsquo;ll categorise them
+                      </button>
+                    </div>
+                  </div>
+                )}
                 {aiPhase === 'running' && (
                   <p className="fx-imp-banner" role="status">
                     <span className="fx-imp-spinner fx-imp-spinner-sm" aria-hidden="true" />

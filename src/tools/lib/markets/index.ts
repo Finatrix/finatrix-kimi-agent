@@ -23,6 +23,7 @@ import { IN_MARKET } from './in';
 import { US_MARKET } from './us';
 import { GB_MARKET } from './gb';
 import { AE_MARKET } from './ae';
+import { AU_MARKET, SG_MARKET, CN_MARKET } from './asiaPacific';
 import { MARKET_IDS, DEFAULT_MARKET, MARKET_KEY, isMarketId, type MarketId, type MarketPack } from './types';
 
 export type { MarketId, MarketPack } from './types';
@@ -35,6 +36,9 @@ export const MARKETS: Readonly<Record<MarketId, MarketPack>> = {
   US: US_MARKET,
   GB: GB_MARKET,
   AE: AE_MARKET,
+  AU: AU_MARKET,
+  SG: SG_MARKET,
+  CN: CN_MARKET,
 };
 
 /** In display order. India first — it is the default and the largest audience. */
@@ -57,13 +61,17 @@ const REGION_TO_MARKET: Readonly<Record<string, MarketId>> = {
   IN: 'IN',
   US: 'US',
   GB: 'GB', UK: 'GB',
-  AE: 'AE',
+  AE: 'AE', AU: 'AU', SG: 'SG', CN: 'CN',
 };
 
 /** Time zones that identify a market unambiguously. */
 const ZONE_TO_MARKET: Readonly<Record<string, MarketId>> = {
   'Asia/Kolkata': 'IN', 'Asia/Calcutta': 'IN',
   'Asia/Dubai': 'AE',
+  'Australia/Sydney': 'AU', 'Australia/Melbourne': 'AU', 'Australia/Brisbane': 'AU',
+  'Australia/Perth': 'AU', 'Australia/Adelaide': 'AU', 'Australia/Darwin': 'AU',
+  'Australia/Hobart': 'AU', 'Australia/Lord_Howe': 'AU', 'Australia/Broken_Hill': 'AU',
+  'Asia/Singapore': 'SG', 'Asia/Shanghai': 'CN', 'Asia/Urumqi': 'CN',
   'Europe/London': 'GB',
   'America/New_York': 'US', 'America/Chicago': 'US', 'America/Denver': 'US',
   'America/Los_Angeles': 'US', 'America/Phoenix': 'US', 'America/Anchorage': 'US',
@@ -83,7 +91,7 @@ export function detectMarket(): MarketId | null {
     const languages = navigator?.languages?.length ? navigator.languages : [navigator?.language];
     for (const tag of languages) {
       if (!tag) continue;
-      const region = tag.split('-')[1]?.toUpperCase();
+      const region = new Intl.Locale(tag).region?.toUpperCase();
       if (region && REGION_TO_MARKET[region]) return REGION_TO_MARKET[region];
     }
   } catch {

@@ -191,13 +191,12 @@ describe('surfaces', () => {
   const money = buildCommands({ ...CTX, surface: 'money' });
   const careers = buildCommands({ ...CTX, currency: null, surface: 'careers' });
 
-  it('offers every routable Careers section from both sides', () => {
-    for (const name of [
-      'Resume Library', 'Job Search', 'Applications', 'Interview Prep', 'Career Coach',
-      'Match Queue', 'Offers', 'Recruiters', 'Network', 'Assessments', 'Knowledge Base', 'Billing',
-    ]) {
-      expect(titles(money), `${name} from money`).toContain(name);
-      expect(titles(careers), `${name} from careers`).toContain(name);
+  it('replaces locked Careers sections with launch information from both surfaces', () => {
+    for (const commands of [money, careers]) {
+      const entries = commands.filter((c) => c.group === 'Careers');
+      expect(entries).toHaveLength(1);
+      expect(entries[0].title).toContain('2027');
+      expect(entries[0].effect).toEqual({ kind: 'navigate', to: '/careers' });
     }
   });
 
@@ -217,7 +216,7 @@ describe('surfaces', () => {
   it('opens on the Careers sections in the Careers workspace', () => {
     const resting = searchCommands('', careers, { limit: 12 });
     expect(resting.every((c) => c.group === 'Careers' || c.group === 'Actions')).toBe(true);
-    expect(resting.some((c) => c.title === 'Job Search')).toBe(true);
+    expect(resting.some((c) => c.id === 'careers:coming-soon')).toBe(true);
   });
 
   it('keeps the calculators one keystroke away from Careers', () => {

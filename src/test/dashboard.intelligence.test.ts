@@ -149,6 +149,11 @@ describe('dashboard — LifeMap', () => {
     expect(readDashboard().lifemap).toBeNull();
   });
 
+  it.each<Record<string, string>>([{ 'lm-expenses': '' }, { 'lm-expenses': '0' }, { 'lm-savings': '' }, { 'lm-age': '46' }, { 'lm-emergency': '999999' }])('does not project a profile the LifeMap form requires reviewing: %j', (fields) => {
+    seedProfile(fields);
+    expect(readDashboard().lifemap).toBeNull();
+  });
+
   it('marks the existing journey step done without adding a new one', () => {
     // LifeMap has always been one of the pillars — unlike net worth — so
     // building a profile does complete a step. What must not change is how many

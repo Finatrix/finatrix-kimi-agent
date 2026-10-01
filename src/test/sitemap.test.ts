@@ -29,7 +29,7 @@ describe('sitemap.xml', () => {
     const listed = new Set(locs().map((l) => new URL(l).pathname.replace(/\/$/, '') || '/'));
     expect(listed.has('/')).toBe(true);
     for (const id of TOOL_IDS) expect(listed.has(`/tools/${id}`), id).toBe(true);
-    for (const p of PUBLIC_PAGE_PATHS) expect(listed.has(p), p).toBe(true);
+    for (const p of PUBLIC_PAGE_PATHS) expect(listed.has(p), p).toBe(seoForPath(p).robots === INDEXABLE);
   });
 
   it('lists nothing that is noindex or not self-canonical', () => {

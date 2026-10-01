@@ -21,6 +21,16 @@
  * They describe a median, which is not a target — see the note in the UI.
  */
 
+/*
+ * THE FDIC LIMIT IS NOT IN THIS FILE
+ * ----------------------------------
+ * For the same reason the FSCS limit is not in `gb.ts`: a legal threshold
+ * written into prose carries no effective date, so nothing can tell when it has
+ * lapsed. The UK's did, and stayed wrong in four sentences until somebody went
+ * looking. The figure, its ownership-category rules and its conditions live
+ * once in `src/reference/deposits.ts`, and the descriptions here refer to it.
+ */
+
 import type { MarketPack } from './types';
 
 export const US_MARKET: MarketPack = {
@@ -48,12 +58,12 @@ export const US_MARKET: MarketPack = {
       muni: { exempt: true },
     },
     options: [
-      { n: 'High-yield savings', rate: 4.0, tax: 'taxable', liquid: true, risk: 'None', ic: 'bank', d: 'FDIC insured to $250K per depositor. Online banks pay 4%+ while big-bank savings pays near zero — the gap is the whole decision.', minM: 0 },
+      { n: 'High-yield savings', rate: 4.0, tax: 'taxable', liquid: true, risk: 'None', ic: 'bank', d: 'Covered by the FDIC limit, per depositor per ownership category. Online banks pay 4%+ while big-bank savings pays near zero — the gap is the whole decision.', minM: 0 },
       { n: 'Government money market fund', rate: 4.15, tax: 'taxable', liquid: true, risk: 'Very low', ic: 'invest-cat', d: 'Settles same or next day. Holds Treasury and agency repo. Not FDIC insured, but has never broken the buck in this category.', minM: 0 },
       { n: 'Treasury money market fund', rate: 4.1, tax: 'taxable', liquid: true, risk: 'Negligible', ic: 'shield', d: 'Direct Treasury holdings. Interest is exempt from state and local income tax — worth roughly another 0.3–0.5% if you file in a high-tax state.', minM: 0 },
       { n: '3-month T-bill', rate: 4.1, tax: 'taxable', liquid: false, risk: 'None', ic: 'bills', d: 'Backed by the US Treasury. Buy at TreasuryDirect or through a broker. State-tax exempt. Sellable early on the secondary market at the going price.', minM: 3 },
-      { n: '6-month CD', rate: 4.05, tax: 'taxable', liquid: false, risk: 'None', ic: 'lock', d: 'FDIC insured. Rate locked for the term. Early withdrawal typically forfeits 3–6 months of interest.', minM: 6 },
-      { n: '1-year CD', rate: 4.0, tax: 'taxable', liquid: false, risk: 'None', ic: 'lock', d: 'FDIC insured. Best when you are confident about the date you need the money and rates are expected to fall.', minM: 12 },
+      { n: '6-month CD', rate: 4.05, tax: 'taxable', liquid: false, risk: 'None', ic: 'lock', d: 'FDIC insured within the limit. Rate locked for the term. Early withdrawal typically forfeits 3–6 months of interest.', minM: 6 },
+      { n: '1-year CD', rate: 4.0, tax: 'taxable', liquid: false, risk: 'None', ic: 'lock', d: 'FDIC insured within the limit. Best when you are confident about the date you need the money and rates are expected to fall.', minM: 12 },
       { n: 'Municipal money market fund', rate: 2.8, tax: 'muni', liquid: true, risk: 'Very low', ic: 'award', d: 'Interest is exempt from federal income tax. The lower headline rate wins only in the 32% bracket and above — this tool does that comparison for you.', minM: 0 },
       { n: 'Short-term Treasury ETF', rate: 4.2, tax: 'taxable', liquid: true, risk: 'Low', ic: 'trending', d: '0–1 year Treasuries in an ETF wrapper. Trades like a stock, settles T+1. Tiny price moves as rates shift.', minM: 3 },
       { n: 'Ultra-short bond fund', rate: 4.5, tax: 'taxable', liquid: true, risk: 'Low', ic: 'zap', d: 'Investment-grade corporate and asset-backed paper under a year. Higher yield than Treasuries, with credit risk that shows up exactly when you least want it.', minM: 3 },

@@ -1,0 +1,27 @@
+App/build
+App/Pods
+App/output
+App/App/public
+DerivedData
+xcuserdata
+App/CapApp-SPM/.build
+
+# Apple signing material — SECRETS. Certificates, private keys and provisioning
+# profiles are per-developer and per-machine: they come from the Developer
+# portal or Xcode's own management, never through a repository. A .p12 in the
+# history is a key anyone who can read the history can sign a release with, and
+# deleting the file later does not remove it. ExportOptions.plist is generated
+# per export and names the Team ID and the profile it used.
+*.p12
+*.cer
+*.certSigningRequest
+*.mobileprovision
+App/ExportOptions.plist
+App/*.ipa
+
+# Cordova plugins for Capacitor
+capacitor-cordova-ios-plugins
+
+# Generated Config files
+App/App/capacitor.config.json
+App/App/config.xml

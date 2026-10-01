@@ -10,6 +10,8 @@ import { CURRENCY_CODES, currencySym } from '../lib/format';
 import { MARKET_LIST } from '../lib/markets';
 import { getDataSummary, hasAnyData, exportBackup, resetAllData } from '../lib/settings';
 import PrivacyControls from '../ui/PrivacyControls';
+import { DataReadiness } from '../ui/DataReadiness';
+import { store } from '../lib/storage';
 import { useAuth } from '../../context/AuthContext';
 
 function Section({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
@@ -34,9 +36,16 @@ export default function SettingsPage() {
   const areas = getDataSummary();
   const anyData = hasAnyData();
 
-  const onBackup = () => {
-    const ok = exportBackup();
-    notify(ok ? 'Backup downloaded (JSON)' : 'No data to back up yet', ok ? 'ok' : 'info');
+  const onBackup = async () => {
+    try {
+      const ok = await exportBackup();
+      if (ok) {
+        store.set('fx_last_backup_export', new Date().toISOString());
+        notify('Backup exported (JSON)', 'ok');
+      } else if (!anyData) notify('No data to back up yet', 'info');
+    } catch {
+      notify('The backup could not be exported. Please try again.', 'error');
+    }
   };
 
   const onReset = () => {
@@ -52,6 +61,8 @@ export default function SettingsPage() {
         Personalise how FinatriX looks, tell us where you live, choose your display currency, and
         manage your data. Signed-in finance records also sync with your account.
       </PageHead>
+
+      <DataReadiness />
 
       {/* Appearance */}
       <Section title="Appearance" desc="Choose a theme. FinatriX follows your system by default until you pick one.">
@@ -75,7 +86,7 @@ export default function SettingsPage() {
       {/* Market — the setting that changes what the tools actually compute. */}
       <Section
         title="Your market"
-        desc="Which country's instruments, tax rules and peer benchmarks the tools should compare you against. ParkSmart, InvestMatch, PeerCompare and the Goal Planner all follow this."
+        desc="Choose the local references and labels used by the tools. Australia, Singapore and Mainland China use entered cash rates and published peer summaries. Display currency is a separate setting."
       >
         <label htmlFor="fx-set-market" className="fl">Market</label>
         <select
@@ -125,6 +136,19 @@ export default function SettingsPage() {
         <p className="note" style={{ marginTop: 12 }}>
           Figures for {market.name} were last reviewed {market.asOf.replace('-', '/')}. Sources:{' '}
           {market.sources.join('; ')}.
+        </p>
+
+        {/* The picker lists the markets the calculators are localised for. The
+            research goes wider — deposit caps, tax schedules and price indices
+            for Australia, Singapore and Mainland China are verified and dated,
+            and would otherwise be invisible for want of instrument rates that
+            nobody should invent. This is the door to them. */}
+        <p className="note" style={{ marginTop: 8 }}>
+          Want to check the sources behind your market?{' '}
+          <Link to="/tools/reference" style={{ color: 'var(--accent-text)', textDecoration: 'underline' }}>
+            Reference data covers seven
+          </Link>{' '}
+          — including Australia, Singapore and Mainland China, with dated sources and explicit limits on what the tools calculate.
         </p>
       </Section>
 

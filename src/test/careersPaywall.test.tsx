@@ -116,3 +116,8 @@ describe('Careers Pro paywall gate', () => {
     expect(screen.queryByText('Unlock FinatriX Careers Pro')).toBeNull();
   });
 });
+
+// Exercise subscription access after the explicit launch switch is enabled.
+vi.mock('../shared/careersAvailability', async (original) => ({
+  ...await original<typeof import('../shared/careersAvailability')>(), CAREERS_AVAILABLE: true,
+}));

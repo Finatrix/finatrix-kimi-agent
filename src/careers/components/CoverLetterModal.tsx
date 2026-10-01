@@ -87,9 +87,10 @@ export function CoverLetterModal({
     }
   };
 
-  const doExport = async (fn: () => Promise<void> | void, label: string) => {
+  const doExport = async (fn: () => Promise<void | boolean> | void | boolean, label: string) => {
     try {
-      await fn();
+      const saved = await fn();
+      if (saved === false) return;
       notify(`${label}.`, 'ok');
     } catch (e) {
       notify(toCareersError(e).message, 'error');

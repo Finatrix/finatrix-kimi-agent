@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { lazy, Suspense, useEffect, type ReactElement } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router'
 import ErrorBoundary from './components/ErrorBoundary'
 import LoginReminderModal from './components/LoginReminderModal'
@@ -7,6 +7,8 @@ import { useScrollRestoration } from './hooks/useScrollRestoration'
 import { trackPageView } from './lib/analytics'
 import { applySeo } from './lib/seo'
 import { RESET_PASSWORD_PATH } from './shared/routes'
+import NativeShell from './native/NativeShell'
+import { canPurchaseInApp, isNativeApp } from './native/platform'
 
 // Route-level code-splitting: each page (and its heavy deps like the
 // Supabase-backed tools) loads only when its route is visited.
@@ -15,6 +17,7 @@ const ToolsLayout = lazy(() => import('./tools/ToolsLayout'))
 const ToolsIndex = lazy(() => import('./tools/ToolsIndex'))
 const ToolRoute = lazy(() => import('./tools/ToolRoute'))
 const Dashboard = lazy(() => import('./tools/pages/DashboardPage'))
+const CareersAvailability = lazy(() => import('./pages/careers/CareersAvailability'))
 const CareersLayout = lazy(() => import('./careers/CareersLayout'))
 const CareersDashboard = lazy(() => import('./careers/pages/CareersDashboard'))
 const CareersUpload = lazy(() => import('./careers/pages/CareersUpload'))
@@ -83,6 +86,21 @@ const TopicPage = lazy(() => import('./learn/TopicPage'))
 const ArticlePage = lazy(() => import('./learn/ArticlePage'))
 
 /**
+ * A page that exists to sell, which the Android app replaces with the screen
+ * a member actually uses.
+ *
+ * Google Play forbids an app from offering, pricing or linking to a purchase
+ * made outside Play Billing (see `canPurchaseInApp`). The pricing page and the
+ * Careers marketing pages are all price tables and purchase CTAs, so in the app
+ * they resolve to the member-facing screen instead of a dead end. The website
+ * is unaffected.
+ */
+const CAREERS_HOME = '/careers/dashboard'
+function webOnly(page: ReactElement, appDestination: string): ReactElement {
+  return canPurchaseInApp() ? page : <Navigate to={appDestination} replace />
+}
+
+/**
  * Applies the route's identity on every client-side navigation: analytics, then
  * the full head — title, description, canonical, robots, Open Graph, Twitter
  * card and per-route JSON-LD.
@@ -125,6 +143,7 @@ export default function App() {
       </a>
       <RouteMetadata />
       <ScrollManager />
+      <NativeShell />
       <Suspense fallback={<RouteFallback />}>
         {/* The single `main` landmark for the whole app (WCAG 1.3.1). This was
             a plain <div>, which gave screen-reader users no way to jump to the
@@ -134,7 +153,9 @@ export default function App() {
             the tab order. */}
         <main id="main" tabIndex={-1}>
         <Routes>
-          <Route path="/" element={<Home />} />
+          {/* The app opens on the product, not the marketing page that sells
+              it — someone who installed FinatriX has already been sold. */}
+          <Route path="/" element={isNativeApp() ? <Navigate to="/tools/dashboard" replace /> : <Home />} />
           {/* Legacy route — the landing page now lives at "/". */}
           <Route path="/home" element={<Navigate to="/" replace />} />
           <Route path="/tools" element={<ToolsLayout />}>
@@ -148,7 +169,7 @@ export default function App() {
           {/* ── Public marketing + trust surface ──────────────────────────
               These render the landing chrome, are indexable, and are the only
               way an anonymous visitor can evaluate or price the paid product. */}
-          <Route path="/pricing" element={<Pricing />} />
+          <Route path="/pricing" element={webOnly(<Pricing />, '/careers/billing')} />
           <Route path="/about" element={<About />} />
           <Route path="/faq" element={<Faq />} />
           <Route path="/help" element={<Help />} />
@@ -177,45 +198,38 @@ export default function App() {
           <Route path="/learn/:topic" element={<TopicPage />} />
           <Route path="/learn/:topic/:slug" element={<ArticlePage />} />
 
-          {/* `/careers` is the PUBLIC landing page, not the app. It used to
-              render the signed-in dashboard behind an auth gate and a paywall,
-              which made the entire paid product invisible to anyone who had not
-              already bought it. The workspace lives at /careers/dashboard —
-              where it was already reachable — and these three marketing routes
-              sit alongside the gated subtree below.
+          {/* The launch gate wraps marketing and workspace routes before any
+              authentication, subscriptions or Careers data can mount. */}
+          <Route element={<CareersAvailability />}>
+            <Route path="/careers" element={webOnly(<CareersLanding />, CAREERS_HOME)} />
+            <Route path="/careers/features" element={webOnly(<CareersFeatures />, CAREERS_HOME)} />
+            <Route path="/careers/compare" element={webOnly(<CareersCompareIndex />, CAREERS_HOME)} />
+            <Route path="/careers/compare/:rival" element={webOnly(<CareersCompare />, CAREERS_HOME)} />
 
-              They are declared BEFORE the CareersLayout route and as siblings,
-              not children, so they never enter the auth/paywall gates. React
-              Router ranks by specificity rather than order, and the layout has
-              no matching child for any of these paths, so there is no ambiguity
-              to resolve — `careers.publicRoutes.test.tsx` pins that behaviour. */}
-          <Route path="/careers" element={<CareersLanding />} />
-          <Route path="/careers/features" element={<CareersFeatures />} />
-          <Route path="/careers/compare" element={<CareersCompareIndex />} />
-          <Route path="/careers/compare/:rival" element={<CareersCompare />} />
-
-          <Route path="/careers" element={<CareersLayout />}>
-            <Route path="dashboard" element={<CareersDashboard />} />
-            <Route path="upload" element={<CareersUpload />} />
-            <Route path="resumes" element={<ResumeLibrary />} />
-            <Route path="jobs" element={<JobsPage />} />
-            <Route path="queue" element={<MatchQueuePage />} />
-            <Route path="applications" element={<ApplicationsPage />} />
-            <Route path="tasks" element={<TasksPage />} />
-            <Route path="companies" element={<CompaniesPage />} />
-            <Route path="intelligence" element={<CompanyIntelPage />} />
-            <Route path="intelligence/company" element={<CompanyProfilePage />} />
-            <Route path="recruiters" element={<RecruitersPage />} />
-            <Route path="network" element={<NetworkPage />} />
-            <Route path="interviews" element={<InterviewPrepPage />} />
-            <Route path="assessments" element={<AssessmentsPage />} />
-            <Route path="offers" element={<OffersPage />} />
-            <Route path="knowledge" element={<KnowledgeBasePage />} />
-            <Route path="coach" element={<CareerCoachPage />} />
-            <Route path="billing" element={<BillingPage />} />
-            <Route path="admin" element={<AdminDashboard />} />
-            <Route path="profile" element={<CareerProfilePage />} />
-            <Route path="settings" element={<CareersSettings />} />
+            <Route path="/careers" element={<CareersLayout />}>
+              <Route path="dashboard" element={<CareersDashboard />} />
+              <Route path="upload" element={<CareersUpload />} />
+              <Route path="resumes" element={<ResumeLibrary />} />
+              <Route path="jobs" element={<JobsPage />} />
+              <Route path="queue" element={<MatchQueuePage />} />
+              <Route path="applications" element={<ApplicationsPage />} />
+              <Route path="tasks" element={<TasksPage />} />
+              <Route path="companies" element={<CompaniesPage />} />
+              <Route path="intelligence" element={<CompanyIntelPage />} />
+              <Route path="intelligence/company" element={<CompanyProfilePage />} />
+              <Route path="recruiters" element={<RecruitersPage />} />
+              <Route path="network" element={<NetworkPage />} />
+              <Route path="interviews" element={<InterviewPrepPage />} />
+              <Route path="assessments" element={<AssessmentsPage />} />
+              <Route path="offers" element={<OffersPage />} />
+              <Route path="knowledge" element={<KnowledgeBasePage />} />
+              <Route path="coach" element={<CareerCoachPage />} />
+              <Route path="billing" element={<BillingPage />} />
+              <Route path="admin" element={<AdminDashboard />} />
+              <Route path="profile" element={<CareerProfilePage />} />
+              <Route path="settings" element={<CareersSettings />} />
+            </Route>
+            <Route path="/careers/*" element={<NotFound />} />
           </Route>
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />

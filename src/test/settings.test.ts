@@ -36,11 +36,13 @@ describe('settings data management', () => {
 
   it('resetAllData clears tool data and notification state', () => {
     seed();
+    localStorage.setItem('fx_import_staged', '{"private":"statement draft"}');
     const cleared = resetAllData();
     expect(cleared).toBeGreaterThan(0);
     expect(localStorage.getItem('fx_bb_data')).toBeNull();
     expect(localStorage.getItem('fx_expenses')).toBeNull();
     expect(localStorage.getItem('fx_notif_read')).toBeNull();
+    expect(localStorage.getItem('fx_import_staged')).toBeNull();
     expect(hasAnyData()).toBe(false);
   });
 });

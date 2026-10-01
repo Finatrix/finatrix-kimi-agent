@@ -157,7 +157,7 @@ export function QuickAddBar({ cats, learned, cfmt, now, onAdd, fallbackCategory,
             {parsed.note && <span className="fx-qa-chip fx-qa-note">“{parsed.note}”</span>}
           </span>
         ) : (
-          <>Add an amount — “340 lunch” is enough.</>
+          <>{parsed.category && cat ? `${cat.l}${parsed.categorySource === 'history' ? ' (from your history)' : ''} selected. ` : ''}Add an amount — “340 lunch” is enough.</>
         )}
       </p>
     </div>

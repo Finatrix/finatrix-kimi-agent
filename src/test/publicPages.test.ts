@@ -57,6 +57,11 @@ describe('public page registry', () => {
   it('is indexable and self-canonical', () => {
     for (const p of PUBLIC_PAGE_PATHS) {
       const seo = seoForPath(p);
+      if (p.startsWith('/careers/')) {
+        expect(seo.robots).toBe('noindex, nofollow');
+        expect(seo.canonical).toBe(`${CANONICAL_ORIGIN}/careers`);
+        continue;
+      }
       expect(seo.robots, p).toBe(INDEXABLE);
       expect(seo.canonical, p).toBe(`${CANONICAL_ORIGIN}${p}`);
     }
@@ -126,6 +131,10 @@ describe('registry copy', () => {
 describe('FAQ structured data', () => {
   it('emits FAQPage only for pages that carry questions', () => {
     for (const page of PUBLIC_PAGES) {
+      if (page.path.startsWith('/careers/')) {
+        expect(structuredDataForPath(page.path)).toBeNull();
+        continue;
+      }
       const graph = structuredDataForPath(page.path)!['@graph'] as Record<string, unknown>[];
       const faqNode = graph.find((n) => n['@type'] === 'FAQPage');
       if (page.faq?.length) {
@@ -152,17 +161,8 @@ describe('FAQ structured data', () => {
 });
 
 describe('breadcrumbs', () => {
-  it('describes the real trail, ending on the page itself', () => {
-    const page = publicPageFor('/careers/compare/indeed')!;
-    const graph = structuredDataForPath(page.path)!['@graph'] as Record<string, unknown>[];
-    const crumbs = graph.find((n) => n['@type'] === 'BreadcrumbList')!
-      .itemListElement as Array<Record<string, unknown>>;
-
-    expect(crumbs.map((c) => c.name)).toEqual(['Home', 'Careers', 'Compare', 'vs Indeed']);
-    expect(crumbs.map((c) => c.position)).toEqual([1, 2, 3, 4]);
-    // The last crumb IS the current page, so it carries no link.
-    expect(crumbs[crumbs.length - 1].item).toBeUndefined();
-    expect(crumbs[1].item).toBe(`${CANONICAL_ORIGIN}/careers`);
+  it('does not publish breadcrumbs for locked deep Careers pages', () => {
+    expect(structuredDataForPath('/careers/compare/indeed')).toBeNull();
   });
 });
 

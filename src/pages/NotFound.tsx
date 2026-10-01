@@ -9,7 +9,7 @@ export default function NotFound() {
   }, []);
 
   return (
-    <div className="relative min-h-[100dvh] overflow-hidden bg-surface-base text-ink flex flex-col items-center justify-center px-6 text-center">
+    <div className="relative min-h-[calc(100dvh-var(--fx-safe-top))] overflow-hidden bg-surface-base text-ink flex flex-col items-center justify-center px-6 text-center">
       <div className="pointer-events-none absolute left-1/2 top-1/2 h-[55vh] w-[55vh] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[120px] opacity-[0.16]" style={{ background: 'radial-gradient(circle, #E6C766 0%, #9c7a26 40%, transparent 70%)' }} />
       <span className="relative font-mono text-[11px] uppercase tracking-[0.18em] text-accent-text mb-4">
         Error 404

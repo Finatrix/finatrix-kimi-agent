@@ -549,6 +549,19 @@ describe('edge function deploy coverage', () => {
     },
   );
 
+  /**
+   * account-delete authenticates in-function (auth.getUser) and must not depend
+   * on the gateway's legacy JWT check — and it must never skip its own.
+   */
+  it('account-delete is deployed --no-verify-jwt and verifies the caller itself', () => {
+    expect(workflow).toMatch(/functions deploy account-delete --no-verify-jwt/);
+    const src = read('supabase/functions/account-delete/index.ts');
+    expect(src).toMatch(/auth\.getUser\(\)/);
+    expect(src).toMatch(/return json\(401/);
+    // The user id comes from the verified token, never the request body.
+    expect(src).not.toMatch(/body\.(uid|user_?id|userId)/i);
+  });
+
   it('careers-billing-checkout keeps the JWT gate — it derives the buyer from the caller', () => {
     expect(workflow).not.toMatch(/functions deploy careers-billing-checkout --no-verify-jwt/);
   });

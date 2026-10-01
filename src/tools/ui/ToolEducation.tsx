@@ -24,12 +24,15 @@
  * loaded on the route.
  */
 
+import { useEffect, useMemo } from 'react';
+import { applyToolFaqSchema } from '../../lib/seo';
 import { Link } from 'react-router';
 import { TOOLS } from '../../lib/tools';
 import { articlePath, articlesUsingTool, topicPath, topicsUsingTool } from '../../shared/content';
 import type { ToolId } from '../../shared/routes';
-import { TOOL_FAQ } from '../../shared/toolFaq';
-import { TOOL_GUIDES, type WorkedExample } from '../../shared/toolGuides';
+import { useOptionalMarket } from '../MarketContext';
+import { guideForMarket, faqForMarket } from '../lib/markets/guides';
+import { type WorkedExample } from '../../shared/toolGuides';
 
 function List({ items, ordered = false }: { items: readonly string[]; ordered?: boolean }) {
   const Tag = ordered ? 'ol' : 'ul';
@@ -94,8 +97,14 @@ function Worked({ example }: { example: WorkedExample }) {
 }
 
 export default function ToolEducation({ toolId }: { toolId: ToolId }) {
-  const guide = TOOL_GUIDES[toolId];
-  const faq = TOOL_FAQ[toolId];
+  const market = useOptionalMarket()?.market;
+  const guide = guideForMarket(toolId, market);
+  const faq = useMemo(() => faqForMarket(toolId, market), [toolId, market]);
+  useEffect(() => {
+    // Run after the route's base metadata effect; cancel if the route changes.
+    const frame = requestAnimationFrame(() => applyToolFaqSchema(`/tools/${toolId}`, faq));
+    return () => cancelAnimationFrame(frame);
+  }, [toolId, faq]);
   const tool = TOOLS.find((t) => t.id === toolId);
   const related = guide.related
     .map((id) => TOOLS.find((t) => t.id === id))

@@ -47,14 +47,13 @@ import type { PeerBenchmarks, PeerInput } from '../peercompare';
 /**
  * Markets the product has real, checkable data for.
  *
- * Deliberately short. A market on this list promises instrument sets, tax
- * shapes and peer benchmarks that someone in that country would recognise as
- * their own; forty flags with Indian numbers behind them would be a worse
- * product than an honest four.
+ * Each market has local context and explicitly scoped tool modes. Missing
+ * yields use user-entered rates; published summaries do not require a
+ * fabricated city/age grid. Neither mode falls back to another country.
  */
-export type MarketId = 'IN' | 'US' | 'GB' | 'AE';
+export type MarketId = 'IN' | 'US' | 'GB' | 'AE' | 'AU' | 'SG' | 'CN';
 
-export const MARKET_IDS: readonly MarketId[] = ['IN', 'US', 'GB', 'AE'];
+export const MARKET_IDS: readonly MarketId[] = ['IN', 'US', 'GB', 'AE', 'AU', 'SG', 'CN'];
 
 /**
  * Where the user's chosen market is stored, and what it is when nothing is.
@@ -77,6 +76,8 @@ export function isMarketId(v: unknown): v is MarketId {
 
 /** ParkSmart: the instruments, plus what the controls around them are called. */
 export interface ParkPack extends ParkInstruments {
+  /** No numeric market yields are supplied in this mode. Rates come from the user. */
+  inputMode?: 'net-rates';
   /** Label for the marginal-rate control — "Income-tax slab" vs "Marginal tax rate". */
   rateLabel: string;
   /** The rate choices offered, as whole percentages, in display order. */
@@ -114,6 +115,8 @@ export interface InvestPack extends InvestAssumptions {
 
 /** PeerCompare: the benchmarks, plus the control labels and starting answers. */
 export interface PeerPack extends PeerBenchmarks {
+  /** Published summaries never enter the legacy percentile engine. */
+  mode?: 'published-context';
   /** Label for the location control — "City" vs "Metro area". */
   cityLabel: string;
   defaults: PeerInput;
@@ -187,4 +190,6 @@ export interface MarketPack {
   goals: GoalsPack;
   netWorth: NetWorthPack;
   icon: IconName;
+  /** Explicit description of authored examples, distinct from measured statistics. */
+  planningNote?: string;
 }

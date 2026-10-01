@@ -119,8 +119,9 @@ jobs:
       # CI runs separately and cannot block this workflow. Exercise the actual
       # production bundle before publishing: browser-only regressions must gate
       # deployment just like unit tests and the dependency audit do.
-      - name: Install browser for release checks
-        run: npx playwright install --with-deps chromium
+      - name: Install browsers for release checks
+        # WebKit too: the iOS app's engine (see e2e/ios-webkit.spec.ts).
+        run: npx playwright install --with-deps chromium webkit
       - name: Browser and accessibility release checks
         run: npm run test:e2e
         env:
@@ -220,6 +221,17 @@ jobs:
       # who the subscription is for.
       - name: Deploy authenticated edge functions
         run: npx supabase functions deploy careers-jobs careers-ai careers-email careers-billing-checkout --project-ref "$SUPABASE_PROJECT_REF"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      # account-delete verifies the caller itself (auth.getUser against the Auth
+      # server, then a per-user and a pre-auth per-IP limit) and is deployed
+      # --no-verify-jwt. This project signs sessions with ES256; the gateway's
+      # legacy JWT check is not what should decide whether someone may delete
+      # their account, and a false 401 there would leave Play's required
+      # in-app deletion broken with no error reaching the function's logs.
+      - name: Deploy account deletion (verifies the caller in-function — see comment)
+        run: npx supabase functions deploy account-delete --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF"
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}

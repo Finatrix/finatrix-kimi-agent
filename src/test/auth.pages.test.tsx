@@ -181,6 +181,35 @@ describe('/login', () => {
   });
 });
 
+describe('/login — Google sign-in button', () => {
+  /**
+   * In the Android app Google runs in a Chrome Custom Tab. Closing that tab
+   * (✕ or BACK) used to leave the whole form disabled for good: the web code
+   * assumed the page was about to leave for Google, and nothing ever re-enabled
+   * it. A closed tab now reports `closed: true`.
+   */
+  it('re-enables the form when the sign-in tab is closed without finishing', async () => {
+    h.signInWithProvider.mockResolvedValue({ error: null, closed: true });
+    renderAt('/login', <Login />);
+    const google = screen.getByRole('button', { name: /continue with google/i });
+    fireEvent.click(google);
+    await waitFor(() => expect(h.signInWithProvider).toHaveBeenCalled());
+    await waitFor(() => expect(google).toBeEnabled());
+  });
+
+  it('stays busy on the web, where success means the page is leaving for Google', async () => {
+    let settle: (v: unknown) => void = () => {};
+    h.signInWithProvider.mockImplementation(() => new Promise((r) => { settle = r; }));
+    renderAt('/login', <Login />);
+    const google = screen.getByRole('button', { name: /continue with google/i });
+    fireEvent.click(google);
+    await waitFor(() => expect(google).toBeDisabled());
+    settle({ error: null });
+    await Promise.resolve();
+    expect(google).toBeDisabled();
+  });
+});
+
 describe('/reset-password', () => {
   const recovering = { user: { id: 'u1', email: 'a@test.invalid' } satisfies User, recovery: true };
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { AuthProvider } from '../context/AuthContext';
@@ -73,3 +73,8 @@ describe('Careers routes render', () => {
     expect((await screen.findAllByText('Careers')).length).toBeGreaterThan(0);
   });
 });
+
+// Preserve coverage of the workspace for the explicitly enabled launch state.
+vi.mock('../shared/careersAvailability', async (original) => ({
+  ...await original<typeof import('../shared/careersAvailability')>(), CAREERS_AVAILABLE: true,
+}));

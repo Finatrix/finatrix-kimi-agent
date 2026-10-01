@@ -1,0 +1,99 @@
+apply plugin: 'com.android.application'
+
+/*
+ * Release signing and versioning live outside version control.
+ *
+ * keystore.properties (gitignored, next to this file's parent) holds the Play
+ * UPLOAD key — the key Google Play App Signing uses to verify uploads, not the
+ * key users' devices see. Create it with scripts/android-keystore.sh; see
+ * docs/ANDROID.md. Without it, release builds are produced unsigned and cannot
+ * be uploaded, which is the safe failure.
+ */
+def keystorePropsFile = rootProject.file("keystore.properties")
+def keystoreProps = new Properties()
+if (keystorePropsFile.exists()) {
+    keystorePropsFile.withInputStream { keystoreProps.load(it) }
+}
+
+/*
+ * versionCode must strictly increase with every upload to Play; versionName is
+ * what users see. Pass both at release time:
+ *   ./gradlew bundleRelease -PfxVersionCode=2 -PfxVersionName=1.0.1
+ */
+def fxVersionCode = (project.findProperty("fxVersionCode") ?: "1").toInteger()
+def fxVersionName = (project.findProperty("fxVersionName") ?: "1.0.0").toString()
+
+android {
+    namespace = "co.finatrix.app"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "co.finatrix.app"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode fxVersionCode
+        versionName fxVersionName
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+            // Files and dirs to omit from the packaged web assets. Beyond the
+            // defaults: social-card images (og/, only ever fetched by crawlers
+            // from finatrix.co), and web-server-only files — the service worker
+            // (not registered in the app), the sitemap, robots and _headers.
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~:!og:!sw.js:!sitemap.xml:!robots.txt:!_headers'
+        }
+    }
+    signingConfigs {
+        release {
+            if (keystorePropsFile.exists()) {
+                storeFile rootProject.file(keystoreProps["storeFile"])
+                storePassword keystoreProps["storePassword"]
+                keyAlias keystoreProps["keyAlias"]
+                keyPassword keystoreProps["keyPassword"]
+            }
+        }
+    }
+    buildTypes {
+        release {
+            // R8: strips unused Java/Kotlin and resources. Capacitor and its
+            // plugins ship consumer keep-rules for the reflection they use.
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (keystorePropsFile.exists()) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

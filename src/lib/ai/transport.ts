@@ -16,8 +16,9 @@
  * — including conversational ones — asks the model for a JSON object.
  */
 
-import { supabase } from '../supabase';
-import { invokeAuthed } from '../functions';
+import { supabase, isSupabaseConfigured } from '../supabase';
+import { invokeAuthed, readAccessToken } from '../functions';
+import { hasAiConsent } from './consent';
 import { logAiUsage } from './usage';
 
 export interface AiCompletionRequest {
@@ -50,6 +51,8 @@ export type AiFailureKind =
   | 'not-configured'
   /** No signed-in session; the edge function requires one. */
   | 'no-session'
+  /** Signed in, but has not allowed data to go to a third-party AI. Nothing was sent. */
+  | 'no-consent'
   /** The session was rejected (401). */
   | 'auth'
   /** Daily quota or burst limit hit (429). */
@@ -122,6 +125,22 @@ function meter(task: string, model: string, latencyMs: number, extra: {
  * exception shapes. Usage is metered for both outcomes, fire-and-forget.
  */
 export async function requestCompletion(req: AiCompletionRequest): Promise<AiCompletionResult> {
+  // Explicit permission before anything reaches a third-party AI (App Review
+  // 5.1.2(i)) — enforced here, once, so no caller can forget to ask. Checked
+  // after "can this person use AI at all": a guest is told to sign in, not asked
+  // to agree to something they cannot use yet.
+  if (!hasAiConsent()) {
+    if (!isSupabaseConfigured) return { ok: false, kind: 'not-configured', message: '' };
+    let token: string | null = null;
+    try {
+      token = await readAccessToken();
+    } catch {
+      /* treated as signed out */
+    }
+    if (!token) return { ok: false, kind: 'no-session', message: '' };
+    return { ok: false, kind: 'no-consent', message: '' };
+  }
+
   const started = Date.now();
   const { data, error, reason } = await invokeAuthed<FunctionPayload>('careers-ai', {
     task: req.task,

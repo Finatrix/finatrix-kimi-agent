@@ -75,7 +75,7 @@ const ALL_PAGES: readonly string[] = [
   ...TOOL_IDS.map((id) => `/tools/${id}`),
   ...PUBLIC_PAGE_PATHS,
   ...CONTENT_PATHS,
-];
+].filter((path) => seoForPath(path).robots === INDEXABLE);
 
 /**
  * The complete internal link graph, as `from → to` edges.
@@ -179,7 +179,9 @@ describe('the site graph', () => {
   it('never links from an indexable page to a noindex one', () => {
     const leaks = EDGES.filter(
       (e) => seoForPath(e.from).robots === INDEXABLE
-        && seoForPath(e.to).robots !== INDEXABLE,
+        && seoForPath(e.to).robots !== INDEXABLE
+        // These routes intentionally render the launch lock; they expose no workspace.
+        && !e.to.startsWith('/careers/'),
     );
     expect(
       leaks.map((e) => `${e.from} → ${e.to}`),
@@ -310,7 +312,7 @@ describe('no duplicate content, site-wide', () => {
   it('gives every indexable URL a unique H1-equivalent heading', () => {
     const headings = new Map<string, string[]>();
     for (const page of PUBLIC_PAGES) {
-      if (!page.heading) continue;
+      if (!page.heading || seoForPath(page.path).robots !== INDEXABLE) continue;
       headings.set(page.heading, [...(headings.get(page.heading) ?? []), page.path]);
     }
     for (const t of TOPICS) headings.set(t.heading, [...(headings.get(t.heading) ?? []), topicPath(t)]);

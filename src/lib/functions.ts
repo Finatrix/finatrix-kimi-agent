@@ -23,20 +23,27 @@ export type InvokeAuthResult<T> =
   | { data: T; error: null; reason: null }
   | { data: null; error: unknown; reason: 'not-configured' | 'no-session' | 'invoke-error' };
 
-/**
- * Current access token (JWT), refreshing first if missing or within 60s of
- * expiry. Returns null when there is no session. Never throws.
- */
-export async function currentAccessToken(): Promise<string | null> {
+export async function readAccessToken(): Promise<string | null> {
   if (!isSupabaseConfigured) return null;
-  const { data } = await supabase.auth.getSession();
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
   let session = data.session;
   const expiresMs = session?.expires_at ? session.expires_at * 1000 : 0;
   if (session && expiresMs && expiresMs < Date.now() + 60_000) {
-    const { data: refreshed } = await supabase.auth.refreshSession();
-    session = refreshed.session ?? session;
+    const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+    if (refreshError) throw refreshError;
+    session = refreshed.session;
   }
   return session?.access_token ?? null;
+}
+
+/** Current JWT, refreshed when nearly expired. Returns null on failure; never throws. */
+export async function currentAccessToken(): Promise<string | null> {
+  try {
+    return await readAccessToken();
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -54,15 +61,21 @@ export async function invokeAuthed<T>(
   if (!isSupabaseConfigured) {
     return { data: null, error: new Error('Supabase not configured'), reason: 'not-configured' };
   }
-  const accessToken = await currentAccessToken();
-  if (requireAuth && !accessToken) {
-    return { data: null, error: new Error('No active session'), reason: 'no-session' };
+  try {
+    const accessToken = await readAccessToken();
+    if (requireAuth && !accessToken) {
+      return { data: null, error: new Error('No active session'), reason: 'no-session' };
+    }
+    const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined;
+    const { data, error } = await supabase.functions.invoke(name, {
+      headers,
+      body: body as Record<string, unknown>,
+    });
+    if (error) return { data: null, error, reason: 'invoke-error' };
+    return { data: data as T, error: null, reason: null };
+  } catch (error) {
+    // Storage/refresh failures can reject before the HTTP invocation starts.
+    // Callers rely on this result shape to end loading and offer a retry.
+    return { data: null, error, reason: 'invoke-error' };
   }
-  const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined;
-  const { data, error } = await supabase.functions.invoke(name, {
-    headers,
-    body: body as Record<string, unknown>,
-  });
-  if (error) return { data: null, error, reason: 'invoke-error' };
-  return { data: data as T, error: null, reason: null };
 }

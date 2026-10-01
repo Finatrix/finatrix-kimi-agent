@@ -10,7 +10,11 @@ export default defineConfig([
   // `.claude` holds agent git worktrees — checkouts of other commits, not this
   // tree's source; linting them makes the local gate fail on code that is not
   // being changed here (CI checks out clean, so it never saw them).
-  globalIgnores(['dist', 'dist-verify', '.claude', 'supabase/functions']),
+  // `android` and `ios` are the Capacitor native projects: build output and a
+  // copied web bundle (`ios/App/App/public` is all of dist/, minified), never
+  // source. Leaving `ios` in made `eslint .` parse ~25 MB of bundle — minutes
+  // per run instead of seconds.
+  globalIgnores(['dist', 'dist-verify', '.claude', 'supabase/functions', 'android', 'ios', 'test-results', 'playwright-report']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

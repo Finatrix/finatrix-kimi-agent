@@ -10,9 +10,11 @@ import {
 // Type-only, so it is erased at compile time and costs nothing at runtime.
 import type { Session, User } from '@supabase/supabase-js';
 import { isSupabaseConfigured } from '../lib/supabaseConfig';
+import { isNativeApp, NATIVE_AUTH_CALLBACK, publicLinkOrigin } from '../native/platform';
 import { RESET_PASSWORD_PATH } from '../shared/routes';
 import { track } from '../lib/analytics';
 import { safeInternalPath } from '../lib/safePath';
+import type { OAuthProvider } from '../lib/authProviders';
 
 /**
  * `@supabase/supabase-js` is 54 KB gzipped — 38% of the landing page's entire
@@ -26,7 +28,10 @@ import { safeInternalPath } from '../lib/safePath';
  */
 let clientModule: Promise<typeof import('../lib/supabase')> | null = null;
 function loadSupabase() {
-  clientModule ??= import('../lib/supabase');
+  clientModule ??= import('../lib/supabase').catch((error: unknown) => {
+    clientModule = null; // A failed chunk request must not poison every later retry.
+    throw error;
+  });
   return clientModule;
 }
 
@@ -183,11 +188,16 @@ interface AuthContextValue {
    * back. Callers pass a path they have already validated as same-site (see
    * `safeDestination` in Login.tsx) — it becomes a `redirectTo` GoTrue is asked
    * to honour, and an absolute URL there would be an open redirect.
+   *
+   * On the web a successful call never settles in any way the caller sees: the
+   * page leaves for the provider. In either app it resolves with `closed: true`
+   * once the sign-in browser is gone without the sign-in having completed (a
+   * completed one reloads the app), so the caller can re-enable its form.
    */
   signInWithProvider: (
-    provider: 'google',
+    provider: OAuthProvider,
     next?: string
-  ) => Promise<{ error: string | null }>;
+  ) => Promise<{ error: string | null; closed?: boolean }>;
   signOut: () => Promise<void>;
   resendVerification: (email: string) => Promise<{ error: string | null }>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
@@ -196,6 +206,18 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+/**
+ * Which service created or last authenticated this account.
+ *
+ * GoTrue puts it in `app_metadata.provider`. Narrowed to the providers FinatriX
+ * actually offers so a surprise value cannot leak into the analytics taxonomy;
+ * anything else is recorded as 'oauth', which is true and searchable.
+ */
+function providerOf(user: User | null | undefined): string {
+  const provider = user?.app_metadata?.provider;
+  return provider === 'google' || provider === 'apple' ? provider : 'oauth';
+}
 
 /**
  * Which kind of operation produced an error.
@@ -315,16 +337,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // is observable. `/reset-password` needs that distinction, and it is
         // gone by the next render if nobody records it.
         if (event === 'PASSWORD_RECOVERY') setRecovery(true);
+        if (event === 'SIGNED_OUT') setRecovery(false);
 
-        // A Google sign-up completing. `Signup.tsx` reports the email path
+        // An OAuth sign-up completing. `Signup.tsx` reports the email path
         // itself; it cannot report this one, because the browser left the page
-        // to reach Google and the account is created on the way back. Guarded
-        // three ways so it counts a sign-up and nothing else: only on an OAuth
-        // return leg, only for an account created in the last two minutes, and
-        // only once per load (this handler also fires on token refresh).
+        // to reach the provider and the account is created on the way back.
+        // Guarded three ways so it counts a sign-up and nothing else: only on an
+        // OAuth return leg, only for an account created in the last two minutes,
+        // and only once per load (this handler also fires on token refresh).
+        //
+        // `kind` is read from the session rather than hard-coded: with more than
+        // one provider, a fixed 'google' would quietly file every Apple sign-up
+        // under Google and make the funnel wrong in a way no test would catch.
         if (!signupReported.current && oauthReturn.current && isFreshAccount(newSession?.user)) {
           signupReported.current = true;
-          track('signup_completed', { kind: 'google', step: 'active' });
+          track('signup_completed', { kind: providerOf(newSession?.user), step: 'active' });
         }
       });
       // The provider can unmount while the import is in flight; without this the
@@ -398,34 +425,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp: AuthContextValue['signUp'] = async (email, password, name) => {
     if (!isSupabaseConfigured)
       return { error: 'Backend not configured yet.', needsConfirmation: false };
-    const supabase = await ensureClient();
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: name },
-        emailRedirectTo: `${window.location.origin}/login`,
-      },
-    });
-    if (error)
-      return {
-        error: authErrorMessage(
-          error,
-          'Could not create your account. Please try again.',
-          'send-email',
-        ),
-        needsConfirmation: false,
-      };
-    // If email confirmation is on, there is no active session yet.
-    const needsConfirmation = !data.session;
-    return { error: null, needsConfirmation };
+    try {
+      const supabase = await ensureClient();
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { full_name: name },
+          emailRedirectTo: `${publicLinkOrigin()}/login`,
+        },
+      });
+      if (error)
+        return {
+          error: authErrorMessage(
+            error,
+            'Could not create your account. Please try again.',
+            'send-email',
+          ),
+          needsConfirmation: false,
+        };
+      // If email confirmation is on, there is no active session yet.
+      const needsConfirmation = !data.session;
+      return { error: null, needsConfirmation };
+    } catch {
+      return { error: 'Could not create your account. Check your connection and try again.', needsConfirmation: false };
+    }
   };
 
   const signIn: AuthContextValue['signIn'] = async (email, password) => {
     if (!isSupabaseConfigured) return { error: 'Backend not configured yet.' };
-    const supabase = await ensureClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error ? authErrorMessage(error, 'Could not sign in. Please try again.') : null };
+    try {
+      const supabase = await ensureClient();
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      return { error: error ? authErrorMessage(error, 'Could not sign in. Please try again.') : null };
+    } catch {
+      return { error: 'Could not sign in. Check your connection and try again.' };
+    }
   };
 
   const signInWithProvider: AuthContextValue['signInWithProvider'] = async (
@@ -433,20 +468,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     next = '/tools'
   ) => {
     if (!isSupabaseConfigured) return { error: 'Backend not configured yet.' };
-    const supabase = await ensureClient();
-    // Belt and braces on top of the caller's own check: anything that is not a
-    // same-site path is discarded rather than sent to GoTrue, so no future
-    // caller can turn this into an open redirect by passing a value it read
-    // straight from a query string. Same gate as Login.tsx — one implementation,
-    // so the two cannot drift into disagreeing about what "same-site" means.
-    const target = safeInternalPath(next, '/tools');
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: `${window.location.origin}${target}`,
-      },
-    });
-    return { error: error ? authErrorMessage(error, 'Could not sign in. Please try again.') : null };
+    try {
+      const supabase = await ensureClient();
+      // Belt and braces on top of the caller's own check: anything that is not a
+      // same-site path is discarded rather than sent to GoTrue, so no future
+      // caller can turn this into an open redirect by passing a value it read
+      // straight from a query string. Same gate as Login.tsx — one implementation,
+      // so the two cannot drift into disagreeing about what "same-site" means.
+      const target = safeInternalPath(next, '/tools');
+
+      // In either app the provider page opens OUT of the WebView and returns on
+      // the app's own scheme; `src/native/bridge.ts` receives that URL and replays
+      // it as the same return leg the web gets. Google refuses to render its
+      // sign-in page in an embedded WebView at all ("disallowed_useragent"), and
+      // Apple's is no different in kind — so both go through the system browser: a
+      // Chrome Custom Tab on Android, an SFSafariViewController on iOS.
+      if (isNativeApp()) {
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider,
+          options: {
+            redirectTo: `${NATIVE_AUTH_CALLBACK}?next=${encodeURIComponent(target)}`,
+            skipBrowserRedirect: true,
+          },
+        });
+        if (error || !data?.url) {
+          return { error: authErrorMessage(error, 'Could not sign in. Please try again.') };
+        }
+        try {
+          const { openAuthBrowser } = await import('../native/bridge');
+          await openAuthBrowser(data.url);
+          return { error: null, closed: true };
+        } catch {
+          return { error: 'Could not open the sign-in page. Please try again.' };
+        }
+      }
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}${target}`,
+        },
+      });
+      return { error: error ? authErrorMessage(error, 'Could not sign in. Please try again.') : null };
+    } catch {
+      return { error: 'Could not sign in. Check your connection and try again.' };
+    }
   };
 
   const signOut = async () => {
@@ -463,52 +529,65 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // the marker set would make the next load fetch an auth stack for a session
     // that is gone.
     rememberSession(false);
+    setRecovery(false);
     setUser(null);
     setSession(null);
   };
 
   const resendVerification: AuthContextValue['resendVerification'] = async (email) => {
     if (!isSupabaseConfigured) return { error: 'Backend not configured yet.' };
-    const supabase = await ensureClient();
-    const { error } = await supabase.auth.resend({ type: 'signup', email });
-    return {
-      error: error
-        ? authErrorMessage(error, 'Could not resend the email. Please try again.', 'send-email')
-        : null,
-    };
+    try {
+      const supabase = await ensureClient();
+      const { error } = await supabase.auth.resend({ type: 'signup', email });
+      return {
+        error: error
+          ? authErrorMessage(error, 'Could not resend the email. Please try again.', 'send-email')
+          : null,
+      };
+    } catch {
+      return { error: 'Could not resend the email. Check your connection and try again.' };
+    }
   };
 
   const resetPassword: AuthContextValue['resetPassword'] = async (email) => {
     if (!isSupabaseConfigured) return { error: 'Backend not configured yet.' };
-    const supabase = await ensureClient();
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      // /reset-password, NOT /login. The recovery link establishes a session
-      // and then hands the browser to this URL, so whatever is here is the only
-      // chance the user gets to choose a new password. Pointed at /login, that
-      // chance was a sign-in form with no password field to change — the link
-      // worked perfectly and the flow was a dead end, which is indistinguishable
-      // from "password reset is broken" to everyone who tried it.
-      redirectTo: `${window.location.origin}${RESET_PASSWORD_PATH}`,
-    });
-    return {
-      error: error
-        ? authErrorMessage(error, 'Could not send the reset link. Please try again.', 'send-email')
-        : null,
-    };
+    try {
+      const supabase = await ensureClient();
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        // /reset-password, NOT /login. The recovery link establishes a session
+        // and then hands the browser to this URL, so whatever is here is the only
+        // chance the user gets to choose a new password. Pointed at /login, that
+        // chance was a sign-in form with no password field to change — the link
+        // worked perfectly and the flow was a dead end, which is indistinguishable
+        // from "password reset is broken" to everyone who tried it.
+        redirectTo: `${publicLinkOrigin()}${RESET_PASSWORD_PATH}`,
+      });
+      return {
+        error: error
+          ? authErrorMessage(error, 'Could not send the reset link. Please try again.', 'send-email')
+          : null,
+      };
+    } catch {
+      return { error: 'Could not send the reset link. Check your connection and try again.' };
+    }
   };
 
   const updatePassword: AuthContextValue['updatePassword'] = async (password) => {
     if (!isSupabaseConfigured) return { error: 'Backend not configured yet.' };
-    const supabase = await ensureClient();
-    const { error } = await supabase.auth.updateUser({ password });
-    if (error) {
-      return { error: authErrorMessage(error, 'Could not update your password. Please try again.') };
+    try {
+      const supabase = await ensureClient();
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) {
+        return { error: authErrorMessage(error, 'Could not update your password. Please try again.') };
+      }
+      // The recovery grant is spent. Clearing it stops a back-navigation to this
+      // page from presenting the "set a new password" form a second time on the
+      // strength of a link that has already been redeemed.
+      setRecovery(false);
+      return { error: null };
+    } catch {
+      return { error: 'Could not update your password. Check your connection and try again.' };
     }
-    // The recovery grant is spent. Clearing it stops a back-navigation to this
-    // page from presenting the "set a new password" form a second time on the
-    // strength of a link that has already been redeemed.
-    setRecovery(false);
-    return { error: null };
   };
 
   return (

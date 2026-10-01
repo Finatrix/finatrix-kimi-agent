@@ -24,7 +24,7 @@ export default function LandingNav() {
   const { user } = useAuth();
 
   return (
-    <header className="fixed top-0 left-0 w-full z-50 border-b border-[color:var(--nav-border)] bg-[var(--nav-bg)] backdrop-blur-[16px]">
+    <header className="fixed top-[var(--fx-safe-top)] left-0 w-full z-50 border-b border-[color:var(--nav-border)] bg-[var(--nav-bg)] backdrop-blur-[16px]">
       <div className="mx-auto max-w-[1280px] px-4 sm:px-6">
         {/* Top row */}
         <div className="flex items-center justify-between h-14">

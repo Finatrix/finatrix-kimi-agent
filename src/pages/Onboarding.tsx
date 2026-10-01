@@ -249,7 +249,7 @@ export default function Onboarding() {
 function OnbStyles() {
   return (
     <style>{`
-      .fx-onb { min-height: 100dvh; background: var(--surface-base); color: var(--ink); display: flex; flex-direction: column; padding: 0 20px calc(env(safe-area-inset-bottom, 0) + 20px); }
+      .fx-onb { min-height: calc(100dvh - var(--fx-safe-top)); background: var(--surface-base); color: var(--ink); display: flex; flex-direction: column; padding: 0 20px calc(var(--fx-safe-bottom) + 20px); }
       .fx-onb-top { display: flex; align-items: center; justify-content: space-between; height: 60px; max-width: 560px; width: 100%; margin: 0 auto; }
       .fx-onb-brand { display: inline-flex; align-items: center; gap: 9px; font-weight: 600; font-size: 15px; letter-spacing: -.01em; color: var(--ink); text-decoration: none; }
       .fx-onb-skip { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); text-decoration: none; transition: color .2s ease; }

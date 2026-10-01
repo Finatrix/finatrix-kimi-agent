@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { PageHead, ToolFoot, MethodologyNote } from '../ui/common';
 import { Icon } from '../ui/Icon';
@@ -7,6 +7,11 @@ import { useCurrency } from '../CurrencyContext';
 import { ymdLocal, ymLocal } from '../../lib/date';
 import { currentMonth, monthLabel } from '../lib/month';
 import { getMonthEvents, type FinEvent, type FinEventType } from '../lib/calendar';
+import { calendarIcs, calendarOutflows } from '../lib/planningAutomation';
+import { getJSON, setJSON } from '../lib/storage';
+import { downloadBlob } from '../lib/exporters';
+import { SmartAssist } from '../ui/SmartAssist';
+import { useOptionalToast } from '../ui/Toast';
 
 const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const TYPE_LABEL: Record<FinEventType, string> = { bill: 'Recurring bill', invest: 'Investing SIP', goal: 'Goal maturity' };
@@ -24,11 +29,44 @@ function monthWindow(): string[] {
 }
 
 export default function CalendarPage() {
-  const { cfmt } = useCurrency();
+  const { notify } = useOptionalToast();
+  const { cfmt, code } = useCurrency();
   const months = useMemo(() => monthWindow(), []);
   const [selMonth, setSelMonth] = useState(currentMonth());
+  const [revision, setRevision] = useState(0);
+  const [type, setType] = useState<FinEventType | 'all'>('all');
+  const [query, setQuery] = useState('');
+  const [upcomingOnly, setUpcomingOnly] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  useEffect(() => {
+    const refresh = () => setRevision((value) => value + 1);
+    window.addEventListener('fx:write', refresh);
+    window.addEventListener('storage', refresh);
+    window.addEventListener('focus', refresh);
+    return () => { window.removeEventListener('fx:write', refresh); window.removeEventListener('storage', refresh); window.removeEventListener('focus', refresh); };
+  }, []);
 
-  const events = useMemo(() => getMonthEvents(selMonth), [selMonth]);
+  const todayStr = ymdLocal(new Date());
+  const savedDay = useMemo(() => {
+    const day = getJSON<{ calendarDay?: number }>('fx_investmatch', {}).calendarDay;
+    return Number.isInteger(day) && Number(day) >= 1 && Number(day) <= 31 ? Number(day) : 1;
+    // A revision represents a storage or focus event; read the latest saved preference.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revision]);
+  // Storage revisions invalidate saved source data even when the selected month is unchanged.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const events = useMemo(() => getMonthEvents(selMonth), [selMonth, revision]);
+  const filteredEvents = events.filter((event) => (type === 'all' || event.type === type)
+    && (!upcomingOnly || event.date >= todayStr)
+    && (selectedDay === null || Number(event.date.slice(8)) === selectedDay)
+    && `${event.title} ${event.detail}`.toLowerCase().includes(query.trim().toLowerCase()));
+  const upcoming = events.filter((event) => event.date >= todayStr);
+  const busiest = useMemo(() => {
+    const totals = new Map<string, number>();
+    events.filter((event) => event.type !== 'goal').forEach((event) => totals.set(event.date, (totals.get(event.date) ?? 0) + (event.amount ?? 0)));
+    return [...totals].sort((a, b) => b[1] - a[1])[0];
+  }, [events]);
+
   const byDay = useMemo(() => {
     const m = new Map<number, FinEvent[]>();
     events.forEach((e) => {
@@ -39,12 +77,11 @@ export default function CalendarPage() {
     return m;
   }, [events]);
 
-  const monthTotal = useMemo(() => events.reduce((s, e) => s + (e.amount || 0), 0), [events]);
+  const monthTotal = calendarOutflows(events);
 
   const [y, mo] = selMonth.split('-').map(Number);
   const firstWeekday = new Date(y, mo - 1, 1).getDay();
   const daysInMonth = new Date(y, mo, 0).getDate();
-  const todayStr = ymdLocal(new Date());
 
   const cells: (number | null)[] = [
     ...Array.from({ length: firstWeekday }, () => null),
@@ -59,8 +96,42 @@ export default function CalendarPage() {
       </PageHead>
 
       <div style={{ marginBottom: 14 }}>
-        <MonthNav activeMonth={selMonth} months={months} onSwitch={setSelMonth} pastNote="Viewing another month" pastColor="var(--gold)" allowFuture />
+        <MonthNav activeMonth={selMonth} months={months} onSwitch={(month) => { setSelMonth(month); setSelectedDay(null); }} pastNote="Viewing another month" pastColor="var(--gold)" allowFuture />
+        <label className="fl" htmlFor="calendar-jump-month">Jump to any planning month</label>
+        <input className="fi" id="calendar-jump-month" type="month" value={selMonth} onChange={event => {
+          if (/^\d{4}-(0[1-9]|1[0-2])$/.test(event.target.value)) { setSelMonth(event.target.value); setSelectedDay(null); }
+        }} />
       </div>
+
+      <SmartAssist title="Plan around your busiest money days" description="Events are planning estimates from your saved tools. Confirm actual due dates with your provider; no payments or reminders are sent automatically.">
+        <div className="grid2">
+          <div><p className="note">Remaining projected outflows in this month</p><b>{cfmt(calendarOutflows(upcoming))}</b><p className="note">Bills and investment contributions; goal targets are excluded.</p></div>
+          <div><p className="note">Largest projected outflow day</p><b>{busiest ? `${busiest[0]} · ${cfmt(busiest[1])}` : 'No outflows to compare'}</b>{busiest && <div><button className="btn btn-ghost btn-sm" type="button" onClick={() => { setSelectedDay(Number(busiest[0].slice(8))); setType('all'); setQuery(''); setUpcomingOnly(false); }}>Show this day</button></div>}</div>
+        </div>
+        {events.some((event) => event.type === 'invest') && <div style={{ marginTop: 16 }}>
+          <label className="fl" htmlFor="calendar-invest-day">Preferred monthly investing day</label>
+          <select id="calendar-invest-day" className="fs" value={savedDay} onChange={(event) => setJSON('fx_investmatch', { ...getJSON('fx_investmatch', {}), calendarDay: Number(event.target.value) })}>
+            {Array.from({ length: 31 }, (_, i) => <option value={i + 1} key={i + 1}>{i + 1}</option>)}
+          </select>
+          <p className="note">Day 1 is a planning default until you choose a day. Days 29–31 move to the last day of shorter months. This changes the calendar only.</p>
+        </div>}
+        <div className="grid2" style={{ marginTop: 16 }}>
+          <div><label className="fl" htmlFor="calendar-type">Event type</label><select id="calendar-type" className="fs" value={type} onChange={(e) => setType(e.target.value as FinEventType | 'all')}><option value="all">All events</option>{(Object.keys(TYPE_LABEL) as FinEventType[]).map((key) => <option value={key} key={key}>{TYPE_LABEL[key]}</option>)}</select></div>
+          <div><label className="fl" htmlFor="calendar-search">Find an event</label><input id="calendar-search" type="search" className="fi" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search title or source" /></div>
+        </div>
+        <label className="fx-checkrow" style={{ margin: '12px 0' }}><input className="fx-check" type="checkbox" checked={upcomingOnly} onChange={(e) => setUpcomingOnly(e.target.checked)} />Today and later only</label>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {(selectedDay !== null || type !== 'all' || query || upcomingOnly) && <button className="btn btn-ghost btn-sm" type="button" onClick={() => { setSelectedDay(null); setType('all'); setQuery(''); setUpcomingOnly(false); }}>Clear filters{selectedDay !== null ? ` · day ${selectedDay}` : ''}</button>}
+          <button className="btn btn-ghost btn-sm" type="button" disabled={!filteredEvents.length} onClick={async () => {
+            try {
+              await downloadBlob(`finatrix-calendar-${selMonth}.ics`, new Blob([calendarIcs(filteredEvents, new Date(), code)], { type: 'text/calendar;charset=utf-8' }));
+            } catch {
+              notify('The calendar could not be exported. Please try again.', 'error');
+            }
+          }}>Export visible events to calendar</button>
+        </div>
+        <p className="note" role="status">{filteredEvents.length} of {events.length} events shown · {cfmt(calendarOutflows(filteredEvents))} projected outflows in this selection. Export creates all-day entries for you to import into your calendar.</p>
+      </SmartAssist>
 
       {/* Legend + month total */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -72,16 +143,16 @@ export default function CalendarPage() {
         ))}
         {events.length > 0 && (
           <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--ink2)' }}>
-            Projected this month: <b style={{ color: 'var(--ink)' }}>{cfmt(monthTotal)}</b>
+            Projected outflows this month: <b style={{ color: 'var(--ink)' }}>{cfmt(monthTotal)}</b>
           </span>
         )}
       </div>
 
       {/* Month grid */}
       <div className="card" style={{ marginBottom: 14 }}>
-        <div role="grid" aria-label={`${monthLabel(selMonth)} calendar`} className="fx-cal-grid">
+        <div role="group" aria-label={`${monthLabel(selMonth)} calendar`} className="fx-cal-grid">
           {WEEKDAYS.map((w) => (
-            <div key={w} role="columnheader" className="fx-cal-dow">{w}</div>
+            <div key={w} aria-hidden="true" className="fx-cal-dow">{w}</div>
           ))}
           {cells.map((day, i) => {
             if (day == null) return <div key={`b${i}`} className="fx-cal-cell empty" aria-hidden="true" />;
@@ -92,8 +163,8 @@ export default function CalendarPage() {
               ? `${monthLabel(selMonth)} ${day}: ${dayEvents.map((e) => e.title).join(', ')}`
               : `${monthLabel(selMonth)} ${day}`;
             return (
-              <div key={dayStr} role="gridcell" aria-label={label} className={`fx-cal-cell${isToday ? ' today' : ''}`}>
-                <span className="fx-cal-num">{day}</span>
+              <div key={dayStr} className={`fx-cal-cell${isToday ? ' today' : ''}`}>
+                <button type="button" aria-label={`Show ${label}`} aria-pressed={selectedDay === day} onClick={() => setSelectedDay(selectedDay === day ? null : day)} className="fx-cal-day-button"><span className="fx-cal-num">{day}</span></button>
                 {dayEvents.length > 0 && (
                   <span className="fx-cal-dots" aria-hidden="true">
                     {dayEvents.slice(0, 3).map((e, j) => (
@@ -121,11 +192,13 @@ export default function CalendarPage() {
             <Link to="/tools/goals" className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}>Set a goal</Link>
           </div>
         </div>
+      ) : filteredEvents.length === 0 ? (
+        <div className="card"><b>No events match these filters</b><p className="note">Choose another day or clear the filters to see the full month.</p><button className="btn btn-ghost btn-sm" onClick={() => { setSelectedDay(null); setType('all'); setQuery(''); setUpcomingOnly(false); }}>Show all events</button></div>
       ) : (
         <div className="card">
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{monthLabel(selMonth)} — {events.length} event{events.length === 1 ? '' : 's'}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{monthLabel(selMonth)} — {filteredEvents.length} event{filteredEvents.length === 1 ? '' : 's'}</div>
           <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-            {events.map((e) => (
+            {filteredEvents.map((e) => (
               <li key={e.id}>
                 <Link
                   to={e.href}
@@ -154,6 +227,10 @@ export default function CalendarPage() {
         .fx-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
         .fx-cal-dow { text-align: center; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; color: var(--ink3); padding-bottom: 6px; text-transform: uppercase; }
         .fx-cal-cell { position: relative; min-height: 46px; border-radius: 10px; border: 1px solid var(--hair2); padding: 5px 6px; display: flex; flex-direction: column; }
+        .fx-cal-day-button { position: absolute; inset: 0; border: none; border-radius: inherit; background: transparent; cursor: pointer; text-align: left; padding: 5px 6px; display: flex; align-items: flex-start; }
+        .fx-cal-day-button[aria-pressed="true"] { outline: 2px solid var(--gold); outline-offset: -2px; }
+        .fx-cal-day-button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+        .fx-cal-dots { pointer-events: none; }
         .fx-cal-cell.empty { border: none; background: none; min-height: 0; }
         .fx-cal-cell.today { border-color: color-mix(in srgb, var(--gold) 55%, transparent); background: color-mix(in srgb, var(--gold) 8%, transparent); }
         .fx-cal-num { font-size: 12px; font-weight: 600; color: var(--ink2); }
@@ -166,7 +243,7 @@ export default function CalendarPage() {
       <MethodologyNote summary="How these events are derived">
         Recurring bills are detected from expenses you've logged in the same category and merchant across
         multiple months — the date shown is taken from your last real payment. The investing SIP and goal
-        maturity come from your saved InvestMatch and Goal plans. If a signal isn't backed by your own data,
+        maturity come from your saved InvestMatch and Goal plans. The investing date is your chosen planning day (day 1 by default), not a verified debit date. Goal dates require a plan saved with a start date. If a signal isn't backed by your own data,
         it never appears.
       </MethodologyNote>
 

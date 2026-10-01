@@ -125,3 +125,8 @@ describe('PlanCard checkout action', () => {
     expect(screen.getByRole('button')).toBeDisabled();
   });
 });
+
+// Preserve coverage of the workspace for the explicitly enabled launch state.
+vi.mock('../shared/careersAvailability', async (original) => ({
+  ...await original<typeof import('../shared/careersAvailability')>(), CAREERS_AVAILABLE: true,
+}));

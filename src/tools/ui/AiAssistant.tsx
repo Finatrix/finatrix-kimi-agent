@@ -241,7 +241,7 @@ const FAB_STYLES = `
    states changes nothing about the document — no reflow, no layout shift, and
    the pill always grows leftward from the same corner. */
 .fx-tools .fx-ai-dock{position:fixed;right:16px;
-  bottom:calc(18px + var(--fx-bottomnav-h,0px) + env(safe-area-inset-bottom));
+  bottom:calc(18px + var(--fx-bottomnav-h,0px) + var(--fx-safe-bottom));
   z-index:var(--z-fab);display:flex;justify-content:flex-end;}
 .fx-tools .fx-ai-fab{display:inline-flex;align-items:center;height:var(--ctl-h-lg);
   border-radius:var(--ctl-pill);border:var(--ctl-bw) solid var(--fab-border);background:var(--gold);color:#1a1400;

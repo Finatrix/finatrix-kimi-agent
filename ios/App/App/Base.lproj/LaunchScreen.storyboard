@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The OS launch screen: what iOS draws from the moment the icon is tapped until
+  the app's own first frame.
+
+  The root view IS the image view, so it fills the window on every device with no
+  constraints to get wrong, and `scaleAspectFill` on a square canvas of flat brand
+  charcoal with the mark centred (scripts/generate-ios-assets.py) means aspect-fill
+  only ever crops background — the mark is never stretched or clipped, from the SE
+  to the Pro Max, portrait or landscape.
+
+  The background colour is the same #060607 the image is filled with, and the same
+  value as `SplashScreen.backgroundColor` in capacitor.config.ts. It matters for
+  the instant before the image decodes, and for any aspect ratio a future device
+  introduces: the template's `systemBackgroundColor` would have flashed white
+  there on a light-mode phone.
+-->
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="17132" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="01J-lp-oVM">
+    <device id="retina6_12" orientation="portrait" appearance="dark"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="17105"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <scenes>
+        <!--View Controller-->
+        <scene sceneID="EHf-IW-A2E">
+            <objects>
+                <viewController id="01J-lp-oVM" sceneMemberID="viewController">
+                    <imageView key="view" userInteractionEnabled="NO" contentMode="scaleAspectFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="Splash" id="snD-IY-ifK">
+                        <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <color key="backgroundColor" red="0.023529411764705882" green="0.023529411764705882" blue="0.027450980392156862" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                    </imageView>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="iYj-Kq-Ea1" userLabel="First Responder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="53" y="375"/>
+        </scene>
+    </scenes>
+    <resources>
+        <image name="Splash" width="2732" height="2732"/>
+    </resources>
+</document>

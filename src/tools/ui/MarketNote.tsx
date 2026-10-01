@@ -40,15 +40,22 @@ export function MarketNote({ market, className }: { market: MarketPack; classNam
         Figures for {market.name} · reviewed {reviewed}
       </div>
       <div>
-        Indicative averages, not quotes — check the current rate before you commit. Sources:{' '}
+        {market.planningNote ? 'Published references and user-selected scenarios are shown separately. Sources:' : 'Indicative averages, not quotes — check the current rate before you commit. Sources:'}{' '}
         {market.sources.join('; ')}.
       </div>
+      {market.planningNote && <p>{market.planningNote}</p>}
       <div style={{ marginTop: 6 }}>
+        {/* Two different questions, so two links. "Not where you live" is a
+            setting; "where does this come from" is the evidence, and the second
+            has had nowhere to point until now. */}
         Not where you live?{' '}
         <Link to="/tools/settings" style={{ color: 'var(--accent-text)', textDecoration: 'underline' }}>
           Change your market
         </Link>
-        .
+        {' · '}
+        <Link to="/tools/reference" style={{ color: 'var(--accent-text)', textDecoration: 'underline' }}>
+          See the published rules and sources
+        </Link>
       </div>
     </aside>
   );

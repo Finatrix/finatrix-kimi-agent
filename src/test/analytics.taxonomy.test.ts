@@ -59,7 +59,11 @@ function setMembers(source: string, name: string): string[] {
   return [...body.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
 }
 
-/** Every `track('<event>'` / `trackEvent('<event>'` in application source. */
+/**
+ * Every `track('<event>'` / `trackEvent('<event>'` in application source, plus
+ * `sendUserReport('<event>'` — a user-initiated report delivered outside the
+ * analytics opt-out (see lib/analytics.ts), but the same event taxonomy.
+ */
 function emittedEvents(): Set<string> {
   const found = new Set<string>();
   const walk = (dir: string) => {
@@ -73,7 +77,7 @@ function emittedEvents(): Set<string> {
       if (!/\.(ts|tsx)$/.test(entry)) continue;
       if (path.endsWith(join('lib', 'analytics.ts'))) continue; // the definition, not a call
       const src = readFileSync(path, 'utf8');
-      for (const m of src.matchAll(/\btrack(?:Event)?\(\s*'([a-z_]+)'/g)) found.add(m[1]);
+      for (const m of src.matchAll(/\b(?:track(?:Event)?|sendUserReport)\(\s*'([a-z_]+)'/g)) found.add(m[1]);
     }
   };
   walk(join(ROOT, 'src'));

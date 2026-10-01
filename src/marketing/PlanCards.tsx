@@ -14,6 +14,7 @@
  * has a signed-in user and starts Stripe checkout directly.
  */
 
+import { CAREERS_AVAILABLE, CAREERS_LAUNCH_MESSAGE } from '../shared/careersAvailability';
 import { Link } from 'react-router';
 import { CAREERS_PLANS, formatInr, yearlySavingPct, type PlanCopy } from '../shared/plans';
 import { SegmentedControl } from './ui';
@@ -109,7 +110,9 @@ export function PlanCard({
       </ul>
 
       <div className="mt-6">
-        {!selfServe ? (
+        {!CAREERS_AVAILABLE ? (
+          <p className="text-center text-[13px] text-ink-2">{CAREERS_LAUNCH_MESSAGE}</p>
+        ) : !selfServe ? (
           <a
             href="mailto:finatrix.hub@gmail.com?subject=FinatriX%20Careers%20Enterprise"
             // The accessible name has to say WHICH plan: a screen-reader user

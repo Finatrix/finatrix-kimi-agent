@@ -22,7 +22,15 @@ export function CommandPaletteTrigger({ onOpen }: { onOpen: () => void }) {
   return (
     <button
       type="button"
-      onClick={onOpen}
+      // Focus first, then open. The palette returns focus to whatever was
+      // focused when it mounted, and WebKit (Safari, and the iOS app's
+      // WKWebView) does not focus a button on click or tap — so without this
+      // the "opener" was <body> and closing stranded keyboard and Switch
+      // Control users at the top of the document (WCAG 2.4.3).
+      onClick={(e) => {
+        e.currentTarget.focus({ preventScroll: true });
+        onOpen();
+      }}
       aria-label="Search tools, guides and actions"
       aria-keyshortcuts={mac ? 'Meta+K' : 'Control+K'}
       aria-haspopup="dialog"

@@ -51,14 +51,34 @@ export function AmountInput({
   invalid = false, errorId, placeholder = '0', required, ariaLabel, onBlur, onFocus,
 }: AmountInputProps) {
   // Set on blur only, so a partially typed formula is never an error yet.
-  const [blurError, setBlurError] = useState<string | null>(null);
+  const [blurredValue, setBlurredValue] = useState<string | null>(null);
   const hintId = `${useId()}-amt-hint`;
 
   const trimmed = value.trim();
   const parsed = trimmed ? evaluateFormula(trimmed) : null;
+  // A parent can restore the committed value or apply a suggestion on blur.
+  // Validation belongs to the exact draft that was checked, never that new value.
+  const blurError = blurredValue === value && parsed && !parsed.ok ? parsed.error : null;
   const showPreview = !!parsed?.ok && isFormula(trimmed);
 
-  const describedBy = [errorId, showPreview || blurError ? hintId : null]
+  /**
+   * Whose job it is to say what is wrong.
+   *
+   * This field validates itself on blur, and the form it sits in validates on
+   * submit — and for a malformed formula both of them ask `evaluateFormula`,
+   * so both end up holding the SAME sentence. Submitting blurs the field on
+   * the way to the button, so both fire, and the message was rendered twice:
+   * once here as a polite status and once by the owner as an alert. Seen on an
+   * iPhone as two identical red lines, and heard by a screen reader as the
+   * same sentence read out twice.
+   *
+   * `errorId` is the signal: the owner passes it only while it is showing its
+   * own message for this field, so that is exactly when this one stands down.
+   * With no owning form (a bare AmountInput) nothing changes.
+   */
+  const showBlurError = !!blurError && !errorId;
+
+  const describedBy = [errorId, showPreview || showBlurError ? hintId : null]
     .filter(Boolean)
     .join(' ') || undefined;
 
@@ -81,23 +101,22 @@ export function AmountInput({
         value={value}
         onFocus={onFocus}
         onChange={(e) => {
-          if (blurError) setBlurError(null);
+          setBlurredValue(null);
           onChange(e.target.value);
         }}
         onBlur={() => {
-          const r = trimmed ? evaluateFormula(trimmed) : null;
-          setBlurError(r && !r.ok ? r.error : null);
+          setBlurredValue(parsed && !parsed.ok ? value : null);
           onBlur?.();
         }}
       />
-      {(showPreview || blurError) && (
+      {(showPreview || showBlurError) && (
         <div
           id={hintId}
-          className={`fx-amt-hint${blurError ? ' is-bad' : ''}`}
+          className={`fx-amt-hint${showBlurError ? ' is-bad' : ''}`}
           role="status"
           aria-live="polite"
         >
-          {blurError ?? `= ${sym}${formatPreview(parsed!.ok ? parsed!.value : 0)}`}
+          {showBlurError ? blurError : `= ${sym}${formatPreview(parsed!.ok ? parsed!.value : 0)}`}
         </div>
       )}
     </>

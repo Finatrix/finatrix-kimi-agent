@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The web app's own surfaces (src/styles/tokens.css): light #F4F2EC,
+         dark #060607. The window and splash use them so nothing flashes a
+         different colour between launch and the first painted frame. The web
+         theme follows the OS until the user picks one, and so do these. -->
+    <color name="fx_window_bg">#F4F2EC</color>
+    <color name="fx_gold">#D4AF37</color>
+    <color name="colorPrimary">#D4AF37</color>
+    <color name="colorPrimaryDark">#F4F2EC</color>
+    <color name="colorAccent">#D4AF37</color>
+</resources>

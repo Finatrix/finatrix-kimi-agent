@@ -44,7 +44,7 @@ const ALLOWED_EVENTS = new Set([
   'signup_started', 'signup_completed',
   'checkout_started', 'checkout_completed', 'checkout_failed',
   'subscription_started', 'subscription_renewed', 'subscription_expired',
-  'ai_message_sent', 'report_exported', 'resume_uploaded', 'job_search_completed',
+  'ai_message_sent', 'ai_answer_reported', 'report_exported', 'resume_uploaded', 'job_search_completed',
   'match_queue_decided', 'command_run',
   'methodology_opened', 'next_step_clicked', 'market_changed', 'guide_tool_opened',
 ]);

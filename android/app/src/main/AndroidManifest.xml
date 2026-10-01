@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- allowBackup: Android's encrypted, user-owned device backup carries a
+         guest's on-device budget and expenses to a new phone. Nothing leaves
+         the user's own Google account. -->
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme"
+        android:usesCleartextTraffic="false">
+
+        <!-- configChanges: the WebView holds the whole app, so recreating the
+             activity would reload it and lose unsaved input. fontScale in
+             particular is handled in place (MainActivity.applyFontScale). -->
+        <activity
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density|fontScale|fontWeightAdjustment"
+            android:name=".MainActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Verified App Links. A finatrix.co link to one of the product's
+                 own screens — an email confirmation, a password reset, a shared
+                 guide — opens here instead of the browser when the app is
+                 installed. Verification needs /.well-known/assetlinks.json on
+                 finatrix.co listing this app's signing certificate (see
+                 docs/ANDROID.md). Marketing pages are deliberately absent. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="finatrix.co" />
+                <data android:host="www.finatrix.co" />
+                <data android:pathPrefix="/tools" />
+                <data android:pathPrefix="/learn" />
+                <data android:pathPrefix="/careers/" />
+                <data android:path="/login" />
+                <data android:path="/signup" />
+                <data android:path="/reset-password" />
+                <data android:path="/profile" />
+                <data android:path="/welcome" />
+            </intent-filter>
+
+            <!-- OAuth return (src/native/platform.ts NATIVE_AUTH_CALLBACK). The
+                 Custom Tab running the provider's sign-in hands the result back
+                 through this scheme. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="co.finatrix.app" android:host="auth" />
+            </intent-filter>
+
+        </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths"></meta-data>
+        </provider>
+    </application>
+
+    <!-- Permissions. Only the network: no location, contacts, SMS, camera or
+         storage permission is requested, and none is needed — files are chosen
+         through the system picker, which grants access per file. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+</manifest>

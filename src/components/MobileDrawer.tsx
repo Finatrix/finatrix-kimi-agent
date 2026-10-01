@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import { useDialogFocus } from '../hooks/useDialogFocus';
 
 /**
  * The off-canvas navigation drawer (<768px) shared by the Tools and Careers
@@ -34,7 +35,7 @@ export function MobileDrawer({
 }) {
   const panelRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
-  const opener = useRef<HTMLElement | null>(null);
+  useDialogFocus({ containerRef: panelRef, open, initialFocusRef: closeRef });
   // Latest onClose without re-running the open effect on every parent render.
   const onCloseRef = useRef(onClose);
   useEffect(() => {
@@ -45,7 +46,9 @@ export function MobileDrawer({
    * Tell the document a drawer is open, so the floating docks get out of the way.
    *
    * The AI launcher and the Wallet are `position: fixed` at `--z-fab` (310) and
-   * portaled to `document.body`; this drawer sits at 40. So both pills painted
+   * portaled to `document.body`; this drawer sits at 55 — above the app header
+   * (51), the status-bar scrim (52) and the tab bar (45), which it is modal
+   * over, and below popovers (60) and dialogs (300). So both pills painted
    * ON TOP of an open drawer — over its links, catching taps meant for the
    * navigation underneath. They are outside this component's subtree and
    * outside the shell's, so a class on `document.body` is the one channel that
@@ -59,8 +62,6 @@ export function MobileDrawer({
 
   useEffect(() => {
     if (!open) return;
-    const panel = panelRef.current;
-    opener.current = document.activeElement as HTMLElement | null;
     closeRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
@@ -70,16 +71,16 @@ export function MobileDrawer({
     window.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('keydown', onKey);
-      // Only reclaim focus if it is still inside the drawer we are closing —
-      // a link click has already moved focus (or navigated) by now.
-      if (panel?.contains(document.activeElement)) opener.current?.focus?.();
     };
   }, [open]);
 
   return (
     <div
       id={id}
-      className={`md:hidden fixed inset-0 z-40 transition-opacity duration-300 ${
+      role="dialog"
+      aria-modal={open || undefined}
+      aria-label={label}
+      className={`md:hidden fixed inset-0 z-[55] transition-opacity duration-300 ${
         open ? 'opacity-100' : 'pointer-events-none opacity-0'
       }`}
       inert={!open}
@@ -89,7 +90,7 @@ export function MobileDrawer({
       <nav
         ref={panelRef}
         aria-label={label}
-        className={`absolute top-0 left-0 h-full w-[82%] max-w-[320px] bg-surface-2 border-r border-hairline-2 flex flex-col transition-transform duration-300 ease-out ${
+        className={`absolute top-0 left-0 h-full w-[82%] max-w-[320px] pt-[var(--fx-safe-top)] pb-[var(--fx-safe-bottom)] bg-surface-2 border-r border-hairline-2 flex flex-col transition-transform duration-300 ease-out ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

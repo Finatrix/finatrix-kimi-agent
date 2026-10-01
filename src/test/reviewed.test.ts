@@ -22,7 +22,7 @@ describe('assumptions review date', () => {
   it('reads every market pack', () => {
     // A regex or import that quietly found nothing would make the assertion
     // below pass against an empty list.
-    expect(dates.length).toBe(4);
+    expect(dates.length).toBe(7);
   });
 
   it('every pack states a YYYY-MM review month', () => {

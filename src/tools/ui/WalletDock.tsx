@@ -86,10 +86,6 @@ export function WalletDock({ items, cats, budgetStore, month }: WalletDockProps)
     return () => document.removeEventListener('keydown', onKey);
   }, [open, close]);
 
-  // Focus goes back to the trigger on close — `useDialogFocus` restores to
-  // whatever had focus when the dialog opened, which is this button.
-  useEffect(() => { if (!open) openerRef.current?.blur(); }, [open]);
-
   const balance = wallet.spendingBalance;
   const tone = wallet.empty ? 'none' : balance > 0 ? 'good' : balance < 0 ? 'bad' : 'level';
   const summary = walletSummary(wallet, cfmt);
@@ -331,8 +327,12 @@ const WALLET_STYLES = `
 /* Dock — bottom LEFT, mirroring the assistant's bottom right, so the two never
    overlap and neither has to move when the other appears. */
 .fx-tools.fx-wallet-dock,.fx-tools .fx-wallet-dock{position:fixed;left:16px;
-  bottom:calc(18px + var(--fx-bottomnav-h,0px) + env(safe-area-inset-bottom));
+  bottom:calc(18px + var(--fx-bottomnav-h,0px) + var(--fx-safe-bottom));
   z-index:var(--z-fab);display:flex;}
+/* The portal root carries .fx-tools for its tokens, and .fx-tools also paints
+   the shell's page background — which drew a square tile behind the round
+   pill. The dock itself must be see-through; only the pill is a surface. */
+.fx-tools.fx-wallet-dock{background:transparent;}
 .fx-tools .fx-wallet-fab{display:inline-flex;align-items:center;gap:9px;height:var(--ctl-h-lg);padding:0 16px;
   border-radius:var(--ctl-pill);border:var(--ctl-bw) solid var(--hair);background:var(--card-solid,var(--card));
   color:var(--ink);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;
@@ -365,7 +365,7 @@ const WALLET_STYLES = `
   backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);animation:fxWalletFade 180ms ease both;}
 .fx-tools .fx-wallet-panel{position:fixed;z-index:calc(var(--z-panel) + 1);
   left:50%;transform:translateX(-50%);bottom:0;width:min(680px,100vw);
-  max-height:min(86dvh,760px);display:flex;flex-direction:column;
+  max-height:min(calc(86dvh - var(--fx-safe-top)),760px);display:flex;flex-direction:column;
   background:var(--card-solid,var(--card));border:1px solid var(--hair);
   border-radius:20px 20px 0 0;box-shadow:0 -22px 70px -20px rgba(0,0,0,.7);
   animation:fxWalletUp 240ms cubic-bezier(.32,1.05,.5,1) both;}
@@ -384,7 +384,7 @@ const WALLET_STYLES = `
   border:var(--ctl-bw) solid var(--hair2);background:var(--well);color:var(--ink2);cursor:pointer;}
 .fx-tools .fx-wallet-x:hover{background:var(--fill-06);color:var(--ink);}
 
-.fx-tools .fx-wallet-body{padding:16px 20px 22px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.fx-tools .fx-wallet-body{padding:16px 20px calc(22px + var(--fx-safe-bottom));overflow-y:auto;-webkit-overflow-scrolling:touch;}
 
 .fx-tools .fx-wallet-hero{position:relative;overflow:hidden;padding:16px 18px;border-radius:var(--ctl-r-lg);
   background:var(--well);border:1px solid var(--well-border);margin-bottom:14px;}

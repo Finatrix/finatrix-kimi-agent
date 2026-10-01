@@ -36,6 +36,12 @@ const CALCULATORS = [
 async function produceResult(page: Page, path: string, submit: string) {
   await page.goto(path);
   await page.locator('.fx-tools').first().waitFor({ state: 'visible' });
+  if (path === '/tools/peercompare') {
+    // Browser locale can select US while the independent display currency is
+    // still INR. Review the new unit-matching guard before producing a result.
+    const currencyReview = page.getByRole('complementary', { name: 'Match the benchmark currency' });
+    if (await currencyReview.isVisible()) await currencyReview.getByRole('button', { name: /^Switch to / }).click();
+  }
   await page.getByRole('button', { name: submit }).click();
   await page.getByRole('heading', { name: 'What this means' }).waitFor({ state: 'visible' });
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import { Icon, type IconName } from './Icon';
@@ -12,6 +12,8 @@ import {
 } from '../lib/expenseAudit';
 import { evaluateFormula, formulaSignedAmount } from '../lib/formula';
 import { AmountInput } from './AmountInput';
+import { suggestExpenseCategory } from '../lib/quickAdd';
+import { validRecordDate } from '../lib/recordReview';
 import { useAskAi } from './AiAssistant';
 
 
@@ -26,6 +28,7 @@ interface Props {
   defaultCat: string;
   /** Most-used category keys (ordered) for the one-tap "Recent" shortcut. */
   recentCats?: string[];
+  learned?: ReadonlyMap<string, string>;
   /**
    * Today, `YYYY-MM-DD`. Anything after it is scheduled rather than spent, and
    * the date field says so — the one thing the page's old inline form had that
@@ -90,11 +93,17 @@ const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:n
  * draft is initialised once from props — no state-sync effect required.
  */
 export default function TransactionModal({
-  editing, cats, sym, defaultCat, recentCats = [], todayKey, scheduleLimit,
+  editing, cats, sym, defaultCat, recentCats = [], learned, todayKey, scheduleLimit,
   onSave, onClose, onDelete, onDuplicate, history = [], cfmt,
 }: Props) {
   const isEdit = !!editing;
   const [draft, setDraft] = useState<Draft>(() => (editing ? draftFromItem(editing) : emptyDraft(defaultCat)));
+  const [manualCategory, setManualCategory] = useState(!!editing);
+  const suggestion = useMemo(() => suggestExpenseCategory(
+    `${draft.merchant} ${draft.note}`, { categories: cats, learned },
+  ), [draft.merchant, draft.note, cats, learned]);
+  const selectedCategory = manualCategory ? draft.category : suggestion?.category ?? defaultCat;
+  const categoryLabel = cats.find((c) => c.k === selectedCategory)?.l;
   const [errors, setErrors] = useState<{ amount?: string; category?: string; date?: string }>({});
   /** A date the user has pushed forward: a plan, not a record. */
   const scheduled = !!todayKey && draft.date > todayKey;
@@ -103,6 +112,10 @@ export default function TransactionModal({
 
   const cardRef = useRef<HTMLDivElement>(null);
   const amountRef = useRef<HTMLInputElement>(null);
+  const dateRef = useRef<HTMLInputElement>(null);
+  const confirmRef = useRef<HTMLDivElement>(null);
+  const cancelDeleteRef = useRef<HTMLButtonElement>(null);
+  const deleteTriggerRef = useRef<HTMLButtonElement>(null);
   const lastFocused = useRef<HTMLElement | null>(null);
   const titleId = useId();
   const descId = useId();
@@ -143,17 +156,21 @@ export default function TransactionModal({
     if (!d.amount.trim()) e.amount = 'Enter an amount. Use a minus sign for a refund.';
     else if (!parsed.ok) e.amount = parsed.error;
     else if (parsed.value === 0) e.amount = 'Enter an amount other than 0.';
-    if (!d.category) e.category = 'Choose a category.';
+    if (!cats.some((c) => c.k === d.category)) e.category = 'Choose an active category.';
     if (!d.date) e.date = 'Pick a date.';
+    else if (!validRecordDate(d.date)) e.date = 'Pick a valid calendar date.';
+    else if (scheduleLimit && d.date > scheduleLimit) e.date = `Choose a date on or before ${scheduleLimit}.`;
     return e;
-  }, []);
+  }, [cats, scheduleLimit]);
 
-  const set = <K extends keyof Draft>(k: K, v: Draft[K]) =>
+  const set = <K extends keyof Draft>(k: K, v: Draft[K]) => {
+    if (k === 'category') setManualCategory(true);
     setDraft((prev) => {
       const next = { ...prev, [k]: v };
       if (submitted) setErrors(validate(next));
       return next;
     });
+  };
 
   const buildItem = useCallback((): ExpenseItem => {
     const tags = draft.tags.split(',').map((t) => t.trim()).filter(Boolean);
@@ -163,7 +180,7 @@ export default function TransactionModal({
     return {
       id: editing ? editing.id : genExpenseId(),
       amount: formulaSignedAmount(draft.amount),
-      category: draft.category,
+      category: selectedCategory,
       date: draft.date,
       ...(draft.note.trim() ? { note: draft.note.trim() } : {}),
       ...(draft.merchant.trim() ? { merchant: draft.merchant.trim() } : {}),
@@ -175,19 +192,20 @@ export default function TransactionModal({
       updatedAt: nowIso,
       ...(editCount > 0 ? { editCount } : {}),
     };
-  }, [draft, editing]);
+  }, [draft, editing, selectedCategory]);
 
   const submit = useCallback(() => {
     setSubmitted(true);
-    const e = validate(draft);
+    const e = validate({ ...draft, category: selectedCategory });
     setErrors(e);
     if (Object.keys(e).length > 0) {
       // Move focus to the first offending field for keyboard/AT users.
       if (e.amount) amountRef.current?.focus();
+      else if (e.date) dateRef.current?.focus();
       return;
     }
     onSave(buildItem());
-  }, [draft, validate, onSave, buildItem]);
+  }, [draft, selectedCategory, validate, onSave, buildItem]);
 
   // Body scroll lock — reference-counted, safe under overlapping overlays.
   // The parent mounts this component only while the modal is open.
@@ -195,14 +213,33 @@ export default function TransactionModal({
 
   // Focus management: remember the opener, autofocus the amount once, restore
   // focus on close. Mount-only — this must never re-run while the user types.
-  useEffect(() => {
+  //
+  // `useLayoutEffect`, and no timer. This used to focus from a 40ms
+  // `setTimeout`, which is two bugs in one line. The opener button is gone by
+  // the time the sheet paints, so for those 40ms `document.activeElement` was
+  // `<body>` and anything typed was dropped on the floor — a window that is
+  // short on a quiet machine and long on a busy phone, which is how it reached
+  // users without ever failing CI. And a user who tapped straight into another
+  // field inside the window had focus yanked back to the amount when the timer
+  // finally fired, losing what they had typed there.
+  //
+  // Running before paint closes the window entirely: the first frame the user
+  // can see is already a frame with the amount focused. `preventScroll` keeps
+  // the entry animation (a translate on the sheet) from being interrupted by a
+  // scroll-into-view; browsers that do not support the option ignore it and
+  // still focus.
+  useLayoutEffect(() => {
     lastFocused.current = document.activeElement as HTMLElement | null;
-    const t = setTimeout(() => amountRef.current?.focus(), 40);
-    return () => {
-      clearTimeout(t);
-      lastFocused.current?.focus?.();
-    };
+    amountRef.current?.focus({ preventScroll: true });
+    return () => { lastFocused.current?.focus?.(); };
   }, []);
+
+  useLayoutEffect(() => {
+    if (!confirmDel) return;
+    const trigger = deleteTriggerRef.current;
+    cancelDeleteRef.current?.focus({ preventScroll: true });
+    return () => { if (trigger?.isConnected) trigger.focus({ preventScroll: true }); };
+  }, [confirmDel]);
 
   // Escape / Cmd+Enter / focus trap. Kept separate from the focus effect:
   // `submit` changes identity on every draft keystroke, and when these lived
@@ -218,18 +255,21 @@ export default function TransactionModal({
       }
       if ((ev.metaKey || ev.ctrlKey) && ev.key === 'Enter') {
         ev.preventDefault();
-        submit();
+        if (!confirmDel) submit();
         return;
       }
       if (ev.key === 'Tab') {
-        const nodes = cardRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE);
+        const container = confirmDel ? confirmRef.current : cardRef.current;
+        const nodes = container?.querySelectorAll<HTMLElement>(FOCUSABLE);
         if (!nodes || nodes.length === 0) return;
-        const list = Array.from(nodes).filter((n) => n.offsetParent !== null || n === document.activeElement);
+        const list = Array.from(nodes).filter((n) => !n.closest('[hidden], [inert], [aria-hidden="true"]')
+          && (typeof n.checkVisibility !== 'function' || n.checkVisibility({ visibilityProperty: true })));
         if (list.length === 0) return;
         const first = list[0];
         const last = list[list.length - 1];
         const active = document.activeElement as HTMLElement;
-        if (ev.shiftKey && active === first) { ev.preventDefault(); last.focus(); }
+        if (!container?.contains(active)) { ev.preventDefault(); (ev.shiftKey ? last : first).focus(); }
+        else if (ev.shiftKey && active === first) { ev.preventDefault(); last.focus(); }
         else if (!ev.shiftKey && active === last) { ev.preventDefault(); first.focus(); }
       }
     };
@@ -295,7 +335,7 @@ export default function TransactionModal({
         .fx-tx-danger:hover{border-color:var(--red);background:rgba(215,0,21,.08);}
         @media (max-width:560px){
           .fx-tx-overlay{padding:0;align-items:flex-end;}
-          .fx-tx-card{max-width:none;max-height:94vh;border-radius:22px 22px 0 0;padding-bottom:calc(18px + env(safe-area-inset-bottom));
+          .fx-tx-card{max-width:none;max-height:94vh;border-radius:22px 22px 0 0;padding-bottom:calc(18px + var(--fx-safe-bottom));
             animation:fxTxSheet .3s cubic-bezier(.34,1.2,.5,1) both;}
         }
         @media (prefers-reduced-motion:reduce){
@@ -352,6 +392,7 @@ export default function TransactionModal({
             <div className="fg" style={{ marginBottom: 10 }}>
               <label className="fl" htmlFor="tx-date">Date</label>
               <input
+                ref={dateRef}
                 className="fi"
                 id="tx-date"
                 type="date"
@@ -375,8 +416,37 @@ export default function TransactionModal({
             </div>
           </div>
 
+          <div className="grid2">
+            <div className="fg" style={{ marginBottom: 10 }}>
+              <label className="fl" htmlFor="tx-merchant">Merchant</label>
+              <input className="fi" id="tx-merchant" aria-describedby="tx-category-help" type="text" placeholder="e.g. Blue Bottle" maxLength={80}
+                value={draft.merchant} onChange={(e) => set('merchant', e.target.value)} />
+            </div>
+            <div className="fg" style={{ marginBottom: 10 }}>
+              <label className="fl" htmlFor="tx-pay">Payment method</label>
+              <select className="fs" id="tx-pay" value={draft.paymentMethod} onChange={(e) => set('paymentMethod', e.target.value)}>
+                <option value="">Not set</option>
+                {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="fg" style={{ marginBottom: 10 }}>
+            <label className="fl" htmlFor="tx-note">Description</label>
+            <input className="fi" id="tx-note" aria-describedby="tx-category-help" type="text" placeholder="What was it for?" maxLength={80}
+              value={draft.note} onChange={(e) => set('note', e.target.value)} />
+          </div>
+
           <fieldset style={{ border: 'none', padding: 0, margin: '0 0 12px' }}>
             <legend className="fl" style={{ padding: 0 }}>Category</legend>
+            <p className="note" id="tx-category-help" role="status" style={{ marginBottom: 10 }}>
+              {manualCategory ? 'Your category choice is kept when the name changes.'
+                : suggestion ? `Auto-selected ${categoryLabel}${suggestion.source === 'history' ? ' from your saved history' : ' from the transaction name'}. You can change it.`
+                : 'Type a merchant or description to suggest a category. Unrecognised names use your default; please review.'}
+            </p>
+            {manualCategory && <button type="button" className="fx-tx-recent" onClick={() => setManualCategory(false)}>
+              Use automatic category
+            </button>}
             {recent.length >= 2 && (
               <div style={{ marginBottom: 10 }}>
                 <div className="note" style={{ fontWeight: 700, marginBottom: 6 }}>Recent</div>
@@ -386,7 +456,7 @@ export default function TransactionModal({
                       key={`recent-${c.k}`}
                       type="button"
                       className="fx-tx-recent"
-                      aria-pressed={draft.category === c.k}
+                      aria-pressed={selectedCategory === c.k}
                       aria-label={`${c.l} (recent)`}
                       onClick={() => set('category', c.k)}
                     >
@@ -412,7 +482,7 @@ export default function TransactionModal({
                           key={c.k}
                           type="button"
                           className="fx-tx-catbtn"
-                          aria-pressed={draft.category === c.k}
+                          aria-pressed={selectedCategory === c.k}
                           aria-label={`${c.l} (${SECTION_LABEL[sec]})`}
                           onClick={() => set('category', c.k)}
                         >
@@ -427,27 +497,6 @@ export default function TransactionModal({
             )}
             {err('category') && <div className="fx-tx-err" role="alert">{errors.category}</div>}
           </fieldset>
-
-          <div className="grid2">
-            <div className="fg" style={{ marginBottom: 10 }}>
-              <label className="fl" htmlFor="tx-merchant">Merchant</label>
-              <input className="fi" id="tx-merchant" type="text" placeholder="e.g. Blue Bottle" maxLength={80}
-                value={draft.merchant} onChange={(e) => set('merchant', e.target.value)} />
-            </div>
-            <div className="fg" style={{ marginBottom: 10 }}>
-              <label className="fl" htmlFor="tx-pay">Payment method</label>
-              <select className="fs" id="tx-pay" value={draft.paymentMethod} onChange={(e) => set('paymentMethod', e.target.value)}>
-                <option value="">Not set</option>
-                {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div className="fg" style={{ marginBottom: 10 }}>
-            <label className="fl" htmlFor="tx-note">Description</label>
-            <input className="fi" id="tx-note" type="text" placeholder="What was it for?" maxLength={80}
-              value={draft.note} onChange={(e) => set('note', e.target.value)} />
-          </div>
 
           <div className="fg" style={{ marginBottom: 10 }}>
             <label className="fl" htmlFor="tx-tags">Tags</label>
@@ -497,7 +546,7 @@ export default function TransactionModal({
                   <button type="button" className="fx-tx-iconbtn" onClick={() => onDuplicate?.(editing!)}>
                     <CopyIcon /> Duplicate
                   </button>
-                  <button type="button" className="fx-tx-iconbtn fx-tx-danger" onClick={() => setConfirmDel(true)}>
+                  <button ref={deleteTriggerRef} type="button" className="fx-tx-iconbtn fx-tx-danger" onClick={() => setConfirmDel(true)}>
                     <TrashIcon /> Delete
                   </button>
                 </>
@@ -522,6 +571,7 @@ export default function TransactionModal({
             to <body>, so fixed reliably covers the viewport. */}
         {confirmDel && (
           <div
+            ref={confirmRef}
             style={{ position: 'fixed', inset: 0, zIndex: 10, background: 'rgba(0,0,0,.5)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
             role="alertdialog"
             aria-modal="true"
@@ -531,7 +581,7 @@ export default function TransactionModal({
               <div id="tx-del-title" style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Delete this transaction?</div>
               <p className="note" style={{ marginBottom: 16 }}>You can undo this for a few seconds afterwards.</p>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-                <button type="button" className="fx-tx-iconbtn" onClick={() => setConfirmDel(false)} autoFocus>Cancel</button>
+                <button ref={cancelDeleteRef} type="button" className="fx-tx-iconbtn" onClick={() => setConfirmDel(false)}>Cancel</button>
                 <button
                   type="button"
                   className="btn btn-sm"

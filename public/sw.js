@@ -80,24 +80,16 @@ function entryAssetsFrom(html) {
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const shell = await caches.open(SHELL_CACHE);
-    try {
-      // `reload` bypasses the HTTP cache: installing from a stale copy of the
-      // shell would pin the previous build's script tags for the next session.
-      const res = await fetch(new Request(SHELL_URL, { cache: 'reload' }));
-      if (!res.ok) return;
-      const html = await res.clone().text();
-      await shell.put(SHELL_URL, res);
-
-      const assets = await caches.open(ASSET_CACHE);
-      // Individually, not `addAll`: that rejects the whole batch if any single
-      // request fails, which would leave the install with no assets at all.
-      await Promise.all(
-        entryAssetsFrom(html).map((u) => assets.add(u).catch(() => undefined))
-      );
-    } catch {
-      // An install that could not reach the network simply caches nothing.
-      // The next navigation will try again.
-    }
+    // A failed install must reject: otherwise activate would delete the last
+    // working build's caches and replace them with an incomplete offline shell.
+    const res = await fetch(new Request(SHELL_URL, { cache: 'reload' }));
+    if (!res.ok) throw new Error('Could not cache the app shell');
+    const html = await res.clone().text();
+    const entryAssets = entryAssetsFrom(html);
+    if (!entryAssets.some((url) => url.endsWith('.js'))) throw new Error('The app shell has no entry script');
+    const assets = await caches.open(ASSET_CACHE);
+    await Promise.all(entryAssets.map((u) => assets.add(u)));
+    await shell.put(SHELL_URL, res);
   })());
 });
 
@@ -198,12 +190,23 @@ async function trim(cacheName, max) {
   await Promise.all(keys.slice(0, keys.length - max).map((k) => cache.delete(k)));
 }
 
-async function cacheFirst(request, cacheName) {
-  const cache = await caches.open(cacheName);
-  const hit = await cache.match(request, MATCH);
+/** Storage is optional: quota/private-mode failures must not break the network. */
+async function openCache(name) {
+  try { return await caches.open(name); } catch { return undefined; }
+}
+
+async function cachedResponse(cache, request) {
+  try { return await cache?.match(request, MATCH); } catch { return undefined; }
+}
+
+async function cacheFirst(event, request, cacheName) {
+  const cache = await openCache(cacheName);
+  const hit = await cachedResponse(cache, request);
   if (hit) return hit;
   const res = await fetch(request);
-  if (res && res.ok) cache.put(request, res.clone());
+  if (cache && res && res.ok) {
+    event.waitUntil(cache.put(request, res.clone()).catch(() => undefined));
+  }
   return res;
 }
 
@@ -215,13 +218,17 @@ async function cacheFirst(request, cacheName) {
  * `cache.put` landed, leaving the first cached copy to be served forever.
  */
 async function staleWhileRevalidate(event, request) {
-  const cache = await caches.open(RUNTIME_CACHE);
-  const hit = await cache.match(request, MATCH);
+  const cache = await openCache(RUNTIME_CACHE);
+  const hit = await cachedResponse(cache, request);
   const network = fetch(request)
     .then(async (res) => {
-      if (res && res.ok) {
-        await cache.put(request, res.clone());
-        await trim(RUNTIME_CACHE, RUNTIME_MAX_ENTRIES);
+      if (cache && res && res.ok) {
+        try {
+          await cache.put(request, res.clone());
+          await trim(RUNTIME_CACHE, RUNTIME_MAX_ENTRIES);
+        } catch {
+          // The network response remains usable even when caching it fails.
+        }
       }
       return res;
     })
@@ -246,8 +253,8 @@ async function staleWhileRevalidate(event, request) {
  * request that will eventually fail can hang for 30s, and a blank tab for 30s
  * is indistinguishable from a broken app.
  */
-async function navigationHandler(request) {
-  const cache = await caches.open(SHELL_CACHE);
+async function navigationHandler(event, request) {
+  const cache = await openCache(SHELL_CACHE);
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), NAV_TIMEOUT_MS);
@@ -260,10 +267,12 @@ async function navigationHandler(request) {
     // Only a genuine 200 refreshes the stored shell. The Worker answers unknown
     // routes with the shell body under a 404 (an honest soft-404 fix); caching
     // that would make every later offline navigation a 404.
-    if (res && res.status === 200) cache.put(SHELL_URL, res.clone());
+    if (cache && res && res.status === 200) {
+      event.waitUntil(cache.put(SHELL_URL, res.clone()).catch(() => undefined));
+    }
     return res;
   } catch {
-    const shell = await cache.match(SHELL_URL, MATCH);
+    const shell = await cachedResponse(cache, SHELL_URL);
     if (shell) return shell;
     return new Response(
       '<!doctype html><meta charset="utf-8"><title>Offline</title>'
@@ -291,11 +300,11 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname === '/healthz') return;
 
   if (request.mode === 'navigate') {
-    event.respondWith(navigationHandler(request));
+    event.respondWith(navigationHandler(event, request));
     return;
   }
   if (isImmutable(url.pathname)) {
-    event.respondWith(cacheFirst(request, ASSET_CACHE));
+    event.respondWith(cacheFirst(event, request, ASSET_CACHE));
     return;
   }
   event.respondWith(staleWhileRevalidate(event, request));

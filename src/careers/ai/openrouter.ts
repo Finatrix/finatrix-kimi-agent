@@ -24,6 +24,11 @@ function careersError(kind: AiFailureKind, message: string): CareersError {
       return new CareersError('auth', 'Sign in to use AI analysis.');
     case 'auth':
       return new CareersError('auth', message || 'Sign in to use AI analysis.');
+    case 'no-consent':
+      return new CareersError(
+        'ai',
+        'Nothing was sent. Allow FinatriX AI to share data with its AI provider in Settings → Privacy first.'
+      );
     case 'limit':
       return new CareersError('ai-limit', message || 'Daily AI limit reached. Try again tomorrow.');
     case 'not-deployed':

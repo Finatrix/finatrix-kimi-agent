@@ -38,6 +38,7 @@
 import { readDashboard } from './dashboard';
 import { computeNetWorth, loadAccounts, type CategoryTotal } from './netWorth';
 import { currentMonth } from './month';
+import { converterTo, effectiveRates } from './fx';
 
 /** Which FinatriX surface a seeded figure came from. Shown to the user. */
 export type SeedSource = 'Budget' | 'Expenses' | 'Net Worth' | 'InvestMatch';
@@ -89,7 +90,10 @@ export function readLifeMapSeed(): LifeMapSeed {
   try {
     const accounts = loadAccounts();
     if (accounts.length > 0) {
-      const nw = computeNetWorth(accounts, currentMonth());
+      const nw = computeNetWorth(accounts, currentMonth(), {
+        displayCurrency: snap.currency,
+        convert: converterTo(snap.currency, effectiveRates()),
+      });
       const sum = (rows: readonly CategoryTotal[], keep: Set<string>) =>
         rows.filter((r) => keep.has(r.category.k)).reduce((t, r) => t + r.total, 0);
 

@@ -120,20 +120,23 @@ const PAYMENT_ALIASES: Record<string, string> = {
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
   eating_out: ['lunch', 'dinner', 'breakfast', 'brunch', 'coffee', 'chai', 'tea', 'restaurant',
     'cafe', 'swiggy', 'zomato', 'pizza', 'burger', 'snack', 'takeaway', 'dining', 'dominos',
+    'uber eats', 'ubereats', 'doordash', 'deliveroo', 'menulog', 'grabfood', 'foodpanda',
     'kfc', 'mcdonalds', 'starbucks', 'biryani', 'meal', 'food'],
   groceries: ['groceries', 'grocery', 'vegetables', 'veggies', 'supermarket', 'bigbasket',
+    'woolworths', 'coles', 'aldi', 'tesco', 'sainsburys', 'waitrose', 'fairprice', 'sheng siong',
     'blinkit', 'zepto', 'dmart', 'kirana', 'milk', 'ration', 'instamart'],
   transport: ['uber', 'ola', 'taxi', 'cab', 'auto', 'rickshaw', 'metro', 'bus', 'train',
-    'petrol', 'diesel', 'fuel', 'parking', 'toll', 'rapido', 'commute'],
+    'myki', 'opal', 'oyster', 'lyft', 'grab ride', 'didi', 'petrol', 'diesel', 'fuel', 'parking', 'toll', 'rapido', 'commute'],
   rent: ['rent', 'landlord', 'maintenance', 'lease'],
   utilities: ['electricity', 'water', 'gas', 'bill', 'bills', 'eb', 'tneb', 'cylinder'],
   internet: ['broadband', 'wifi', 'fiber', 'fibre', 'jiofiber'],
   insurance: ['premium', 'lic', 'policy', 'mediclaim'],
   medical: ['doctor', 'medicine', 'medicines', 'pharmacy', 'hospital', 'clinic', 'dentist',
-    'chemist', 'health'],
+    'chemist warehouse', 'priceline pharmacy', 'chemist', 'health'],
   shopping: ['clothes', 'shirt', 'shoes', 'amazon', 'flipkart', 'myntra', 'shopping', 'nykaa',
     'ajio', 'meesho', 'decathlon', 'ikea'],
   subscriptions: ['netflix', 'spotify', 'prime', 'subscription', 'hotstar', 'youtube', 'icloud',
+    'amazon prime', 'apple music', 'youtube premium', 'disney plus', 'disneyplus',
     'claude', 'chatgpt', 'openai', 'anthropic', 'github', 'adobe', 'canva', 'notion', 'figma',
     'membership', 'renewal'],
   entertainment: ['movie', 'cinema', 'concert', 'game', 'games', 'pvr', 'bookmyshow', 'theatre'],
@@ -190,7 +193,7 @@ function singular(word: string): string {
 
 /** Split any human string into comparable words. */
 function words(text: string): string[] {
-  return text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(Boolean);
+  return text.toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(Boolean);
 }
 
 /**
@@ -238,7 +241,7 @@ function matchDate(tokens: string[], i: number, now: Date): DateHit | null {
   // An explicit ISO day, which is what the date field itself round-trips.
   if (/^\d{4}-\d{2}-\d{2}$/.test(tokens[i])) {
     const d = new Date(tokens[i] + 'T00:00:00');
-    if (!isNaN(d.getTime())) return { date: d, consumed: 1 };
+    if (!isNaN(d.getTime()) && ymdLocal(d) === tokens[i]) return { date: d, consumed: 1 };
   }
   return null;
 }
@@ -279,14 +282,17 @@ export function learnCategoryWords(
   for (const e of items) {
     const key = migrateCategory(e.category ?? '', validKeys);
     if (!validKeys.has(key)) continue;
+    const evidence = new Set<string>();
     for (const source of [e.merchant, e.note]) {
       if (!source) continue;
       const w = words(source);
       // The whole phrase as well as its parts: "book publishing" is a stronger
       // signal than either half, and costs one more entry to remember.
-      if (w.length > 1) record(w.join(' '), key);
-      for (const one of w) record(singular(one), key);
+      if (w.length > 1) evidence.add(w.join(' '));
+      for (const one of w) evidence.add(singular(one));
     }
+    // One vote per transaction, even when the merchant is repeated in its description.
+    for (const word of evidence) record(word, key);
   }
 
   const learned = new Map<string, string>();
@@ -399,6 +405,33 @@ function matchCategory(
   return best;
 }
 
+/** Equally strong conflicting signals require review, rather than a positional guess. */
+function unambiguousCategory(
+  tokens: readonly string[], used: readonly boolean[], index: CategoryIndex,
+): CategoryHit | null {
+  const claimed = [...used];
+  const best = matchCategory(tokens, claimed, index);
+  if (!best) return null;
+  for (let i = best.start; i < best.end; i++) claimed[i] = true;
+  let next = matchCategory(tokens, claimed, index);
+  while (next) {
+    if (next.key !== best.key && next.end - next.start === best.end - best.start
+      && SOURCE_RANK[next.source] === SOURCE_RANK[best.source]) return null;
+    for (let i = next.start; i < next.end; i++) claimed[i] = true;
+    next = matchCategory(tokens, claimed, index);
+  }
+  return best;
+}
+
+/** Category-only recognition: typing a name must not require an amount or parse dates. */
+export function suggestExpenseCategory(text: string, vocabulary: QuickAddVocabulary): {
+  category: string; source: CategorySource;
+} | null {
+  const tokens = words(text);
+  const best = unambiguousCategory(tokens, tokens.map(() => false), buildIndex(vocabulary));
+  return best ? { category: best.key, source: best.source } : null;
+}
+
 /** How a recognised category is described in the preview. */
 const SOURCE_PART: Record<CategorySource, string> = {
   history: 'category (from your history)',
@@ -490,13 +523,16 @@ export function parseQuickAdd(
     }
   }
 
-  if (!amountFound) return { ...fallback, note: text };
+  if (!amountFound) {
+    const suggestion = suggestExpenseCategory(text, normaliseVocabulary(vocab));
+    return { ...fallback, note: text, ...(suggestion ? { category: suggestion.category, categorySource: suggestion.source } : {}) };
+  }
 
   /* ── Pass B: the category, over what is left ──
      The word that names the category stays in the note: "lunch" is both the
      category signal and the best description of the spend. */
   const index = buildIndex(normaliseVocabulary(vocab));
-  const hit = matchCategory(tokens.map(norm), claimed, index);
+  const hit = unambiguousCategory(tokens.map(norm), claimed, index);
   if (hit) for (let k = hit.start; k < hit.end; k += 1) claimed[k] = true;
 
   /* ── Pass C: the payment method, over what neither of those took ── */
