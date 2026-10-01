@@ -46,7 +46,8 @@ vi.mock('../careers/services/subscriptions', async (importOriginal) => {
   };
 });
 
-// JobsPage loads the user's saved jobs and companies as soon as it mounts.
+// JobsPage loads the user's saved jobs and companies, and the Careers shell its
+// notifications, as soon as they mount.
 // Left real, those requests could settle after the last test had torn the
 // environment down, and their setState then failed the whole run as an
 // unhandled rejection under load. They are not what this file tests.
@@ -57,6 +58,10 @@ vi.mock('../careers/services/jobsService', async (importOriginal) => ({
 vi.mock('../careers/services/companyIntelUser', async (importOriginal) => ({
   ...await importOriginal<typeof import('../careers/services/companyIntelUser')>(),
   listSavedCompanies: async () => [],
+}));
+vi.mock('../careers/services/notifications', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../careers/services/notifications')>(),
+  listNotifications: async () => [],
 }));
 
 import App from '../App';

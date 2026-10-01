@@ -59,6 +59,10 @@ const REQUIRED_RELATIONS = [
   'provider_ops_search_volume',
   'provider_ops_status',
   'analytics_events',
+  // Sign in with Apple revocation (migration 20261001000100). Service-role
+  // only, so the anon probe gets a permission error when it exists and
+  // PGRST205 when it does not — which is the distinction this check needs.
+  'apple_auth_tokens',
 ];
 
 /**
@@ -79,6 +83,7 @@ const FUNCTIONS = [
   'careers-billing-webhook',
   'analytics-collect',
   'account-delete',
+  'apple-token',
 ];
 
 const results = [];

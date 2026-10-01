@@ -147,6 +147,19 @@ function isFreshAccount(u: User | null | undefined): boolean {
   return age >= 0 && age < FRESH_ACCOUNT_MS;
 }
 
+/**
+ * Which provider a WEBSITE sign-in asked for, carried across the redirect to the
+ * provider and back. Needed only to know that a returned provider token is
+ * Apple's (the session does not say), so it can be registered for revocation.
+ * The apps carry the same fact inside the PKCE record (src/lib/nativeOAuth.ts).
+ */
+const OAUTH_PROVIDER_KEY = 'fx_oauth_provider';
+
+/** Register an Apple refresh token for revocation on deletion; best effort. */
+function registerAppleTokenLater(token: string): void {
+  void import('../lib/appleToken').then((m) => m.registerAppleToken(token), () => undefined);
+}
+
 function rememberSession(present: boolean): void {
   try {
     if (present) localStorage.setItem(SESSION_MARKER, '1');
@@ -318,6 +331,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /** An app's sign-in return leg (`/login?code=…`), redeemed once in the effect below. */
   const nativeAuthCode = useRef(readNativeAuthCode(window.location.search, isNativeApp()));
   const signupReported = useRef(false);
+  const appleTokenHandled = useRef(false);
 
   /**
    * Load the client and make sure we are listening to it — one operation,
@@ -361,6 +375,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!signupReported.current && oauthReturn.current && isFreshAccount(newSession?.user)) {
           signupReported.current = true;
           track('signup_completed', { kind: providerOf(newSession?.user), step: 'active' });
+        }
+
+        // A website Sign in with Apple returning: keep its Apple token so a
+        // later account deletion can revoke it (App Review 5.1.1(v)). The app
+        // path registers it after the PKCE exchange, in the effect below.
+        if (event === 'SIGNED_IN' && oauthReturn.current && !appleTokenHandled.current) {
+          appleTokenHandled.current = true;
+          let requested: string | null = null;
+          try {
+            requested = sessionStorage.getItem(OAUTH_PROVIDER_KEY);
+            sessionStorage.removeItem(OAUTH_PROVIDER_KEY);
+          } catch { /* storage unavailable */ }
+          if (requested === 'apple' && newSession?.provider_refresh_token) {
+            registerAppleTokenLater(newSession.provider_refresh_token);
+          }
         }
       });
       // The provider can unmount while the import is in flight; without this the
@@ -408,11 +437,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const code = nativeAuthCode.current;
           if (code) {
             nativeAuthCode.current = null;
-            const { session: exchanged, error } = await exchangeNativeCode(code);
+            const { session: exchanged, error, signIn } = await exchangeNativeCode(code);
             stripAuthCodeFromUrl();
             if (exchanged) {
               const { error: setError } = await supabase.auth.setSession(exchanged);
               if (setError && mounted.current) setCallbackError(authErrorMessage(setError, 'Could not sign in. Please try again.'));
+              // setSession keeps only Supabase's own tokens, so Apple's is
+              // registered for deletion-time revocation from here.
+              if (!setError && signIn?.provider === 'apple' && signIn.providerRefreshToken) {
+                registerAppleTokenLater(signIn.providerRefreshToken);
+              }
             } else if (mounted.current) {
               setCallbackError(error);
             }
@@ -515,7 +549,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // challenge in `queryParams` is what makes GoTrue use the code flow for
       // this one request). See src/lib/nativeOAuth.ts.
       if (isNativeApp()) {
-        const challenge = await beginNativePkce();
+        const challenge = await beginNativePkce(provider);
         const { data, error } = await supabase.auth.signInWithOAuth({
           provider,
           options: {
@@ -536,6 +570,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      try {
+        sessionStorage.setItem(OAUTH_PROVIDER_KEY, provider);
+      } catch { /* storage unavailable — only Apple-token registration needs it */ }
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {

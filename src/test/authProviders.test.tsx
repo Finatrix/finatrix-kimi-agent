@@ -97,10 +97,21 @@ describe('which providers a build offers', () => {
     expect(authProviders()).toEqual(['google', 'apple']);
   });
 
-  it('offers Apple on iOS whatever the flag says — Guideline 4.8 is not optional', () => {
+  /**
+   * Guideline 4.8: Google may only appear on iOS alongside Apple. And the Apple
+   * button must not appear before the provider works ("Unsupported provider").
+   * Both hold only if iOS offers no third-party login until Apple is configured.
+   */
+  it('offers no third-party login on iOS until Apple is configured', () => {
     withAppleFlag(false);
     asApp('ios');
-    expect(authProviders()).toContain('apple');
+    expect(authProviders()).toEqual([]);
+  });
+
+  it('offers Google on iOS only together with Apple', () => {
+    withAppleFlag(true);
+    asApp('ios');
+    expect(authProviders()).toEqual(['apple', 'google']);
   });
 
   it('puts Apple first on iOS, and Google first everywhere else', () => {
@@ -123,7 +134,7 @@ describe.each([
   ['Signup', () => <Signup />, '/signup'],
 ])('%s page', (_name, element, entry) => {
   it('renders a button for each provider, labelled the way Apple asks', () => {
-    withAppleFlag(false);
+    withAppleFlag(true);
     asApp('ios');
     renderPage(element(), entry);
     for (const provider of authProviders()) {
@@ -132,7 +143,7 @@ describe.each([
   });
 
   it('gives Apple the same prominence as Google, not a lesser control', () => {
-    withAppleFlag(false);
+    withAppleFlag(true);
     asApp('ios');
     renderPage(element(), entry);
     const apple = screen.getByRole('button', { name: PROVIDER_LABEL.apple });
@@ -171,6 +182,15 @@ describe.each([
       expect(screen.getByRole('button', { name: PROVIDER_LABEL[provider] }), provider)
         .toBeDisabled();
     }
+  });
+
+  it('offers only email on iOS before Apple is configured — no dead button, no orphan divider', () => {
+    withAppleFlag(false);
+    asApp('ios');
+    renderPage(element(), entry);
+    expect(screen.queryByRole('button', { name: PROVIDER_LABEL.apple })).toBeNull();
+    expect(screen.queryByRole('button', { name: PROVIDER_LABEL.google })).toBeNull();
+    expect(screen.queryByText(/^or sign (in|up) with/i)).toBeNull();
   });
 
   it('shows no Apple button on the website while the provider is unconfigured', () => {

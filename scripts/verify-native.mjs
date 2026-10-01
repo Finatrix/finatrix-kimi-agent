@@ -7,7 +7,7 @@ const origin = (process.env.ORIGIN || 'https://finatrix.co').replace(/\/+$/, '')
 const hosts = [origin, `${new URL(origin).protocol}//www.${new URL(origin).host}`];
 const backend = env.VITE_SUPABASE_URL?.replace(/\/+$/, '');
 const appId = 'co.finatrix.app';
-const functions = ['analytics-collect', 'careers-jobs', 'careers-ai', 'careers-email', 'careers-billing-checkout', 'account-delete'];
+const functions = ['analytics-collect', 'careers-jobs', 'careers-ai', 'careers-email', 'careers-billing-checkout', 'account-delete', 'apple-token'];
 const results = [];
 
 async function check(name, run) {

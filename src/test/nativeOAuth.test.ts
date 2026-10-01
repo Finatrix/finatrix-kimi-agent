@@ -48,13 +48,28 @@ afterEach(() => {
 
 describe('beginNativePkce', () => {
   it('stores a fresh RFC 7636 verifier and returns its S256 challenge', async () => {
-    const challenge = await beginNativePkce(1_000);
+    const challenge = await beginNativePkce(undefined, 1_000);
     const { v, t } = stored();
     expect(t).toBe(1_000);
     expect(v).toMatch(/^[A-Za-z0-9_-]{43,128}$/);
     expect(challenge.code_challenge_method).toBe('s256');
     expect(challenge.code_challenge).toBe(await s256(v));
     expect(challenge.code_challenge).not.toBe(v);
+  });
+
+  it('remembers which provider was asked for, and hands it back with the session', async () => {
+    await beginNativePkce('apple', 0);
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({
+      access_token: 'at', refresh_token: 'rt', provider_refresh_token: 'apple-rt',
+    }), { status: 200 }));
+    const result = await exchangeNativeCode('code', 1);
+    expect(result.signIn).toEqual({ provider: 'apple', providerRefreshToken: 'apple-rt' });
+  });
+
+  it('reports no provider token when GoTrue passes none', async () => {
+    await beginNativePkce('google', 0);
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ access_token: 'at', refresh_token: 'rt' }), { status: 200 }));
+    expect((await exchangeNativeCode('code', 1)).signIn).toEqual({ provider: 'google', providerRefreshToken: null });
   });
 
   it('uses a new verifier every time, so only the latest attempt can complete', async () => {
@@ -71,13 +86,17 @@ describe('exchangeNativeCode', () => {
   }
 
   it('redeems the code with the stored verifier, sending the key only as `apikey`', async () => {
-    await beginNativePkce(0);
+    await beginNativePkce(undefined, 0);
     const { v } = stored();
     fetchMock.mockResolvedValue(tokens());
 
     const result = await exchangeNativeCode('code-1', 1_000);
 
-    expect(result).toEqual({ session: { access_token: 'at', refresh_token: 'rt' }, error: null });
+    expect(result).toEqual({
+      session: { access_token: 'at', refresh_token: 'rt' },
+      error: null,
+      signIn: { provider: null, providerRefreshToken: null },
+    });
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe('https://project.supabase.co/auth/v1/token?grant_type=pkce');
     expect(init.method).toBe('POST');
@@ -88,7 +107,7 @@ describe('exchangeNativeCode', () => {
   });
 
   it('is single use: the verifier is gone after one attempt, successful or not', async () => {
-    await beginNativePkce(0);
+    await beginNativePkce(undefined, 0);
     fetchMock.mockResolvedValue(new Response('{}', { status: 400 }));
     await exchangeNativeCode('code-1', 1);
     expect(localStorage.getItem(KEY)).toBeNull();
@@ -107,7 +126,7 @@ describe('exchangeNativeCode', () => {
   });
 
   it('refuses a verifier older than the time limit and says why', async () => {
-    await beginNativePkce(0);
+    await beginNativePkce(undefined, 0);
     const result = await exchangeNativeCode('late-code', PKCE_MAX_AGE_MS + 1);
     expect(result.session).toBeNull();
     expect(result.error).toMatch(/took too long/i);
@@ -116,7 +135,7 @@ describe('exchangeNativeCode', () => {
   });
 
   it('refuses a verifier dated in the future (clock moved back, or tampering)', async () => {
-    await beginNativePkce(10_000);
+    await beginNativePkce(undefined, 10_000);
     const result = await exchangeNativeCode('code', 5_000);
     expect(result.session).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();

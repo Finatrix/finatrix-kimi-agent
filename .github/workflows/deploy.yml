@@ -235,6 +235,14 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      # apple-token verifies the caller in-function exactly like account-delete
+      # (auth.getUser, per-IP and per-user limits) and stores a Sign in with
+      # Apple token only after Apple confirms it belongs to that caller.
+      - name: Deploy Apple sign-in token store (verifies the caller in-function)
+        run: npx supabase functions deploy apple-token --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
       # careers-billing-webhook MUST be --no-verify-jwt for the same structural
       # reason as analytics-collect: Stripe calls it server-to-server and cannot
       # present a Supabase JWT, so with the gateway check on, every payment

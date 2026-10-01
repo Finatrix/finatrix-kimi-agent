@@ -11,14 +11,18 @@
  * the store at all. Removing Google instead would be the other way to comply, and
  * is the wrong trade: it is how most existing accounts were created.
  *
- * WHY IT IS A FLAG EVERYWHERE ELSE
- * --------------------------------
+ * WHY IT IS A FLAG, AND WHY GOOGLE WAITS FOR IT ON iOS
+ * ----------------------------------------------------
  * The button is only useful once Supabase's Apple provider is configured (a
  * Services ID and a signing key in the Apple Developer portal — see docs/IOS.md).
- * Until then it would fail with "Unsupported provider" for anyone who pressed it.
- * The iOS build cannot opt out, so its runbook makes that configuration a gate;
- * the website and the Android app opt in with `VITE_AUTH_APPLE=1`, which keeps a
- * half-finished Apple configuration invisible to everyone already using the site.
+ * Until then it fails with "Unsupported provider" for anyone who presses it, so
+ * no build shows it before `VITE_AUTH_APPLE=1`.
+ *
+ * On iOS that leaves one compliant option while Apple is unconfigured: no
+ * third-party login at all. So the iOS app offers Google only together with
+ * Apple — before the flag it is email and password alone, which 4.8 does not
+ * restrict. That keeps every iOS build, including an early TestFlight one,
+ * both honest (no button to a disabled provider) and within the guideline.
  */
 import { isIosApp } from '../native/platform';
 
@@ -44,6 +48,6 @@ export function appleConfigured(): boolean {
  * existing FinatriX account uses.
  */
 export function authProviders(): OAuthProvider[] {
-  if (isIosApp()) return ['apple', 'google'];
+  if (isIosApp()) return appleConfigured() ? ['apple', 'google'] : [];
   return appleConfigured() ? ['google', 'apple'] : ['google'];
 }

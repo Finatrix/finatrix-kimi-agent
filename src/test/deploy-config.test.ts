@@ -562,6 +562,17 @@ describe('edge function deploy coverage', () => {
     expect(src).not.toMatch(/body\.(uid|user_?id|userId)/i);
   });
 
+  it('apple-token is deployed --no-verify-jwt, verifies the caller itself, and never logs the token', () => {
+    expect(workflow).toMatch(/functions deploy apple-token --no-verify-jwt/);
+    const src = read('supabase/functions/apple-token/index.ts');
+    expect(src).toMatch(/auth\.getUser\(\)/);
+    expect(src).toMatch(/return json\(401/);
+    expect(src).not.toMatch(/body\.(uid|user_?id|userId)/i);
+    // Apple must confirm the token belongs to this caller before it is stored.
+    expect(src).toMatch(/appleSubjectForRefreshToken/);
+    expect(src).not.toMatch(/console\.\w+\([^)]*body\.token/);
+  });
+
   it('careers-billing-checkout keeps the JWT gate — it derives the buyer from the caller', () => {
     expect(workflow).not.toMatch(/functions deploy careers-billing-checkout --no-verify-jwt/);
   });

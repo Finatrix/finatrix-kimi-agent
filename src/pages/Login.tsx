@@ -174,7 +174,9 @@ export default function Login() {
         </SocialButton>
       ))}
 
-      <OrDivider label="or sign in with email" />
+      {/* No divider when there is nothing to divide from — an iOS build before
+          Sign in with Apple is configured offers email alone (authProviders). */}
+      {authProviders().length > 0 && <OrDivider label="or sign in with email" />}
 
       <form onSubmit={onSubmit}>
         <Field

@@ -23,6 +23,7 @@ const h = vi.hoisted(() => ({
   updateUser: vi.fn(),
   setSession: vi.fn(),
   openAuthBrowser: vi.fn(),
+  registerAppleToken: vi.fn(),
   unsubscribe: vi.fn(),
 }));
 
@@ -57,6 +58,7 @@ vi.mock('../lib/supabase', () => {
 });
 
 vi.mock('../native/bridge', () => ({ openAuthBrowser: h.openAuthBrowser }));
+vi.mock('../lib/appleToken', () => ({ registerAppleToken: h.registerAppleToken }));
 
 vi.mock('../lib/analytics', () => ({ track: vi.fn(), trackPageView: vi.fn() }));
 
@@ -88,6 +90,7 @@ beforeEach(() => {
   h.updateUser.mockReset().mockResolvedValue({ error: null });
   h.setSession.mockReset().mockResolvedValue({ error: null });
   h.openAuthBrowser.mockReset().mockResolvedValue(undefined);
+  h.registerAppleToken.mockReset().mockResolvedValue(undefined);
   localStorage.clear();
 });
 
@@ -331,6 +334,26 @@ describe('AuthProvider — app sign-in with PKCE', () => {
     expect(window.location.search).toBe('?next=%2Ftools');
     // setSession must run before the session is read, or the load flashes signed out.
     expect(h.setSession.mock.invocationCallOrder[0]).toBeLessThan(h.getSession.mock.invocationCallOrder[0]);
+  });
+
+  it.each([
+    ['apple', true],
+    ['google', false],
+  ] as const)('after a %s sign-in, registers the provider token for revocation: %s', async (provider, registers) => {
+    enterApp();
+    const { beginNativePkce } = await import('../lib/nativeOAuth');
+    await beginNativePkce(provider);
+    window.history.replaceState(null, '', '/login?next=%2Ftools&code=returned-code');
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({
+      access_token: 'at', refresh_token: 'rt', provider_refresh_token: 'provider-rt',
+    }), { status: 200 }));
+
+    const { AuthProvider, useAuth } = await loadProvider();
+    render(<AuthProvider><CallbackProbe useAuth={useAuth} /></AuthProvider>);
+    await waitFor(() => expect(screen.getByTestId('cb')).toHaveTextContent('ok'));
+
+    if (registers) await waitFor(() => expect(h.registerAppleToken).toHaveBeenCalledWith('provider-rt'));
+    else expect(h.registerAppleToken).not.toHaveBeenCalled();
   });
 
   it('refuses a code it never asked for and explains on the sign-in screen', async () => {

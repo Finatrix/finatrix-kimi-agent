@@ -198,7 +198,7 @@ export default function Signup() {
         </PrimaryButton>
       </form>
 
-      <OrDivider label="or sign up with" />
+      {authProviders().length > 0 && <OrDivider label="or sign up with" />}
 
       {authProviders().map((provider) => (
         <SocialButton

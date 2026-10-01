@@ -59,9 +59,23 @@ export interface NativeSession {
   refresh_token: string;
 }
 
+/** What a redeemed sign-in yields beyond the session itself. */
+export interface NativeSignIn {
+  /** The provider this device asked for when it started the sign-in. */
+  provider: string | null;
+  /**
+   * The provider's own refresh token, when GoTrue passes one on. Apple's is
+   * needed to revoke the sign-in when the account is deleted (App Review
+   * 5.1.1(v)) and is handed to the `apple-token` function, never kept here.
+   */
+  providerRefreshToken: string | null;
+}
+
 interface StoredVerifier {
   v: string;
   t: number;
+  /** Provider requested (absent in verifiers written before this field existed). */
+  p?: string;
 }
 
 function base64Url(bytes: Uint8Array): string {
@@ -99,30 +113,32 @@ async function challengeFor(verifier: string): Promise<PkceChallenge> {
  * a sign-in that fails only on low-memory phones. A second start overwrites the
  * first, so only the most recent attempt can complete.
  */
-export async function beginNativePkce(now = Date.now()): Promise<PkceChallenge> {
+export async function beginNativePkce(provider?: string, now = Date.now()): Promise<PkceChallenge> {
   const verifier = newVerifier();
   const challenge = await challengeFor(verifier);
-  localStorage.setItem(VERIFIER_KEY, JSON.stringify({ v: verifier, t: now } satisfies StoredVerifier));
+  const record: StoredVerifier = { v: verifier, t: now, ...(provider ? { p: provider } : {}) };
+  localStorage.setItem(VERIFIER_KEY, JSON.stringify(record));
   return challenge;
 }
 
 /** Read and forget the verifier — a code is redeemable once, and so is this. */
-function takeVerifier(now: number): { verifier: string | null; expired: boolean } {
+function takeVerifier(now: number): { verifier: string | null; expired: boolean; provider: string | null } {
+  const none = { verifier: null, expired: false, provider: null };
   let raw: string | null = null;
   try {
     raw = localStorage.getItem(VERIFIER_KEY);
     localStorage.removeItem(VERIFIER_KEY);
   } catch {
-    return { verifier: null, expired: false };
+    return none;
   }
-  if (!raw) return { verifier: null, expired: false };
+  if (!raw) return none;
   try {
     const stored = JSON.parse(raw) as Partial<StoredVerifier>;
-    if (typeof stored.v !== 'string' || typeof stored.t !== 'number') return { verifier: null, expired: false };
-    if (now - stored.t > PKCE_MAX_AGE_MS || now < stored.t) return { verifier: null, expired: true };
-    return { verifier: stored.v, expired: false };
+    if (typeof stored.v !== 'string' || typeof stored.t !== 'number') return none;
+    if (now - stored.t > PKCE_MAX_AGE_MS || now < stored.t) return { ...none, expired: true };
+    return { verifier: stored.v, expired: false, provider: typeof stored.p === 'string' ? stored.p : null };
   } catch {
-    return { verifier: null, expired: false };
+    return none;
   }
 }
 
@@ -138,8 +154,8 @@ const FAILED = 'Sign-in could not be completed. Please try again.';
 export async function exchangeNativeCode(
   code: string,
   now = Date.now(),
-): Promise<{ session: NativeSession | null; error: string | null }> {
-  const { verifier, expired } = takeVerifier(now);
+): Promise<{ session: NativeSession | null; error: string | null; signIn?: NativeSignIn }> {
+  const { verifier, expired, provider } = takeVerifier(now);
   if (expired) return { session: null, error: 'That sign-in took too long to finish. Please try again.' };
   // No verifier means this device never started the sign-in the code belongs
   // to — an injected callback, or one replayed after it was already used.
@@ -154,11 +170,19 @@ export async function exchangeNativeCode(
       body: JSON.stringify({ auth_code: code, code_verifier: verifier }),
     });
     if (!response.ok) return { session: null, error: FAILED };
-    const body = (await response.json()) as Partial<NativeSession>;
+    const body = (await response.json()) as Partial<NativeSession> & { provider_refresh_token?: unknown };
     if (typeof body.access_token !== 'string' || typeof body.refresh_token !== 'string') {
       return { session: null, error: FAILED };
     }
-    return { session: { access_token: body.access_token, refresh_token: body.refresh_token }, error: null };
+    return {
+      session: { access_token: body.access_token, refresh_token: body.refresh_token },
+      error: null,
+      signIn: {
+        provider,
+        providerRefreshToken: typeof body.provider_refresh_token === 'string' && body.provider_refresh_token
+          ? body.provider_refresh_token : null,
+      },
+    };
   } catch {
     return { session: null, error: 'Sign-in could not be completed. Check your connection and try again.' };
   }

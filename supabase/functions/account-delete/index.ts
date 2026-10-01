@@ -18,6 +18,11 @@
 //     `granted_by`, …) are `on delete set null` and are anonymised, not kept
 //     attributable.
 //
+//  3. For an account linked to Sign in with Apple, the Apple refresh token is
+//     revoked with Apple first (App Review 5.1.1(v)), so FinatriX leaves the
+//     person's "Apps using Apple ID" list. The token was stored, encrypted, by
+//     the `apple-token` function at sign-in; see _shared/appleSignIn.ts.
+//
 // Payment processor records (Stripe) are held by the processor under its own
 // legal retention duties and are not deletable from here; the privacy policy
 // says so.
@@ -26,9 +31,10 @@
 //          (identity is verified here with auth.getUser — see PRE_AUTH_PER_IP)
 // Needs:   SUPABASE_SERVICE_ROLE_KEY (set automatically for deployed functions)
 
-import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import { rateLimited } from '../_shared/ratelimit.ts';
 import { corsHeaders } from '../_shared/origins.ts';
+import { appleConfig, appleSubjectOf, decryptToken, revokeAppleToken } from '../_shared/appleSignIn.ts';
 
 /** Buckets holding user-owned files, each keyed `<bucket>/<user id>/…`. */
 const USER_BUCKETS = ['resumes'];
@@ -130,11 +136,39 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Apple first, while the stored token still exists (deleting the user
+  // cascades it away). A failed revocation does not block the deletion: the
+  // person's right to remove their account does not depend on Apple's uptime,
+  // and the outcome is reported and logged (without the token) instead.
+  let appleRevoked: boolean | undefined;
+  if (appleSubjectOf(userData.user)) {
+    appleRevoked = await revokeStoredAppleToken(admin, uid);
+    console.info(JSON.stringify({ fn: 'account-delete', uid, apple: appleRevoked ? 'revoked' : 'not-revoked' }));
+  }
+
   const { error: delErr } = await admin.auth.admin.deleteUser(uid);
   if (delErr) {
     console.error('account-delete deleteUser failed', uid, delErr.message);
     return json(500, { error: 'Your account was not deleted. Please try again.' });
   }
 
-  return json(200, { deleted: true });
+  return json(200, appleRevoked === undefined ? { deleted: true } : { deleted: true, appleRevoked });
 });
+
+/**
+ * Revoke the Apple refresh token stored for this user, if any. False when the
+ * feature is unconfigured, no token was stored (an account that signed in with
+ * Apple before tokens were kept), or Apple refused — never throws.
+ */
+async function revokeStoredAppleToken(admin: SupabaseClient, uid: string): Promise<boolean> {
+  const cfg = appleConfig();
+  if (!cfg) return false;
+  try {
+    const { data } = await admin.from('apple_auth_tokens').select('token_ciphertext').eq('user_id', uid).maybeSingle();
+    const stored = (data as { token_ciphertext?: string } | null)?.token_ciphertext;
+    if (!stored) return false;
+    return await revokeAppleToken(cfg, await decryptToken(stored, cfg.encryptionKey));
+  } catch {
+    return false;
+  }
+}
