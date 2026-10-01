@@ -113,10 +113,15 @@ export default function CommandPalette({
 
   // Return focus to the trigger, but only when it is still in the document and
   // focus has not already moved on (a command that navigated owns focus now).
+  // After the next frame, not now: until the palette has unmounted the page
+  // behind it is `inert` (useInertOutside), and focusing inside an inert
+  // subtree is silently ignored — the caret would be dropped on <body>.
   const close = useCallback(() => {
     onClose();
     const el = opener.current;
-    if (el && document.contains(el)) el.focus?.();
+    requestAnimationFrame(() => {
+      if (el && document.contains(el)) el.focus?.();
+    });
   }, [onClose]);
 
   const run = useCallback(

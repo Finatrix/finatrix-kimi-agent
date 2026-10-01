@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, cleanup, fireEvent, within } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, within, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router';
 import { AuthProvider } from '../context/AuthContext';
 import { ThemeProvider } from '../context/ThemeContext';
@@ -272,7 +272,9 @@ describe('CommandPalette in the tools shell', () => {
     // addressed by its accessible name.
     const input = await screen.findByRole('combobox', { name: 'Search tools, guides and actions' });
     fireEvent.keyDown(input, { key: 'Escape' });
-    expect(document.activeElement).toBe(trigger);
+    // A frame later, once the palette has unmounted and the page is no longer
+    // inert (focus inside an inert subtree is ignored by real browsers).
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
   });
 
   /**
@@ -288,7 +290,7 @@ describe('CommandPalette in the tools shell', () => {
     fireEvent.click(trigger);
     const input = await screen.findByRole('combobox', { name: 'Search tools, guides and actions' });
     fireEvent.keyDown(input, { key: 'Escape' });
-    expect(document.activeElement).toBe(trigger);
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
   });
 });
 

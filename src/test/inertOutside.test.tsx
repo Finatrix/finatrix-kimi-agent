@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, fireEvent } from '@testing-library/react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { inertOutside, useInertOutside } from '../hooks/useInertOutside';
 
@@ -102,5 +102,34 @@ describe('useInertOutside', () => {
     expect(onBackdrop).toHaveBeenCalled();
     fireEvent.click(screen.getByText('Close'));
     expect(container.hasAttribute('inert')).toBe(false);
+  });
+});
+
+describe('useInertOutside and focus restoration', () => {
+  /**
+   * Dialogs give focus back to their opener in a passive-effect cleanup, and
+   * `focus()` inside an inert subtree is ignored by real browsers (jsdom does
+   * not model that, so the ORDER is what this pins): by the time any passive
+   * cleanup runs, the page must already be live — even when the cleanup was
+   * declared before the hook.
+   */
+  it('lifts inert before any passive cleanup runs, whatever the hook order', () => {
+    const seen: boolean[] = [];
+    function Dialog() {
+      const ref = useRef<HTMLDivElement>(null);
+      useEffect(() => () => {
+        seen.push(document.querySelector('main')!.hasAttribute('inert'));
+      }, []);
+      useInertOutside(ref);
+      return createPortal(<div ref={ref} role="dialog" aria-modal="true" />, document.body);
+    }
+    function Page() {
+      const [open, setOpen] = useState(true);
+      return <><main><button onClick={() => setOpen(false)}>Close</button></main>{open && <Dialog />}</>;
+    }
+    render(<Page />);
+    expect(document.querySelector('main')!.closest('[inert]')).not.toBeNull();
+    fireEvent.click(screen.getByText('Close'));
+    expect(seen).toEqual([false]);
   });
 });

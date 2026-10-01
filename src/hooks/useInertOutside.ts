@@ -1,4 +1,4 @@
-import { useEffect, type RefObject } from 'react';
+import { useLayoutEffect, type RefObject } from 'react';
 
 /**
  * Make everything outside a modal dialog `inert` while it is open.
@@ -43,9 +43,19 @@ export function inertOutside(dialog: HTMLElement): () => void {
   };
 }
 
-/** `inertOutside` for the lifetime of an open dialog. */
+/**
+ * `inertOutside` for the lifetime of an open dialog.
+ *
+ * A LAYOUT effect on purpose. Dialogs hand focus back to their opener as they
+ * close, and `focus()` on an element inside an inert subtree silently does
+ * nothing. React runs every layout-effect cleanup during the commit, before any
+ * passive-effect cleanup, so the page is live again by the time a dialog's
+ * `useEffect` cleanup restores focus — whatever order the hooks were written
+ * in. (A close handler that focuses synchronously, before the dialog has even
+ * unmounted, must wait for the commit instead; see CommandPalette's `close`.)
+ */
 export function useInertOutside(ref: RefObject<HTMLElement | null>, active = true): void {
-  useEffect(() => {
+  useLayoutEffect(() => {
     const dialog = ref.current;
     if (!active || !dialog) return;
     return inertOutside(dialog);
