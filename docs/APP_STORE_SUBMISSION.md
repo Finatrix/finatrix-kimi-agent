@@ -1,8 +1,8 @@
 # FinatriX — App Store submission
 
 > **Release status lives in [MOBILE_RELEASE_READINESS.md](MOBILE_RELEASE_READINESS.md)**
-> (last audited 2026-10-01). Several items below are ready in code but NOT yet
-> live on the backend — that file says which, with the evidence.
+> (last updated 2026-10-02). The backend half is live; what remains needs the
+> paid Apple Developer team (purchased, awaiting enrolment).
 
 Everything App Store Connect asks for, answered. The build and signing runbook is
 docs/IOS.md; this is the paperwork.
@@ -125,7 +125,8 @@ to review the signed-in experience, but it is not required to review the app's
 functionality.
 
 Sign in with Apple is offered alongside Google and email, and is presented
-first on iOS.
+first. Deleting an account that used Sign in with Apple also revokes the
+app's Apple authorization.
 
 FinatriX AI (optional, signed-in only) asks for explicit permission before any
 question or statement description is sent to its AI provider (OpenRouter and the
@@ -165,19 +166,25 @@ check rather than trust.
 | Contact Info → Email Address | Yes | No | App Functionality | Supabase Auth account (`src/context/AuthContext.tsx`) |
 | Contact Info → Name | Yes | No | App Functionality | Display name at sign-up |
 | Financial Info → Other Financial Info | Yes | No | App Functionality | Budgets/expenses/net worth, synced to the user's own `tool_data` row **only when signed in**; figures relevant to an AI question, and merchant descriptions from a statement import, sent to the AI provider **only after the in-app consent prompt** (`src/lib/ai/consent.ts`) |
-| User Content → Other User Content | Yes | No | App Functionality | Careers résumés, cover letters, application notes; AI questions |
+| Purchases → Purchase History | Yes | No | App Functionality | The user's own expense records (amount, merchant note, category), synced **only when signed in**; merchant descriptions from a statement import sent to the AI provider **only after consent** |
+| Identifiers → User ID | Yes | No | App Functionality | The account ID every signed-in account has (Supabase Auth); used to store and sync the user's own data |
+| User Content → Other User Content | Yes | No | App Functionality | AI questions; Careers résumés and notes exist in the backend but Careers is not available in the app before launch |
 | Usage Data → Product Interaction | **No** | No | Analytics | `src/lib/analytics.ts` — random per-session id, no account id, `credentials: 'omit'`, no cookie |
 | Diagnostics → Crash Data | No | No | App Functionality | `src/lib/errorReporting.ts` |
 | Diagnostics → Performance Data | No | No | Analytics | `src/lib/webVitals.ts` |
 
 ### Data NOT collected — and why the answer is "no", not "probably not"
 
-- **Identifiers.** No IDFA, no IDFV, no advertising SDK, no attribution SDK. The
-  analytics session id is generated per visit and is not stored across sessions.
+- **Device ID.** No IDFA, no IDFV, no advertising SDK, no attribution SDK. The
+  analytics session id is generated per launch, is not stored across sessions
+  and is not linked to the account. (The account's own **User ID** *is*
+  collected — declared above.)
 - **Location, Contacts, Health, Browsing History, Search History, Sensitive
   Info.** No API in the bundle touches any of them.
-- **Purchases.** The app sells nothing, so it collects no payment information.
-  Existing subscribers' payment data is held by Stripe from a website purchase.
+- **Payment info.** The app sells nothing, so it collects no payment
+  information. Existing subscribers' payment data is held by Stripe from a
+  website purchase. (Purchase *history* — the user's own expense records — is
+  declared above.)
 - **Guest data.** Someone who never signs in transmits nothing but anonymous
   analytics, and can turn that off in Settings.
 
@@ -216,8 +223,14 @@ encryption of its own, which is the standard exemption.
 
 ## 10. Screenshots
 
-Required: **6.5" (1284 × 2778)** or **6.9" (1290 × 2796)** portrait — providing
-6.9" covers the smaller classes, which App Store Connect scales automatically.
+**Ready:** `ios/store/screenshots/1-dashboard.png` … `6-lifemap.png` — six
+1320 × 2868 (6.9", iPhone 17 Pro Max) captures of the real app, opaque RGB,
+fictional data, no Careers, no developer controls. Regenerate with docs/IOS.md
+§9 if any screen changes before submission.
+
+Accepted sizes: **6.9" (1320 × 2868 or 1290 × 2796)** or **6.5" (1284 × 2778)**
+portrait — providing 6.9" covers the smaller classes, which App Store Connect
+scales automatically.
 No iPad set is needed: the app ships iPhone-only. PNG or JPEG, **no alpha
 channel**.
 
@@ -265,8 +278,8 @@ resolved in code, or is listed as an accepted answer with its reasoning.
 | 2.3.1 Hidden features | — | Nothing gated on a hidden flag |
 | **3.1.1 In-app purchase** | Prices or a link to the Stripe checkout | **Resolved.** `canPurchaseInApp()` is false in both apps; `/pricing` and the Careers sales pages redirect (`isPurchasePage`); tests pin it |
 | 4.2 Minimum functionality | "A website in an app" | Eight calculators, on-device storage, offline operation, camera OCR, haptics, native navigation gestures — none of which a web page does |
-| **4.8 Login services** | Google offered without an equivalent | **Code ready, backend NOT.** The button is presented first on iOS, but the live Supabase project has the Apple provider disabled (`/auth/v1/settings` → `"apple": false`; `/authorize?provider=apple` → 400 "Unsupported provider", verified 2026-10-01). A reviewer tapping it sees an error. Blocker until docs/IOS.md §4.3 is done |
-| **5.1.1(v) Account deletion** | "Email us to delete" | **Code ready, backend NOT for iOS.** Profile → Delete account calls `account-delete` (storage purged, auth user deleted, 49 FKs cascade / 6 set null on the live DB). But the deployed functions answer `capacitor://localhost` with `Access-Control-Allow-Origin: https://finatrix.co`, so WebKit blocks the call from the iOS app until the edge functions are redeployed. Sign in with Apple token revocation is also required once SIWA is live (not implemented) |
+| **4.8 Login services** | Google offered without an equivalent | **Compliant at every stage.** iOS shows Google only together with Apple, and both only once `VITE_AUTH_APPLE=1`; until the Apple provider works an iOS build offers email sign-in alone. Configure docs/IOS.md §4.3 before submitting so reviewers see both |
+| **5.1.1(v) Account deletion** | "Email us to delete"; Apple tokens left authorized | **Live.** Profile → Delete account calls `account-delete` (storage purged, auth user deleted, all user rows cascade); the iOS origin is accepted; Apple tokens are revoked via Apple's REST API (`apple-token` + `account-delete`, docs/IOS.md §4.3a). Test with a real Apple account once the keys exist |
 | **5.1.2(i) Third-party AI** | Personal data to an AI provider without explicit permission | **Resolved in code 2026-10-01.** One-time consent prompt naming OpenRouter, enforced in `requestCompletion`; withdrawable in Settings → Privacy |
 | 5.1.1 Data minimisation | Permissions asked for and unused | Camera only, and only at the moment it is used. A test asserts the plist declares exactly one usage description |
 | 5.1.2 Data use and sharing | A privacy answer the code contradicts | §8 derives every answer from a named file |
@@ -282,7 +295,7 @@ resolved in code, or is listed as an accepted answer with its reasoning.
 - [ ] `https://finatrix.co/support` returns 200
 - [ ] `https://finatrix.co/privacy` names iOS, the camera permission and account deletion
 - [ ] Demo account created, seeded, and entered in Sign-In Information
-- [ ] Six screenshots captured from a Simulator at 6.9"
+- [ ] Six screenshots at 6.9" (ready in `ios/store/screenshots/`; retake if a screen changed)
 - [ ] App Privacy questionnaire answered from §8 and agreeing with `PrivacyInfo.xcprivacy`
 - [ ] Age rating questionnaire answered from §6, including the AI question
 - [ ] Review notes pasted from §7

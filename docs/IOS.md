@@ -1,9 +1,11 @@
 # FinatriX for iOS — build, release and App Store runbook
 
 > **Release status lives in [MOBILE_RELEASE_READINESS.md](MOBILE_RELEASE_READINESS.md)**
-> (last audited 2026-10-01). As of that audit none of §4 is live: the Apple
-> provider is disabled, the association file is not served, and the deployed
-> edge functions reject `capacitor://localhost`.
+> (last updated 2026-10-02). Live: the edge functions accept
+> `capacitor://localhost`; `apple-token` and the revoking `account-delete` are
+> deployed (inert until the Apple keys exist); the association route is live
+> and 404s by design until `APPLE_APP_ID_PREFIX` is set. Not live: the Apple
+> provider (needs the paid Apple Developer team — purchased, awaiting enrolment).
 
 The iOS app is the FinatriX web app packaged natively with
 [Capacitor 8](https://capacitorjs.com), the same way the Android app is. The
@@ -16,7 +18,7 @@ Ship an app release whenever app-visible code changes.
 |---|---|
 | Bundle identifier | `co.finatrix.app` (permanent — never change it) |
 | Page origin in the app | `capacitor://localhost` (permanent — changing it orphans on-device data) |
-| Minimum iOS | 15.4 — see below (covers iPhone 6s and later) |
+| Minimum iOS | 15.4 — see below (covers iPhone 6s and later). The bundle is compiled for Safari 15.4 to match. PDF import needs iOS 18+ (pdf.js legacy floor) and says so on older systems; XLSX import uses a bundled inflater where iOS 15.4–16.3 lack `DecompressionStream` |
 | Devices | iPhone only (`TARGETED_DEVICE_FAMILY = 1`) |
 | Why 15.4, not Capacitor's 15.0 | The layout sizes full-height screens with `100dvh` (`ToolsLayout`, `AuthShell`, `Onboarding`, `NotFound`). The `dvh` unit landed in Safari 15.4, and on 15.0–15.3 the whole `calc()` is invalid, so those screens silently fall back to `min-height: auto` and stop filling the display. It costs no real users: every device that can run iOS 15.0 can run 15.8. |
 | Permissions | Camera only, and only when the person taps "Take Photo" |
@@ -40,7 +42,7 @@ are few and each one is commented with the reason it exists.
 | Page origin | `capacitor://localhost` | WKWebView refuses a scheme handler for a scheme it already owns. `iosScheme: 'https'` is **rejected** by Capacitor's own validation (`WKWebView.handlesURLScheme` in `CAPInstanceDescriptor.swift`) and silently falls back to this. Both origins are allow-listed in `supabase/functions/_shared/origins.ts`. |
 | Back navigation | WKWebView edge-swipe | There is no BACK event to listen for. `ViewController.swift` sets `allowsBackForwardNavigationGestures`, which walks the same History API entries react-router creates. Not optional: the shared stylesheet hides the breadcrumb and Back pill in the app (`[data-web-only]`), so without the gesture a nested screen has no way back. |
 | Deep links | Universal Links | `/.well-known/apple-app-site-association`, served by the edge Worker from `src/shared/appleAppSite.ts`. The Android twin is `assetlinks.json`; a test pins the two to the same URL list. |
-| Sign-in | Adds Sign in with Apple | App Review 4.8. See §6. |
+| Sign-in | Sign in with Apple and Google appear **together, and only once `VITE_AUTH_APPLE=1`**; before that iOS offers email sign-in alone. Provider sign-in returns a PKCE code, never tokens | App Review 4.8 (Google never without Apple) and no button to a disabled provider. See §6. |
 | OCR language data | `eng.traineddata.gz` | Android's build tools decompress `.gz` assets while packaging; Xcode copies `public/` verbatim. `src/lib/ocr.ts` reads the platform for exactly this. |
 | Text size | No Dynamic Type; pinch-zoom instead | WKWebView has no equivalent of Android's WebView text zoom, and `-webkit-text-size-adjust` with a percentage is ignored by WebKit (measured, not assumed). `ios.zoomEnabled: true` is the app's WCAG 1.4.4 route. |
 | Keyboard appearance | Follows the in-app theme | The iOS keyboard follows the SYSTEM appearance unless told otherwise, so dark-mode-in-app on a light-mode phone would get a white keyboard. Android's keyboard is the user's own IME and is not the app's to restyle. |
@@ -140,9 +142,39 @@ naming the wrong app looks healthy while every link keeps opening in Safari.
    Services ID as the client ID plus the Team ID, Key ID and `.p8` contents.
 4. Supabase → Authentication → URL Configuration → Redirect URLs: add
    `co.finatrix.app://**` if the Android release has not already.
-5. Set `VITE_AUTH_APPLE=1` in the build environment. On iOS the button appears
-   regardless (Guideline 4.8 is not optional); the flag is what adds it to the
-   website and the Android app once the provider above actually works.
+5. Set `VITE_AUTH_APPLE=1` in the build environment **only after** a test
+   sign-in through the provider works. The flag adds Apple to the website and
+   the Android app, and on iOS it is what shows both Apple and Google — an iOS
+   build without it offers email sign-in only (`src/lib/authProviders.ts`).
+
+### 4.3a Revoking Apple tokens on account deletion (5.1.1(v))
+
+Server-side only; the `.p8` never enters the app.
+
+- `apple-token` stores the Apple refresh token from a fresh Apple sign-in,
+  after Apple confirms it belongs to the caller, AES-256-GCM encrypted in
+  `apple_auth_tokens` (service role only, cascades with the user).
+- `account-delete` revokes it with Apple before deleting the user.
+
+Set these edge secrets (values never in the repo, chat or docs):
+
+```bash
+npx supabase secrets set APPLE_SIWA_TEAM_ID=… APPLE_SIWA_KEY_ID=… APPLE_SIWA_CLIENT_ID=co.finatrix.signin --project-ref uspbsgbggurggsfsontq
+```
+```bash
+npx supabase secrets set APPLE_SIWA_PRIVATE_KEY="$(cat AuthKey_XXXXXXXXXX.p8)" APPLE_TOKEN_ENC_KEY="$(openssl rand -base64 32)" --project-ref uspbsgbggurggsfsontq
+```
+
+Verify the logic without Apple at any time:
+
+```bash
+deno run --node-modules-dir=none --allow-net --allow-env --allow-read supabase/functions/_e2e/apple-revocation.ts
+```
+
+Limitation: an account that signed in with Apple **before** these secrets were
+set has no stored token; its deletion still completes but reports
+`appleRevoked: false`. Signing in with Apple once more before deleting stores
+one.
 
 The app uses the **web** OAuth flow in an `SFSafariViewController`, the same
 return leg Google uses, so it needs no `com.apple.developer.applesignin`
@@ -162,6 +194,9 @@ with nothing on the server to show for it.
 ```bash
 npx supabase functions deploy careers-jobs careers-ai careers-email careers-billing-checkout account-delete --project-ref "$SUPABASE_PROJECT_REF"
 npx supabase functions deploy careers-billing-webhook analytics-collect --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF"
+```
+```bash
+npx supabase functions deploy apple-token account-delete --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF"
 ```
 
 ## 5. Signing
@@ -246,6 +281,22 @@ which means OCR's capture path.
 Safari → Develop → Simulator → FinatriX attaches the web inspector to a debug
 build.
 
+**App Store screenshots** (fictional data, 1320×2868, no alpha):
+
+```bash
+xcrun simctl terminate booted co.finatrix.app
+```
+```bash
+python3 ios/store/seed-demo-data.py "$(find "$(xcrun simctl get_app_container booted co.finatrix.app data)/Library/WebKit" -name localstorage.sqlite3 | head -1)" dark
+```
+```bash
+bash ios/store/capture-screenshots.sh
+```
+
+The capture script routes each screen by appending one line to the
+*installed Simulator copy* of `compat.js` and restores it on exit; the
+repository is never touched.
+
 ## 10. Troubleshooting
 
 | Symptom | Cause |
@@ -289,5 +340,7 @@ If `ios/` is ever regenerated with `npx cap add ios`, re-apply:
 - [ ] `APPLE_APP_ID_PREFIX` set and both hosts serving the association file
 - [ ] Edge functions deployed with `capacitor://localhost` allow-listed
 - [ ] Supabase Apple provider configured and `VITE_AUTH_APPLE=1` in the build env
+- [ ] `APPLE_SIWA_*` and `APPLE_TOKEN_ENC_KEY` secrets set; a test Apple account signed in, then deleted from Profile, and it no longer appears under Settings → Apple ID → Sign in with Apple
+- [ ] Screenshots retaken (§9) if any captured screen changed
 - [ ] §8 device checklist complete
 - [ ] `docs/APP_STORE_SUBMISSION.md` answers transferred into App Store Connect

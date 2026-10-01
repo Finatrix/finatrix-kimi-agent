@@ -1,13 +1,13 @@
 # FinatriX mobile release readiness — source of truth
 
-**Last audited: 2026-10-01** (policy sources read the same day). Everything below
-was re-derived from the repository, fresh builds, the live backend and device
-runs on that date. Earlier reports and memories were treated as claims to
-re-verify, not facts. Where something could not be verified it says **UNKNOWN**.
+**Last updated: 2026-10-02.** Everything below was verified against the
+repository, signed builds, the live backend and emulator/Simulator runs on
+2026-10-01/02. Anything that could not be verified says **UNKNOWN** or
+**USER ACTION**; nothing is marked PASS on a claim alone.
 
-How-to runbooks stay in [ANDROID.md](ANDROID.md), [IOS.md](IOS.md) and
+Runbooks: [ANDROID.md](ANDROID.md), [IOS.md](IOS.md),
 [APP_STORE_SUBMISSION.md](APP_STORE_SUBMISSION.md). This file records the
-**verified state**, the blockers, and what only the account owner can do.
+verified state, the blockers and what only the account owner can do.
 
 ---
 
@@ -15,200 +15,179 @@ How-to runbooks stay in [ANDROID.md](ANDROID.md), [IOS.md](IOS.md) and
 
 | | Android | iOS |
 |---|---|---|
-| Technical readiness | **~82%** | **~55%** |
-| Public-release readiness | **~35%** | **~10%** |
-| Verdict | READY AFTER USER ACTION (production-access gate, new build upload) | NOT READY |
+| Technical readiness | **92%** | **68%** |
+| Submission-package readiness | **80%** | **35%** |
+| Verdict | **READY FOR CLOSED TEST** | **NOT READY** |
+| P0 technical blockers | 0 | 3 (Apple sign-in, signing/archive, physical-device test) |
+| P1 technical blockers | 0 | 1 (Universal Links need the Team ID) |
 
-Technical readiness and publication readiness are kept apart on purpose: the
-Android binary is close to done, but Play's closed-testing gate (status UNKNOWN)
-decides when it can go public.
+Store waiting periods are kept out of these numbers on purpose: Google's
+12-testers × 14-days gate decides *when* Android can go public, not whether
+the binary is ready.
 
-## 2. Store rules in force (verified 2026-10-01, official sources)
+**Why Android is not 100% technical:** a real successful Google sign-in under
+PKCE and account deletion end-to-end have not been run (both need the owner's
+own accounts), and old Android versions have only been exercised with their
+factory WebViews. **Why iOS is not higher:** the only Apple team on this Mac
+is a free Personal Team — no Sign in with Apple, Associated Domains, signing
+for distribution or TestFlight until the paid membership (purchased, awaiting
+enrolment) is active.
 
-| Rule | Current requirement | FinatriX |
-|---|---|---|
-| Play target API | New apps and updates must target **API 36** since 2026-08-31 (extension to 2026-11-01 on request) | targetSdk 36 — PASS |
-| Play testing gate | Personal accounts created after 2023-11-13: **12 testers opted in for 14 consecutive days** before applying for production | Applies if the account is personal and new (notes say personal) — status UNKNOWN |
-| Play account deletion | In-app path **and** a web resource; delete associated data; disclose retention | Both exist — PASS (web: `/privacy#delete-account`) |
-| Play Payments | Play Billing for digital goods; no steering | Nothing sold in-app — PASS |
-| App Store SDK | Uploads built with **Xcode 26+ / iOS 26 SDK** since 2026-04-28; minimum target iOS 13+ since 2026-09-09 | Xcode 26.6, iOS SDK 26.5, target 15.4 — PASS |
-| Apple 4.8 | Third-party login (Google) requires an equivalent privacy-preserving option | Sign in with Apple shipped in UI, **disabled on backend** — FAIL |
-| Apple 5.1.1(v) | In-app deletion; SIWA apps must revoke Apple tokens via REST | In-app deletion blocked on iOS by CORS; no Apple revocation — FAIL |
-| Apple 5.1.2(i) | Disclose and obtain **explicit permission** before sharing personal data with third-party AI | Fixed in code this audit (consent prompt) — PASS in code, not yet shipped |
-| Apple age rating | New questionnaire answers were due 2026-01-31 | USER ACTION |
+## 2. Release candidate (frozen)
 
-## 3. Release candidates (built 2026-10-01 from the working tree)
-
-### Android
 | | |
 |---|---|
-| Application ID | `co.finatrix.app` |
-| Version | 1.0.0 (versionCode **2** — code 1 is reportedly on the Play Alpha track, UNKNOWN) |
-| SDK | min 24 · target 36 · compile 36 |
-| Toolchain | AGP 8.13.0, Gradle 8.14.3, JDK 21 (Homebrew openjdk@21; the system default is 17), Java 21 source/target, Capacitor 8.5.2 |
-| Artifact | `android/app/build/outputs/bundle/release/app-release.aab` — see §9 for size and hash |
-| Signing | Upload key `CN=FinatriX`, SHA-256 `FC:B1:BA:96…5F:4C`, SHA384withRSA, valid to 2054 |
-| Permissions | `INTERNET`, `VIBRATE` (haptics), `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` (AndroidX, signature-level) |
-| Native code | none (no `.so`; no ABI or 16 KB page-size exposure) |
-| Release flags | not debuggable (verified on device), R8 + resource shrinking on, cleartext off |
+| Git commit | `18731721edd7cdc3ff3cf41186afc6502c48a073` (branch `release/2026-09-12-launch-readiness`, **not pushed**) |
+| Git tag | none yet — tag when the AAB below is uploaded: `git tag android-1.0.0-code4 1873172` |
+| Android AAB | `android/release-candidates/1.0.0-code4/finatrix-1.0.0-code4.aab` (gitignored) — SHA-256 `4659f31d28f8a134cc0b3c9ae45d3f1567b9a88e26d7e63b7b3221507e23ec6c` (11,054,614 B) |
+| Android APK | same folder, `finatrix-1.0.0-code4.apk` — SHA-256 `e9fe84a25e38708b111c3f4b2f2e3caa218a28633d59eece4d6ca44a8664b873` (10,579,691 B) |
+| Android version | **1.0.0 / versionCode 4** (code 1 is on the Play Alpha track; codes 2 and 3 were built but never uploaded — skip them) |
+| Signing | upload key `CN=FinatriX`, SHA-256 `FC:B1:BA:96…5F:4C` (Play App Signing re-signs with `B6:E9:AD:C3…EF:FB`) |
+| iOS build | Release for Simulator only (unsigned); no archive possible yet |
+| Backend (live) | `account-delete` v4, `apple-token` v1, `careers-ai` v40, `analytics-collect` v25, `careers-jobs` v45, `careers-email` v25, `careers-billing-checkout` v13, `careers-billing-webhook` v11; migration `20261001000100_apple_auth_tokens` applied |
+| Worker / website (live) | `finatrix-co` version `b3436291-b6a4-45a0-9771-4ec6dd49b6e7` = commit `9201151`. **Not** yet the compatibility work in `1873172` (the apps bundle their own copy; deploying it to the website is READY FOR OWNER APPROVAL) |
+| AI routing secret | `CAREERS_AI_DATA_COLLECTION=allow` was set by the owner on 2026-10-01 10:58 UTC, so `careers-ai` currently routes **without** the `data_collection: deny` restriction. To restore it: `npx supabase secrets unset CAREERS_AI_DATA_COLLECTION --project-ref uspbsgbggurggsfsontq` |
 
-### iOS
-| | |
+## 3. What changed since the 2026-10-01 audit
+
+| Change | Why | Evidence |
+|---|---|---|
+| **App OAuth moved to PKCE** (`src/lib/nativeOAuth.ts`, `AuthContext`, `bridge.ts`) | Tokens returned on `co.finatrix.app://`, a scheme any app can claim (demonstrated on the Simulator). Now a one-time code, redeemed with a verifier that never leaves the device | 19 unit tests, mutation-checked; on the API 36 emulator the authorize URL carries an S256 challenge and cancel / error / injected code / injected token / warm / cold / process-death all behave; live GoTrue accepts the challenge and answers `flow_state_not_found` (not 401) to a bogus code; release logcat has no tokens |
+| **Tokens on the custom scheme are refused** | Stops session injection (signing someone into an attacker's account) | `native.test.ts`; the release build shows "Sign-in could not be completed" and writes no session |
+| **Android cloud backup excludes WebView storage**; device-to-device transfer keeps everything | The refresh token lives in the same storage as guest data | Local backup transport on API 36: the cloud archive has no `app_webview/` and no data marker; the D2D archive has 53 `app_webview/` entries including the marker |
+| **FileProvider** limited to `Pictures/` in app storage | The template granted all of shared storage | `androidDataExposure.test.ts`; export via the system Save picker, CSV and OCR imports still work on-device |
+| **Careers hidden in the apps** (nav, palette, footer, drawer, topic cards; route → dashboard; no `/careers` deep-link claim on either platform) | Unlaunched placeholder in a store binary (App Review 2.1) | `careersNativeEntry.test.tsx` (12), `appleAppSite.test.ts`; a `/careers/jobs` link opens Chrome, not the app |
+| **Web-only chrome hidden in the apps** (breadcrumbs, duplicate Home) and device-neutral copy | Browser furniture inside an app | Android and iOS sign-in screenshots |
+| **Modal dialogs make the page behind them `inert`** | TalkBack swiped out of the AI panel into hidden content (Android WebView ignores `aria-modal`) | TalkBack tree 197 → 51 nodes with the panel open; `inertOutside.test.tsx`; `e2e/dialog-inert.spec.ts` on Chromium, Pixel 7 and WebKit |
+| **iOS offers Google only together with Apple** | The Apple button pointed at a disabled provider; 4.8 forbids Google alone | `authProviders.test.tsx`; Simulator sign-in shows email only |
+| **Sign in with Apple token revocation** (`apple-token`, `account-delete`, `apple_auth_tokens`) | Guideline 5.1.1(v) | `supabase/functions/_e2e/apple-revocation.ts` 10/10 (real functions; mock Apple verifies every ES256 client secret); unit tests; deployed and probed (503 "Not configured" until the Apple keys exist) |
+| **OpenRouter `data_collection: deny`** | Keep prompts away from providers that store or train on them | Deno E2E (fallback chain intact, override works); deployed as `careers-ai` v40 — **currently overridden to `allow`** (§2) |
+| **Old-WebView support**: bundle targets Chrome 91 / Safari 15.4 + `public/compat.js`; below WebView 91 a blocking "Update needed" dialog | Factory WebView 91 rendered a blank screen; 66 and 53 cannot run the bundle at all | Android 11 / WebView 91: every tool, Reports, Settings and sign-in render with no console errors. Android 9 / WebView 66 and Android 7 / WebView 53: install and launch without a crash and show the prompt |
+| **PDF import is honest on older engines** (pdf.js legacy build; message below Chrome 125 / iOS 18) | pdf.js's official legacy floor | `pdfCompatibility.test.ts`; `e2e/compatibility-import.spec.ts` reads a real PDF on 3 engines |
+| **XLSX fallback inflater** (`fflate`, lazy, size-capped) | iOS 15.4–16.3 lack `DecompressionStream('deflate-raw')` | `xlsxImport.test.ts` with `DecompressionStream` removed |
+| **Finance wording** — "assumes ~12% a year, not guaranteed"; instruments shown as "examples to research, not a recommendation" | Avoid reading as a personalised recommendation or a promised return | All 546 parity tests unchanged (no rate or formula touched). Final classification is a **LEGAL REVIEW** item |
+| **Privacy policy** — Android backup paragraph | Behaviour changed | Live on finatrix.co since Worker `b3436291` |
+| **iOS App Store screenshots** | None existed | 6 × 1320×2868, opaque RGB, fictional data — `ios/store/screenshots/`, repeatable via `ios/store/seed-demo-data.py` + `capture-screenshots.sh` |
+
+## 4. Store rules in force (checked 2026-10-01)
+
+| Rule | Requirement | FinatriX |
+|---|---|---|
+| Play target API | API 36 for new apps/updates since 2026-08-31 | targetSdk 36 — PASS |
+| Play testing gate | Personal accounts created after 2023-11-13: 12 testers opted in for 14 continuous days | Personal account per notes — progress UNKNOWN |
+| Play account deletion | In-app + web resource | Both — PASS |
+| Play payments | Play Billing for digital goods | Nothing sold in-app — PASS |
+| App Store SDK | Xcode 26 / iOS 26 SDK | Xcode 26.6 / SDK 26.5 — PASS |
+| Apple 4.8 | Equivalent privacy-preserving login when Google is offered | iOS offers no third-party login until Apple is configured — compliant at every stage |
+| Apple 5.1.1(v) | In-app deletion; revoke SIWA tokens | Built and deployed; untested with a real Apple account (no paid team yet) |
+| Apple 5.1.2(i) | Explicit consent before sending personal data to third-party AI | Consent gate enforced in the transport — PASS |
+
+## 5. Verification matrix
+
+### Android (emulators: API 36 / WebView 133; API 30 / 91; API 28 / 66; API 24 / 53)
+| Area | Result |
 |---|---|
-| Bundle ID | `co.finatrix.app` |
-| Version | 1.0.0 (build 1) |
-| Deployment target | iOS 15.4, iPhone only (runs in compatibility mode on iPad — verified) |
-| Toolchain | Xcode 26.6 (17F113), iOS SDK 26.5, Swift 5, SPM, Capacitor 8.5.2 |
-| Release build | `xcodebuild -configuration Release` for `generic/platform=iOS`, unsigned — **BUILD SUCCEEDED** (1 benign AppIntents warning) |
-| Archive / signing | **Not possible yet**: no `DEVELOPMENT_TEAM`. USER ACTION |
-| Entitlements | Associated Domains (applinks + webcredentials for apex and www) |
-| Privacy manifest | Present; FileTimestamp C617.1; tracking false |
+| Release build (code 4) | PASS — target 36, not debuggable, cleartext off, R8 (single dex), no native libs; permissions INTERNET, VIBRATE, signature-level AndroidX receiver |
+| App Links | PASS — `pm get-app-links` verified for both hosts on a fresh release install (code 3; manifest unchanged since) |
+| Cold deep link | PASS — `/tools/goals` in 544 ms |
+| PKCE | PASS except a real successful Google sign-in (**USER ACTION**) |
+| Back, offline cold start (704 ms), process death | PASS |
+| Export (Save picker) / CSV import / OCR import | PASS (API 36) |
+| TalkBack | PASS after the dialog fix — 0 unnamed controls on 9 screens; the deletion screen needs a signed-in account (**USER ACTION**) |
+| Compatibility | API 36 full; API 30 with factory WebView 91 renders every screen; API 28 and 24 show the update prompt. Old Android **with an updated WebView**: Play pre-launch report or a physical device (**USER ACTION**) |
+| Account deletion end-to-end | **USER ACTION** (needs a disposable account) |
 
-## 4. What was verified, and how
+### iOS (Simulator iPhone 17 Pro Max, iOS 26.5)
+| Area | Result |
+|---|---|
+| Simulator Release build | PASS |
+| Launch / safe areas | PASS — clear of the Dynamic Island and home indicator |
+| Sign-in screen | PASS — email only until Apple is configured; no orphan divider; callback errors shown |
+| Archive / signing / TestFlight | BLOCKED — paid team pending |
+| Universal Links | Endpoint ready on both hosts (plain-text 404 by design until `APPLE_APP_ID_PREFIX` is set); a dummy Team ID served correct JSON on both hosts in a local Worker |
+| Apple sign-in / revocation | BLOCKED — needs the paid team, Services ID and `.p8` |
+| Camera OCR, VoiceOver, physical device | Not done (Simulator has no camera; physical device after TestFlight) |
+| Screenshots | 6 ready (see §3); retake from the final signed build if any screen changes |
 
-| Area | Result | Evidence |
-|---|---|---|
-| Clean install + web build | PASS | `npm ci` from lockfile; `tsc -b && vite build` with zero warnings; no sourcemaps shipped |
-| Bundle in native projects | PASS | `cap sync`; `index.html` SHA-1 identical in dist, Android and iOS copies |
-| Secrets | PASS | Bundle and all 165 commits scanned: only the public `sb_publishable_` key; no service-role, Stripe, OpenRouter or private keys |
-| Dev leftovers | PASS | No `console.log`, staging hosts or debug switches; the only `localhost` strings are library defaults |
-| Android App Links | PASS | Live `assetlinks.json` (200, `application/json`, both hosts) lists the upload and app-signing fingerprints; `pm get-app-links` → **verified** for `finatrix.co` and `www.finatrix.co` on a fresh release install |
-| Android deep links | PASS | Release APK: cold link → app directly (1.45 s); warm `www` link → app; unknown tool → falls back to the last tool; unclaimed `/pricing` → Chrome |
-| Android OAuth return (error/cancel) | PASS | `co.finatrix.app://auth/callback#error=…`, warm and cold → sign-in screen with the message; no tokens or emails in logcat |
-| Android BACK | PASS | Closes dialog → walks history → backgrounds (process kept) at the dashboard |
-| Android offline | PASS | Airplane mode: cold start 0.80 s, Budget fully usable |
-| Android font scale 200% | PASS | Text scales; header compensates; tab-bar labels truncate without overlap |
-| Android theme | PASS | Light/dark toggle; status-bar icons stay legible |
-| Android process death | PASS | `am kill` while backgrounded → relaunch 0.91 s with state intact |
-| Android cold start | measured | 3.44 s first launch after install, then 1.72 s / 1.19 s (emulator under heavy host load) |
-| iOS universal links | **FAIL (pending paid team)** | Since the 2026-10-01 Worker deploy both hosts answer `404 text/plain` with no redirect — the AASA route is live and waits only for `APPLE_APP_ID_PREFIX`. The only Apple team on this Mac is a **free Personal Team** (`AY79GYWLDP`), which cannot use Associated Domains, so it was deliberately not published |
-| iOS backend access | **PASS (fixed 2026-10-01)** | Edge functions redeployed from `e1aa533`; all six echo `capacitor://localhost`; `verify:native` CORS checks 14/14 |
-| Sign in with Apple | **FAIL** | Live `/auth/v1/settings` → `"apple": false`; `/authorize?provider=apple` → 400 "Unsupported provider" |
-| iOS launch / layout | PASS | Simulator iPhone 17 Pro, 17 Pro Max and iPad Air 11 (compat): launches to dashboard, clear of the Dynamic Island and home indicator |
-| Account deletion data model | PASS | Live DB catalog: 49 FKs to `auth.users` CASCADE, 6 SET NULL, 0 RESTRICT; no user-id column without an FK; only storage bucket `resumes` (private), purged by the function |
-| Account deletion function | PASS (shape) | Deployed `account-delete` v2: 401 without or with a bad token; 405 on GET |
-| Account deletion end-to-end | **UNKNOWN** | Not run against production (needs a disposable account). USER ACTION, see §8 |
-| AI data flow | PASS | `careers-ai` sends model, system + user text, max_tokens, temperature, JSON mode; headers `HTTP-Referer`, `X-Title`. No user id, email, name or client IP is forwarded; client prompts carry no identity (`src/tools/ai/context.ts`) |
-| OCR | PASS (WebKit) | Tesseract worker, core and language data load from bundled `/careers-ocr/` paths only; real recognition with the app's assets passes in the `ios-webkit` project (2.0 s). Not exercised on a physical camera |
-| xlsx advisory | accepted, verified | User spreadsheets are read by a purpose-built ZIP+XML reader; SheetJS only writes; tripwire test passes |
-
-## 5. Fixes made in this audit
-
-| Fix | Why | Proof |
-|---|---|---|
-| **AI consent gate** (`src/lib/ai/consent.ts`, enforced in `requestCompletion`; consent card in the AI panel; opt-in banner in statement import; toggle in Settings → Privacy; privacy policy updated) | Apple 5.1.2(i): explicit permission before personal data reaches third-party AI. Statement import used to send merchant names automatically | `aiConsent.test.tsx` (8 tests, mutation-checked); e2e `asks for permission…` on Chromium and Pixel 7, axe clean |
-| "Can't be purchased in the **Android** app" → "in the app" (paywall and billing) | Apple 2.3.10: no other platform names in an iOS app | `nativePurchaseCopy.test.tsx` (iOS + Android) |
-| Command-palette focus return on WebKit | WebKit doesn't focus a button on tap, so closing stranded keyboard/Switch Control users (WCAG 2.4.3) | New unit test; WebKit e2e 12/12 across 3 repeats (was failing 3/3) |
-| Expenses "Open <month>" target 17 px → 25 px | WCAG 2.2 2.5.8 | `a11y-finance` passes on Chromium and Pixel 7 |
-| AI panel deferred focus no longer steals focus | The 40 ms composer focus could take focus back from the consent card | Repeated runs green |
-| Stale `expense.pdfReport` test contract | Tested the old `undefined` return; the export now returns its save outcome | 7/7 |
-| ESLint ignores `ios/` (and test output) | Linted the 25 MB copied bundle: ~15 min → 10.6 s | `npm run lint` clean |
-| Android instrumented template test | Asserted package `com.getcapacitor.app` | Now `co.finatrix.app` (not run — needs a device run) |
-| Docs | ANDROID.md / IOS.md / APP_STORE_SUBMISSION.md corrected against live evidence | — |
+### Automated suites (commit `1873172`)
+| Suite | Result |
+|---|---|
+| Vitest | 224 files, **3,687 passed**, 14 skipped, exit 0 |
+| Playwright full run (at `cb224af`) | 1,292 / 1,295 in 9.3 min — the 3 failures (palette focus return) were a real regression, fixed in `9201151`; that spec then 12/12 on all engines. **No WebKit page-load timeouts** — the earlier flake did not reproduce at 3 workers, which points at host load rather than the app |
+| Targeted e2e after the compatibility work | 33 / 33 (compatibility-import, dialog-inert, command-palette, ios-webkit) |
+| `npm run lint` / `audit:prod` | clean / clean (xlsx accepted, write-only tripwire) |
+| `npm run verify:native` | 16 / 18 — only the two iOS association checks (Team ID) |
+| `npm run verify:production` / `verify:deploy` | green / green |
 
 ## 6. Blockers
 
-### P0 — publication blockers
+### P0
 **iOS**
-1. **Sign in with Apple is not configured on Supabase**, yet the iOS app shows it first. A reviewer gets an error (2.1, 4.8). USER ACTION: IOS.md §4.3.
-2. ~~Deployed edge functions reject the iOS origin~~ — **resolved 2026-10-01** (functions redeployed; CORS verified).
-3. ~~The live privacy policy does not cover the iOS app~~ — **resolved 2026-10-01** (website deployed; live policy dated 1 October 2026 covers both apps, the camera, statement-import AI and the consent rule).
-4. **Missing submission prerequisites**: a **paid Apple Developer Program** membership (only a free Personal Team is visible on this Mac — free teams cannot use Associated Domains, Sign in with Apple or App Store distribution), Apple team and signing, App Store Connect record, 6.9″ screenshots (none exist; Simulator captures must be flattened — they carry alpha), App Privacy and age-rating answers, a demo account.
+1. Sign in with Apple not configured (paid team, Services ID, `.p8`, Supabase provider, `VITE_AUTH_APPLE=1`).
+2. No signed Release archive / TestFlight build (paid team).
+3. No physical-iPhone smoke test (after TestFlight).
 
-**Android**
-5. **Play production access gate** — 12 testers × 14 days. Applicability and progress are UNKNOWN without Play Console access.
+**Android** — none.
 
-No verified *technical* P0 remains in the Android binary.
+### P1
+- iOS Universal Links: set `APPLE_APP_ID_PREFIX` in `wrangler.jsonc` and deploy the Worker once the Team ID exists.
 
-### P1 — high
-- OAuth uses Supabase's **implicit flow**: access and refresh tokens return in the URL of a **custom scheme**. Another app can claim `co.finatrix.app://` — demonstrated on the Simulator, where a leftover test app ("FinatriX Export Audit") was offered the callback. Move native sign-in to PKCE (RFC 8252). Product and auth change: owner decision.
-- Account deletion must **revoke Sign in with Apple tokens** (Apple REST `/auth/revoke`) once SIWA is live; Supabase does not.
-- Universal Links not live (iOS): set `APPLE_APP_ID_PREFIX` and deploy the Worker.
-- **The entire mobile app is uncommitted** (`android/`, `ios/`, `capacitor.config.ts`, `src/native/`, deletion UI, iOS CORS origin, these fixes). No release candidate is reproducible from a commit.
-- Data Safety should add Financial info → Purchase history (statement-import merchant descriptions); App Privacy wording updated in APP_STORE_SUBMISSION.md §8.
-- Legal review: Goals shows "Suggested instruments: Large-cap MF, Nifty 50 index, ELSS…" beside a "~12% CAGR" path (SEBI investment-adviser line). Apple 5.1.1(ix) / 3.2.1(viii): finance app from an individual developer account.
-- Careers "coming in 2027" entry points (nav pill, palette, footer) are visible in both apps — App Review 2.1 placeholder risk. Recommend hiding them in native builds.
-- Apple 4.2 (minimum functionality) review risk for a WebView app — mitigated by offline tools, on-device OCR, native back/links/haptics, but not eliminable.
+### P2
+- Play listing screenshot 4 (Goal plan) shows the old "Suggested instruments / ~12% CAGR" copy — recapture from build code 4 (1080×1920, demo status bar).
+- Website still on `9201151`; deploy `1873172` so finatrix.co gets the same compatibility work as the apps (READY FOR OWNER APPROVAL).
+- `careers-ai` deny routing is switched off by the owner's secret — decide after one signed-in AI test.
+- Capacitor logs "Error injecting safe area CSS" once on API 30 (its own timing; nothing visible).
+- A leftover Simulator app `co.finatrix.exportaudit` also claims `co.finatrix.app://` on some simulators — delete it before any iOS OAuth testing.
+- Gradle DSL deprecations (Gradle 10); DOMPurify low advisory.
 
-### P2 — before launch if possible
-- `allowBackup=true` with no extraction rules: WebView storage, including the Supabase refresh token, goes into device backup/transfer (disclosed in the policy).
-- `FileProvider` `external-path path="."` is broader than needed.
-- Sign-in screen shows web breadcrumbs inside the app.
-- Effectively no native tests (Android template only; no XCTest target).
-- OpenRouter requests do not set `provider.data_collection: "deny"`.
-- No API 24–29 device/emulator coverage (minSdk 24).
-- A dedicated `/delete-account` page would be clearer than `/privacy#delete-account`.
-- E2E specs wait on `networkidle` and stall under host memory pressure.
+## 7. Owner actions, in order
 
-### P3
-- Gradle DSL deprecations (Gradle 10), `flatDir` warning; DOMPurify low advisory; minor updates to supabase-js and react.
+1. **Apple** (when enrolment completes): Xcode → Settings → Accounts → add the paid team and send the **Team ID**. Create the Services ID (e.g. `co.finatrix.signin`, return URL `https://uspbsgbggurggsfsontq.supabase.co/auth/v1/callback`) and a Sign in with Apple key (`.p8` + Key ID). Enable the Apple provider in Supabase. Set edge secrets `APPLE_SIWA_TEAM_ID`, `APPLE_SIWA_KEY_ID`, `APPLE_SIWA_CLIENT_ID`, `APPLE_SIWA_PRIVATE_KEY`, `APPLE_TOKEN_ENC_KEY` (generate with `openssl rand -base64 32`). Never paste the `.p8` into chat, the repo or docs.
+2. **AI**: sign in and ask FinatriX AI one question; then keep or `unset` `CAREERS_AI_DATA_COLLECTION` (§2).
+3. **Deletion end-to-end** on Android (and later iOS): create a throwaway account, add a budget, expenses and a résumé if offered, delete it from Profile, and confirm sign-in no longer works. Tell me when, and I will verify the rows and storage are gone.
+4. **Play Console**: confirm the account type, tester count and each tester's opt-in date; upload `finatrix-1.0.0-code4.aab` to the closed track (11 MB — upload by hand); update Data Safety from ANDROID.md §9 (adds User IDs and Purchase history); review the pre-launch report for older Android versions.
+5. **Legal review** of the investment wording and of the developer-account type (Apple 5.1.1(ix) for finance apps).
 
-## 7. Testing (2026-10-01)
+## 8. Store gates
 
-| Suite | What it covers | What it does NOT cover | Result |
-|---|---|---|---|
-| Vitest unit/integration (217 files, 3,632 tests; ~1,131 calculator/formula, 362 expenses/import/OCR, 230 AI, 201 native bridge, 75 auth/deletion) | Formulas, parsing, grounding, routing, native bridge logic in jsdom | Real devices, real backend, real WebViews | 3 clean full runs after fixes; 2 runs had ~900 s stalls during host swap storms, not assertion failures |
-| Playwright e2e (19 specs, 1,295 tests across Chromium desktop, Pixel 7 Chromium, iOS-WebKit) | Real-browser flows: persistence, export, offline, a11y (axe), SEO, WebKit layout/OCR, AI consent | Native shell, signed-in backend, store builds | 1,287/1,295 on the last full run; every failure was a host stall that passed in isolation (§9) |
-| `ios-webkit` project (109 tests incl. 15 iOS-specific) | WebKit safe areas, decimals, keyboard chrome, theming, OCR, Apple button | WKWebView inside the app, native plugins | 103/109 in run 1 under load; failures were a real focus bug (fixed) and load stalls |
-| Android native | Template only | Everything | Not meaningful |
-| iOS native (XCTest) | None exists | Everything | — |
-
-> **Previous claims invalidated:** "45/45 iOS tests" referred to Playwright
-> WebKit runs, not native iOS tests. "Android native tests passing" — only
-> Capacitor's template tests exist. "Production deep links working" — true for
-> Android; **false for iOS**. "Cloudflare CORS configured" — the iOS origin is
-> rejected by the deployed edge functions.
-
-## 8. Owner-only actions (in order)
-
-1. Commit the mobile work (it is all untracked or modified) and tag the RC.
-2. Deploy the edge functions from that commit (adds `capacitor://localhost`).
-3. Apple Developer: App ID `co.finatrix.app` (Associated Domains, Sign in with Apple), Services ID, `.p8` key; Supabase → enable the Apple provider; set `VITE_AUTH_APPLE=1`.
-4. Set `APPLE_APP_ID_PREFIX` (Team ID) in `wrangler.jsonc`, deploy the Worker + website, verify with `npm run verify:native` (expect all green).
-5. Run account deletion end-to-end with a disposable account on **both** apps (create → add budget, expenses, a résumé → delete → confirm rows and storage are gone).
-6. Xcode: choose the team, archive, validate, upload; TestFlight smoke test on a physical iPhone (Universal Link, camera OCR, Apple + Google sign-in, deletion).
-7. App Store Connect: record, 6.9″ screenshots (flatten alpha), App Privacy, age rating (AI question), review notes and demo account, export compliance (pre-answered in Info.plist).
-8. Play Console: upload AAB versionCode 2 to the closed track; confirm the tester count and consecutive days; update Data Safety (Purchase history row) and the financial-features declaration; apply for production when eligible.
-9. Legal review of instrument suggestions and financial-advice wording; confirm the developer account type (individual vs organisation) for Apple 5.1.1(ix).
-
-## 9. Artifacts and test log (2026-10-01)
-
-### Final release candidates (built from the working tree after the fixes in §5)
-| Artifact | Size | SHA-256 / notes |
-|---|---|---|
-| `android/app/build/outputs/bundle/release/app-release.aab` (1.0.0 / code 2, upload-key signed) | 11,004,149 B | `5ae883a4cda7ba234666bcbb10d70740db13e75676ede6b08f7c33c121f9182c` |
-| `android/app/build/outputs/apk/release/app-release.apk` (same build, for device testing) | 10,527,049 B | `8a3a9e273c39221f44dce0a5012fe7621026096b8de5f52840adf85cc1b9d374` |
-| iOS `App.app`, Release, `generic/platform=iOS`, **unsigned** | 26 MB | arm64 only; SDK iphoneos26.5; Xcode 2660 (26.6); bundle `index.html` SHA-1 `e3d0ef53…` = dist |
-
-Android RC smoke on emulator (Pixel 8 profile, Android 16 / API 36, WebView 133): fresh install → App Links **verified** for both hosts → cold link to `/tools/expenses` in 0.98 s → correct screen.
-
-These are built from an **uncommitted** tree. Commit first, then rebuild from the commit before uploading.
-
-### Runs
-| Run | Result | Reading |
-|---|---|---|
-| Vitest #1 (before fixes) | 3,602 pass / 5 fail | All 5 were the stale PDF-export contract → fixed |
-| Vitest #2 | 3,617 / 1 | New consent test exposed a real focus race (40 ms timer) → fixed |
-| Vitest #3 | **3,618 / 0** (217 files, 14 skipped) | Clean |
-| Vitest #4, #5 | 4 and 1 "failures" at ~900 s each | Host swap storm; those 4 files then passed 134/134 three times |
-| Playwright #1 (all projects) | 1,274 pass / 19 fail | 2 real defects (WCAG 2.5.8 target; WebKit focus return) → fixed; 17 load stalls → pass in isolation |
-| Playwright #2 (after fixes, 4 workers) | 1,287 pass / 8 fail | All 8 stalled 6–17 min together; 11/11 pass in isolation |
-| iOS-WebKit project ×3 (2 workers) | 309 / 315 | 6 `page.goto` / lazy-chunk timeouts at 30 s |
-| Those 3 specs ×3 (1 worker) | 143 / 147 | 4 timeouts. **Unresolved WebKit e2e flake** against `vite preview`; root cause not established; the native apps are unaffected (bundled assets, no service worker) |
-| `npm run lint` | clean, 10.6 s | — |
-| `npm run audit:prod` | clean | xlsx accepted (write-only, tripwire passes); DOMPurify low |
-| `npm run verify:native` | 9 failures | All iOS: AASA ×2, CORS for `capacitor://localhost` ×7 (two preflights also returned a transient 503) |
-
-## 10. Deployment log
-
-### 2026-10-01 — backend and website from commit `e1aa533`
-| What | Result |
+| Gate | Status |
 |---|---|
-| Pre-flight drift check | Downloaded every deployed function (`functions download --use-api`) and diffed against the commit: the only runtime differences were the iOS origin in `_shared/origins.ts` and `careers-billing-checkout` using `isNativeAppOrigin` for its Stripe return target. All 7 migrations already applied |
-| Edge functions | `account-delete` v3, `analytics-collect` v25, `careers-ai` v39, `careers-email` v25, `careers-jobs` v45 (all `verify_jwt=false`, as before) and `careers-billing-checkout` v13 (`verify_jwt=true`, as before). `careers-billing-webhook` untouched (v11) |
-| Function checks | All six echo `capacitor://localhost`, `https://localhost` and `https://finatrix.co`; `analytics-collect` still refuses an unknown origin; account-delete 401 without a session and 405 on GET; careers-ai 401; checkout 401 at the gateway; analytics allowlist probe 502 for `page_view` and 204 for a bogus event (nothing stored) |
-| Website + Worker | `wrangler deploy` → `finatrix-co` version `1d3f57a0-19c0-454d-969e-acb3c4f97cca`, custom domains `finatrix.co` and `www.finatrix.co`; bundle built with real credentials |
-| `npm run verify:production` | all green — "https://finatrix.co matches this repository" |
-| `npm run verify:native` | **14/16** — every CORS check passes for both apps; the 2 failures are the iOS association file (needs a paid-team ID) |
-| Live privacy policy | "Last updated: 1 October 2026"; covers the Android and iOS apps, iOS camera, statement-import AI and the consent rule |
-| Noted, not caused by this deploy | Cloudflare injects its Web Analytics beacon and Bot Management "JavaScript detections" script at the edge; the site CSP blocks both (console errors on every page, nothing runs). Turning them off is a Cloudflare dashboard setting |
+| Google 12 testers × 14 days | UNKNOWN — owner to confirm in Play Console |
+| Google production access application | Not yet — answer template in ANDROID.md §11 (fill with real tester evidence only) |
+| Apple developer enrolment | Purchased, awaiting confirmation |
+| Apple App Review | NOT YET SUBMITTED |
+
+## 9. Deployment log
+
+| When (UTC) | What | Verified by |
+|---|---|---|
+| 2026-10-01 08:36–08:38 | Edge functions + Worker `1d3f57a0` from `e1aa533` (peer audit session, owner-approved) | verify:native 14/16, verify:production green |
+| 2026-10-01 ~10:20 | Worker `b3436291` from `9201151` (privacy backup paragraph, dialog accessibility, copy) | live entry chunk = local build; verify:production green |
+| 2026-10-01 ~10:24 | Migration `20261001000100_apple_auth_tokens`; `apple-token` v1, `account-delete` v4 | anon probe 42501 on the table; 405/401/503 probes; CORS on both app origins; verify:deploy relations 11/11 |
+| 2026-10-01 ~10:27 | `careers-ai` v40 (`data_collection: deny`) | boot, CORS for 3 origins, 401 without a session |
+| 2026-10-01 10:58 | Owner set `CAREERS_AI_DATA_COLLECTION=allow` | `secrets list` |
+
+Noted, not caused by these deploys: Cloudflare injects its Web Analytics
+beacon and Bot Management script at the edge and the site CSP blocks both
+(console errors, nothing runs) — a Cloudflare dashboard setting.
+
+## 10. Reviewer-mode simulation (2026-10-02)
+
+**Apple.** 2.1 completeness: no placeholder Careers; guest mode works fully; a
+demo account is still to be created (owner). 2.3 metadata: APP_STORE_SUBMISSION.md;
+the screenshots are the real app. 3.1 payments: nothing sold; pricing routes
+redirect. 4.2 minimum functionality: offline tools, on-device OCR, native back,
+links and haptics — residual risk for any WebView app. 4.8 login: compliant at
+every stage. 5.1 privacy: answers corrected (User ID, Purchase History, §8 of
+APP_STORE_SUBMISSION.md). 5.1.1(v): in-app deletion and Apple revocation built;
+must be tested with a real Apple account before submission. 5.1.2(i) AI:
+explicit consent naming the recipient. Finance: educational disclaimer and
+non-prescriptive wording; legal review pending. **Would reject today for the
+missing Apple sign-in and the absence of any build.**
+
+**Google.** Data Safety: add User IDs and Purchase history before the next
+release. Deletion: in-app and web URL. Payments: none. Target API 36.
+Permissions minimal. Financial features: budgeting and education only. App
+access: guest mode. Content rating: answer the AI question "Yes". Misleading
+claims: none found. Testing eligibility: UNKNOWN. **Would hold today on the
+outdated Goal-plan screenshot and the stale Data Safety form.**
