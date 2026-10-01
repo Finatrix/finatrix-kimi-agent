@@ -380,12 +380,13 @@ test.describe('WebKit behaviour the other engines cannot vouch for', () => {
     expect(text.replace(/\s+/g, ' ')).toContain('SALARY CREDIT 85000');
   });
 
-  test('offers Sign in with Apple on the sign-in screen', async ({ page }) => {
+  test('renders provider sign-in buttons as equal controls in WebKit', async ({ page }) => {
     await bootAsApp(page, insets);
-    // The app build sets VITE_AUTH_APPLE; a plain preview of the site may not,
-    // and `authProviders()` only forces Apple on when Capacitor reports iOS —
-    // which a browser cannot. So this asserts the part that must hold either
-    // way: Google is offered, and if Apple is offered it is an equal control.
+    // A browser cannot make Capacitor report iOS, so this runs the WEBSITE's
+    // provider rule: Google always, Apple once VITE_AUTH_APPLE=1. The iOS rule
+    // (no third-party login until Apple is configured, then Apple first) is
+    // pinned in src/test/authProviders.test.tsx. What only WebKit can show is
+    // the layout: when Apple is offered it is the same size as Google.
     await page.goto('/login');
     const google = page.getByRole('button', { name: 'Continue with Google' });
     await expect(google).toBeVisible();

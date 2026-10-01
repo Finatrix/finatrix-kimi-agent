@@ -5,8 +5,8 @@
  * text layer.
  */
 
-import * as pdfjs from 'pdfjs-dist';
-import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
+import pdfWorkerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
 import { CareersError } from '../utils/errors';
 
 pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;

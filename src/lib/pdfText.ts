@@ -16,8 +16,8 @@
  * that one should fold into this when Careers is next opened.
  */
 
-import * as pdfjs from 'pdfjs-dist';
-import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
+import pdfWorkerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
 
 pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 

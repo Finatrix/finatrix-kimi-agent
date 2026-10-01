@@ -115,13 +115,11 @@ export default defineConfig(({ command, mode }) => {
       },
     },
     build: {
-      // The engines the bundle is compiled for — written out rather than left
-      // to Vite's default, because the installed apps depend on it: the
-      // Android app refuses politely below this Chrome version instead of
-      // rendering a blank screen (MainActivity.MIN_WEBVIEW_MAJOR, held equal
-      // by src/test/webviewFloor.test.ts). Same values as Vite 7's
-      // 'baseline-widely-available' default at the time of pinning.
-      target: ["chrome107", "edge107", "firefox104", "safari16"],
+      // Match the oldest Android WebView we can run and the declared iOS
+      // deployment target. Syntax transpilation does not polyfill built-ins:
+      // public/compat.js loads before the module entry for that small gap.
+      // Keep Chrome in sync with MainActivity.MIN_WEBVIEW_MAJOR.
+      target: ["chrome91", "edge91", "firefox91", "safari15.4"],
       // Separate the large, rarely-changing vendors into their own cacheable
       // chunks; route-level code-splitting (React.lazy) handles the rest.
       rollupOptions: {

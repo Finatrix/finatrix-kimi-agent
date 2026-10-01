@@ -26,8 +26,8 @@
  * `DOMParser`, which the browser already has and which does not resolve
  * external entities.
  *
- * The ZIP is inflated with `DecompressionStream('deflate-raw')` — a platform
- * API, no dependency, and one that cannot be made to execute anything. What
+ * The ZIP is inflated with `DecompressionStream('deflate-raw')` when available.
+ * Older WKWebViews use a small, lazy-loaded fflate fallback instead. What
  * this file adds is about 150 lines of central-directory walking, which is a
  * far smaller and far more auditable surface than a general-purpose workbook
  * parser that also understands formulas, macros and defined names.
@@ -157,12 +157,40 @@ async function readEntry(bytes: Uint8Array, view: DataView, entry: ZipEntry): Pr
   if (entry.method !== 8) {
     throw new StatementParseError('This spreadsheet uses a compression method FinatriX cannot read. Please save it as .xlsx or export it as CSV.');
   }
-  if (typeof DecompressionStream !== 'function') {
-    throw new StatementParseError('This browser cannot open spreadsheets. Please export the statement as CSV instead.');
+  let nativeInflater: DecompressionStream | null = null;
+  try {
+    if (typeof DecompressionStream === 'function') nativeInflater = new DecompressionStream('deflate-raw');
+  } catch {
+    // Some engines expose DecompressionStream but do not accept deflate-raw.
+  }
+  if (!nativeInflater) {
+    // The fallback is loaded only when an older WebView opens a compressed
+    // spreadsheet. Feed small compressed chunks so a false ZIP size cannot
+    // allocate unbounded output before the declared and absolute caps apply.
+    try {
+      const { Inflate } = await import('fflate');
+      const decoder = new TextDecoder();
+      let total = 0;
+      let text = '';
+      const inflate = new Inflate((chunk) => {
+        total += chunk.byteLength;
+        if (total > MAX_XML_BYTES || total > entry.uncompressedSize) throw new StatementParseError(TOO_LARGE);
+        text += decoder.decode(chunk, { stream: true });
+      });
+      for (let offset = 0; offset < body.length; offset += 8192) {
+        const end = Math.min(offset + 8192, body.length);
+        inflate.push(body.subarray(offset, end), end === body.length);
+      }
+      if (total !== entry.uncompressedSize) throw new StatementParseError(DAMAGED);
+      return text + decoder.decode();
+    } catch (error) {
+      if (error instanceof StatementParseError) throw error;
+      throw new StatementParseError('Could not decompress this spreadsheet. Please re-export it or use CSV.');
+    }
   }
   try {
     const reader = new Blob([body as BlobPart]).stream()
-      .pipeThrough(new DecompressionStream('deflate-raw')).getReader();
+      .pipeThrough(nativeInflater).getReader();
     const decoder = new TextDecoder();
     let total = 0;
     let text = '';

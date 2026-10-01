@@ -30,6 +30,7 @@ import { ACCEPT_ATTRIBUTE } from '../lib/import/extract';
 import { needsReview, isImportable } from '../lib/import/status';
 import { useStatementImport } from '../lib/import/useStatementImport';
 import { AI_RECIPIENT } from '../../lib/ai/consent';
+import { pdfCompatibilityMessage } from '../../lib/pdfCompatibility';
 import type { DraftRow, CategoryOrigin, ImportSummary } from '../lib/import/types';
 
 interface Props {
@@ -373,6 +374,7 @@ function IdlePane({
   onDiscard: () => void;
 }) {
   const inputId = useId();
+  const pdfUnavailable = pdfCompatibilityMessage();
 
   return (
     <div className="fx-imp-state">
@@ -396,9 +398,10 @@ function IdlePane({
       >
         <p className="fx-imp-state-title">Drop a bank or credit card statement</p>
         <p className="fx-imp-note">
-          CSV, Excel, PDF — or a screenshot or photo of one.
-          Password-protected PDFs are supported.
+          CSV, Excel{pdfUnavailable ? '' : ', PDF'} — or a screenshot or photo of one.
+          {!pdfUnavailable && ' Password-protected PDFs are supported.'}
         </p>
+        {pdfUnavailable && <p className="fx-imp-note" role="status">{pdfUnavailable}</p>}
         <label className="fx-imp-btn fx-imp-primary fx-imp-filebtn" htmlFor={inputId}>Choose a file</label>
         <input
           id={inputId}

@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { deflateRawSync } from 'node:zlib';
 import { readWorkbookGrid } from '../tools/lib/import/xlsx';
 import { parseStatementMatrix } from '../tools/lib/import/csv';
 import { buildDrafts } from '../tools/lib/import/draft';
@@ -39,7 +40,7 @@ function u32(n: number): number[] {
  * directory walk; the inflate path is the platform's own DecompressionStream
  * and is not this reader's code to prove.
  */
-function zip(parts: Part[]): Uint8Array {
+function zip(parts: Part[], method = 0): Uint8Array {
   const encoder = new TextEncoder();
   const local: number[] = [];
   const central: number[] = [];
@@ -48,23 +49,25 @@ function zip(parts: Part[]): Uint8Array {
   for (const part of parts) {
     const name = encoder.encode(part.name);
     const body = encoder.encode(part.body);
+    const compressed = method === 8 ? deflateRawSync(body) : body;
     offsets.push(local.length);
     local.push(
-      ...u32(0x04034b50), ...u16(20), ...u16(0), ...u16(0), ...u16(0), ...u16(0),
+      ...u32(0x04034b50), ...u16(20), ...u16(0), ...u16(method), ...u16(0), ...u16(0),
       ...u32(0),                    // crc32 — not checked by the reader
-      ...u32(body.length), ...u32(body.length),
+      ...u32(compressed.length), ...u32(body.length),
       ...u16(name.length), ...u16(0),
-      ...name, ...body,
+      ...name, ...compressed,
     );
   }
 
   parts.forEach((part, i) => {
     const name = encoder.encode(part.name);
     const body = encoder.encode(part.body);
+    const compressed = method === 8 ? deflateRawSync(body) : body;
     central.push(
-      ...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0), ...u16(0), ...u16(0), ...u16(0),
+      ...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0), ...u16(method), ...u16(0), ...u16(0),
       ...u32(0),
-      ...u32(body.length), ...u32(body.length),
+      ...u32(compressed.length), ...u32(body.length),
       ...u16(name.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0),
       ...u32(0), ...u32(offsets[i]),
       ...name,
@@ -89,18 +92,29 @@ const SHARED = (values: string[]) =>
 /** Style 0 is General; style 1 points at built-in date format 14 (dd/mm/yyyy). */
 const STYLES = `<?xml version="1.0"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cellXfs count="2"><xf numFmtId="0"/><xf numFmtId="14"/></cellXfs></styleSheet>`;
 
-function workbook(sheet: string, shared: string[] = [], styles = STYLES): File {
+function workbook(sheet: string, shared: string[] = [], styles = STYLES, compressed = false): File {
   const bytes = zip([
     { name: 'xl/worksheets/sheet1.xml', body: sheet },
     { name: 'xl/sharedStrings.xml', body: SHARED(shared) },
     { name: 'xl/styles.xml', body: styles },
-  ]);
+  ], compressed ? 8 : 0);
   return new File([bytes as BlobPart], 'statement.xlsx');
 }
 
 /* ── The tests ──────────────────────────────────────────────────────────── */
 
 describe('reading an .xlsx', () => {
+  it('reads a compressed workbook without DecompressionStream on older WebKit', async () => {
+    vi.stubGlobal('DecompressionStream', undefined);
+    try {
+      const sheet = SHEET_XML('<row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1"><v>1250.5</v></c></row>');
+      expect(await readWorkbookGrid(workbook(sheet, ['Blue Bottle'], STYLES, true)))
+        .toEqual([['Blue Bottle', '1250.5']]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('reads a grid, resolving text through the shared string table', async () => {
     // Text in a worksheet is a POINTER into sharedStrings, not a literal. A
     // reader that skips that table sees a grid of numbers with no descriptions,

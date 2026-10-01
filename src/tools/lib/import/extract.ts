@@ -37,6 +37,7 @@
  */
 
 import { sanitizeText } from '../../../lib/sanitize';
+import { pdfCompatibilityMessage } from '../../../lib/pdfCompatibility';
 import { parseCsvStatement, parseStatementMatrix, StatementParseError } from './csv';
 import { parseTextStatement } from './statement';
 import { readWorkbookGrid } from './xlsx';
@@ -188,6 +189,8 @@ export async function extractStatement(
   } else if (extension === 'xlsx' || extension === 'xls') {
     doc = await readWorkbook(file, now);
   } else if (isPdf) {
+    const compatibilityMessage = pdfCompatibilityMessage();
+    if (compatibilityMessage) throw new ImportError('unsupported', compatibilityMessage);
     let text: string;
     try {
       // pdf.js is loaded only when a PDF is actually opened. It is by far the

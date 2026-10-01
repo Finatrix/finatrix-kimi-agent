@@ -9,6 +9,7 @@
 
 import type { ExtractionResult } from '../types';
 import { CareersError } from '../utils/errors';
+import { pdfCompatibilityMessage } from '../../lib/pdfCompatibility';
 import { sanitizeText } from '../utils/sanitize';
 import { validateResumeFile } from './validate';
 
@@ -30,6 +31,8 @@ export async function extractResumeText(
   const bytes = await file.arrayBuffer();
 
   if (kind === 'pdf') {
+    const compatibilityMessage = pdfCompatibilityMessage();
+    if (compatibilityMessage) throw new CareersError('validation', compatibilityMessage);
     const { extractPdfText, renderPdfPages } = await import('./pdf');
     const { text, pages } = await extractPdfText(bytes);
     if (text.length >= MIN_TEXT_CHARS) {

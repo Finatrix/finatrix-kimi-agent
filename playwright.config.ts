@@ -15,7 +15,7 @@ const IOS_SPEC = /ios-webkit\.spec\.ts/;
 // Run the shared create/edit/delete, persistence, validation, navigation and
 // market-selection journeys in WebKit too. Layout-only checks cannot catch
 // engine-specific failures in the flows people use to save their records.
-const IOS_SHARED_FLOWS = /(?:expense|networth|smart-entry|auth-navigation|seven-markets|sitewide-automation|finance-upgrade|command-palette|export-downloads|dialog-inert)\.spec\.ts/;
+const IOS_SHARED_FLOWS = /(?:expense|networth|smart-entry|auth-navigation|seven-markets|sitewide-automation|finance-upgrade|command-palette|export-downloads|dialog-inert|compatibility-import)\.spec\.ts/;
 
 export default defineConfig({
   testDir: './e2e',

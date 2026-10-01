@@ -502,6 +502,7 @@ body.fx-drawer-open .fx-ai-dock { display: none; }
    the whole "adjust for inflation" control a 2.5.8 failure despite the
    checkbox itself being fine. */
 .fx-tools .fx-checkrow { display: flex; align-items: center; gap: 10px; min-height: 24px; cursor: pointer; }
+.fx-tools .fx-peer-check input[type="checkbox"] { min-width: 24px; min-height: 24px; flex-shrink: 0; accent-color: var(--gold); }
 
 /* ---- Rank badge (shared primitive) ----
    ParkSmart's numbered result markers. The winner's label was painted

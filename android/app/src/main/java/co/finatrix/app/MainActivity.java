@@ -21,13 +21,10 @@ public class MainActivity extends BridgeActivity {
      * app is built for. MUST equal the `chrome` entry of `build.target` in
      * vite.config.ts — src/test/webviewFloor.test.ts holds the two together.
      *
-     * Below it the app does not degrade, it goes blank: measured on an Android
-     * 11 image with its original WebView 91, the bundle stops at the first
-     * `Array.prototype.at` call. WebView updates through the Play Store on every
-     * Android version this app supports (7.0+), so almost every phone is far
-     * past this; the few that are not get told how to fix it, not a white page.
+     * WebView 91 is the oldest build target exercised with the app. Older
+     * providers cannot parse the bundle reliably and need an update.
      */
-    static final int MIN_WEBVIEW_MAJOR = 107;
+    static final int MIN_WEBVIEW_MAJOR = 91;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -49,7 +46,7 @@ public class MainActivity extends BridgeActivity {
         // for the current day/night mode instead.
         webView.setBackgroundColor(ContextCompat.getColor(this, R.color.fx_window_bg));
         applyFontScale(getResources().getConfiguration());
-        if (savedInstanceState == null) warnIfWebViewTooOld();
+        warnIfWebViewTooOld();
     }
 
     /** Chromium major version of the WebView actually in use, or -1 if unknown. */
@@ -60,9 +57,8 @@ public class MainActivity extends BridgeActivity {
     }
 
     /**
-     * Offer to update an out-of-date WebView instead of showing a blank app.
-     * "Continue" is still offered: the person may know better (a device with no
-     * Play Store), and nothing is lost by letting them try.
+     * Keep the explanation on screen until the user updates the provider or
+     * closes the app. Allowing "continue" would return to the blank WebView.
      */
     private void warnIfWebViewTooOld() {
         int major;
@@ -72,12 +68,19 @@ public class MainActivity extends BridgeActivity {
             return; // No WebView provider at all — nothing useful to suggest.
         }
         if (major < 0 || major >= MIN_WEBVIEW_MAJOR) return;
-        new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this)
             .setTitle(R.string.webview_outdated_title)
             .setMessage(R.string.webview_outdated_message)
-            .setPositiveButton(R.string.webview_outdated_update, (dialog, which) -> openWebViewStorePage())
-            .setNegativeButton(R.string.webview_outdated_continue, null)
-            .show();
+            .setPositiveButton(R.string.webview_outdated_update, null)
+            .setNegativeButton(R.string.webview_outdated_close, (ignored, which) -> finish())
+            .setCancelable(false)
+            .create();
+        // AlertDialog normally dismisses after any button press. Keep this
+        // explanation visible when a store is absent or the user returns
+        // without updating; otherwise they would see the blank WebView again.
+        dialog.setOnShowListener(ignored ->
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> openWebViewStorePage()));
+        dialog.show();
     }
 
     private void openWebViewStorePage() {
@@ -89,7 +92,12 @@ public class MainActivity extends BridgeActivity {
         try {
             startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + pkg)));
         } catch (ActivityNotFoundException e) {
-            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=" + pkg)));
+            try {
+                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=" + pkg)));
+            } catch (ActivityNotFoundException ignored) {
+                // A restricted device may have neither Play nor a browser.
+                // The update dialog remains visible instead of crashing.
+            }
         }
     }
 

@@ -7,7 +7,7 @@
     <!-- Shown once at launch when the device's WebView is older than the app is
          built for (MainActivity.MIN_WEBVIEW_MAJOR). -->
     <string name="webview_outdated_title">Update needed to run FinatriX</string>
-    <string name="webview_outdated_message">FinatriX runs on your phone\'s Android System WebView, and the version installed is too old to open it. Update Android System WebView from the Play Store, then reopen FinatriX.</string>
+    <string name="webview_outdated_message">Your phone\'s WebView is too old to open FinatriX. Update Android System WebView or Google Chrome from the Play Store, then reopen FinatriX.</string>
     <string name="webview_outdated_update">Update</string>
-    <string name="webview_outdated_continue">Continue anyway</string>
+    <string name="webview_outdated_close">Close app</string>
 </resources>

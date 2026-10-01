@@ -49,6 +49,8 @@ const REVIEW_PROMPT = 'Create a monthly review';
 export interface AiPanelProps {
   id: string;
   onClose: () => void;
+  /** Captured before the dialog makes the underlying page inert. */
+  returnFocus?: HTMLElement | null;
   /** What the user was looking at when they opened it; null for the plain FAB. */
   focus?: AiFocus | null;
   /**
@@ -65,7 +67,7 @@ export default function AiPanel(props: AiPanelProps) {
   return <AccountAiPanel key={user?.id ?? 'signed-out'} {...props} />;
 }
 
-function AccountAiPanel({ id, onClose, focus = null, openedAt = 0 }: AiPanelProps) {
+function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedAt = 0 }: AiPanelProps) {
   const { user, configured } = useAuth();
   const { code } = useCurrency();
   const uid = user?.id ?? '';
@@ -131,7 +133,7 @@ function AccountAiPanel({ id, onClose, focus = null, openedAt = 0 }: AiPanelProp
   // focus falls to the dialog itself rather than being left on <body>, where a
   // screen reader would never enter the dialog at all.
   useEffect(() => {
-    lastFocused.current = document.activeElement as HTMLElement | null;
+    lastFocused.current = returnFocus ?? document.activeElement as HTMLElement | null;
     const t = setTimeout(() => {
       // Something inside the dialog already has focus — the consent card's
       // "Allow and send", say — so this deferred default must not take it back.
@@ -145,7 +147,7 @@ function AccountAiPanel({ id, onClose, focus = null, openedAt = 0 }: AiPanelProp
       clearTimeout(t);
       lastFocused.current?.focus?.();
     };
-  }, []);
+  }, [returnFocus]);
 
   // The page behind is out of reach for swipe-driven screen readers too.
   useInertOutside(cardRef);

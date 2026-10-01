@@ -75,13 +75,15 @@ export function AiProvider({ enabled = true, children }: {
   // a second ✨ button while it is already open — without that, opening
   // "Groceries" from behind an open panel would silently do nothing.
   const [openedAt, setOpenedAt] = useState(0);
+  const [returnFocus, setReturnFocus] = useState<HTMLElement | null>(null);
 
   const open = useCallback((next: AiFocus | null = null) => {
     if (!enabled) return;
+    if (!isOpen) setReturnFocus(document.activeElement as HTMLElement | null);
     setFocus(next);
     setOpen(true);
     setOpenedAt((n) => n + 1);
-  }, [enabled]);
+  }, [enabled, isOpen]);
 
   const close = useCallback(() => setOpen(false), []);
 
@@ -98,7 +100,7 @@ export function AiProvider({ enabled = true, children }: {
         // where a dialog is about to appear reads as a glitch. The trigger keeps
         // focus until the panel mounts and takes it.
         <Suspense fallback={null}>
-          <AiPanel id={PANEL_ID} focus={focus} openedAt={openedAt} onClose={close} />
+          <AiPanel id={PANEL_ID} focus={focus} openedAt={openedAt} onClose={close} returnFocus={returnFocus} />
         </Suspense>
       )}
     </AiCtx.Provider>

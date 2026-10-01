@@ -71,12 +71,12 @@ export function PublishedPeerComparison({ market }: { market: MarketPack }) {
       </div>}
       <h2 style={{ fontSize: 17 }}>Check that like is being compared with like</h2>
       <p className="note">{[confirmed, definitionChecked, periodChecked].filter(Boolean).length} of 3 matching checks complete. If any check is uncertain, use the published figure as context without generating a personal comparison.</p>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 12, minHeight: 48, margin: '14px 0' }}>
+      <label className="fx-peer-check" style={{ display: 'flex', alignItems: 'center', gap: 12, minHeight: 48, margin: '14px 0' }}>
         <input type="checkbox" checked={confirmed} onChange={(e) => { setConfirmed(e.target.checked); setResult(null); }} />
         My figure matches the reference population and household or person basis.
       </label>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 12, minHeight: 48, margin: '14px 0' }}><input type="checkbox" checked={definitionChecked} onChange={(e) => { setDefinitionChecked(e.target.checked); setResult(null); }} />My figure follows the stated income or net-worth definition.</label>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 12, minHeight: 48, margin: '14px 0' }}><input type="checkbox" checked={periodChecked} onChange={(e) => { setPeriodChecked(e.target.checked); setResult(null); }} />My figure uses {row.currency}, {row.unit}, and the {row.period} price and reporting period.</label>
+      <label className="fx-peer-check" style={{ display: 'flex', alignItems: 'center', gap: 12, minHeight: 48, margin: '14px 0' }}><input type="checkbox" checked={definitionChecked} onChange={(e) => { setDefinitionChecked(e.target.checked); setResult(null); }} />My figure follows the stated income or net-worth definition.</label>
+      <label className="fx-peer-check" style={{ display: 'flex', alignItems: 'center', gap: 12, minHeight: 48, margin: '14px 0' }}><input type="checkbox" checked={periodChecked} onChange={(e) => { setPeriodChecked(e.target.checked); setResult(null); }} />My figure uses {row.currency}, {row.unit}, and the {row.period} price and reporting period.</label>
       {error && <p role="alert">{error}</p>}
       <button className="btn" type="submit">Compare matching figures</button>
       {result !== null && <div role="status" style={{ marginTop: 20 }}>

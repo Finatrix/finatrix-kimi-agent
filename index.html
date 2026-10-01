@@ -256,6 +256,9 @@
         </p>
       </div>
     </noscript>
+    <!-- Runs synchronously before Vite's module graph. WebView 91 lacks these
+         built-ins, including one used while the startup bundle evaluates. -->
+    <script src="/compat.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
