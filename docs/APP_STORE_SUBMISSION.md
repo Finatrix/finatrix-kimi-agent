@@ -1,8 +1,9 @@
 # FinatriX — App Store submission
 
-> **Release status lives in [MOBILE_RELEASE_READINESS.md](MOBILE_RELEASE_READINESS.md)**
-> (last updated 2026-10-02). The backend half is live; what remains needs the
-> paid Apple Developer team (purchased, awaiting enrolment).
+> **Release status lives in [MOBILE_RELEASE_READINESS.md](MOBILE_RELEASE_READINESS.md).**
+> As of 2026-10-02 the App Store Connect record exists (Apple ID **6818361672**)
+> and holds everything below except where a row says otherwise; build 1.0.0 (1)
+> is uploaded, processed and attached to version 1.0.0.
 
 Everything App Store Connect asks for, answered. The build and signing runbook is
 docs/IOS.md; this is the paperwork.
@@ -23,7 +24,7 @@ somebody has to notice.
 | SKU | `finatrix-ios-001` (internal only; any unique string) | |
 | Primary category | **Finance** | |
 | Secondary category | **Education** | |
-| Primary language | Match the Play listing | |
+| Primary language | English (U.S.) — App Store Connect offers no English (India) | |
 | Price | Free | |
 
 The name matches the Play listing, so the same product is not two products in
@@ -95,58 +96,48 @@ that 404s is a rejection, and it is the single most common one.
 
 ## 6. Age rating
 
-App Store Connect computes the rating from the questionnaire; do not assume a
-number in advance. On these answers the content questions all come back clean,
-so the outcome turns on the **AI capability** question, which Apple added in
-2025 and which can raise the minimum on its own. Answer it honestly and take
-what it gives.
+**Entered 2026-10-02: 18+** (17+ on systems before iOS 26; Korea shows 19+ by
+its own scale). Every content question in Apple's questionnaire is honestly
+"None"/"No", which calculates **4+** — the 18+ is an override, for one reason:
+the Terms say "You must be at least 18 years old to create an account" and the
+privacy policy says the service is for adults, and Apple's form requires the
+rating to align with an age minimum in the app's terms. The Terms are entered
+as the age-suitability URL. To publish at a lower rating, change the Terms and
+privacy policy first (a legal decision), then the override.
 
-| Question | Answer |
-|---|---|
-| Violence, sexual content, profanity, horror, alcohol/tobacco/drugs | None |
-| Simulated gambling, contests | None |
-| Unrestricted web access | **No** — external links open in an in-app browser to URLs the app itself chose; there is no address bar and no arbitrary browsing |
-| User-generated content / social | No — nothing a user writes is visible to any other user |
-| **Capabilities of AI** | **Yes.** The assistant is generative. Note in the field that answers about a user's own figures are checked against their records before display, and that any answer can be reported from inside the app |
-| Medical/treatment information | No |
+| Question | Answer | Why |
+|---|---|---|
+| Parental controls, age assurance | No | |
+| Unrestricted web access | **No** | External links open specific pages the app chose in an in-app browser with no address bar |
+| User-generated content, social media, messaging and chat | No | Nothing a user writes reaches any other user; the AI talks only to the person who asked |
+| Advertising | No | |
+| Profanity, horror, alcohol/tobacco/drugs | None | The only match in `src/` is a quick-add keyword list (`pub`, `drinks`) filing entries under "Going out" |
+| Medical / health or wellness | None / No | LifeMap's "health" is financial health |
+| Mature or suggestive themes, sexual content | None | The financial-crime guide is about compliance careers |
+| Violence, weapons | None | |
+| Gambling, simulated gambling, contests, loot boxes | None / No | Return projections are not wagering; PeerCompare compares with published averages, not other users |
+
+The questionnaire as of this date has **no generative-AI question**; the AI
+assistant is one more reason not to claim 4+.
 
 ## 7. App Review notes
 
-Paste into the Notes field:
+Entered in App Store Connect on 2026-10-02 (1,798 characters):
 
 ```
-FinatriX is a personal finance education tool. Every calculator works fully
-without an account: open the app and use Budget, Expenses, Goals, Net Worth and
-the rest straight away. Data is stored on the device.
+FinatriX is a personal-finance education tool. Every calculator works fully without an account: open the app and use Budget, Expenses, Goals, Net Worth and the rest straight away. Data is stored on the device.
 
-Signing in adds only cloud sync across devices and the optional AI assistant.
-A demo account is supplied in the Sign-In Information fields if you would like
-to review the signed-in experience, but it is not required to review the app's
-functionality.
+Signing in adds only cloud sync across devices and the optional AI assistant. A demo account is in the Sign-In Information fields: tap SIGN IN (top right), then use the email form below "or sign in with email". Sign in with Apple is presented first, then Google.
 
-Sign in with Apple is offered alongside Google and email, and is presented
-first. Deleting an account that used Sign in with Apple also revokes the
-app's Apple authorization.
+FinatriX AI (optional, signed-in only; the gold sparkle button at the bottom right, "Open FinatriX AI") asks for explicit permission before any question or statement description is sent to its AI provider (OpenRouter and the model it routes to). Declining leaves every calculator fully usable. The permission can be withdrawn in Settings under FinatriX AI.
 
-FinatriX AI (optional, signed-in only) asks for explicit permission before any
-question or statement description is sent to its AI provider (OpenRouter and the
-model it routes to). Declining leaves every calculator fully usable.
+Account deletion: menu (top left) > Profile > Delete account, then type the account's email address to confirm (or DELETE, for a Sign in with Apple "Hide My Email" address). It deletes the account and all its data immediately and irreversibly, and revokes the app's Sign in with Apple authorization. If you delete the demo account, please tell us so we can recreate it.
 
-Account deletion: Profile -> Delete account. It deletes the account and all
-data immediately and irreversibly; please use the demo account only if you are
-willing to have it deleted, and tell us if you do so we can recreate it.
+Camera: requested only if you choose "Take Photo" in Expenses > Import. The photo is read by an on-device text-recognition engine and never uploaded. PDF statements need iOS 18 or later; on older iOS the app says so and offers CSV, Excel and photo import instead.
 
-Camera: requested only if you choose "Take Photo" when importing a bank
-statement in Expenses. The image is read by an on-device text-recognition
-engine and is never uploaded.
+The app sells nothing and shows no prices. FinatriX Pro exists on the website only; in the app the pricing pages redirect and every purchase control is hidden (Guideline 3.1.1).
 
-The app sells nothing and shows no prices. FinatriX Pro exists on the website
-only; in the app the pricing routes redirect and every purchase control is
-hidden (Guideline 3.1.1).
-
-FinatriX is not a bank, broker or registered adviser and executes no
-transactions. All figures are estimates from user input under stated
-assumptions.
+FinatriX is not a bank, broker or registered adviser and executes no transactions. All figures are estimates from user input under stated assumptions.
 ```
 
 **Demo account:** create a throwaway one before submitting and put the address
@@ -169,7 +160,7 @@ check rather than trust.
 | Purchases → Purchase History | Yes | No | App Functionality | The user's own expense records (amount, merchant note, category), synced **only when signed in**; merchant descriptions from a statement import sent to the AI provider **only after consent** |
 | Identifiers → User ID | Yes | No | App Functionality | The account ID every signed-in account has (Supabase Auth); used to store and sync the user's own data |
 | User Content → Other User Content | Yes | No | App Functionality | AI questions; Careers résumés and notes exist in the backend but Careers is not available in the app before launch |
-| Usage Data → Product Interaction | **No** | No | Analytics | `src/lib/analytics.ts` — random per-session id, no account id, `credentials: 'omit'`, no cookie |
+| Usage Data → Product Interaction | **Yes** | No | Analytics, App Functionality | Two sources, and Apple asks one "linked?" per type. `src/lib/analytics.ts` is anonymous (random per-session id, no account id, `credentials: 'omit'`, no cookie). But `careers-ai` keeps a per-account daily call count (`careers_ai_usage`, fair-use limits) and caches answers per account (`ai_response_cache`), so the honest answer for the type is "linked" |
 | Diagnostics → Crash Data | No | No | App Functionality | `src/lib/errorReporting.ts` |
 | Diagnostics → Performance Data | No | No | Analytics | `src/lib/webVitals.ts` |
 

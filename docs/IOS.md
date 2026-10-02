@@ -1,11 +1,11 @@
 # FinatriX for iOS — build, release and App Store runbook
 
-> **Release status lives in [MOBILE_RELEASE_READINESS.md](MOBILE_RELEASE_READINESS.md)**
-> (last updated 2026-10-02). Live: the edge functions accept
-> `capacitor://localhost`; `apple-token` and the revoking `account-delete` are
-> deployed (inert until the Apple keys exist); the association route is live
-> and 404s by design until `APPLE_APP_ID_PREFIX` is set. Not live: the Apple
-> provider (needs the paid Apple Developer team — purchased, awaiting enrolment).
+> **Release status lives in [MOBILE_RELEASE_READINESS.md](MOBILE_RELEASE_READINESS.md).**
+> Live since 2026-10-02: paid team **AY79GYWLDP**, App ID `co.finatrix.app`
+> (Associated Domains + Sign in with Apple), the association file on both hosts,
+> Services ID `co.finatrix.signin`, Sign in with Apple key **88SKN8HV89**, the
+> Supabase Apple provider and the `APPLE_*` edge secrets. App Store Connect app
+> **6818361672**.
 
 The iOS app is the FinatriX web app packaged natively with
 [Capacitor 8](https://capacitorjs.com), the same way the Android app is. The
@@ -96,10 +96,12 @@ Supabase dashboard, and none of it can be done from the repository.
    - **Sign in with Apple**
 
    They must match `ios/App/App/App.entitlements` exactly. A capability in the
-   entitlements file but not on the App ID is a code-signing failure.
+   entitlements file but not on the App ID is a code-signing failure. Automatic
+   signing creates the App ID with both from that file on the first build with
+   `-allowProvisioningUpdates` (it did, as "XC co finatrix app").
 
-2. **Team ID** — copy it from the portal's top right (Apple also calls it the
-   "App ID Prefix"; ten characters, e.g. `A1B2C3D4E5`).
+2. **Team ID** — **AY79GYWLDP** (the portal's top right; Apple also calls it
+   the "App ID Prefix").
 
 ### 4.2 The association file
 
@@ -132,20 +134,38 @@ naming the wrong app looks healthy while every link keeps opening in Safari.
 
 ### 4.3 Sign in with Apple, through Supabase
 
-1. Developer portal → **Services ID** (e.g. `co.finatrix.signin`) with Sign in
-   with Apple enabled. Configure it against the App ID above, with:
-   - Domain: `finatrix.co`
-   - Return URL: `https://<project-ref>.supabase.co/auth/v1/callback`
-2. Developer portal → **Keys** → new key with Sign in with Apple → download the
-   `.p8` **once** (it cannot be downloaded again) and note the Key ID.
-3. Supabase → Authentication → Providers → **Apple**: enable it, and enter the
-   Services ID as the client ID plus the Team ID, Key ID and `.p8` contents.
-4. Supabase → Authentication → URL Configuration → Redirect URLs: add
-   `co.finatrix.app://**` if the Android release has not already.
-5. Set `VITE_AUTH_APPLE=1` in the build environment **only after** a test
-   sign-in through the provider works. The flag adds Apple to the website and
-   the Android app, and on iOS it is what shows both Apple and Google — an iOS
-   build without it offers email sign-in only (`src/lib/authProviders.ts`).
+Configured 2026-10-02. To redo it (a new key, a new project):
+
+1. Developer portal → **Services ID** `co.finatrix.signin` (description
+   "FinatriX" — Apple shows it on the sign-in sheet), Sign in with Apple
+   enabled, primary App ID `co.finatrix.app`:
+   - Domain: `uspbsgbggurggsfsontq.supabase.co`
+   - Return URL: `https://uspbsgbggurggsfsontq.supabase.co/auth/v1/callback`
+2. Developer portal → **Keys** → new key with Sign in with Apple (primary App
+   ID `co.finatrix.app`) → download the `.p8` **once** (it cannot be downloaded
+   again) and note the Key ID. Keep the file in a password manager — never in
+   the repository (`*.p8` is gitignored), chat or a doc.
+3. From the repository, with the Supabase CLI logged in:
+   ```bash
+   node scripts/configure-apple-signin.mjs --p8 ~/Downloads/AuthKey_KEYID.p8 --key-id KEYID
+   ```
+   It enables the Supabase Apple provider for the Services ID with a signed
+   client secret and sets the edge secrets of §4.3a, printing nothing secret.
+   `--check` reports the current state at any time.
+4. **Rotate before 2027-03-24.** Apple caps the provider's client secret at six
+   months; when it lapses Apple sign-in fails for everyone. `--rotate` re-signs
+   it from the same key and changes nothing else.
+5. `VITE_AUTH_APPLE=1` in `.env` (done 2026-10-02). The flag adds Apple to the
+   website and the Android app, and on iOS it is what shows both Apple and
+   Google — an iOS build without it offers email sign-in only
+   (`src/lib/authProviders.ts`). `scripts/ios-release.sh` refuses a store build
+   until it is set or explicitly waived.
+
+There is no way to test the key before a real sign-in: Apple only
+authenticates the client secret once it holds a real code or token. What *can*
+be checked without an account is the Services ID and return URL — Apple's
+authorize endpoint renders the sign-in page for them and answers
+`invalid_client` / `invalid_request` for a wrong client or return URL.
 
 ### 4.3a Revoking Apple tokens on account deletion (5.1.1(v))
 
@@ -230,12 +250,25 @@ the same size, which is what "equivalent option" means in practice.
 
 1. Bump the build number. `CURRENT_PROJECT_VERSION` must increase on every
    upload; `MARKETING_VERSION` is the user-visible version and matches the
-   Android `versionName`.
-2. `npm run ios:sync` — **never archive without this.** The bundle in
-   `ios/App/App/public` is a copy, and Xcode will happily archive a stale one.
-3. Xcode → Product → Destination → **Any iOS Device (arm64)**.
-4. Product → **Archive**.
-5. Organizer → **Distribute App** → App Store Connect → Upload.
+   Android `versionName`. Commit.
+2. ```bash
+   scripts/ios-release.sh archive
+   ```
+   Refuses an uncommitted tree and a build without a deliberate
+   `VITE_AUTH_APPLE` decision; runs the web build and `cap sync ios`
+   (`FX_CLEAN_INSTALL=1` adds `npm ci`), archives with the paid team, exports
+   an App Store `.ipa`, and records the commit, signer, entitlements and
+   SHA-256 in `ios/release-candidates/<version>-<build>/` (gitignored).
+3. Inspect it, then:
+   ```bash
+   scripts/ios-release.sh upload ios/release-candidates/1.0.0-1
+   ```
+   It uses Xcode's signed-in account; no API key is involved.
+4. The build appears in TestFlight once processed (minutes) and reaches the
+   **FinatriX Team** internal group automatically.
+
+Build 1.0.0 (1) was made this way from `b30b4cc` in a fresh worktree with
+`npm ci`, signed "Apple Distribution: Hrishik KS (AY79GYWLDP)".
 
 The archive is a Release build, which means: the web inspector is off
 (`webContentsDebuggingEnabled` is deliberately unset, so Safari attaches to debug
@@ -337,9 +370,9 @@ If `ios/` is ever regenerated with `npx cap add ios`, re-apply:
 - [ ] `npm run ios:sync` run against the bundle being shipped
 - [ ] `CURRENT_PROJECT_VERSION` increased
 - [ ] `MARKETING_VERSION` matches the Android `versionName`
-- [ ] `APPLE_APP_ID_PREFIX` set and both hosts serving the association file
+- [x] `APPLE_APP_ID_PREFIX` set and both hosts serving the association file (2026-10-02)
 - [ ] Edge functions deployed with `capacitor://localhost` allow-listed
-- [ ] Supabase Apple provider configured and `VITE_AUTH_APPLE=1` in the build env
+- [x] Supabase Apple provider configured and `VITE_AUTH_APPLE=1` in the build env (2026-10-02)
 - [ ] `APPLE_SIWA_*` and `APPLE_TOKEN_ENC_KEY` secrets set; a test Apple account signed in, then deleted from Profile, and it no longer appears under Settings → Apple ID → Sign in with Apple
 - [ ] Screenshots retaken (§9) if any captured screen changed
 - [ ] §8 device checklist complete
