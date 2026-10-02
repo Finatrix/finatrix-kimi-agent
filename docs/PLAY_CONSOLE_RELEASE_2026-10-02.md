@@ -35,10 +35,10 @@ All 10 App content declarations are actioned; the **Data safety** and
   Goal-plan image with dated investment wording was removed. Five other phone
   screenshots remain, above Play's two-image minimum. The local corrected
   `android/store/screenshots/4-goal-plan.png` is ready to add later.
-- The listing's three changes plus Data safety were sent for review on
-  2 October 2026. **In review is not live**; managed publishing also requires
-  an explicit publish action after approval. The financial-features update is
-  accounted for separately by the console.
+- The listing's three changes plus Data safety were approved by Google and
+  published through managed publishing on 2 October 2026. Publishing overview
+  shows **Last published on 2 October 2026** with no changes waiting to publish.
+  The financial-features declaration is accounted for separately by the console.
 
 ## Final Android artifact awaiting upload
 
