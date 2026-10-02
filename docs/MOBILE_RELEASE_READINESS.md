@@ -18,7 +18,7 @@ verified state, the blockers and what only the account owner can do.
 |---|---|---|
 | Technical readiness | **93%** | **80%** |
 | Submission-package readiness | **88%** | **76%** |
-| Verdict | **READY FOR CLOSED TEST AFTER CODE 5 UPLOAD** | **TESTFLIGHT BUILD READY; DEVICE VALIDATION PENDING** |
+| Verdict | **CODE 5 IN CLOSED-TEST REVIEW** | **TESTFLIGHT BUILD READY; DEVICE VALIDATION PENDING** |
 | P0 technical blockers | 0 | 1 (physical TestFlight test) |
 | P1 verification gaps | 2 (real Google sign-in and deletion) | 3 (real Apple sign-in/revocation, Universal Links on device, and the iOS 15.4 runtime floor) |
 
@@ -152,13 +152,9 @@ needs a reviewer account and contact fields.
 ## 7. Owner actions, in order
 
 1. ~~**Apple privacy**~~ — published by the owner on 2026-10-02.
-2. **Play upload (owner, by hand)**: Google has not received the code 5 AAB.
-   Automated uploads are not an option: the AAB is 11.05 MB, over the browser
-   tool's 10 MB per-file limit, and agent access to Play Console is treated as
-   a production deploy. Upload
-   `android/release-candidates/1.0.0-code5/finatrix-1.0.0-code5.aab` to the
-   saved closed Alpha draft yourself, then check Play's parsed versionCode 5,
-   signing and the pre-launch report.
+2. ~~**Play upload**~~ — owner reports code 5 uploaded to the closed Alpha
+   draft and sent for review on 2026-10-02 (not agent-verified: agent access to
+   Play Console is blocked). Check the pre-launch report once it runs.
 3. **Reviewer account**: set credentials for a disposable account in Supabase
    and enter them, plus reviewer contact information, in App Store Connect.
    The app works as a guest, but its optional signed-in AI needs reviewer access.
@@ -179,7 +175,7 @@ needs a reviewer account and contact fields.
 | Google production access application | Not yet — answer template in ANDROID.md §11 (fill with real tester evidence only) |
 | Apple developer enrolment | **ACTIVE** — Individual Apple Developer Program, Team ID `AY79GYWLDP`, renewal 2 Oct 2027 |
 | Apple App Store Connect | App record 6818361672, processed build 1.0.0 (1) attached, six screenshots and metadata saved; internal TestFlight build **Ready to Test**; App Store version **Prepare for Submission**, not submitted |
-| Play listing and Data safety | Four approved changes published on 2 Oct; installed closed Alpha remains code 1 |
+| Play listing and Data safety | Four approved changes published on 2 Oct; code 5 sent for closed-Alpha review on 2 Oct (owner-reported); testers stay on code 1 until approved |
 
 ## 9. Deployment log
 
@@ -217,5 +213,5 @@ Deletion: in-app and web URL. Payments: none. Target API 36. Permissions
 minimal. Financial features: educational budgeting and tracking declared.
 App access: guest mode. The updated listing removes the outdated Goal-plan
 image, with five remaining screenshots. Production access: 12 testers, 1/14
-days. **Would hold today because the versionCode 5 AAB is not yet uploaded and
+days. **Would hold today because code 5 is still in review and
 the mandatory testing gate is incomplete.**
