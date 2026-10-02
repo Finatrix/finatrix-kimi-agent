@@ -417,7 +417,7 @@ export function readDashboard(): DashboardSnapshot {
     { id: 'budget', label: 'Budget', href: '/tools/budget', done: budgetDone, detail: budgetDone && income ? 'Income & plan set' : 'Plan your 50/30/20' },
     { id: 'expenses', label: 'Track spending', href: '/tools/expenses', done: expensesDone, detail: expensesDone ? 'Logging expenses' : 'Log your first expense' },
     { id: 'goals', label: 'Set a goal', href: '/tools/goals', done: goalsDone, detail: goalsDone && goal ? goal.name : 'Work back to a monthly SIP' },
-    { id: 'investmatch', label: 'Invest', href: '/tools/investmatch', done: investDone, detail: investDone && invest ? `${invest.profile} portfolio` : 'Match a portfolio to your risk' },
+    { id: 'investmatch', label: 'Invest', href: '/tools/investmatch', done: investDone, detail: investDone && invest ? `${invest.profile} illustration` : 'Illustrate a mix for your risk' },
     { id: 'parksmart', label: 'Compare cash options', href: '/tools/parksmart', done: parkUsed, detail: parkUsed ? 'Cash options explored' : 'Compare short-term, post-tax returns' },
     { id: 'peercompare', label: 'Benchmark', href: '/tools/peercompare', done: peerUsed, detail: peerUsed ? 'Compared to peers' : 'See where you stand' },
     { id: 'lifemap', label: 'Plan life', href: '/tools/lifemap', done: lifeUsed, detail: lifeUsed ? 'Life simulated' : 'Simulate your whole journey' },
@@ -491,7 +491,10 @@ export function readDashboard(): DashboardSnapshot {
   if (netCashflow != null && netCashflow < 0) recommendations.push({ href: '/tools/budget', label: 'Rebalance your budget', reason: 'You spent more than you earned this month.' });
   if ((savingsRatePct ?? 100) < 10 && income != null) recommendations.push({ href: '/tools/budget', label: 'Find room to save', reason: 'Your savings rate is under 10%.' });
   if ((savingsRatePct ?? 0) >= 15 && !goal) recommendations.push({ href: '/tools/goals', label: 'Give your savings a target', reason: "You're saving well — a goal turns it into a plan." });
-  if (goal && !invest) recommendations.push({ href: '/tools/investmatch', label: 'Put your goal on autopilot', reason: 'Match a portfolio to reach it faster.' });
+  // Worded as an illustration, never an outcome: "reach it faster" claimed a
+  // result no assumed return can promise, and "match a portfolio" read as a
+  // recommendation the tool explicitly does not make.
+  if (goal && !invest) recommendations.push({ href: '/tools/investmatch', label: 'See how a goal could be invested', reason: 'Compare illustrative investment mixes for your timeline.' });
   if (invest && !goal) recommendations.push({ href: '/tools/goals', label: 'Give your investing a destination', reason: 'A goal keeps your SIP on track.' });
   if (income != null && monthlySpend == null) recommendations.push({ href: '/tools/expenses', label: 'See where your money goes', reason: 'Track a few days of spending.' });
 
