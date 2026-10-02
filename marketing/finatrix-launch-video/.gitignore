@@ -3,3 +3,6 @@ renders/master/
 renders/review/
 audio/mix.wav
 capture/state-*.json
+audio/mix2.wav
+audio/stems2/
+vo/48k/

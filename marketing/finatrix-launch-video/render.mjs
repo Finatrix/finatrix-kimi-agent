@@ -27,7 +27,8 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width: 1080, height: 1920 }, deviceScaleFactor: 1 });
 page.on('pageerror', (e) => { console.error('PAGEERR', e.message); process.exit(1); });
 page.on('console', (m) => m.type() === 'error' && console.error('CONSOLE', m.text()));
-await page.goto(`http://localhost:${port}/src/film.html`);
+const FILM_PAGE = process.env.FILM || 'film';
+await page.goto(`http://localhost:${port}/src/${FILM_PAGE}.html`);
 await page.waitForFunction(() => window.FILM && window.FILM.ready, null, { timeout: 60000 });
 const frames = await page.evaluate(() => window.FILM.frames);
 
@@ -46,7 +47,7 @@ if (mode === 'safe') {
     await page.evaluate((f) => window.FILM.seek(f), f);
     const v = await page.evaluate(() => {
       const op = (e) => { let o = 1; for (; e && e.id !== 'stage'; e = e.parentElement) { const cs = getComputedStyle(e); if (cs.visibility === 'hidden') return 0; o *= +cs.opacity; } return o; };
-      return [...document.querySelectorAll('.hl .in, .kick, .note, .chip, #word, .tag, .cta, .disc')]
+      return [...document.querySelectorAll('.hl .in, .kick, .note, .chip, #word, .word, .tag, .cta, .disc, .badge, .mchip, .bigchip, .xchip')]
         .filter((e) => op(e) > 0.6)
         .map((e) => { const rg = document.createRange(); rg.selectNodeContents(e); const r = rg.getBoundingClientRect();
           // a line's mask (overflow: hidden) clips what is outside it
@@ -64,7 +65,7 @@ if (mode === 'safe') {
   for (const f of want) fs.writeFileSync(path.join(dir, `f${String(f).padStart(4, '0')}.png`), await shoot(f));
   console.log('stills', want.length);
 } else {
-  const out = path.join(ROOT, 'renders/master/picture.mov');
+  const out = path.join(ROOT, `renders/master/${FILM_PAGE === 'film' ? 'picture' : FILM_PAGE + '-picture'}.mov`);
   fs.mkdirSync(path.dirname(out), { recursive: true });
   const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', '30', '-c:v', 'png', '-i', '-',
     '-c:v', 'png', '-pix_fmt', 'rgb24', out], { stdio: ['pipe', 'inherit', 'inherit'] });

@@ -1,0 +1,96 @@
+{
+ "voice": "af_heart",
+ "note": "Narration is synthesized offline with Kokoro-82M (Apache-2.0). 'say' is what the model reads (phonetic respelling for the brand); 'text' is the line as written.",
+ "lines": [
+  {
+   "id": "v01",
+   "text": "Payday.",
+   "say": "Payday."
+  },
+  {
+   "id": "v02",
+   "text": "Eighty-five thousand rupees.",
+   "say": "Eighty-five thousand rupees."
+  },
+  {
+   "id": "v03",
+   "text": "Two weeks later… where did it all go?",
+   "say": "Two weeks later... where did it all go?"
+  },
+  {
+   "id": "v04",
+   "text": "Rent. Groceries. Rides. Subscriptions. That lunch.",
+   "say": "Rent. Groceries. Rides. Subscriptions. That lunch."
+  },
+  {
+   "id": "v05",
+   "text": "Bank texts. Screenshots. A spreadsheet you stopped opening.",
+   "say": "Bank texts. Screenshots. A spreadsheet you stopped opening."
+  },
+  {
+   "id": "v06",
+   "text": "Meet FinatriX.",
+   "say": "Meet Finna-trix."
+  },
+  {
+   "id": "v07",
+   "text": "Your whole month, on one screen.",
+   "say": "Your whole month, on one screen."
+  },
+  {
+   "id": "v08",
+   "text": "Log any spend in one line. It fills in the rest.",
+   "say": "Log any spend in one line. It fills in the rest."
+  },
+  {
+   "id": "v09",
+   "text": "See where the month is heading, before it costs you.",
+   "say": "See where the month is heading, before it costs you."
+  },
+  {
+   "id": "v10",
+   "text": "Build a budget that actually adds up.",
+   "say": "Build a budget that actually adds up."
+  },
+  {
+   "id": "v11",
+   "text": "Fifty. Thirty. Twenty.",
+   "say": "Fifty. Thirty. Twenty."
+  },
+  {
+   "id": "v12",
+   "text": "Turn any goal into a monthly plan.",
+   "say": "Turn any goal into a monthly plan."
+  },
+  {
+   "id": "v13",
+   "text": "Then see the long view, and where today's choices could lead.",
+   "say": "Then see the long view, and where today's choices could lead."
+  },
+  {
+   "id": "v14",
+   "text": "Track your net worth. Match a portfolio to your risk. Find a home for idle cash. And see how you compare.",
+   "say": "Track your net worth. Match a portfolio to your risk. Find a home for idle cash. And see how you compare."
+  },
+  {
+   "id": "v15",
+   "text": "Eight free money tools, for India, the US, the UK and the UAE.",
+   "say": "Eight free money tools, for India, the US, the UK, and the UAE."
+  },
+  {
+   "id": "v16",
+   "text": "No account needed to start.",
+   "say": "No account needed to start."
+  },
+  {
+   "id": "v17",
+   "text": "FinatriX. See where your money goes. Decide what comes next.",
+   "say": "Finna-trix. See where your money goes. Decide what comes next."
+  },
+  {
+   "id": "v18",
+   "text": "Coming soon to the App Store and Google Play.",
+   "say": "Coming soon to the App Store and Google Play."
+  }
+ ]
+}

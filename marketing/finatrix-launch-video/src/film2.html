@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>FinatriX launch film</title>
+<style>
+  @font-face { font-family: 'Geist'; src: url('../assets/Geist-Variable.woff2') format('woff2'); font-weight: 100 900; }
+  @font-face { font-family: 'Geist Mono'; src: url('../assets/GeistMono-Variable.woff2') format('woff2'); font-weight: 100 900; }
+  @font-face { font-family: 'Instrument Serif'; font-style: italic; src: url('../assets/InstrumentSerif-Italic.woff2') format('woff2'); }
+  :root {
+    --base: #060607; --s2: #121214; --ink: #F5F5F0; --ink2: #9c9c96; --ink3: #8b8b90; --gold: #D4AF37;
+    --gold-soft: #F0D779; --gold-deep: #9C7A26; --paper: #F5F5F0; --paper-ink: #0A0A0A;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; background: var(--base); overflow: hidden; }
+  #stage { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: var(--base);
+    font-family: 'Geist', system-ui, sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+  .abs { position: absolute; left: 0; top: 0; will-change: transform, opacity; }
+  .full { width: 1080px; height: 1920px; pointer-events: none; }
+  #paper { background: radial-gradient(90% 60% at 50% 40%, #FBFAF4, #EFEDE3 80%); }
+  #glow { background: radial-gradient(60% 38% at 50% 42%, rgba(212,175,55,.16), rgba(212,175,55,0) 70%); }
+  #grain { opacity: .035; mix-blend-mode: overlay; }
+  #vignette { background: radial-gradient(120% 80% at 50% 50%, rgba(0,0,0,0) 55%, rgba(0,0,0,.5) 100%); }
+  #flash { background: #FFF6D8; opacity: 0; }
+  #iris { background: var(--base); }
+
+  /* Type */
+  .hl { left: 90px; width: 900px; font-weight: 800; letter-spacing: -0.045em; line-height: .92; }
+  .hl .ln { display: block; overflow: hidden; padding: .02em 0 .1em; margin-bottom: -.12em; }
+  .hl .in { display: inline-block; white-space: nowrap; will-change: transform; }
+  .serif { font-family: 'Instrument Serif', serif; font-style: italic; font-weight: 400; letter-spacing: -0.01em; }
+  .gold { color: var(--gold); }
+  .gdeep { color: #A8841F; }
+  .kick { left: 90px; font-family: 'Geist Mono', monospace; font-size: 40px; letter-spacing: .12em; line-height: 1;
+    text-transform: uppercase; color: var(--gold); font-weight: 500; white-space: nowrap; }
+  .note { left: 90px; width: 900px; font-size: 32px; color: var(--ink3); font-weight: 450; white-space: nowrap; }
+  .chip { font-size: 42px; font-weight: 600; color: var(--gold); border: 2px solid rgba(212,175,55,.55); border-radius: 999px;
+    padding: 10px 26px 12px; white-space: nowrap; background: rgba(212,175,55,.08); letter-spacing: -.01em; }
+
+  /* Screens */
+  .device { border-radius: 66px; padding: 12px; background: linear-gradient(160deg, #1b1b1e, #0b0b0d 40%, #0e0e10);
+    box-shadow: 0 0 0 1.5px rgba(255,255,255,.10), 0 60px 120px -30px rgba(0,0,0,.9), 0 0 120px -40px rgba(212,175,55,.25);
+    transform-origin: 50% 50%; }
+  .device.browser { border-radius: 28px; padding: 0; background: #141416; overflow: hidden; }
+  .bar { height: 64px; display: flex; align-items: center; gap: 12px; padding: 0 22px; background: #1b1b1e;
+    border-bottom: 1px solid rgba(255,255,255,.07); }
+  .bar i { width: 16px; height: 16px; border-radius: 50%; background: #3a3a3e; display: block; }
+  .bar .url { margin-left: 18px; flex: 1; height: 38px; border-radius: 19px; background: #0f0f11; color: #9c9c96;
+    font: 500 22px 'Geist Mono', monospace; display: flex; align-items: center; justify-content: center; letter-spacing: .02em; }
+  .screen { position: relative; width: 100%; height: 100%; border-radius: 54px; overflow: hidden; background: #0A0A0A;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); isolation: isolate; }
+  .browser .screen { border-radius: 0; height: calc(100% - 64px); }
+  .screen img { position: absolute; left: 0; top: 0; transform-origin: 0 0; display: block; max-width: none; }
+  .focus { position: absolute; border: 4px solid var(--gold); pointer-events: none; }
+  .ripple { position: absolute; border-radius: 50%; background: radial-gradient(circle, rgba(245,245,240,.55), rgba(245,245,240,.15) 60%, rgba(245,245,240,0) 70%); }
+  .wipe { position: absolute; background: rgba(6,6,7,.72); }
+  .scan { position: absolute; width: 4px; background: linear-gradient(var(--gold-soft), var(--gold)); box-shadow: 0 0 24px 6px rgba(212,175,55,.55); }
+  .sheen { position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(115deg, rgba(255,255,255,0) 35%, rgba(255,255,255,.10) 48%, rgba(255,255,255,0) 60%); }
+
+  /* Act one: paper world */
+  .notif { width: 760px; padding: 30px 34px; border-radius: 34px; background: #fff; color: #0A0A0A;
+    box-shadow: 0 30px 70px -20px rgba(40,30,0,.35), 0 0 0 1px rgba(0,0,0,.05); display: flex; gap: 26px; align-items: center; }
+  .notif .ic { width: 84px; height: 84px; border-radius: 22px; background: linear-gradient(150deg, #F0D779, #C9A23C);
+    display: flex; align-items: center; justify-content: center; font: 800 46px 'Geist'; color: #0A0A0A; flex: none; }
+  .notif b { display: block; font: 700 40px 'Geist'; letter-spacing: -.02em; }
+  .notif span { display: block; font: 500 32px 'Geist'; color: #6b6b66; margin-top: 4px; }
+  .xchip { display: flex; align-items: center; gap: 18px; padding: 18px 30px 18px 22px; border-radius: 999px; background: #fff;
+    color: #0A0A0A; font: 650 40px 'Geist'; letter-spacing: -.02em; white-space: nowrap;
+    box-shadow: 0 18px 40px -16px rgba(40,30,0,.35), 0 0 0 1px rgba(0,0,0,.06); }
+  .xchip i { width: 26px; height: 26px; border-radius: 50%; display: block; flex: none; }
+  .xchip em { font-style: normal; color: #C2410C; font-weight: 750; }
+  .day { font: 600 40px 'Geist Mono'; letter-spacing: .14em; color: #6b6b66; }
+
+  /* Chaos */
+  .sms { width: 600px; padding: 26px 32px; border-radius: 32px 32px 32px 10px; background: #2a2a2e; color: #e8e8e3;
+    font: 500 34px 'Geist'; line-height: 1.3; box-shadow: 0 30px 60px -20px rgba(0,0,0,.8); }
+  .sms small { display: block; font: 500 24px 'Geist Mono'; color: #8b8b90; margin-bottom: 8px; letter-spacing: .06em; }
+  .shot { width: 300px; height: 560px; border-radius: 36px; background: #1d1d20; border: 8px solid #2c2c30; padding: 34px 26px;
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,.8); }
+  .shot b { display: block; font: 700 46px 'Geist'; color: #F5F5F0; margin: 26px 0 8px; }
+  .shot u { display: block; height: 18px; border-radius: 9px; background: #343438; margin-top: 18px; text-decoration: none; }
+  .sheet { width: 720px; border-radius: 22px; background: #fbfbf8; color: #222; overflow: hidden; box-shadow: 0 40px 80px -24px rgba(0,0,0,.85); }
+  .sheet .t { background: #1f7a45; color: #fff; font: 600 28px 'Geist Mono'; padding: 16px 24px; }
+  .sheet table { border-collapse: collapse; width: 100%; font: 500 30px 'Geist Mono'; }
+  .sheet td { border: 1px solid #d8d8d2; padding: 12px 16px; height: 62px; }
+  .sheet td:first-child { width: 70px; color: #999; text-align: center; background: #f0f0ea; }
+  .err { color: #c0392b; font-weight: 700; }
+
+  /* Blocks, logo, badges */
+  .blk { border-radius: 40px; background: #121214; box-shadow: inset 0 0 0 2px rgba(255,255,255,.12);
+    display: flex; align-items: center; justify-content: center; font-weight: 800; letter-spacing: -.05em; line-height: 1; }
+  .slash { width: 6px; height: 220px; border-radius: 3px; background: var(--gold); box-shadow: 0 0 24px rgba(212,175,55,.5); }
+  .bigchip { padding: 22px 38px; border-radius: 999px; background: #17171a; border: 2px solid rgba(212,175,55,.6); color: #F5F5F0;
+    font: 650 58px 'Geist'; letter-spacing: -.02em; white-space: nowrap; box-shadow: 0 30px 60px -20px rgba(0,0,0,.9), 0 0 50px -10px rgba(212,175,55,.35); }
+  .tile { position: absolute; left: 0; top: 0; overflow: hidden; will-change: transform; }
+  .tile img { position: absolute; display: block; }
+  #logoBg { border-radius: 24%; background: #282827; box-shadow: 0 40px 90px -20px rgba(0,0,0,.9), 0 0 0 1.5px rgba(255,255,255,.08); }
+  .word { font-weight: 600; letter-spacing: -.025em; white-space: nowrap; line-height: 1; }
+  .tag { font-size: 64px; font-weight: 650; letter-spacing: -.03em; line-height: 1.1; text-align: center; width: 1080px; left: 0; white-space: nowrap; }
+  .badge { height: 132px; padding: 0 40px 0 30px; border-radius: 28px; background: #000; border: 2px solid #8b8b90;
+    display: flex; align-items: center; gap: 22px; color: #fff; white-space: nowrap; }
+  .badge svg { width: 70px; height: 70px; fill: #fff; flex: none; }
+  .badge small { display: block; font: 500 25px 'Geist'; letter-spacing: .01em; color: #d8d8d2; }
+  .badge b { display: block; font: 650 50px 'Geist'; letter-spacing: -.02em; line-height: 1.02; }
+  .disc { font-size: 32px; color: var(--ink3); text-align: center; width: 1080px; left: 0; white-space: nowrap; }
+  .mchip { padding: 16px 34px; border-radius: 999px; background: rgba(212,175,55,.1); border: 2px solid rgba(212,175,55,.55);
+    color: #F5F5F0; font: 650 50px 'Geist'; letter-spacing: -.02em; white-space: nowrap; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #F0D779; box-shadow: 0 0 14px 3px rgba(240,215,121,.7); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <filter id="mbx" x="-20%" y="-5%" width="140%" height="110%"><feGaussianBlur id="mbxv" stdDeviation="0 0"/></filter>
+  </defs>
+</svg>
+<div id="stage"></div>
+<script type="module" src="./film2.js"></script>
+</body>
+</html>

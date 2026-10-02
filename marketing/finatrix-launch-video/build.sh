@@ -1,37 +1,49 @@
 #!/usr/bin/env bash
 # Builds the delivery files from the editable source.
-#   1. capture/  — plates already in assets/plates (re-run capture/0*.mjs to refresh)
-#   2. audio     — node audio/synth.mjs           → audio/mix.wav
-#   3. picture   — node render.mjs video          → renders/master/picture.mov (lossless)
-#   4. this      — master audio, encode, mux      → renders/finatrix-launch-vertical.mp4
+#   ./build.sh            → the 56.6 s launch film (src/film2.*, audio/synth2.mjs, vo/)
+#   ./build.sh teaser     → the 16 s teaser       (src/film.*,  audio/synth.mjs)
+# Steps: render the picture (lossless MOV) → synthesize and mix the audio →
+# master to -14 LUFS / <= -1 dBTP → encode H.264 High + AAC with fast-start.
+# SKIP_PICTURE=1 reuses an existing picture master.
 set -euo pipefail
 cd "$(dirname "$0")"
+CUT="${1:-launch}"
 
-[[ "${SKIP_PICTURE:-0}" == 1 ]] || node render.mjs video
-node audio/synth.mjs
+if [[ "$CUT" == teaser ]]; then
+  FILM=film; PIC=renders/master/picture.mov; SYNTH=audio/synth.mjs; MIX=audio/mix.wav
+  OUT=renders/finatrix-teaser-16s.mp4; POSTER=renders/finatrix-teaser-poster.png; POSTER_FRAME=70
+  TITLE="FinatriX — teaser"
+else
+  FILM=film2; PIC=renders/master/film2-picture.mov; SYNTH=audio/synth2.mjs; MIX=audio/mix2.wav
+  OUT=renders/finatrix-launch-vertical.mp4; POSTER=renders/finatrix-launch-poster.png; POSTER_FRAME=470
+  TITLE="FinatriX — launch film"
+  # The narration lines are resampled from Kokoro's 24 kHz to the mix rate.
+  mkdir -p vo/48k
+  for f in vo/lines/*.wav; do
+    ffmpeg -hide_banner -loglevel error -y -i "$f" -af "aresample=48000:resampler=soxr" -c:a pcm_f32le "vo/48k/$(basename "$f")"
+  done
+fi
 
-# Audio master: -14 LUFS integrated, true peak <= -1 dBTP. A limiter tames the
-# transients first so the two-pass loudnorm can stay in linear mode.
+[[ "${SKIP_PICTURE:-0}" == 1 ]] || FILM=$FILM node render.mjs video
+node "$SYNTH"
+
+# Audio master: a limiter tames transients so two-pass loudnorm can stay linear.
 PRE="volume=3dB,alimiter=limit=0.70:attack=2:release=60:level=false"
-MEAS=$(ffmpeg -hide_banner -nostats -i audio/mix.wav -af "$PRE,loudnorm=I=-14:TP=-1.5:LRA=7:print_format=json" -f null - 2>&1 | sed -n '/^{/,/^}/p')
+MEAS=$(ffmpeg -hide_banner -nostats -i "$MIX" -af "$PRE,loudnorm=I=-14:TP=-1.5:LRA=11:print_format=json" -f null - 2>&1 | sed -n '/^{/,/^}/p')
 val() { echo "$MEAS" | grep "\"$1\"" | sed -E 's/.*: "([^"]+)".*/\1/'; }
-ffmpeg -hide_banner -loglevel error -y -i audio/mix.wav -af "$PRE,loudnorm=I=-14:TP=-1.5:LRA=7:linear=true:\
+MASTER="renders/master/${FILM}-audio-master.wav"
+ffmpeg -hide_banner -loglevel error -y -i "$MIX" -af "$PRE,loudnorm=I=-14:TP=-1.5:LRA=11:linear=true:\
 measured_I=$(val input_i):measured_TP=$(val input_tp):measured_LRA=$(val input_lra):measured_thresh=$(val input_thresh):offset=$(val target_offset),\
-aresample=48000" -c:a pcm_s24le renders/master/audio-master.wav
+aresample=48000" -c:a pcm_s24le "$MASTER"
 
-# Picture + sound: H.264 High, 1080x1920, 30p, yuv420p (BT.709), ~18 Mb/s,
-# AAC-LC stereo 48 kHz, fast-start for web delivery.
 ffmpeg -hide_banner -loglevel error -y \
-  -i renders/master/picture.mov -i renders/master/audio-master.wav \
-  -map 0:v -map 1:a \
+  -i "$PIC" -i "$MASTER" -map 0:v -map 1:a \
   -vf "scale=in_range=full:out_range=tv:out_color_matrix=bt709,format=yuv420p" \
   -c:v libx264 -preset slow -profile:v high -level:v 4.2 -pix_fmt yuv420p \
   -b:v 18M -maxrate 24M -bufsize 36M -g 30 -bf 2 -x264-params "aq-mode=3" \
   -color_primaries bt709 -color_trc bt709 -colorspace bt709 -color_range tv \
   -r 30 -c:a aac -b:a 320k -ar 48000 -ac 2 \
-  -movflags +faststart -metadata title="FinatriX — launch film" -shortest \
-  renders/finatrix-launch-vertical.mp4
+  -movflags +faststart -metadata title="$TITLE" -shortest "$OUT"
 
-# Poster: the first fully settled product frame (SEE THE MONTH, frame 70).
-ffmpeg -hide_banner -loglevel error -y -i renders/master/picture.mov -vf "select=eq(n\,70)" -frames:v 1 renders/finatrix-launch-poster.png
-echo "built renders/finatrix-launch-vertical.mp4"
+ffmpeg -hide_banner -loglevel error -y -i "$PIC" -vf "select=eq(n\,$POSTER_FRAME)" -frames:v 1 "$POSTER"
+echo "built $OUT"
