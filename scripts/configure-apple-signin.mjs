@@ -22,6 +22,12 @@
  * created once and never replaced here: a new one would make every stored token
  * undecryptable, and those accounts' deletions could no longer revoke them.
  *
+ * There is no way to check the key itself before someone signs in: Apple only
+ * authenticates the client secret once it holds a real code or token (a
+ * made-up one gets `invalid_grant`, and a revoke `200`, whatever the key). The
+ * first real Apple sign-in is the test — and `apple-token` storing that
+ * person's token is the proof that the edge functions' copy works too.
+ *
  * Nothing secret is printed, written to disk or passed on a command line (where
  * `ps` would show it). Authentication is the Supabase CLI's own login (or
  * SUPABASE_ACCESS_TOKEN), because provider settings are not reachable through
@@ -120,7 +126,9 @@ function clientSecret({ key, keyId, team, servicesId, now = Math.floor(Date.now(
 
 /** Only the non-secret claims of a stored client secret, for --check. */
 function describeSecret(jwt) {
-  if (typeof jwt !== 'string' || jwt.split('.').length !== 3) return jwt ? 'set (not a JWT)' : 'NOT SET';
+  // The Management API masks stored secrets, so usually all that can be said is
+  // that one is set; its expiry is the date printed when it was last signed.
+  if (typeof jwt !== 'string' || jwt.split('.').length !== 3) return jwt ? 'set (masked by the API)' : 'NOT SET';
   try {
     const { iss, sub, exp } = JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString('utf8'));
     const days = Math.floor((exp * 1000 - Date.now()) / 86_400_000);
