@@ -27,6 +27,8 @@
  *   • every edge function accepts CORS preflight from THIS origin
  *   • the deployed JS bundle was built with real Supabase credentials, not the
  *     placeholder client that silently disables sign-in, sync and analytics
+ *   • the deployed entry chunk matches the current local `dist/` build, so a
+ *     Worker config deploy cannot leave an older website bundle behind
  *
  * The last two exist because the first migration to finatrix.co passed every
  * other check on this list while login was completely broken. Two pieces of
@@ -500,6 +502,37 @@ async function checkFrontendConfigured() {
   record('frontend Supabase config', true, `${entry} was built with real credentials`);
 }
 
+// ── the deployed website uses this build, not an older dist/ ──────────────
+async function checkFrontendReleaseParity() {
+  const localPath = join(ROOT, 'dist/index.html');
+  if (!existsSync(localPath)) {
+    record('frontend release parity', null, 'skipped — run npm run build first');
+    return;
+  }
+
+  const localHtml = readFileSync(localPath, 'utf8');
+  const localEntry = /<script[^>]+src="([^"]*\/assets\/index-[^"]+\.js)"/.exec(localHtml)?.[1];
+  if (!localEntry) {
+    record('frontend release parity', false, 'local dist/index.html has no entry chunk');
+    return;
+  }
+
+  const live = await req(`${ORIGIN}/`, { redirect: 'follow' });
+  if (!live || live.status !== 200) {
+    record('frontend release parity', false, `homepage HTTP ${live?.status ?? 'unreachable'}`);
+    return;
+  }
+  const liveHtml = await live.text();
+  const liveEntry = /<script[^>]+src="([^"]*\/assets\/index-[^"]+\.js)"/.exec(liveHtml)?.[1];
+  const localCompat = /<script[^>]+src="\/compat\.js"/.test(localHtml);
+  const liveCompat = /<script[^>]+src="\/compat\.js"/.test(liveHtml);
+  const matched = liveEntry === localEntry && liveCompat === localCompat;
+  record('frontend release parity', matched,
+    matched
+      ? `${liveEntry} and compat.js=${liveCompat} match dist/`
+      : `live ${liveEntry ?? 'missing entry'}, compat.js=${liveCompat}; local ${localEntry}, compat.js=${localCompat}`);
+}
+
 // ── run ────────────────────────────────────────────────────────────────────
 console.log(`\nFinatriX production verification — ${ORIGIN}\n`);
 
@@ -567,18 +600,23 @@ await checkIcons();
 await checkAuthRedirect();
 await checkEdgeCors();
 await checkFrontendConfigured();
+await checkFrontendReleaseParity();
 
 let failed = 0;
+let skipped = 0;
 for (const r of results) {
   // `null` means the check could not run (missing credentials) — reported as
   // skipped, never counted as a pass, so a silent gap is always visible.
   const mark = r.ok === null ? '  –' : r.ok ? '  ✓' : '  ✗';
   console.log(`${mark} ${r.name}: ${r.detail}`);
   if (r.ok === false) failed++;
+  if (r.ok === null) skipped++;
 }
 console.log('');
 if (failed) {
   console.error(`${failed} check(s) FAILED — ${ORIGIN} is not serving what this repository specifies.\n`);
   process.exit(1);
 }
-console.log(`${ORIGIN} matches this repository.\n`);
+console.log(skipped
+  ? `${ORIGIN}: completed checks passed; ${skipped} check(s) skipped.\n`
+  : `${ORIGIN} matches this repository's build and configuration.\n`);
