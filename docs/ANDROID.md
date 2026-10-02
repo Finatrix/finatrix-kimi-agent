@@ -239,23 +239,25 @@ no banking services.
 | Personal info → Email address | Yes (account) | No | Yes | Account management |
 | Personal info → User IDs (the account ID every signed-in account has) | Yes (account) | No | Yes | Account management, App functionality |
 | Personal info → Name (display name) | Yes (if entered) | No | Yes | Account management |
-| Financial info → Other financial info (budgets, expenses, goals you enter) | Yes, **only when signed in** (cloud sync) | No | Yes | App functionality |
-| App activity → Other user-generated content (FinatriX AI questions) | Yes, when AI is used | No* | Yes | App functionality |
-| Financial info → Purchase history (merchant descriptions from a statement import, sent for AI categorisation) | Yes, only signed in **and** after the user allows AI | No* | Yes | App functionality |
+| Financial info → Other financial info (budgets, expenses, goals you enter) | Yes, **only when signed in** (cloud sync) | Yes, relevant context after optional AI consent | Yes | App functionality |
+| App activity → Other user-generated content (FinatriX AI questions) | Yes, when AI is used | Yes, after optional AI consent | Yes | App functionality |
+| Financial info → Purchase history (expense/merchant records) | Yes, **only when signed in** (cloud sync) | Yes, relevant statement descriptions after optional AI consent | Yes | App functionality |
 | App activity → App interactions | Yes (cookieless, per-visit, opt-out in Settings) | No | Yes | Analytics |
 | App info & performance → Crash logs, Diagnostics | Yes | No | Yes | Analytics |
 
-\* Sent to service providers (Supabase, OpenRouter and its model provider) that
-process it on FinatriX's behalf — Play does not count processing by a service
-provider as "sharing". Nothing goes to the AI provider until the user taps
-"Allow" on an in-app consent prompt (`src/lib/ai/consent.ts`, enforced in the
-transport); it can be withdrawn in Settings → Privacy.
+The Play Console declaration conservatively includes sharing for optional AI
+requests. Nothing goes to the AI provider until the user taps "Allow" on an
+in-app consent prompt (`src/lib/ai/consent.ts`, enforced in the transport); it
+can be withdrawn in Settings → Privacy. Supabase cloud sync applies only to
+signed-in accounts. The exact completed Play answers and review state are in
+[PLAY_CONSOLE_RELEASE_2026-10-02.md](PLAY_CONSOLE_RELEASE_2026-10-02.md).
 
 - Data is encrypted in transit: **Yes** (HTTPS only; cleartext disabled).
 - Users can request deletion: **Yes** — in-app (Profile → Delete account) and
   at `https://finatrix.co/privacy#delete-account` (**enter this as the account
   deletion URL**).
-- Guest data never leaves the device.
+- Guest financial records stay on the device; separate anonymous diagnostics
+  and usage events may still be transmitted under the app's privacy settings.
 
 **Payments:** The app sells nothing. Careers Pro is sold only on the website;
 the app neither shows prices nor links to the checkout (Payments policy /

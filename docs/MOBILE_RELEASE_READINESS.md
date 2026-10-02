@@ -1,9 +1,10 @@
 # FinatriX mobile release readiness — source of truth
 
 **Last updated: 2026-10-02.** Everything below was verified against the
-repository, signed builds, the live backend and emulator/Simulator runs on
-2026-10-01/02. Anything that could not be verified says **UNKNOWN** or
-**USER ACTION**; nothing is marked PASS on a claim alone.
+repository, signed builds, the live backend, store consoles and
+emulator/Simulator runs on 2026-10-01/02. The live Play findings are recorded
+in [PLAY_CONSOLE_RELEASE_2026-10-02.md](PLAY_CONSOLE_RELEASE_2026-10-02.md).
+Anything that could not be verified says **UNKNOWN** or **USER ACTION**.
 
 Runbooks: [ANDROID.md](ANDROID.md), [IOS.md](IOS.md),
 [APP_STORE_SUBMISSION.md](APP_STORE_SUBMISSION.md). This file records the
@@ -16,22 +17,22 @@ verified state, the blockers and what only the account owner can do.
 | | Android | iOS |
 |---|---|---|
 | Technical readiness | **92%** | **68%** |
-| Submission-package readiness | **80%** | **35%** |
+| Submission-package readiness | **85%** | **35%** |
 | Verdict | **READY FOR CLOSED TEST** | **NOT READY** |
 | P0 technical blockers | 0 | 3 (Apple sign-in, signing/archive, physical-device test) |
-| P1 technical blockers | 0 | 1 (Universal Links need the Team ID) |
+| P1 technical blockers | 0 | 1 (Universal Links need a signed-device test) |
 
 Store waiting periods are kept out of these numbers on purpose: Google's
 12-testers × 14-days gate decides *when* Android can go public, not whether
 the binary is ready.
 
 **Why Android is not 100% technical:** a real successful Google sign-in under
-PKCE and account deletion end-to-end have not been run (both need the owner's
-own accounts), and old Android versions have only been exercised with their
-factory WebViews. **Why iOS is not higher:** the only Apple team on this Mac
-is a free Personal Team — no Sign in with Apple, Associated Domains, signing
-for distribution or TestFlight until the paid membership (purchased, awaiting
-enrolment) is active.
+PKCE and account deletion end-to-end have not been run (both need disposable
+accounts), and old Android versions have only been exercised with their
+factory WebViews. **Why iOS is not higher:** paid membership and Team ID are
+now active, but the Apple provider, distribution signing/archive and physical
+TestFlight check are not complete. App Store Connect requires the owner to
+accept its legal Terms of Service before its app record can be edited.
 
 ## 2. Release candidate (frozen)
 
@@ -45,7 +46,7 @@ enrolment) is active.
 | Signing | upload key `CN=FinatriX`, SHA-256 `FC:B1:BA:96…5F:4C` (Play App Signing re-signs with `B6:E9:AD:C3…EF:FB`) |
 | iOS build | Release for Simulator only (unsigned); no archive possible yet |
 | Backend (live) | `account-delete` v4, `apple-token` v1, `careers-ai` v40, `analytics-collect` v25, `careers-jobs` v45, `careers-email` v25, `careers-billing-checkout` v13, `careers-billing-webhook` v11; migration `20261001000100_apple_auth_tokens` applied |
-| Worker / website (live) | `finatrix-co` version `b3436291-b6a4-45a0-9771-4ec6dd49b6e7` = commit `9201151`. **Not** yet the compatibility work in `1873172` (the apps bundle their own copy; deploying it to the website is READY FOR OWNER APPROVAL) |
+| Worker / website (live) | `finatrix-co` version `17fbc3b0-dd0e-4ad7-bbbe-67d25ffc5224` serves the correct `AY79GYWLDP` Apple association file on both hosts. Its website entry chunk remains `index-CThzuTL8.js` while the current build is `index-AZiXigRU.js`, so website compatibility changes are **not yet deployed**. The apps bundle their own copy. |
 | AI routing secret | `CAREERS_AI_DATA_COLLECTION=allow` was set by the owner on 2026-10-01 10:58 UTC, so `careers-ai` currently routes **without** the `data_collection: deny` restriction. To restore it: `npx supabase secrets unset CAREERS_AI_DATA_COLLECTION --project-ref uspbsgbggurggsfsontq` |
 
 ## 3. What changed since the 2026-10-01 audit
@@ -88,14 +89,14 @@ enrolment) is active.
 ### Android (emulators: API 36 / WebView 133; API 30 / 91; API 28 / 66; API 24 / 53)
 | Area | Result |
 |---|---|
-| Release build (code 4) | PASS — target 36, not debuggable, cleartext off, R8 (single dex), no native libs; permissions INTERNET, VIBRATE, signature-level AndroidX receiver |
+| Release build (code 4) | PASS — target 36, not debuggable, cleartext off, R8 (single dex), no native libs; permissions INTERNET, VIBRATE, signature-level AndroidX receiver; APK signature and AAB JAR signature verified |
 | App Links | PASS — `pm get-app-links` verified for both hosts on a fresh release install (code 3; manifest unchanged since) |
 | Cold deep link | PASS — `/tools/goals` in 544 ms |
 | PKCE | PASS except a real successful Google sign-in (**USER ACTION**) |
 | Back, offline cold start (704 ms), process death | PASS |
 | Export (Save picker) / CSV import / OCR import | PASS (API 36) |
 | TalkBack | PASS after the dialog fix — 0 unnamed controls on 9 screens; the deletion screen needs a signed-in account (**USER ACTION**) |
-| Compatibility | API 36 full; API 30 with factory WebView 91 renders every screen; API 28 and 24 show the update prompt. Old Android **with an updated WebView**: Play pre-launch report or a physical device (**USER ACTION**) |
+| Compatibility | Exact code 4 signed APK on API 36 / WebView 133 and API 30 / WebView 91 renders the dashboard and main tools; verified App Link to Net Worth on API 36, no logged JS errors. API 28 and 24 show the update prompt. Old Android **with an updated WebView**: Play pre-launch report or a physical device (**USER ACTION**) |
 | Account deletion end-to-end | **USER ACTION** (needs a disposable account) |
 
 ### iOS (Simulator iPhone 17 Pro Max, iOS 26.5)
@@ -104,9 +105,9 @@ enrolment) is active.
 | Simulator Release build | PASS |
 | Launch / safe areas | PASS — clear of the Dynamic Island and home indicator |
 | Sign-in screen | PASS — email only until Apple is configured; no orphan divider; callback errors shown |
-| Archive / signing / TestFlight | BLOCKED — paid team pending |
-| Universal Links | Endpoint ready on both hosts (plain-text 404 by design until `APPLE_APP_ID_PREFIX` is set); a dummy Team ID served correct JSON on both hosts in a local Worker |
-| Apple sign-in / revocation | BLOCKED — needs the paid team, Services ID and `.p8` |
+| Archive / signing / TestFlight | Paid team `AY79GYWLDP` active; Xcode has a one-year development profile with Associated Domains and Sign in with Apple, but a distribution archive and TestFlight upload are **not yet verified** |
+| Universal Links | Both hosts serve HTTP 200 JSON without redirect and with `AY79GYWLDP.co.finatrix.app`; `verify:native` passes 18/18. Installation-time device handoff still untested |
+| Apple sign-in / revocation | BLOCKED — Services ID, `.p8`, Supabase Apple provider and edge secrets still missing; `node scripts/configure-apple-signin.mjs --check` confirms the backend is unconfigured |
 | Camera OCR, VoiceOver, physical device | Not done (Simulator has no camera; physical device after TestFlight) |
 | Screenshots | 6 ready (see §3); retake from the final signed build if any screen changes |
 
@@ -117,24 +118,24 @@ enrolment) is active.
 | Playwright full run (at `cb224af`) | 1,292 / 1,295 in 9.3 min — the 3 failures (palette focus return) were a real regression, fixed in `9201151`; that spec then 12/12 on all engines. **No WebKit page-load timeouts** — the earlier flake did not reproduce at 3 workers, which points at host load rather than the app |
 | Targeted e2e after the compatibility work | 33 / 33 (compatibility-import, dialog-inert, command-palette, ios-webkit) |
 | `npm run lint` / `audit:prod` | clean / clean (xlsx accepted, write-only tripwire) |
-| `npm run verify:native` | 16 / 18 — only the two iOS association checks (Team ID) |
+| `npm run verify:native` | **18 / 18** — including the real paid Team ID on both AASA hosts; signed-device Universal Links still require testing |
 | `npm run verify:production` / `verify:deploy` | green / green |
 
 ## 6. Blockers
 
 ### P0
 **iOS**
-1. Sign in with Apple not configured (paid team, Services ID, `.p8`, Supabase provider, `VITE_AUTH_APPLE=1`).
-2. No signed Release archive / TestFlight build (paid team).
+1. Sign in with Apple not configured (Services ID, `.p8`, Supabase provider, `VITE_AUTH_APPLE=1`).
+2. No signed distribution archive / TestFlight build.
 3. No physical-iPhone smoke test (after TestFlight).
 
 **Android** — none.
 
 ### P1
-- iOS Universal Links: set `APPLE_APP_ID_PREFIX` in `wrangler.jsonc` and deploy the Worker once the Team ID exists.
+- iOS Universal Links: endpoint and Team ID are configured; install and open links on a signed device/TestFlight build.
 
 ### P2
-- Website still on `9201151`; deploy `1873172` so finatrix.co gets the same compatibility work as the apps (READY FOR OWNER APPROVAL).
+- Website entry chunk still differs from the current build; deploy the compatible bundle so finatrix.co matches the apps.
 - `careers-ai` deny routing is switched off by the owner's secret — decide after one signed-in AI test.
 - Capacitor logs "Error injecting safe area CSS" once on API 30 (its own timing; nothing visible).
 - A leftover Simulator app `co.finatrix.exportaudit` also claims `co.finatrix.app://` on some simulators — delete it before any iOS OAuth testing.
@@ -142,19 +143,19 @@ enrolment) is active.
 
 ## 7. Owner actions, in order
 
-1. **Apple** (when enrolment completes): Xcode → Settings → Accounts → add the paid team and send the **Team ID**. Create the Services ID (e.g. `co.finatrix.signin`, return URL `https://uspbsgbggurggsfsontq.supabase.co/auth/v1/callback`) and a Sign in with Apple key (`.p8` + Key ID). Enable the Apple provider in Supabase. Set edge secrets `APPLE_SIWA_TEAM_ID`, `APPLE_SIWA_KEY_ID`, `APPLE_SIWA_CLIENT_ID`, `APPLE_SIWA_PRIVATE_KEY`, `APPLE_TOKEN_ENC_KEY` (generate with `openssl rand -base64 32`). Never paste the `.p8` into chat, the repo or docs.
+1. **Apple**: accept the App Store Connect Terms of Service in the signed-in browser. The paid membership and Team ID are already active. Then create/verify the Services ID `co.finatrix.signin` (return URL `https://uspbsgbggurggsfsontq.supabase.co/auth/v1/callback`) and a Sign in with Apple key (`.p8` + Key ID). `scripts/configure-apple-signin.mjs` configures Supabase and edge secrets without copying the key into the repo or chat; its `--check` mode currently reports the provider and all five edge secrets missing.
 2. **AI**: sign in and ask FinatriX AI one question; then keep or `unset` `CAREERS_AI_DATA_COLLECTION` (§2).
 3. **Deletion end-to-end** on Android (and later iOS): create a throwaway account, add a budget, expenses and a résumé if offered, delete it from Profile, and confirm sign-in no longer works. Tell me when, and I will verify the rows and storage are gone.
-4. **Play Console**: confirm the account type, tester count and each tester's opt-in date; upload `finatrix-1.0.0-code4.aab` to the closed track (11 MB — upload by hand); update Data Safety from ANDROID.md §9 (adds User IDs and Purchase history); review the pre-launch report for older Android versions.
+4. **Play Console**: upload `finatrix-1.0.0-code4.aab` to the saved closed Alpha release draft and check its parsed versionCode 4, signing and pre-launch report. The browser automation's file chooser returned "Not allowed"; it did not transfer the file. The updated Data safety and listing are in review. The corrected Goal-plan screenshot is ready locally but its upload was blocked by the same chooser (see the Play console status document).
 5. **Legal review** of the investment wording and of the developer-account type (Apple 5.1.1(ix) for finance apps).
 
 ## 8. Store gates
 
 | Gate | Status |
 |---|---|
-| Google 12 testers × 14 days | UNKNOWN — owner to confirm in Play Console |
+| Google 12 testers × 14 days | **12 testers, 1 continuous day** on 2 Oct in the production-access panel; roughly 13 days remain if opt-ins persist |
 | Google production access application | Not yet — answer template in ANDROID.md §11 (fill with real tester evidence only) |
-| Apple developer enrolment | Purchased, awaiting confirmation |
+| Apple developer enrolment | **ACTIVE** — Individual Apple Developer Program, Team ID `AY79GYWLDP`, renewal 2 Oct 2027 |
 | Apple App Review | NOT YET SUBMITTED |
 
 ## 9. Deployment log
@@ -174,21 +175,22 @@ beacon and Bot Management script at the edge and the site CSP blocks both
 ## 10. Reviewer-mode simulation (2026-10-02)
 
 **Apple.** 2.1 completeness: no placeholder Careers; guest mode works fully; a
-demo account is still to be created (owner). 2.3 metadata: APP_STORE_SUBMISSION.md;
-the screenshots are the real app. 3.1 payments: nothing sold; pricing routes
-redirect. 4.2 minimum functionality: offline tools, on-device OCR, native back,
-links and haptics — residual risk for any WebView app. 4.8 login: compliant at
-every stage. 5.1 privacy: answers corrected (User ID, Purchase History, §8 of
-APP_STORE_SUBMISSION.md). 5.1.1(v): in-app deletion and Apple revocation built;
-must be tested with a real Apple account before submission. 5.1.2(i) AI:
-explicit consent naming the recipient. Finance: educational disclaimer and
-non-prescriptive wording; legal review pending. **Would reject today for the
-missing Apple sign-in and the absence of any build.**
+demo account is still to be created. 2.3 metadata: APP_STORE_SUBMISSION.md;
+the screenshots are the real Simulator app. 3.1 payments: nothing sold; pricing
+routes redirect. 4.2 minimum functionality: offline tools, on-device OCR,
+native back, links and haptics — residual risk for any WebView app. 4.8 login:
+Google remains gated on iOS until Apple works. 5.1 privacy: answers corrected
+(User ID, Purchase History, §8 of APP_STORE_SUBMISSION.md). 5.1.1(v): in-app
+deletion and Apple revocation built; a real Apple account test is still needed.
+5.1.2(i) AI: explicit consent naming the recipient. Finance: educational
+disclaimer and non-prescriptive wording; legal review pending. **Would reject
+today for missing Apple sign-in, distribution build and reviewer access.**
 
-**Google.** Data Safety: add User IDs and Purchase history before the next
-release. Deletion: in-app and web URL. Payments: none. Target API 36.
-Permissions minimal. Financial features: budgeting and education only. App
-access: guest mode. Content rating: answer the AI question "Yes". Misleading
-claims: none found. Testing eligibility: UNKNOWN. **Would hold today on the
-stale Data Safety form and the listing's old Goal-plan screenshot until the
-new one is uploaded.**
+**Google.** Data safety now includes User IDs, purchase history and AI sharing;
+the corrected declaration is in review. Deletion: in-app and web URL.
+Payments: none. Target API 36. Permissions minimal. Financial features:
+educational budgeting and tracking declared. App access: guest mode. The
+updated listing removes the outdated Goal-plan image, with five remaining
+screenshots in review. Production access: 12 testers, 1/14 days. **Would hold
+today because the versionCode 4 AAB is not yet uploaded and the testing gate
+is incomplete.**
