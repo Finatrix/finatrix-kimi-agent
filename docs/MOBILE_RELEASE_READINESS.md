@@ -1,6 +1,6 @@
 # FinatriX mobile release readiness — source of truth
 
-**Last updated: 2026-10-03 (00:30 AEST).** Everything below was verified against the
+**Last updated: 2026-10-03 (04:30 AEST).** Everything below was verified against the
 repository, signed builds, the live backend, store consoles and
 emulator/Simulator runs on 2026-10-01/02. The live Play findings are recorded
 in [PLAY_CONSOLE_RELEASE_2026-10-02.md](PLAY_CONSOLE_RELEASE_2026-10-02.md).
@@ -156,8 +156,24 @@ production application so the reviewed build carries the mandatory UX.
 ### P2
 - `careers-ai` routes with `data_collection: allow` — recommendation to restore
   `deny` in [AI_PRIVACY_AUDIT.md](AI_PRIVACY_AUDIT.md).
-- `careers-ai/index.ts` contains literal NUL bytes, so git treats it as binary
-  (diffs invisible) — fix with the next backend deploy.
+- `careers-ai/index.ts` NUL bytes — **fixed in the repo, not deployed.** The two
+  literal NULs in the `promptHash` template are now `\u0000` escapes, so git
+  diffs the file as text again. The runtime string is unchanged: Deno ran the
+  old and new `promptHash` source on 5 samples and got identical SHA-256s, which
+  also matched an independent Python hash, so every `ai_response_cache` key
+  stays the same. `src/test/no-nul-bytes.test.ts` now fails on any raw NUL in
+  `src`, `supabase`, `worker` or `scripts`. Deployed `careers-ai` v42 is
+  byte-identical to the pre-fix file (downloaded 2026-10-03), so the repo is
+  out of parity with production until it is redeployed (§7 item 8). That
+  redeploy ships this change and nothing else.
+- `deploy.yml` ("Deploy authenticated edge functions") deploys `careers-ai`,
+  `careers-jobs` and `careers-email` without `--no-verify-jwt`. All three run
+  live with `verify_jwt: false` and check the caller themselves (`auth.getUser`).
+  The workflow runs on every push to `main` and holds `SUPABASE_ACCESS_TOKEN`,
+  so the next merge flips them to `true`. The `account-delete` comment in the
+  same file says the gateway's legacy check can falsely 401 this project's
+  ES256 sessions. That was not tested for these three. Decide before the next
+  merge to `main`.
 - No Play pre-launch report has ever been generated (codes 1 and 5); the console
   shows "Upload artifacts to generate pre-launch reports". Re-check after code 6.
 - About 20 money fields still use `type="number"` with string state (Goal
@@ -199,9 +215,17 @@ production application so the reviewed build carries the mandatory UX.
 7. **Web deploy (go-ahead needed)** — the new UX is built from `c662ec5`;
    `npm run build && npx wrangler deploy && npm run verify:production`.
    Rollback: `npx wrangler rollback 499018e0-38f4-4ab7-9bce-ae5abef79c67`.
-8. **Legal review** — [LEGAL_REVIEW_PACKAGE.md](LEGAL_REVIEW_PACKAGE.md),
+8. **`careers-ai` redeploy (go-ahead needed)** — brings production back into
+   parity with the repo after the NUL-byte fix (§6 P2). Cache keys and behaviour
+   are unchanged. Keep the live `verify_jwt: false`:
+   `npx supabase functions deploy careers-ai --no-verify-jwt --project-ref uspbsgbggurggsfsontq`.
+   Without the flag the CLI default is `true` (there is no `supabase/config.toml`).
+   Then check: `npx supabase functions list` shows v43 with `verify_jwt: false`,
+   an `OPTIONS` preflight from `https://finatrix.co` succeeds, a `POST` without a
+   session returns 401, and one signed-in AI question gets an answer.
+9. **Legal review** — [LEGAL_REVIEW_PACKAGE.md](LEGAL_REVIEW_PACKAGE.md),
    including the Individual-account question under Guideline 5.1.1(ix).
-9. **iOS minimum version** — keep 15.4 (test on an iOS 15 device) or raise it
+10. **iOS minimum version** — keep 15.4 (test on an iOS 15 device) or raise it
    (§11).
 
 ## 8. Store gates

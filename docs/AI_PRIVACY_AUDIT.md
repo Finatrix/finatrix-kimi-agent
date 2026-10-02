@@ -116,3 +116,22 @@ prompt-hash template string), so git treats this security-relevant file as
 skips it. Replace them with the `\u0000` escape (same runtime string, same
 cache keys) and redeploy the function in the next backend release; changing it
 now would put the repo out of parity with the deployed `careers-ai`.
+
+**2026-10-03 — fixed in the repo, not deployed.** Both NULs are now `\u0000`
+escapes, and nothing else in the function's code changed (one comment added).
+Git diffs the file as text again.
+
+- **Cache keys are unchanged.** Deno ran the old and new `promptHash` source on
+  5 samples (empty fields, non-ASCII, a field that itself contains U+0000, and
+  `a|bc` vs `ab|c`) and got identical SHA-256s. They also matched an independent
+  Python SHA-256 of `model + "\0" + system + "\0" + user`.
+- **Guard test.** `src/test/no-nul-bytes.test.ts` fails on any raw NUL in a
+  text file under `src`, `supabase`, `worker` or `scripts`, and names the file,
+  line and column. Run against the original file, it reported
+  `careers-ai/index.ts:64:50 (2 NUL bytes)`.
+- **Deployed state.** `careers-ai` v42, downloaded 2026-10-03, is byte-identical
+  to the pre-fix file (both NULs included), as are `_shared/origins.ts` and
+  `_shared/ratelimit.ts`. A redeploy therefore ships only this change. It is the
+  owner's call: [MOBILE_RELEASE_READINESS.md](MOBILE_RELEASE_READINESS.md) §7
+  item 8. Deploy with `--no-verify-jwt`, because the live function has
+  `verify_jwt: false` and the CLI default would switch it on.
