@@ -4,6 +4,8 @@
 #   ./build.sh teaser     → the 16 s teaser       (src/film.*,  audio/synth.mjs)
 # Steps: render the picture (lossless MOV) → synthesize and mix the audio →
 # master to -14 LUFS / <= -1 dBTP → encode H.264 High + AAC with fast-start.
+# Video averages 12 Mb/s (cap 16) so the launch film stays under GitHub's 100 MB
+# file limit; set VBITRATE/VMAXRATE for a higher-rate master.
 # SKIP_PICTURE=1 reuses an existing picture master.
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -40,7 +42,7 @@ ffmpeg -hide_banner -loglevel error -y \
   -i "$PIC" -i "$MASTER" -map 0:v -map 1:a \
   -vf "scale=in_range=full:out_range=tv:out_color_matrix=bt709,format=yuv420p" \
   -c:v libx264 -preset slow -profile:v high -level:v 4.2 -pix_fmt yuv420p \
-  -b:v 18M -maxrate 24M -bufsize 36M -g 30 -bf 2 -x264-params "aq-mode=3" \
+  -b:v "${VBITRATE:-12M}" -maxrate "${VMAXRATE:-16M}" -bufsize 32M -g 30 -bf 2 -x264-params "aq-mode=3" \
   -color_primaries bt709 -color_trc bt709 -colorspace bt709 -color_range tv \
   -r 30 -c:a aac -b:a 320k -ar 48000 -ac 2 \
   -movflags +faststart -metadata title="$TITLE" -shortest "$OUT"

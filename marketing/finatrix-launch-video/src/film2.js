@@ -169,6 +169,7 @@ const payday = reg(el('div', 'abs', stage, 'PAYDAY<span class="gdeep">.</span>')
 Object.assign(payday.style, { width: '1080px', textAlign: 'center', font: "850 236px 'Geist'", letterSpacing: '-.055em', color: '#0A0A0A' });
 const underline = reg(el('div', 'abs')); Object.assign(underline.style, { width: '760px', height: '16px', borderRadius: '8px', background: 'linear-gradient(90deg,#F0D779,#C9A23C)', transformOrigin: '0 50%' });
 const notif = reg(el('div', 'abs notif', stage, '<div class="ic">₹</div><div><b>Salary credited</b><span>₹85,000 · just now</span></div>'));
+const rays = reg(el('div', 'abs')); rays.id = 'rays';
 const coinShadow = reg(el('div', 'abs')); Object.assign(coinShadow.style, { width: '420px', height: '60px', borderRadius: '50%', background: 'radial-gradient(closest-side, rgba(60,45,0,.32), rgba(60,45,0,0))' });
 const coin = reg(el('div', 'abs'));
 coin.style.width = coin.style.height = '560px';
@@ -302,6 +303,9 @@ const svgOf = async (p) => (await (await fetch(p)).text()).replace(/<title>.*?<\
 const badgeApp = reg(el('div', 'abs badge', stage, `${await svgOf('../assets/icon-appstore.svg')}<div><small>Coming soon to the</small><b>App Store</b></div>`));
 const badgePlay = reg(el('div', 'abs badge', stage, `${await svgOf('../assets/icon-googleplay.svg')}<div><small>Coming soon to</small><b>Google Play</b></div>`));
 const disc = reg(el('div', 'abs disc', stage, 'Educational tools · Illustrative screens · Demo data'));
+const embers = Array.from({ length: 34 }, () => reg(el('div', 'abs dot')));
+const logoGloss = el('div', 'bsheen', logoBg);
+const badgeGloss = [badgeApp, badgePlay].map((b) => { b.style.position = 'absolute'; b.style.overflow = 'hidden'; return el('div', 'bsheen', b); });
 
 const vignette = el('div', 'abs full'); vignette.id = 'vignette';
 const flash = el('div', 'abs full'); flash.id = 'flash';
@@ -375,6 +379,8 @@ function actOne(f) {
     const out = R(f, 262, 276, E.inCubic);
     const squash = 1 + 0.06 * Math.sin(f / 5) * R(f, 42, 60) * (1 - R(f, 60, 80));
     put(coin, { x: c.x - 280, y: c.y - 280, sx: pop * squash * (1 - out * 0.4), sy: pop / squash * (1 - out * 0.4), o: 1 - out, origin: '50% 50%', r: Math.sin(f / 13) * 2 });
+    const ry = R(f, 33, 45, E.outCubic) * (1 - R(f, 112, 124));
+    put(rays, { x: c.x - 700, y: c.y - 700, r: f * 0.6, s: lerp(0.6, 1, ry), o: ry, origin: '50% 50%' });
     put(coinShadow, { x: c.x - 210, y: COIN.y + 300, s: pop * (0.95 + Math.sin(f / 9) * 0.05), o: 0.9 * (1 - out) });
     // eyes: blink, glance left/right while asking "where did it go", worried at the end
     const blink = [58, 136, 230].some((b) => f >= b && f < b + 4) ? 0.12 : 1;
@@ -415,7 +421,7 @@ function actOne(f) {
     });
   }
   // "Two weeks later…" and the day counter, then the question.
-  const tw = R(f, 90, 99, E.outExpo), two = R(f, 116, 122, E.inCubic);
+  const tw = R(f, 90, 99, E.outExpo), two = R(f, 110, 116, E.inCubic);
   put(twoWeeks, { y: 230 + (1 - tw) * 40 - two * 40, o: tw * (1 - two) });
   const day = Math.round(lerp(1, 14, R(f, 95, 113, E.inOutSine)));
   dayCounter.textContent = `DAY ${String(day).padStart(2, '0')}`;
@@ -429,12 +435,12 @@ function chaos(f) {
   CH.forEach(({ e, at, x, y, z, rx, ry, rz }, i) => {
     const a = R(f, at, at + 9, E.outBack);
     if (f < at - 1) return;
-    const drift = (f - at) * 0.6;
+    const drift = (f - at) * 0.6, wob = Math.sin((f - at) / 14 + i) * 1;
     const thud = e === sheet ? R(f, WD.stopped, WD.stopped + 8, E.inCubic) : 0;
     const bw = e.offsetWidth, bh = e.offsetHeight;
     const cx = x + bw / 2, cy = y + bh / 2;
     const tx = lerp(cx, 540, suck) - bw / 2, ty = lerp(cy + thud * 180, 900, suck) - bh / 2;
-    put(e, { x: tx, y: ty, z: lerp(-900, z, a) + drift * 2, rx: rx * (1 - suck), ry: ry + (1 - a) * 40, r: rz + suck * 220 * (i % 2 ? 1 : -1) + thud * 9,
+    put(e, { x: tx + drift * (i % 2 ? 0.8 : -0.8), y: ty - drift * 0.5, z: lerp(-900, z, a) + drift * 2, rx: rx * (1 - suck) + wob * 4, ry: ry + (1 - a) * 40 + drift * 0.15 * (i % 2 ? 1 : -1), r: rz + suck * 220 * (i % 2 ? 1 : -1) + thud * 9 + wob * 2,
       s: (1 - suck) * lerp(0.6, 1, a), o: Math.min(1, a * 2) * (e === sheet ? 1 - thud * 0.5 : 1), persp: 1400, origin: '50% 50%' });
     if (e === sheet) e.style.filter = `grayscale(${thud}) brightness(${1 - thud * 0.45})`;
   });
@@ -456,9 +462,10 @@ function chaos(f) {
 const LOGO_AT = { x: 540, y: 760 };
 function meet(f) {
   const t0 = SC.meet[0] + 3; // 390, the drop
-  logoBg.style.width = logoBg.style.height = LOGO + 'px'; logoBg.style.backgroundImage = 'none';
+  logoBg.style.width = logoBg.style.height = LOGO + 'px'; logoBg.style.backgroundImage = 'none'; logoBg.style.overflow = 'hidden';
+  logoGloss.style.transform = 'translateX(-130%)';
   wordmark.style.fontSize = '168px';
-  put(flash, { o: f === t0 ? 0.55 : f === t0 + 1 ? 0.2 : 0 });
+  put(flash, { o: f === t0 ? 0.3 : f === t0 + 1 ? 0.12 : 0 });
   const out = R(f, 443, 453, E.inCubic);
   const b = R(f, t0, t0 + 10, E.outCubic);
   put(bloom, { x: LOGO_AT.x - 550, y: LOGO_AT.y - 550, s: lerp(0.3, 1.1, b), o: b * (1 - R(f, 410, 445) * 0.6) * (1 - out) });
@@ -549,7 +556,7 @@ function budget(f) {
   place(P10, { x: 540 - (1 - enter) * 1300, ry: (1 - enter) * -30, s: 1 - recede * 0.1, o: 1 - ex, y: 1080 });
   P10.dev.style.filter = recede > 0 ? `brightness(${1 - recede * 0.6})` : 'none';
   const pan = R(f, a, 778, E.inOutSine);
-  const cam = { cx: 195, cy: lerp(s.y - 170, s.y + s.h / 2 - 6, pan), z: P10.S.w / 372 * 1.02 };
+  const cam = { cx: 195, cy: lerp(s.y + s.h / 2 + 70, s.y + s.h / 2 - 6, pan), z: P10.S.w / 372 * lerp(0.96, 1.02, pan) };
   paintLayers(P10, [{ plate: 'budget', cam }]);
   showHL(h10, f, a + 1, b - 6);
   fadeText(k10, f, a + 1, b - 6, { y: 172 });
@@ -700,6 +707,15 @@ function brand(f) {
   put(badgeApp, { x: bx, y: 1250 + (1 - pa) * 60, o: Math.min(1, pa * 2) });
   put(badgePlay, { x: bx + bApp + 30, y: 1250 + (1 - pp) * 60, o: Math.min(1, pp * 2) });
   tg(disc, 1580, 1590);
+  // The hold stays alive without moving a word: rising embers and a light sheen.
+  embers.forEach((p, i) => {
+    const rnd = rng(i * 41 + 5), life = 70 + rnd() * 60, t0 = a + rnd() * 200 - 40;
+    const t = ((f - t0) % life + life) % life / life;
+    if (f < a + 4) return;
+    put(p, { x: 90 + rnd() * 900, y: 1700 - t * (900 + rnd() * 500), s: 0.5 + rnd() * 0.8, o: Math.sin(Math.PI * t) * (0.35 + rnd() * 0.4) * R(f, a + 4, a + 30) });
+  });
+  logoGloss.style.transform = `translateX(${lerp(-130, 130, R(f, 1598, 1620, E.inOutSine))}%)`;
+  badgeGloss.forEach((g, i) => { g.style.transform = `translateX(${lerp(-130, 130, R(f, 1612 + i * 6, 1634 + i * 6, E.inOutSine))}%)`; });
 }
 
 window.FILM = { frames: TL.frames, fps: TL.fps, seek, ready: true };
