@@ -26,6 +26,8 @@ describe('planning smart assists in the actual pages', () => {
   it('finds a fitting goal deadline, applies it and exports the selected plan', () => {
     show(<GoalPlannerPage />);
     fireEvent.click(screen.getByRole('button', { name: 'Show me the path' }));
+    // The finder sits under the result, collapsed until asked for.
+    fireEvent.click(screen.getByRole('button', { name: 'Show the deadline finder' }));
     fireEvent.change(screen.getByLabelText('Monthly contribution limit'), { target: { value: '100000' } });
     const useDeadline = screen.getAllByRole('button', { name: /^Use \d+-year deadline/ }).find((button) => !(button as HTMLButtonElement).disabled)!;
     const years = Number(useDeadline.textContent!.match(/Use (\d+)-year/)![1]);
@@ -67,6 +69,7 @@ describe('planning smart assists in the actual pages', () => {
     show(<LifeMapPage />);
     fireEvent.click(screen.getByRole('button', { name: 'Launch my LifeMap →' }));
     fireEvent.change(screen.getByRole('slider', { name: /Travel through time/ }), { target: { value: '40' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Show scenario checks' }));
     fireEvent.click(screen.getByRole('button', { name: 'Pin this scenario for comparison' }));
     const originalComparison = screen.getByText(/above the pinned scenario \(0 decisions\)/).textContent;
     fireEvent.click(screen.getByRole('button', { name: /^Start NPS \/ PPF for retirement/ }));

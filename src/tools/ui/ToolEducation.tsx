@@ -33,6 +33,8 @@ import type { ToolId } from '../../shared/routes';
 import { useOptionalMarket } from '../MarketContext';
 import { guideForMarket, faqForMarket } from '../lib/markets/guides';
 import { type WorkedExample } from '../../shared/toolGuides';
+import { Disclosure } from './Disclosure';
+import { track } from '../../lib/analytics';
 
 function List({ items, ordered = false }: { items: readonly string[]; ordered?: boolean }) {
   const Tag = ordered ? 'ol' : 'ul';
@@ -120,7 +122,13 @@ export default function ToolEducation({ toolId }: { toolId: ToolId }) {
   return (
     // `h2` is the right level here: the tool page's own PageHead renders the h1,
     // so this continues the outline rather than starting a second one.
-    <div className="mx-auto mt-12 w-full max-w-[820px] border-t border-hairline px-4 pb-16 pt-10 sm:px-0">
+    //
+    // The heading, the one-paragraph purpose and the disclaimer stay on the
+    // page; the reference material behind them is one press away. Measured at
+    // 375px it was 3,500–6,500px of every tool page — more than the tool —
+    // and it is reference, not the answer. Search engines and the crawlable
+    // HTML still get every word: the region is hidden, not removed.
+    <div className="mx-auto mt-10 w-full max-w-[820px] border-t border-hairline px-4 pb-10 pt-8 sm:px-0">
       <h2
         id="about-this-tool"
         className="text-[20px] font-semibold tracking-[-0.02em] text-ink"
@@ -129,114 +137,121 @@ export default function ToolEducation({ toolId }: { toolId: ToolId }) {
       </h2>
       <p className="mt-3 max-w-[68ch] text-[15px] leading-[1.7] text-ink-2">{guide.purpose}</p>
 
-      <Block id="how-to-use" title="How to use it">
-        <List items={guide.steps} ordered />
-      </Block>
-
-      <Block id="methodology" title="How this is calculated">
-        <List items={guide.method} />
-      </Block>
-
-      <Block id="worked-example" title="A worked example">
-        <Worked example={guide.worked} />
-      </Block>
-
-      <Block id="common-mistakes" title="Common mistakes">
-        <List items={guide.mistakes} />
-      </Block>
-
-      <Block id="limits" title="What it assumes, and what it does not do">
-        <List items={guide.limits} />
-      </Block>
-
-      <Block id="tool-faq" title="Frequently asked questions">
-        <div className="divide-y divide-hairline border-y border-hairline">
-          {faq.map((entry) => (
-            <details key={entry.q} className="group">
-              <summary className="flex cursor-pointer items-start justify-between gap-4 py-3.5 text-[14.5px] font-medium text-ink marker:content-[''] [&::-webkit-details-marker]:hidden">
-                <span className="max-w-[62ch]">{entry.q}</span>
-                <span
-                  aria-hidden="true"
-                  className="mt-0.5 shrink-0 text-accent-text transition-transform duration-200 group-open:rotate-45"
-                >
-                  +
-                </span>
-              </summary>
-              <p className="mb-4 max-w-[68ch] text-[14px] leading-[1.75] text-ink-2">{entry.a}</p>
-            </details>
-          ))}
-        </div>
-      </Block>
-
-      {guides.length > 0 && (
-        <Block id="guides" title="Guides that use this tool">
-          <ul className="grid gap-3 sm:grid-cols-2">
-            {guides.map((a) => (
-              <li key={`${a.topic}/${a.slug}`}>
-                <Link
-                  to={articlePath(a)}
-                  className="group block h-full rounded-[14px] border border-hairline p-4 transition-colors hover:border-[color:var(--accent-text)] focus-visible:border-[color:var(--accent-text)]"
-                >
-                  <span className="block text-[14px] font-medium leading-[1.4] text-ink transition-colors group-hover:text-accent-text">
-                    {a.heading}
-                  </span>
-                  <span className="mt-1.5 block text-[13px] leading-[1.5] text-ink-3">
-                    {a.description}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+      <Disclosure
+        className="mt-6"
+        showLabel="Show calculation, examples & FAQ"
+        hideLabel="Hide calculation, examples & FAQ"
+        onToggle={(open) => { if (open) track('methodology_opened', { tool: toolId, where: 'education' }); }}
+      >
+        <Block id="how-to-use" title="How to use it">
+          <List items={guide.steps} ordered />
         </Block>
-      )}
 
-      {topics.length > 0 && (
-        <Block id="further-reading" title="Further reading">
-          <ul className="flex flex-wrap gap-2.5">
-            {topics.map((t) => (
-              <li key={t.slug}>
-                <Link
-                  to={topicPath(t)}
-                  className="inline-flex rounded-full border border-hairline px-4 py-2 text-[13px] text-ink-2 transition-colors hover:border-[color:var(--accent-text)] hover:text-accent-text focus-visible:border-[color:var(--accent-text)]"
-                >
-                  {t.name}
-                </Link>
-              </li>
-            ))}
-          </ul>
+        <Block id="methodology" title="How this is calculated">
+          <List items={guide.method} />
         </Block>
-      )}
 
-      {related.length > 0 && (
-        <Block id="related-tools" title="Related tools">
-          <ul className="grid gap-3 sm:grid-cols-3">
-            {related.map((t) => (
-              <li key={t.id}>
-                <Link
-                  to={t.href}
-                  className="group block h-full rounded-[14px] border border-hairline p-4 transition-colors hover:border-[color:var(--accent-text)] focus-visible:border-[color:var(--accent-text)]"
-                >
-                  <span className="flex items-center gap-2">
-                    <span
-                      aria-hidden="true"
-                      className="h-1.5 w-1.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: t.color }}
-                    />
-                    <span className="text-[14px] font-medium text-ink transition-colors group-hover:text-accent-text">
-                      {t.name}
+        <Block id="worked-example" title="A worked example">
+          <Worked example={guide.worked} />
+        </Block>
+
+        <Block id="common-mistakes" title="Common mistakes">
+          <List items={guide.mistakes} />
+        </Block>
+
+        <Block id="limits" title="What it assumes, and what it does not do">
+          <List items={guide.limits} />
+        </Block>
+
+        <Block id="tool-faq" title="Frequently asked questions">
+          <div className="divide-y divide-hairline border-y border-hairline">
+            {faq.map((entry) => (
+              <details key={entry.q} className="group">
+                <summary className="flex cursor-pointer items-start justify-between gap-4 py-3.5 text-[14.5px] font-medium text-ink marker:content-[''] [&::-webkit-details-marker]:hidden">
+                  <span className="max-w-[62ch]">{entry.q}</span>
+                  <span
+                    aria-hidden="true"
+                    className="mt-0.5 shrink-0 text-accent-text transition-transform duration-200 group-open:rotate-45"
+                  >
+                    +
+                  </span>
+                </summary>
+                <p className="mb-4 max-w-[68ch] text-[14px] leading-[1.75] text-ink-2">{entry.a}</p>
+              </details>
+            ))}
+          </div>
+        </Block>
+
+        {guides.length > 0 && (
+          <Block id="guides" title="Guides that use this tool">
+            <ul className="grid gap-3 sm:grid-cols-2">
+              {guides.map((a) => (
+                <li key={`${a.topic}/${a.slug}`}>
+                  <Link
+                    to={articlePath(a)}
+                    className="group block h-full rounded-[14px] border border-hairline p-4 transition-colors hover:border-[color:var(--accent-text)] focus-visible:border-[color:var(--accent-text)]"
+                  >
+                    <span className="block text-[14px] font-medium leading-[1.4] text-ink transition-colors group-hover:text-accent-text">
+                      {a.heading}
                     </span>
-                  </span>
-                  <span className="mt-1.5 block text-[13px] leading-[1.5] text-ink-3">
-                    {t.blurb}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </Block>
-      )}
+                    <span className="mt-1.5 block text-[13px] leading-[1.5] text-ink-3">
+                      {a.description}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </Block>
+        )}
 
-      <p className="mt-10 font-mono text-[10px] uppercase leading-[1.6] tracking-[0.12em] text-ink-3">
+        {topics.length > 0 && (
+          <Block id="further-reading" title="Further reading">
+            <ul className="flex flex-wrap gap-2.5">
+              {topics.map((t) => (
+                <li key={t.slug}>
+                  <Link
+                    to={topicPath(t)}
+                    className="inline-flex rounded-full border border-hairline px-4 py-2 text-[13px] text-ink-2 transition-colors hover:border-[color:var(--accent-text)] hover:text-accent-text focus-visible:border-[color:var(--accent-text)]"
+                  >
+                    {t.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </Block>
+        )}
+
+        {related.length > 0 && (
+          <Block id="related-tools" title="Related tools">
+            <ul className="grid gap-3 sm:grid-cols-3">
+              {related.map((t) => (
+                <li key={t.id}>
+                  <Link
+                    to={t.href}
+                    className="group block h-full rounded-[14px] border border-hairline p-4 transition-colors hover:border-[color:var(--accent-text)] focus-visible:border-[color:var(--accent-text)]"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span
+                        aria-hidden="true"
+                        className="h-1.5 w-1.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: t.color }}
+                      />
+                      <span className="text-[14px] font-medium text-ink transition-colors group-hover:text-accent-text">
+                        {t.name}
+                      </span>
+                    </span>
+                    <span className="mt-1.5 block text-[13px] leading-[1.5] text-ink-3">
+                      {t.blurb}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </Block>
+        )}
+      </Disclosure>
+
+      <p className="mt-8 font-mono text-[10px] uppercase leading-[1.6] tracking-[0.12em] text-ink-3">
         Educational tool · not financial advice ·{' '}
         <Link to="/help" className="hover:text-accent-text transition-colors">
           Help Centre

@@ -554,7 +554,8 @@ html.fx-native .fx-navpill:active {
    filled. Hidden while it is open; back the moment it closes. */
 html.fx-native.fx-kb-open .fx-mobnav,
 html.fx-native.fx-kb-open .fx-ai-dock,
-html.fx-native.fx-kb-open .fx-wallet-dock {
+html.fx-native.fx-kb-open .fx-wallet-dock,
+html.fx-native.fx-kb-open .fx-add-dock {
   display: none !important;
 }
 

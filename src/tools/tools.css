@@ -218,7 +218,30 @@ html:has(.fx-tools) { --scroll-offset: 60px; }
    level, so without this they paint over its links and swallow taps meant for
    them. Set by MobileDrawer, which is the only thing that knows. */
 body.fx-drawer-open .fx-wallet-dock,
-body.fx-drawer-open .fx-ai-dock { display: none; }
+body.fx-drawer-open .fx-ai-dock,
+body.fx-drawer-open .fx-add-dock { display: none; }
+
+/* ---- Expense Tracker quick add (ui/AddExpenseFab.tsx) ----
+   Stacked above the AI launcher: that dock sits 18px above the tab bar and is
+   --ctl-h-lg tall, so this one starts a 12px gap above it. Ink on the page
+   colour rather than gold, so the page's primary action and the assistant
+   never read as the same button — and it holds its contrast in both themes. */
+.fx-tools.fx-add-dock { position: fixed; right: 16px; bottom: calc(18px + var(--ctl-h-lg) + 12px + var(--fx-bottomnav-h, 0px) + var(--fx-safe-bottom)); z-index: var(--z-fab); display: flex; background: transparent; }
+.fx-tools .fx-add-fab { display: inline-flex; align-items: center; justify-content: center; width: 52px; height: 52px; padding: 0; border: none; border-radius: 50%; background: var(--ink); color: var(--bg); cursor: pointer; box-shadow: 0 12px 28px -10px rgba(0,0,0,.55), 0 2px 6px -2px rgba(0,0,0,.25); transition: transform var(--ctl-trans), box-shadow var(--ctl-trans); animation: fxAddFabIn 220ms var(--ease-out, ease-out) backwards; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.fx-tools .fx-add-fab:hover { transform: translateY(-1px); box-shadow: 0 16px 34px -12px rgba(0,0,0,.6), 0 3px 8px -3px rgba(0,0,0,.28); }
+.fx-tools .fx-add-fab:active { transform: scale(.94); }
+.fx-tools .fx-add-fab:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+@keyframes fxAddFabIn { from { opacity: 0; transform: scale(.86); } to { opacity: 1; transform: none; } }
+/* Matches the AI dock's own small-screen inset, so the two stay one column. */
+@media (max-width: 380px) { .fx-tools.fx-add-dock { right: 12px; } }
+@media (prefers-reduced-motion: reduce) {
+  .fx-tools .fx-add-fab { transition: none; animation: none; }
+  .fx-tools .fx-add-fab:hover, .fx-tools .fx-add-fab:active { transform: none; }
+}
+@media print { .fx-tools.fx-add-dock { display: none; } }
+/* Room at the foot of the page for the taller corner stack (the base .wrap
+   padding already clears the AI dock alone). */
+body.fx-has-add-fab .fx-tools .wrap { padding-bottom: calc(18px + var(--ctl-h-lg) + 12px + 52px + 16px + var(--fx-bottomnav-h) + var(--fx-safe-bottom)); }
 
 /* Frosted bars are a translucency effect, and blurring what scrolls beneath
    them is recomputed every frame. Someone who has asked the system for less
@@ -286,6 +309,39 @@ body.fx-drawer-open .fx-ai-dock { display: none; }
 @media (max-width: 560px) {
   .fx-tools .fx-method-rows > div { flex-direction: column; gap: 2px; }
   .fx-tools .fx-method-rows dd { text-align: left; }
+}
+
+/* ---- Show / hide secondary information (ui/Disclosure.tsx) ----
+   The region is hidden with the `hidden` attribute. Re-asserted here because a
+   layout rule on the region (or on a caller's class) would otherwise beat the
+   UA's `display: none` and leave an empty box consuming height. */
+.fx-tools .fx-disclosure-region[hidden] { display: none !important; }
+.fx-tools .fx-disclosure-toggle { display: flex; align-items: center; gap: 10px; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: color .2s ease, border-color .2s ease, background-color .2s ease; }
+.fx-tools .fx-disclosure-chev { flex-shrink: 0; transition: transform .2s var(--ease-out, ease-out); }
+.fx-tools .fx-disclosure[data-open] > .fx-disclosure-toggle .fx-disclosure-chev { transform: rotate(180deg); }
+.fx-tools .fx-disclosure-toggle:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+/* Opening is a short fade-and-settle on the content, never a height
+   animation: animating height re-lays-out the whole page every frame. */
+.fx-tools .fx-disclosure[data-open] > .fx-disclosure-region { animation: fxDisclosureIn 160ms var(--ease-out, ease-out) backwards; }
+@keyframes fxDisclosureIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+/* block — a full-width row that stands on its own. 48px tall: a comfortable
+   touch target, well clear of WCAG 2.2's 24px minimum. */
+.fx-tools .fx-disclosure-block > .fx-disclosure-toggle { width: 100%; min-height: 48px; justify-content: space-between; padding: 12px 16px; border: 1px solid var(--hair2); border-radius: 14px; background: var(--card); color: var(--ink); font-size: 14.5px; font-weight: 600; text-align: left; }
+.fx-tools .fx-disclosure-block > .fx-disclosure-toggle:hover { border-color: var(--accent-text); }
+.fx-tools .fx-disclosure-block > .fx-disclosure-toggle .fx-disclosure-chev { color: var(--accent-text); }
+/* inline — a quiet control for detail inside a card. The padding makes the
+   target 32px tall without making the line look like a button. */
+.fx-tools .fx-disclosure-inline { margin-top: 6px; }
+.fx-tools .fx-disclosure-inline > .fx-disclosure-toggle { min-height: 32px; padding: 4px 0; margin: 0; border: none; background: none; color: var(--ink2); font-size: 13.5px; font-weight: 600; }
+.fx-tools .fx-disclosure-inline > .fx-disclosure-toggle:hover { color: var(--ink); }
+@media (prefers-reduced-motion: reduce) {
+  .fx-tools .fx-disclosure-chev { transition: none; }
+  .fx-tools .fx-disclosure[data-open] > .fx-disclosure-region { animation: none; }
+}
+@media print {
+  /* Paper cannot be expanded: print what the reader would get by opening it. */
+  .fx-tools .fx-disclosure-region[hidden] { display: block !important; }
+  .fx-tools .fx-disclosure-toggle { display: none; }
 }
 
 /* Known / Assumed / Published tags on the methodology drawer's subsections.

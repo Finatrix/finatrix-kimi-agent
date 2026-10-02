@@ -9,6 +9,7 @@ import { useCurrency } from '../CurrencyContext';
 import { useMarket } from '../MarketContext';
 import { MarketNote } from '../ui/MarketNote';
 import { ResultExplainer, type MethodRow } from '../ui/ResultExplainer';
+import { Disclosure } from '../ui/Disclosure';
 import { reviewedLabel } from '../../shared/reviewed';
 import type { MarketPack } from '../lib/markets';
 import { track } from '../../lib/analytics';
@@ -181,9 +182,14 @@ function PeerResultView({ result, input, market, money, onReset }: {
         <p className="note">This is a model score, not a percentile, a financial-health grade or a statement about how many people have more or less than you.</p>
       </div>
 
+      {/* The basis in one line, the full description one press away: the hero
+          above already says this is a model score and not a percentile, which
+          is the part a reader must not miss. */}
       <aside className="card" aria-label="What you are being compared with" style={{ padding: '16px 20px' }}>
-        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>What you are being compared with</div>
-        <dl className="fx-method-rows" style={{ marginBottom: 10 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>What you are being compared with</div>
+        <p className="note" style={{ margin: '0 0 4px' }}>A FinatriX illustrative benchmark model for {market.name}, age {bracket}, {city.l}.</p>
+        <Disclosure variant="inline" showLabel="Show the comparison basis" hideLabel="Hide the comparison basis">
+        <dl className="fx-method-rows" style={{ margin: '8px 0 10px' }}>
           <div><dt>Comparison type</dt><dd>FinatriX illustrative benchmark model</dd></div>
           <div><dt>Market</dt><dd>{market.name}</dd></div>
           <div><dt>Age band</dt><dd>{bracket} years</dd></div>
@@ -196,6 +202,7 @@ function PeerResultView({ result, input, market, money, onReset }: {
           input matches its positive benchmark in the scoring model; it does not mean half of people
           have a higher or lower figure. Read your actual amounts alongside each reference.
         </p>
+        </Disclosure>
       </aside>
 
       <PeerScenarioAssist input={input} market={market} result={result} money={money} />
@@ -211,12 +218,12 @@ function PeerResultView({ result, input, market, money, onReset }: {
           <StatBox v={money(nw)} l="Net worth" color="var(--purple)" />
           <StatBox v={input.savings + input.invest > 0 ? `${investedRatio}%` : 'Not defined'} l="Investments / savings and investments" color="var(--blue)" />
         </div>
-      </div>
-
-      <div className="card">
-        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Read your own figures first</div>
+        {/* How each figure above is worked out, and what it cannot tell you —
+            it used to be a separate card of its own under the stats. */}
+        <Disclosure variant="inline" showLabel="Show how these are worked out" hideLabel="Hide how these are worked out">
         <p className="note">Your entered savings of {money(input.savings)} plus investments of {money(input.invest)}, less debt of {money(input.debt)}, give {money(nw)} of net worth within this form. Assets or debts you have not entered are not included.</p>
         <p className="note">{input.expenses > 0 ? `Savings divided by entered monthly expenses gives ${eMonths} months of cover. This assumes those savings are accessible and available for expenses.` : 'Months of cover cannot be interpreted when monthly expenses are zero.'} {input.income > 0 ? 'The debt ratio compares your total outstanding debt with annual income; it does not measure monthly repayment affordability.' : 'The debt-to-income ratio cannot be interpreted when income is zero.'}</p>
+        </Disclosure>
       </div>
       <ResultExplainer
         toolId="peercompare"
@@ -287,12 +294,15 @@ function PeerScenarioAssist({ input, market, result, money }: { input: PeerInput
   return <section className="card" aria-labelledby="pc-smart-title">
     <h2 id="pc-smart-title" style={{ fontSize: 18, marginTop: 0 }}>Understand the comparison</h2>
     <p className="note">Explore how the existing model changes with location. It does not predict relocation costs, salary changes or a measured population percentile.</p>
+    <Disclosure variant="inline" showLabel="Show the location explorer" hideLabel="Hide the location explorer">
     <div className="grid2">
       <div className="fg"><label className="fl" htmlFor="pc-scenario-city">Explore a location</label><select className="fs" id="pc-scenario-city" value={city} onChange={(e) => setCity(e.target.value)}>{Object.entries(market.peer.cities).map(([key, value]) => <option key={key} value={key}>{value.l}</option>)}</select></div>
       <div className="fg"><label className="fl" htmlFor="pc-scenario-metric">Focus on a measure</label><select className="fs" id="pc-scenario-metric" value={metric} onChange={(e) => setMetric(e.target.value)}>{result.metrics.map((m) => <option key={m.k} value={m.k}>{m.l}</option>)}</select></div>
     </div>
     <div role="status"><p>Your {original.l.toLowerCase()}: <b>{display(original.yours)}</b>. The reference is {display(original.avg)} in {result.city.l} and {display(comparison.avg)} in {scenario.city.l}.</p>
       <p className="note">The entered figure is {display(Math.abs(comparison.yours - comparison.avg))} {comparison.yours < comparison.avg ? 'below' : comparison.yours > comparison.avg ? 'above' : 'away from'} this reference. A difference is context, not an amount you need to reach.</p></div>
+    </Disclosure>
+    {/* The suggested next step stays visible: it answers "what now?". */}
     <div className="tip tip-info">{nextTool.reason}</div>
     <Link to={`/tools/${nextTool.path}`} className="btn btn-ghost btn-sm">{nextTool.text}</Link>
   </section>;

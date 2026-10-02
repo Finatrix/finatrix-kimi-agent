@@ -11,6 +11,7 @@ import type { MarketPack } from '../lib/markets';
 import { MarketNote } from '../ui/MarketNote';
 import { DepositProtectionNote } from '../ui/ReferenceDisclosure';
 import { ResultExplainer, type MethodRow } from '../ui/ResultExplainer';
+import { Disclosure } from '../ui/Disclosure';
 import { track } from '../../lib/analytics';
 import { safeParkComparison } from '../lib/comparisonAssist';
 
@@ -181,6 +182,10 @@ function ParkScenarioAssist({ result, pack, liquidOnly, amount, dur, rate, money
   return <section className="card" aria-labelledby="ps-smart-title">
     <h2 id="ps-smart-title" style={{ fontSize: 18, marginTop: 0 }}>Make the trade-offs visible</h2>
     <p className="note">{liquidOnly ? 'Only options marked liquid / accessible are included.' : 'Both liquid and restricted-access options are included.'} This ranking compares modeled earnings; it does not assess provider safety or suitability.</p>
+    {/* The explorer is a second tool under the answer; the ranking below is
+        the answer. Collapsed, it no longer pushes the ranked list ~650px
+        down a phone screen. */}
+    <Disclosure variant="inline" showLabel="Show the comparison tools" hideLabel="Hide the comparison tools">
     <label className="fl" htmlFor="ps-alternative">Compare the leader with</label>
     <select id="ps-alternative" className="fs" value={alternative} onChange={(e) => setAlternative(e.target.value)}>
       {result.ranked.map((o) => <option key={o.n} value={o.n}>{o.n}</option>)}
@@ -196,6 +201,9 @@ function ParkScenarioAssist({ result, pack, liquidOnly, amount, dur, rate, money
       {scenario?.best ? <p><b>{scenario.best.n}</b> leads with {money(scenario.best.net)} modeled earnings over {PS_M[selectedDuration]} months, the representative period used for “{PS_DL[selectedDuration]}”. {scenario.ranked.length} eligible options.</p> : <p>No supplied options match this holding period and access preference.</p>}
     </div>
     <p className="note">The same entered amount, rates and tax model are used. Rates are not forecasts for a different term. Recheck quoted rates, minimum term and access conditions before acting.</p>
+    </Disclosure>
+    {/* Outside the toggle: whether the leader can be reached in a hurry is a
+        caveat on the answer itself, not part of the explorer. */}
     <div className="tip tip-info">{!best.liquid && accessible ? `Keeping the full amount in ${accessible.n}, the highest-earning liquid option here, reduces modeled earnings by ${money(best.net - accessible.net)} over your selected period. Decide whether access is worth that difference.` : best.liquid ? 'The highest-earning eligible option is marked liquid. Confirm how quickly withdrawals reach your bank and whether any limits apply.' : 'All eligible options have restricted access. If this is emergency money, add an accessible option before relying on the comparison.'}</div>
   </section>;
 }

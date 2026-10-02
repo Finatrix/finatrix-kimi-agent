@@ -45,6 +45,7 @@ describe('InvestMatch smart interactions', () => {
     expect(screen.getByRole('heading', { name: 'Review your answers' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Use these answers' }));
     const section = screen.getByRole('region', { name: 'Explore what changes the outcome' });
+    fireEvent.click(within(section).getByRole('button', { name: 'Show the scenario explorer' }));
     fireEvent.click(within(section).getByRole('button', { name: '2 years · Conservative' }));
     expect(within(section).getByRole('status')).toHaveTextContent('Applied risk: Conservative');
     fireEvent.click(within(section).getByRole('button', { name: /20% more/ }));
@@ -97,6 +98,7 @@ describe('ParkSmart smart interactions', () => {
     change('Access for option 2', 'false');
     fireEvent.click(screen.getByRole('checkbox', { name: /Only compare options/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Compare the options' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show the comparison tools' }));
     expect(screen.getByRole('combobox', { name: 'Compare the leader with' }).querySelectorAll('option')).toHaveLength(1);
     expect(screen.getByRole('option', { name: 'Accessible cash (option 1)' })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'Locked quote (option 2)' })).not.toBeInTheDocument();
@@ -168,6 +170,7 @@ describe('PeerCompare smart interactions', () => {
     change(/Monthly income/, '1000');
     fireEvent.click(screen.getByRole('button', { name: 'Show the comparison' }));
     const section = screen.getByRole('region', { name: 'Understand the comparison' });
+    fireEvent.click(within(section).getByRole('button', { name: 'Show the location explorer' }));
     fireEvent.change(within(section).getByLabelText('Explore a location'), { target: { value: 'mumbai' } });
     expect(within(section).getByRole('status')).toHaveTextContent('Your monthly income: INR 1000.00');
     expect(within(section).getByRole('status')).toHaveTextContent('Mumbai');

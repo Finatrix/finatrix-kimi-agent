@@ -48,6 +48,7 @@ import { useOptionalToast } from '../ui/Toast';
 import { AskAiButton } from '../ui/AskAiButton';
 import { BudgetTimeline } from '../ui/BudgetTimeline';
 import TransactionModal from '../ui/TransactionModal';
+import { AddExpenseFab } from '../ui/AddExpenseFab';
 import TransactionList, { type ExportKind, type TransactionListHandle } from '../ui/TransactionList';
 import { Tabs, type TabItem } from '../ui/Tabs';
 import {
@@ -992,6 +993,11 @@ export default function ExpensePage() {
           the page. Same store, same categories, so it can never disagree with
           the month on screen. */}
       <WalletDock items={items} cats={cats} budgetStore={budgetStore} month={selMonth} />
+
+      {/* Add a spend from anywhere on the page, on any tab — the same sheet as
+          the in-page button. Absent only when there is nothing to file a spend
+          under, exactly like that button. */}
+      {flatCats.length > 0 && <AddExpenseFab onAdd={openAdd} />}
 
       <ToolFoot>
         Educational tools — not financial advice · <a href="/privacy" target="_top">Privacy</a> ·{' '}

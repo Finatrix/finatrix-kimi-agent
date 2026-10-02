@@ -35,7 +35,7 @@ export function GoalSmartAssist({ result, market, money, onUseYears }: {
     }
   };
 
-  return <SmartAssist title="Find a deadline that fits your contribution" description="Enter your own monthly limit after bills, emergency savings and other goals. The search checks every whole year from 1 to 40 with this plan’s existing assumptions.">
+  return <SmartAssist title="Find a deadline that fits your contribution" collapsible={{ showLabel: 'Show the deadline finder', hideLabel: 'Hide the deadline finder' }} description="Enter your own monthly limit after bills, emergency savings and other goals. The search checks every whole year from 1 to 40 with this plan’s existing assumptions.">
     <label className="fl" htmlFor="goal-monthly-limit">Monthly contribution limit</label>
     <input id="goal-monthly-limit" className="fi" type="number" min={0} max={1e12} step="any" value={limit} onChange={(e) => setLimit(e.target.value)} placeholder="Enter an amount you can sustain" />
     {limit && !validLimit && <p className="note" role="status">Enter a finite amount between 0 and 1 trillion.</p>}

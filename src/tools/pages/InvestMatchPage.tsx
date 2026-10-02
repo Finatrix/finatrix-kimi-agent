@@ -11,6 +11,7 @@ import { useCurrency } from '../CurrencyContext';
 import { useMarket } from '../MarketContext';
 import { MarketNote } from '../ui/MarketNote';
 import { ResultExplainer, type MethodRow } from '../ui/ResultExplainer';
+import { Disclosure } from '../ui/Disclosure';
 import type { MarketPack } from '../lib/markets';
 import { track } from '../../lib/analytics';
 import { investAnswerError, investScenarios } from '../lib/comparisonAssist';
@@ -323,6 +324,9 @@ function InvestScenarioAssist({ ans, market, money }: { ans: ImAnswers; market: 
   return <section className="card" aria-labelledby="im-smart-title">
     <h2 id="im-smart-title" style={{ fontSize: 18, marginTop: 0 }}>Explore what changes the outcome</h2>
     <p className="note">These scenarios reuse this calculator and the same market assumptions. Each changes one input; your saved answers stay as entered. Returns are illustrative, before fees and taxes.</p>
+    {/* A what-if explorer under the answer, so one press away rather than in
+        front of the allocation it is a variation on. */}
+    <Disclosure variant="inline" showLabel="Show the scenario explorer" hideLabel="Hide the scenario explorer">
     <h3 style={{ fontSize: 14 }}>Change the monthly contribution</h3>
     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
       {scenarios.contributions.map((s) => <button key={s.factor} type="button" className="btn btn-ghost btn-sm"
@@ -340,6 +344,8 @@ function InvestScenarioAssist({ ans, market, money }: { ans: ImAnswers; market: 
       <p className="note">{result.fv === baseline.fv ? 'Your current illustration.' : `${money(Math.abs(result.fv - baseline.fv))} ${result.fv > baseline.fv ? 'more' : 'less'} than your original illustration.`} Applied risk: {IM_RL[result.effRisk]}; assumed return {(result.rate * 100).toFixed(1)}% a year. {result.riskNote}</p>
       {preview.monthly > ans.income && <p className="tip tip-warn">This scenario exceeds your monthly income. It is a mathematical illustration, not an affordability recommendation.</p>}
     </div>
+    </Disclosure>
+    {/* The next step stays visible: it answers "what now?". */}
     <div className="tip tip-info">{emergency ? 'You chose an emergency fund. An investment allocation can fluctuate and is not a substitute for accessible cash.' : ans.goal === 'house' || ans.goal === 'retirement' ? 'Turn this illustration into a goal with an amount, deadline and existing savings.' : 'Before increasing a contribution, check the amount left after essentials, debt payments and your cash buffer.'}</div>
     <Link className="btn btn-ghost btn-sm" to={emergency ? '/tools/parksmart' : ans.goal === 'house' || ans.goal === 'retirement' ? '/tools/goals' : '/tools/budget'}>{emergency ? 'Compare accessible cash' : ans.goal === 'house' || ans.goal === 'retirement' ? 'Plan this goal' : 'Check my monthly budget'}</Link>
   </section>;

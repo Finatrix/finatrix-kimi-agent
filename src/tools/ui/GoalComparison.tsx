@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { computeGoalPlanner, type GoalResult } from '../lib/goals';
 import type { MarketPack } from '../lib/markets';
 import './planning.css';
+import { Disclosure } from './Disclosure';
 
 export default function GoalComparison({ baseline, market, money }: { baseline: GoalResult; market: MarketPack; money: (n: number) => string }) {
   const [target, setTarget] = useState(String(baseline.targetToday));
@@ -16,6 +17,9 @@ export default function GoalComparison({ baseline, market, money }: { baseline: 
   return <section className="fx-planning fx-planning-surface" aria-labelledby="goal-compare-title">
     <h2 id="goal-compare-title">Compare the trade-offs</h2>
     <p>Try a different target, deadline or starting balance. Both scenarios use the same inflation and return assumptions as your plan. Your saved goal stays as it is.</p>
+    {/* A second calculator under the result: one press away rather than
+        ~1,000px between the reader and the rest of their answer. */}
+    <Disclosure variant="inline" showLabel="Show the scenario comparison" hideLabel="Hide the scenario comparison">
     <div className="fx-plan-fields">
       <label>Alternative target in today’s money<input className="fi" type="number" min={market.goals.minTarget} max={1e12} step="any" value={target} onChange={e => setTarget(e.target.value)} /></label>
       <label>Alternative deadline (whole years)<input className="fi" type="number" min={1} max={40} step={1} value={years} onChange={e => setYears(e.target.value)} /></label>
@@ -39,5 +43,6 @@ export default function GoalComparison({ baseline, market, money }: { baseline: 
       </ul></div>}
       <p className="fx-plan-muted">A longer deadline may lower the monthly contribution, while inflation can raise the target. Higher assumed returns involve uncertainty. These are projections, not promised outcomes. Allocate the same savings to only one goal, and exclude your emergency reserve.</p>
     </>}
+    </Disclosure>
   </section>;
 }

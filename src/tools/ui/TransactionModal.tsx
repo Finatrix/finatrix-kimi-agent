@@ -328,8 +328,12 @@ export default function TransactionModal({
         .fx-tx-recent:hover{border-color:var(--ink3);}
         .fx-tx-recent[aria-pressed="true"]{border-color:var(--ink);background:var(--hair);}
         .fx-tx-err{color:var(--red);font-size:11.5px;margin-top:5px;font-weight:600;}
-        .fx-tx-footer{position:sticky;bottom:0;z-index:2;background:var(--card-solid,var(--card));
-          margin:0 -22px;padding:12px 22px 14px;border-top:1px solid var(--hair2);}
+        /* Sticky to the card's EDGE, not to its padding: a sticky box stops at the
+           scrollport inset by the card's bottom padding, which left an 18px
+           strip under Save where the form scrolled visibly past. Pulling it
+           down by that padding (and taking the padding back inside) closes it. */
+        .fx-tx-footer{position:sticky;bottom:-18px;z-index:2;background:var(--card-solid,var(--card));
+          margin:0 -22px -18px;padding:12px 22px 32px;border-top:1px solid var(--hair2);}
         .fx-tx-iconbtn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;padding:0 14px;
           border-radius:10px;border:1px solid var(--hair2);background:var(--fill-03);color:var(--ink);
           font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s,border-color .15s;}
@@ -340,6 +344,8 @@ export default function TransactionModal({
           .fx-tx-overlay{padding:0;align-items:flex-end;}
           .fx-tx-card{max-width:none;max-height:94vh;border-radius:22px 22px 0 0;padding-bottom:calc(18px + var(--fx-safe-bottom));
             animation:fxTxSheet .3s cubic-bezier(.34,1.2,.5,1) both;}
+          .fx-tx-footer{bottom:calc(-18px - var(--fx-safe-bottom));margin-bottom:calc(-18px - var(--fx-safe-bottom));
+            padding-bottom:calc(32px + var(--fx-safe-bottom));}
         }
         @media (prefers-reduced-motion:reduce){
           .fx-tx-overlay,.fx-tx-card{animation:none !important;}

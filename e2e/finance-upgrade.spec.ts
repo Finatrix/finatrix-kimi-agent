@@ -51,6 +51,7 @@ test('goal alternatives never overwrite the saved baseline', async ({ page }) =>
   await page.locator('#gp-years').fill('10');
   await page.getByRole('button', { name: 'Show me the path' }).click();
   await expect(page.getByRole('heading', { name: 'Compare the trade-offs' })).toBeVisible();
+  await page.getByRole('button', { name: 'Show the scenario comparison' }).click();
   const original = await page.evaluate(() => localStorage.getItem('fx_goals'));
   await page.getByLabel('Alternative deadline (whole years)', { exact: true }).fill('15');
   await page.getByLabel('Alternative target in today’s money', { exact: true }).fill('800000');

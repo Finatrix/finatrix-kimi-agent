@@ -140,7 +140,13 @@
      changing stacking order is not a scale — so the numbers below are the
      live values, renamed rather than re-ordered. Adopting them is therefore
      a no-op at runtime and the whole point: the next overlay picks a rung
-     instead of inventing 322. */
+     instead of inventing 322.
+
+     One deliberate re-order since: the floating docks used to sit at 310,
+     ABOVE --z-modal, so the AI and Wallet pills painted over an open
+     transaction sheet and covered its Save button on a phone (inert, so a
+     tap fell through to whatever was beneath). A dialog must cover the page,
+     docks included — they now sit just below it. */
   --z-base:      0;
   --z-raised:    1;    /* in-flow content above the ambient backdrop        */
   --z-sticky:    5;    /* sticky bars inside a card (bulk actions)          */
@@ -149,8 +155,8 @@
   --z-toolnav:  50;    /* in-page tool tab bar                              */
   --z-header:   51;    /* app header — one above the tool nav it overlaps   */
   --z-popover:  60;    /* notification panel                                */
+  --z-fab:     290;    /* floating docks — AI, Wallet, Add expense          */
   --z-modal:   300;    /* transaction sheet, dialogs                        */
-  --z-fab:     310;    /* floating AI launcher                              */
   --z-undo:    320;    /* undo bar — must clear the launcher                */
   --z-panel:   400;    /* AI panel (backdrop 400, surface 401)              */
   --z-toast:  1000;    /* global toast — above everything by design         */

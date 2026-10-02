@@ -18,7 +18,7 @@ export function LifeMapSmartAssist({ profile, decisions, applied, age, money, on
       decision, change: calcWealth(profile, decisions, new Set(applied).add(decision.id), age, true) - base,
     })).filter((item) => item.change > 0).sort((a, b) => b.change - a.change).slice(0, 3);
   }, [profile, decisions, applied, age]);
-  return <SmartAssist title="Explore your next scenario" description="These checks reuse LifeMap’s illustrative model. A modelled impact is an assumption to explore, not a prediction or a recommendation.">
+  return <SmartAssist title="Explore your next scenario" collapsible={{ showLabel: 'Show scenario checks', hideLabel: 'Hide scenario checks' }} description="These checks reuse LifeMap’s illustrative model. A modelled impact is an assumption to explore, not a prediction or a recommendation.">
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
       <button className="btn btn-ghost btn-sm" type="button" onClick={() => setPinned({ values: Array.from({ length: 61 }, (_, at) => calcWealth(profile, decisions, applied, at, true)), score: calcScore(profile, applied), count: applied.size })}>{pinned ? 'Replace pinned scenario' : 'Pin this scenario for comparison'}</button>
       <button className="btn btn-ghost btn-sm" type="button" disabled={!applied.size} onClick={onReset}>Clear active decisions</button>

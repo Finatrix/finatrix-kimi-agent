@@ -72,6 +72,7 @@ test('investing reuses reviewed answers and compares contributions without rewri
   await page.getByRole('button', { name: 'Review saved answers' }).click();
   await page.getByRole('button', { name: 'Use these answers' }).click();
   await expect(page.getByRole('heading', { name: 'Explore what changes the outcome' })).toBeVisible();
+  await page.getByRole('button', { name: 'Show the scenario explorer' }).click();
   await page.getByRole('button', { name: /20% more/ }).click();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('fx_investmatch')!).a.monthly)).toBe(10000);
 });
@@ -80,22 +81,26 @@ test('cash and peer comparisons expose interactive trade-offs', async ({ page })
   await page.goto('/tools/parksmart');
   await page.getByRole('button', { name: 'Compare the options', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Make the trade-offs visible' })).toBeVisible();
+  await page.getByRole('button', { name: 'Show the comparison tools' }).click();
   await page.getByLabel('Explore another holding period').selectOption('6-12');
   await page.goto('/tools/peercompare');
   await page.getByRole('button', { name: 'Show the comparison' }).click();
   await expect(page.getByRole('heading', { name: 'Understand the comparison' })).toBeVisible();
+  await page.getByRole('button', { name: 'Show the location explorer' }).click();
   await page.getByLabel('Focus on a measure').selectOption({ index: 1 });
 });
 
 test('goals finds fitting deadlines and LifeMap pins a scenario', async ({ page }) => {
   await page.goto('/tools/goals');
   await page.getByRole('button', { name: 'Show me the path' }).click();
+  await page.getByRole('button', { name: 'Show the deadline finder' }).click();
   await page.getByLabel('Monthly contribution limit', { exact: true }).fill('50000');
   await expect(page.getByText(/Earliest modelled fit/).first()).toBeVisible();
   await page.getByText('Check the full 10% step-up commitment').click();
   await expect(page.getByRole('region', { name: 'Yearly step-up contribution schedule' })).toBeVisible();
   await page.goto('/tools/lifemap');
   await page.getByRole('button', { name: /Launch my LifeMap/ }).click();
+  await page.getByRole('button', { name: 'Show scenario checks' }).click();
   await page.getByRole('button', { name: 'Pin this scenario for comparison' }).click();
   await expect(page.getByText(/Pinned model score/)).toBeVisible();
   await page.getByLabel('Find the first modelled age for a wealth target').fill('100000');
