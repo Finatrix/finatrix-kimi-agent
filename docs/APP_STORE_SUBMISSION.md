@@ -3,7 +3,9 @@
 > **Release status lives in [MOBILE_RELEASE_READINESS.md](MOBILE_RELEASE_READINESS.md).**
 > As of 2026-10-02 the App Store Connect record exists (Apple ID **6818361672**)
 > and holds everything below except where a row says otherwise; build 1.0.0 (1)
-> is uploaded, processed and attached to version 1.0.0.
+> is uploaded, processed and attached to version 1.0.0. The privacy answers are
+> entered but still require the owner's Publish attestation. Reviewer sign-in
+> and contact fields are blank.
 
 Everything App Store Connect asks for, answered. The build and signing runbook is
 docs/IOS.md; this is the paperwork.
@@ -143,6 +145,8 @@ FinatriX is not a bank, broker or registered adviser and executes no transaction
 **Demo account:** create a throwaway one before submitting and put the address
 and password in the Sign-In Information fields — never in the notes body.
 Seed it with a month of budget and expense data so the dashboard is not empty.
+The saved notes currently say this account is present, but those fields are
+blank; correct the mismatch before App Review submission.
 
 ## 8. App Privacy questionnaire
 
@@ -265,12 +269,12 @@ resolved in code, or is listed as an accepted answer with its reasoning.
 
 | Guideline | Risk | Status |
 |---|---|---|
-| 2.1 App Completeness | A demo account that does not work, or an empty app | Guest mode works fully; demo account in Sign-In Information |
+| 2.1 App Completeness | A demo account that does not work, or an empty app | Guest mode works fully; demo account still needs to be entered in Sign-In Information |
 | 2.3.1 Hidden features | — | Nothing gated on a hidden flag |
 | **3.1.1 In-app purchase** | Prices or a link to the Stripe checkout | **Resolved.** `canPurchaseInApp()` is false in both apps; `/pricing` and the Careers sales pages redirect (`isPurchasePage`); tests pin it |
 | 4.2 Minimum functionality | "A website in an app" | Eight calculators, on-device storage, offline operation, camera OCR, haptics, native navigation gestures — none of which a web page does |
-| **4.8 Login services** | Google offered without an equivalent | **Compliant at every stage.** iOS shows Google only together with Apple, and both only once `VITE_AUTH_APPLE=1`; until the Apple provider works an iOS build offers email sign-in alone. Configure docs/IOS.md §4.3 before submitting so reviewers see both |
-| **5.1.1(v) Account deletion** | "Email us to delete"; Apple tokens left authorized | **Live.** Profile → Delete account calls `account-delete` (storage purged, auth user deleted, all user rows cascade); the iOS origin is accepted; Apple tokens are revoked via Apple's REST API (`apple-token` + `account-delete`, docs/IOS.md §4.3a). Test with a real Apple account once the keys exist |
+| **4.8 Login services** | Google offered without an equivalent | The signed iOS build offers Apple and Google together. The provider is configured, but successful native Apple sign-in still needs a physical-device test |
+| **5.1.1(v) Account deletion** | "Email us to delete"; Apple tokens left authorized | Profile → Delete account calls `account-delete` (storage purged, auth user deleted, all user rows cascade); the iOS origin is accepted; Apple tokens are revoked via Apple's REST API (`apple-token` + `account-delete`, docs/IOS.md §4.3a). A real Apple account deletion test remains |
 | **5.1.2(i) Third-party AI** | Personal data to an AI provider without explicit permission | **Resolved in code 2026-10-01.** One-time consent prompt naming OpenRouter, enforced in `requestCompletion`; withdrawable in Settings → Privacy |
 | 5.1.1 Data minimisation | Permissions asked for and unused | Camera only, and only at the moment it is used. A test asserts the plist declares exactly one usage description |
 | 5.1.2 Data use and sharing | A privacy answer the code contradicts | §8 derives every answer from a named file |
@@ -288,5 +292,5 @@ resolved in code, or is listed as an accepted answer with its reasoning.
 - [ ] Demo account created, seeded, and entered in Sign-In Information
 - [ ] Six screenshots at 6.9" (ready in `ios/store/screenshots/`; retake if a screen changed)
 - [ ] App Privacy questionnaire answered from §8 and agreeing with `PrivacyInfo.xcprivacy`
-- [ ] Age rating questionnaire answered from §6, including the AI question
+- [x] Age rating questionnaire answered from §6 (18+ override; the current form has no AI question)
 - [ ] Review notes pasted from §7
