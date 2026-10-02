@@ -1,6 +1,6 @@
 # FinatriX mobile release readiness — source of truth
 
-**Last updated: 2026-10-02.** Everything below was verified against the
+**Last updated: 2026-10-02 (afternoon).** Everything below was verified against the
 repository, signed builds, the live backend, store consoles and
 emulator/Simulator runs on 2026-10-01/02. The live Play findings are recorded
 in [PLAY_CONSOLE_RELEASE_2026-10-02.md](PLAY_CONSOLE_RELEASE_2026-10-02.md).
@@ -17,7 +17,7 @@ verified state, the blockers and what only the account owner can do.
 | | Android | iOS |
 |---|---|---|
 | Technical readiness | **93%** | **80%** |
-| Submission-package readiness | **88%** | **72%** |
+| Submission-package readiness | **88%** | **76%** |
 | Verdict | **READY FOR CLOSED TEST AFTER CODE 5 UPLOAD** | **TESTFLIGHT BUILD READY; DEVICE VALIDATION PENDING** |
 | P0 technical blockers | 0 | 1 (physical TestFlight test) |
 | P1 verification gaps | 2 (real Google sign-in and deletion) | 3 (real Apple sign-in/revocation, Universal Links on device, and the iOS 15.4 runtime floor) |
@@ -34,8 +34,8 @@ archive are configured, but real Apple sign-in/revocation, Universal Links and
 the complete TestFlight flow have not been tested on the paired physical iPhone.
 The only installed Simulator runtime is iOS 26.5, so the declared iOS 15.4
 minimum remains unverified on its actual WKWebView engine.
-App Store Connect still needs a reviewer account, contact fields and the owner's
-legal attestation before its privacy disclosure can be published.
+App Privacy was published by the owner on 2026-10-02; App Store Connect still
+needs a reviewer account and contact fields.
 
 ## 2. Release candidate (frozen)
 
@@ -141,25 +141,24 @@ legal attestation before its privacy disclosure can be published.
   Universal Links are not yet verified on the signed physical-device build.
 - iOS: the declared iOS 15.4/WKWebView minimum has no actual runtime or device
   test; only iOS 26.5 Simulator is installed.
-- iOS submission: App Privacy is entered but its **Publish** dialog requires
-  the owner's accuracy/legal attestation. Reviewer sign-in and contact fields
-  remain blank in App Store Connect.
+- iOS submission: reviewer sign-in and contact fields remain blank in App Store
+  Connect. (App Privacy was published by the owner on 2026-10-02.)
 
 ### P2
 - `careers-ai` deny routing is switched off by the owner's secret — decide after one signed-in AI test.
 - Capacitor logs "Error injecting safe area CSS" once on API 30 (its own timing; nothing visible).
-- A leftover Simulator app `co.finatrix.exportaudit` also claims `co.finatrix.app://` on some simulators — delete it before any iOS OAuth testing.
 - Gradle DSL deprecations (Gradle 10); DOMPurify low advisory.
 
 ## 7. Owner actions, in order
 
-1. **Apple privacy**: review the nine entered data types and click **Publish** in
-   the open App Store Connect modal. The modal explicitly asks for an accuracy
-   and legal-compliance attestation, which the owner must make.
-2. **Play upload access**: enable Chrome's ChatGPT extension setting **Allow
-   access to file URLs**. The browser upload failed locally with “Not allowed”;
-   Google has not received the AAB. Then upload **code 5** to the saved closed
-   Alpha draft, inspect Play's parsed build/signing and the pre-launch report.
+1. ~~**Apple privacy**~~ — published by the owner on 2026-10-02.
+2. **Play upload (owner, by hand)**: Google has not received the code 5 AAB.
+   Automated uploads are not an option: the AAB is 11.05 MB, over the browser
+   tool's 10 MB per-file limit, and agent access to Play Console is treated as
+   a production deploy. Upload
+   `android/release-candidates/1.0.0-code5/finatrix-1.0.0-code5.aab` to the
+   saved closed Alpha draft yourself, then check Play's parsed versionCode 5,
+   signing and the pre-launch report.
 3. **Reviewer account**: set credentials for a disposable account in Supabase
    and enter them, plus reviewer contact information, in App Store Connect.
    The app works as a guest, but its optional signed-in AI needs reviewer access.
@@ -206,7 +205,7 @@ six real Simulator screenshots and a processed distribution build are attached.
 offline tools, on-device OCR, native back, links and haptics — residual risk for
 any WebView app. 4.8 login: Apple and Google are offered in the signed iOS build
 but successful native Apple sign-in remains untested. 5.1 privacy: nine data
-types are entered, awaiting the owner's Publish attestation. 5.1.1(v): in-app
+types published by the owner. 5.1.1(v): in-app
 deletion and Apple revocation built; a real Apple account test is still needed.
 5.1.2(i) AI: explicit consent naming the recipient. Finance: educational
 disclaimer and non-prescriptive wording; legal review pending. **Would reject
