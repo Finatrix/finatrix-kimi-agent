@@ -1,6 +1,6 @@
 # FinatriX mobile release readiness — source of truth
 
-**Last updated: 2026-10-02 (afternoon).** Everything below was verified against the
+**Last updated: 2026-10-03 (00:30 AEST).** Everything below was verified against the
 repository, signed builds, the live backend, store consoles and
 emulator/Simulator runs on 2026-10-01/02. The live Play findings are recorded
 in [PLAY_CONSOLE_RELEASE_2026-10-02.md](PLAY_CONSOLE_RELEASE_2026-10-02.md).
@@ -16,9 +16,9 @@ verified state, the blockers and what only the account owner can do.
 
 | | Android | iOS |
 |---|---|---|
-| Technical readiness | **93%** | **80%** |
-| Submission-package readiness | **88%** | **76%** |
-| Verdict | **CODE 5 IN CLOSED-TEST REVIEW** | **TESTFLIGHT BUILD READY; DEVICE VALIDATION PENDING** |
+| Technical readiness | **95%** | **85%** |
+| Submission-package readiness | **90%** | **80%** |
+| Verdict | **CODE 6 BUILT; CODE 5 LIVE TO CLOSED TESTERS** | **BUILD 2 IN TESTFLIGHT AND ATTACHED; DEVICE VALIDATION PENDING** |
 | P0 technical blockers | 0 | 1 (physical TestFlight test) |
 | P1 verification gaps | 2 (real Google sign-in and deletion) | 3 (real Apple sign-in/revocation, Universal Links on device, and the iOS 15.4 runtime floor) |
 
@@ -26,36 +26,42 @@ Store waiting periods are kept out of these numbers on purpose: Google's
 12-testers × 14-days gate decides *when* Android can go public, not whether
 the binary is ready.
 
-**Why Android is not 100% technical:** a real successful Google sign-in under
-PKCE and account deletion end-to-end have not been run (both need disposable
-accounts), and old Android versions have only been exercised with their
-factory WebViews. **Why iOS is not higher:** the Apple provider and signed
-archive are configured, but real Apple sign-in/revocation, Universal Links and
-the complete TestFlight flow have not been tested on the paired physical iPhone.
-The only installed Simulator runtime is iOS 26.5, so the declared iOS 15.4
-minimum remains unverified on its actual WKWebView engine.
-App Privacy was published by the owner on 2026-10-02; App Store Connect still
-needs a reviewer account and contact fields.
+**New in this pass (2026-10-02/03):** the mandatory UX changes — collapsed
+secondary information on every tool page and the Expense Tracker's floating
+"+" — are in Android code 6 and iOS build 2, verified on Chromium, Pixel 7 and
+WebKit (Playwright), on the API 36 emulator with the exact signed code 6 APK,
+and in the iOS Simulator (iPhone 17e) with a Release build. **Why Android is
+not 100% technical:** a real Google sign-in under PKCE and account deletion
+end-to-end still need a disposable account. **Why iOS is not higher:** real
+Apple sign-in/revocation, Universal Links and the full TestFlight flow have
+not been run on the paired physical iPhone, and the declared iOS 15.4 minimum
+has no runtime test (only the iOS 26.5 Simulator runtime is installed).
 
-## 2. Release candidate (frozen)
+## 2. Release candidates
 
 | | |
 |---|---|
-| Git commit | `bff53e16fdd6b9a09a3fc890a86fd46b410ad8f2` (branch `release/2026-09-12-launch-readiness`, **not pushed**) |
-| Git tag | `android-1.0.0-code5-rc1` (local annotated release-candidate tag) |
-| Android AAB | `android/release-candidates/1.0.0-code5/finatrix-1.0.0-code5.aab` (gitignored) — SHA-256 `a10d8d4af786d7e97469673738c0b021da51533d7076e5418b2d31dcc6b2ca46` |
-| Android APK | same folder, `finatrix-1.0.0-code5.apk` — SHA-256 `2d15b57b22eda5b85cec85906ef3248940a947afcf65fb570100cfdd567b3e12` |
-| Android version | **1.0.0 / versionCode 5** (code 1 is on the Play Alpha track; codes 2–4 were built but never uploaded) |
-| Signing | upload key `CN=FinatriX`, SHA-256 `FC:B1:BA:96…5F:4C` (Play App Signing re-signs with `B6:E9:AD:C3…EF:FB`) |
-| iOS build | Signed App Store IPA `ios/release-candidates/1.0.0-1/App.ipa`, SHA-256 `5f2f1005b9fbeace5ba29d2650a194d054e76e2cb60706a0aaea5d5afe37b3b3`, from `b30b4cc` (tag `ios-1.0.0-build1-rc1`); uploaded, processed and attached to App Store Connect version 1.0.0. IPA signed by Apple Distribution for `AY79GYWLDP`, with Associated Domains and SIWA entitlements. |
-| Backend (live) | `account-delete` v6, `apple-token` v3, `careers-ai` v42, `analytics-collect` v27, `careers-jobs` v47, `careers-email` v27, `careers-billing-checkout` v15, `careers-billing-webhook` v13; `verify:deploy` reports source parity for all eight and all 11 relations |
-| Worker / website (live) | `finatrix-co` version `499018e0-38f4-4ab7-9bce-ae5abef79c67` serves `index-BsJKBXA5.js` and `/compat.js`, matching the Android code 5 bundle and local build. `verify:production` passes including the new entry-parity check. |
-| AI routing secret | `CAREERS_AI_DATA_COLLECTION=allow` was set by the owner on 2026-10-01 10:58 UTC, so `careers-ai` currently routes **without** the `data_collection: deny` restriction. To restore it: `npx supabase secrets unset CAREERS_AI_DATA_COLLECTION --project-ref uspbsgbggurggsfsontq` |
+| Git branch | `release/2026-09-12-launch-readiness`, **pushed to `origin`** on 2026-10-03 (head `c662ec5` at push; secrets scan clean) |
+| Android AAB (current) | `android/release-candidates/1.0.0-code6/finatrix-1.0.0-code6.aab` (gitignored), built from **`5e72515`** in a fresh worktree with `npm ci` — SHA-256 `5ad724126d41413bbc468450fd947b05f3897e0bdfd2888bf1ef209e2c187e3b` |
+| Android APK (current) | same folder, `finatrix-1.0.0-code6.apk` — SHA-256 `e679d1615a2163ed3d6669f1e2f9e48ea413957adc60e0b3979d003b594c98ce` |
+| Android version | **1.0.0 / versionCode 6** — target 36, min 24, not debuggable, permissions unchanged (INTERNET, VIBRATE, signature-level receiver). Code 6 exists because the mandatory UX changes are not in code 5. **Not yet uploaded** (see §7) |
+| Android signing | upload key `CN=FinatriX`, SHA-256 `FC:B1:BA:96…5F:4C` (verified on the code 6 APK, v2 scheme; AAB jar-verified). Play App Signing re-signs with `B6:E9:AD:C3…EF:FB` |
+| Android previous | code 5 from `bff53e1` (tag `android-1.0.0-code5-rc1`) — live on Closed testing (Alpha) |
+| iOS build (current) | **1.0.0 (2)** from **`c662ec5`**, fresh worktree + `npm ci`, `ios/release-candidates/1.0.0-2/App.ipa` SHA-256 `4228245f38200c624f48a46ee7a1994308da29ff748504be1bd0a68f0c7b5a87`. Signed "Apple Distribution: Hrishik KS (AY79GYWLDP)"; entitlements: Sign in with Apple, Associated Domains, `get-task-allow` false; MinimumOSVersion 15.4. Uploaded 2026-10-02 23:57 AEST, processed, in the internal TestFlight group and **attached to App Store version 1.0.0** (replacing build 1) |
+| iOS previous | build 1 from `b30b4cc` (tag `ios-1.0.0-build1-rc1`) — waiting for TestFlight external (beta) review for the Family and Friends groups |
+| Code 6 vs build 2 | Identical app code. The two commits between them change only the iOS build number and `scripts/ios-release.sh` |
+| Website | Live Worker `finatrix-co` version `499018e0` serves the code 5 frontend. The new UX is built (`npm run build` at `c662ec5`) but **not deployed** — a production web deploy needs the owner's go-ahead (§7) |
+| AI routing secret | `CAREERS_AI_DATA_COLLECTION=allow` (owner, 2026-10-01). Audit and recommendation to restore `deny`: [AI_PRIVACY_AUDIT.md](AI_PRIVACY_AUDIT.md) |
 
-## 3. What changed since the 2026-10-01 audit
+## 3. What changed since the 2026-10-01 audit (newest first)
 
 | Change | Why | Evidence |
 |---|---|---|
+| **Shorter tool pages** — a reusable `Disclosure` (button + `aria-expanded`/`aria-controls`, `hidden` region) collapses the education block under all 8 tools and the what-if explorers under results (Goals, LifeMap, ParkSmart, PeerCompare, InvestMatch) | The education block alone was 3,500–6,500px of every page at 375px | Page height at 375px, empty state: Budget 12,936 → 6,752; Expenses 9,203 → 4,870; InvestMatch 5,787 → 1,566; ParkSmart 5,176 → 1,967; PeerCompare 5,325 → 2,369; Goals 7,335 → 2,128; LifeMap 9,232 → 3,728; Net Worth 5,054 → 1,443. With a result: Goals 10,950 → 4,701, LifeMap 10,633 → 4,917, PeerCompare 9,239 → 4,581, ParkSmart 8,948 → 5,226. `disclosure.test.tsx`, `toolEducation.test.tsx` (×8 tools), `e2e/compact-tools.spec.ts` on 3 engines |
+| **Expense Tracker floating "+"** (`AddExpenseFab`) calling the page's own `openAdd` | Adding a spend must be one tap away from anywhere on the page, on every tab | `addExpenseFab.test.tsx`; e2e: on-screen after a full scroll, no overlap with the AI dock or tab bar, covered by the open sheet, focus returns (WebKit included). API 36 code 6: tap → decimal keypad → save → Monthly spent updates; BACK closes the keyboard, then the sheet |
+| **Docks below dialogs** (`--z-fab` 310 → 290) | The AI and Wallet docks painted over the add-transaction sheet's Save button on phones | e2e `elementFromPoint` check; seen fixed on the emulator and in Simulator |
+| **Sheet footer flush to the card edge** | Form content scrolled visibly under Save | Visual check at 375px and on API 36 |
+| **Dashboard investing copy** | "Put your goal on autopilot — match a portfolio to reach it faster" claimed an outcome | [LEGAL_REVIEW_PACKAGE.md](LEGAL_REVIEW_PACKAGE.md) "Changed in this pass" |
 | **App OAuth moved to PKCE** (`src/lib/nativeOAuth.ts`, `AuthContext`, `bridge.ts`) | Tokens returned on `co.finatrix.app://`, a scheme any app can claim (demonstrated on the Simulator). Now a one-time code, redeemed with a verifier that never leaves the device | 19 unit tests, mutation-checked; on the API 36 emulator the authorize URL carries an S256 challenge and cancel / error / injected code / injected token / warm / cold / process-death all behave; live GoTrue accepts the challenge and answers `flow_state_not_found` (not 401) to a bogus code; release logcat has no tokens |
 | **Tokens on the custom scheme are refused** | Stops session injection (signing someone into an attacker's account) | `native.test.ts`; the release build shows "Sign-in could not be completed" and writes no session |
 | **Android cloud backup excludes WebView storage**; device-to-device transfer keeps everything | The refresh token lives in the same storage as guest data | Local backup transport on API 36: the cloud archive has no `app_webview/` and no data marker; the D2D archive has 53 `app_webview/` entries including the marker |
@@ -115,15 +121,15 @@ needs a reviewer account and contact fields.
 | Camera OCR, VoiceOver, physical device | Not done (Simulator has no camera; physical device after TestFlight) |
 | Screenshots | 6 ready (see §3); retake from the final signed build if any screen changes |
 
-### Automated suites (source through `bff53e1`)
+### Automated suites (source through `c662ec5`)
 | Suite | Result |
 |---|---|
-| Vitest | 224 files, **3,690 passed**, 14 skipped, exit 0 after regenerating the sitemap (the prior run had one stale `lastmod` mismatch) |
-| Playwright full run | **1,299 / 1,301 passed**; two early Chromium layout tests timed out on the loading screen under the long run. Both passed in the isolated single-worker rerun; the complete layout spec passed **18/18**. A previous full run before the final account-deletion edit passed **1,301/1,301**. The latest full run is therefore not labelled an unconditional pass. |
-| Targeted e2e after the compatibility work | 18 / 18 latest responsive-finance Chromium rerun; prior 33 / 33 compatibility-import, dialog-inert, command-palette, ios-webkit |
-| `npm run lint` / `audit:prod` | clean / clean (xlsx accepted, write-only tripwire) |
-| `npm run verify:native` | **18 / 18** — including the real paid Team ID on both AASA hosts; signed-device Universal Links still require testing |
-| `npm run verify:production` / `verify:deploy` | green / green; production entry and `/compat.js` exactly match local `dist/` |
+| Vitest | 227 files, **3,727 passed**, 14 skipped (includes the 37 new disclosure, education and floating-add tests), exit 0 |
+| Playwright full run (Chromium + Pixel 7) | **1,210 / 1,218** on the first pass; the 8 failures were four specs × two projects driving explorers that are now behind a toggle. Specs updated; the affected files (`finance-upgrade`, `sitewide-automation`, `result-explainer`) then passed **100 / 100** on Chromium, Pixel 7 and WebKit |
+| New e2e `compact-tools.spec.ts` | **12 / 12** on each of Chromium, Pixel 7 and WebKit |
+| `npm run lint` | clean |
+| Android emulator (API 36 / WebView 133, exact signed code 6 APK) | cold start 856 ms; App Link to `/tools/expenses` 1,081 ms; "+" exposed to TalkBack as button "Add expense"; add/save/keyboard/BACK; collapsed education expands; logcat: no app errors, no tokens, emails or auth headers |
+| iOS Simulator (iPhone 17e, iOS 26.5, Release build of `c662ec5`) | "+" clear of the home indicator and tab bar on the Expenses tabs, absent elsewhere; exposed by WebKit as "Add expense" (pop-up button, from `aria-haspopup="dialog"`); dimmed under the sign-in prompt. The Simulator MCP is broken by an Xcode update, so taps were limited |
 
 ## 6. Blockers
 
@@ -131,8 +137,12 @@ needs a reviewer account and contact fields.
 **iOS**
 1. No physical-iPhone TestFlight smoke test of the signed build, including camera,
    OAuth, import, offline and accessibility flows.
+2. App Store submission blocked by missing reviewer credentials and contact
+   details (App Store Connect's own "Unable to Add for Review" list: User name,
+   Password, First name, Last name; phone and email are also blank).
 
-**Android** — none.
+**Android** — none in the binary. Code 6 must be uploaded before the
+production application so the reviewed build carries the mandatory UX.
 
 ### P1
 - Android: successful native Google PKCE sign-in and end-to-end account deletion
@@ -140,42 +150,72 @@ needs a reviewer account and contact fields.
 - iOS: successful native Apple sign-in, encrypted token storage/revocation and
   Universal Links are not yet verified on the signed physical-device build.
 - iOS: the declared iOS 15.4/WKWebView minimum has no actual runtime or device
-  test; only iOS 26.5 Simulator is installed.
-- iOS submission: reviewer sign-in and contact fields remain blank in App Store
-  Connect. (App Privacy was published by the owner on 2026-10-02.)
+  test; only iOS 26.5 Simulator is installed (evidence in §11).
+- iOS: App Availability (countries) not set — an owner decision (§7).
 
 ### P2
-- `careers-ai` deny routing is switched off by the owner's secret — decide after one signed-in AI test.
+- `careers-ai` routes with `data_collection: allow` — recommendation to restore
+  `deny` in [AI_PRIVACY_AUDIT.md](AI_PRIVACY_AUDIT.md).
+- `careers-ai/index.ts` contains literal NUL bytes, so git treats it as binary
+  (diffs invisible) — fix with the next backend deploy.
+- No Play pre-launch report has ever been generated (codes 1 and 5); the console
+  shows "Upload artifacts to generate pre-launch reports". Re-check after code 6.
+- About 20 money fields still use `type="number"` with string state (Goal
+  Planner, ParkSmart, PeerCompare and the explorers). They keep their input,
+  but the project rule is text + `inputMode="decimal"`; convert post-launch.
 - Capacitor logs "Error injecting safe area CSS" once on API 30 (its own timing; nothing visible).
 - Gradle DSL deprecations (Gradle 10); DOMPurify low advisory.
 
 ## 7. Owner actions, in order
 
-1. ~~**Apple privacy**~~ — published by the owner on 2026-10-02.
-2. ~~**Play upload**~~ — owner reports code 5 uploaded to the closed Alpha
-   draft and sent for review on 2026-10-02 (not agent-verified: agent access to
-   Play Console is blocked). Check the pre-launch report once it runs.
-3. **Reviewer account**: set credentials for a disposable account in Supabase
-   and enter them, plus reviewer contact information, in App Store Connect.
-   The app works as a guest, but its optional signed-in AI needs reviewer access.
-4. **Physical device**: install the processed TestFlight build on the paired
-   iPhone 16 Pro and run the full camera/OCR, import, login, links, accessibility,
-   offline and account-deletion checklist in IOS.md.
-5. **AI and deletion**: perform one signed-in AI prompt to decide whether the
-   current `CAREERS_AI_DATA_COLLECTION=allow` fallback is acceptable; use
-   disposable accounts to verify deletion and Apple token revocation.
-6. **Legal review** of the investment wording and developer-account type
-   (Apple 5.1.1(ix) for finance apps).
+1. **Upload Android code 6** — Play Console → Test and release → Testing →
+   Closed testing → Alpha → Create new release → upload
+   `android/release-candidates/1.0.0-code6/finatrix-1.0.0-code6.aab` → release
+   name "1.0.0 (6) — shorter tool pages, quick add" → Next → Save → Publishing
+   overview → Send for review. Do not remove testers or change the track's
+   audience. (Agent cannot: the AAB is 11.06 MB, over the browser upload tool's
+   10 MB limit, and no Play API service account exists.)
+2. **Reviewer account (Apple)** — create a disposable email/password account on
+   finatrix.co, then App Store Connect → FinatriX → iOS App 1.0.0 → App Review
+   Information: enter its user name and password; Contact Information: first
+   name, last name, phone, email. Save.
+3. **App Availability (Apple)** — Pricing and Availability → Set Up
+   Availability. Suggested: all countries/regions except mainland China (needs an
+   ICP filing); EU storefronts need the trader-status declaration under
+   Business → Agreements. Price is already set to Free.
+4. **Physical device** — on the iPhone 16 Pro open TestFlight, install
+   FinatriX 1.0.0 (2) (internal group "FinatriX Team"), then run the IOS.md
+   checklist: Apple and Google sign-in, sign out, relaunch (session restored),
+   a finatrix.co link from Notes/Messages opens the app on the right screen,
+   camera OCR on a receipt, CSV and PDF import (and a cancelled and an invalid
+   file), airplane-mode launch, VoiceOver on tabs/forms/dialogs/results, the
+   Expenses "+" and a "Show calculation, examples & FAQ" toggle, then Delete
+   account with the Apple account and confirm sign-in starts fresh.
+5. **Android sign-in and deletion** — on any Android phone with code 6 (or 5)
+   from the closed track: Google sign-in with a throwaway Google account,
+   relaunch, sign out, sign in, Delete account, relaunch, sign in again
+   (fresh account expected).
+6. **AI routing decision** — [AI_PRIVACY_AUDIT.md](AI_PRIVACY_AUDIT.md) §5.
+7. **Web deploy (go-ahead needed)** — the new UX is built from `c662ec5`;
+   `npm run build && npx wrangler deploy && npm run verify:production`.
+   Rollback: `npx wrangler rollback 499018e0-38f4-4ab7-9bce-ae5abef79c67`.
+8. **Legal review** — [LEGAL_REVIEW_PACKAGE.md](LEGAL_REVIEW_PACKAGE.md),
+   including the Individual-account question under Guideline 5.1.1(ix).
+9. **iOS minimum version** — keep 15.4 (test on an iOS 15 device) or raise it
+   (§11).
 
 ## 8. Store gates
 
-| Gate | Status |
+| Gate | Status (verified in the consoles 2026-10-03 ~00:00 AEST) |
 |---|---|
-| Google 12 testers × 14 days | **12 testers, 1 continuous day** on 2 Oct in the production-access panel; roughly 13 days remain if opt-ins persist |
+| Play closed testing | **1.0.0 (5) "Available to testers on Google Play"**, Closed testing – Alpha, full roll-out, 178 countries/regions, updated 2 Oct 19:29. Stale empty drafts remain on Alpha (1.0.0 (1)) and Internal |
+| Google 12 testers × 14 days | **TIME-GATED** — dashboard: "12 testers have currently been opted in for 1 day"; first two checks ticked; Apply for production disabled. Earliest eligibility ≈ 15–16 Oct if opt-ins persist |
 | Google production access application | Not yet — answer template in ANDROID.md §11 (fill with real tester evidence only) |
+| Play pre-launch report | None generated for any build (see §6 P2) |
+| Play store listing | Corrected Goal-plan screenshot (`4-goal-plan.png`, uploaded as `4-goal-plan-2026-10-02.png`, 1080×1920) added as the 6th phone screenshot; AI-asset declaration "Don't label" (real capture); **sent for review 2026-10-03** — BLOCKED — GOOGLE. Managed publishing is on, so it waits for a Publish click after approval |
 | Apple developer enrolment | **ACTIVE** — Individual Apple Developer Program, Team ID `AY79GYWLDP`, renewal 2 Oct 2027 |
-| Apple App Store Connect | App record 6818361672, processed build 1.0.0 (1) attached, six screenshots and metadata saved; internal TestFlight build **Ready to Test**; App Store version **Prepare for Submission**, not submitted |
-| Play listing and Data safety | Four approved changes published on 2 Oct; code 5 sent for closed-Alpha review on 2 Oct (owner-reported); testers stay on code 1 until approved |
+| Apple TestFlight | Build 2 processed, internal group "FinatriX Team" ("Ready to Submit" for external). Build 1 "Waiting for Review" for external groups Family and Friends |
+| Apple App Store version 1.0.0 | **Prepare for Submission**; build **2** attached (saved); price **Free** (175 regions, takes effect at Ready for Sale); availability not set; reviewer sign-in and contact fields blank — Add for Review refused for exactly those |
 
 ## 9. Deployment log
 
@@ -187,6 +227,8 @@ needs a reviewer account and contact fields.
 | 2026-10-01 ~10:27 | `careers-ai` v40 (`data_collection: deny`) | boot, CORS for 3 origins, 401 without a session |
 | 2026-10-01 10:58 | Owner set `CAREERS_AI_DATA_COLLECTION=allow` | `secrets list` |
 | 2026-10-02 ~01:13 | Worker `499018e0` from the current frontend build | `verify:production` passes entry parity and 140 URLs; `verify:deploy` sees no edge/database drift |
+| 2026-10-02 13:57 | iOS 1.0.0 (2) uploaded to App Store Connect (not a deploy; nothing public) | `upload.log` "Upload succeeded"; TestFlight shows build 2 processed |
+| — | No web, Worker, edge-function or database deploy in this pass | `wrangler deployments list`: live version still `499018e0` |
 
 Noted, not caused by these deploys: Cloudflare injects its Web Analytics
 beacon and Bot Management script at the edge and the site CSP blocks both
@@ -215,3 +257,19 @@ App access: guest mode. The updated listing removes the outdated Goal-plan
 image, with five remaining screenshots. Production access: 12 testers, 1/14
 days. **Would hold today because code 5 is still in review and
 the mandatory testing gate is incomplete.**
+
+## 11. iOS minimum version — evidence for the decision
+
+| Factor | Finding |
+|---|---|
+| Capacitor and plugins | `capacitor-swift-pm` 8.5.2 and all five plugins declare `.iOS(.v15)` |
+| Why the app says 15.4 | `100dvh` sizing (Safari 15.4+); the bundle targets Safari 15.4; PDF import is gated to iOS 18+ and says so; XLSX has a bundled inflater for 15.4–16.3 |
+| Xcode | Xcode 26.6 archives and validates at 15.4 (build 2 `MinimumOSVersion` 15.4) |
+| Runtime test | **None.** Only the iOS 26.5 Simulator runtime is installed; Playwright's WebKit is current WebKit, not the 15.4 engine. An older runtime is a multi-GB download from Apple and may not run on this macOS 26.6 host |
+| Devices affected | iOS 15 is the last release for iPhone 6s/6s Plus, 7/7 Plus and SE (1st gen); raising to 16.0 drops exactly those |
+| CI | No iOS job in `.github/workflows` |
+
+Both options are technically valid: **A** keep 15.4 and test it on an iOS 15.x
+device (or a downloaded 15.x runtime, if it runs); **B** raise to 16.0 so the
+declared floor matches what can be tested, at the cost of the three iOS-15-only
+iPhone families. Changing it means a new build. Owner decision.
