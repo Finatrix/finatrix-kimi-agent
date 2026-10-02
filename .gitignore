@@ -16,6 +16,15 @@ dist-verify
 # Local environment variables (Supabase keys)
 .env
 
+# Apple private keys (Sign in with Apple, App Store Connect API). Apple lets a
+# .p8 be downloaded exactly once, so it tends to get copied next to the code
+# that uses it — and one commit puts it in the history for good. They belong in
+# a password manager and in edge-function secrets (scripts/configure-apple-signin.mjs).
+*.p8
+
+# Signed iOS archives and exported .ipa files (scripts/ios-release.sh).
+ios/release-candidates/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

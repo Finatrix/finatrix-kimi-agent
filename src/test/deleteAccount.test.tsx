@@ -21,21 +21,23 @@ vi.mock('../tools/cloudSync', () => ({ clearSyncedLocal: h.clearSyncedLocal, set
 vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ signOut: h.signOut }) }));
 
 import DeleteAccount from '../components/DeleteAccount';
+import { confirmationPhrase } from '../lib/accountDeletion';
 
 const EMAIL = 'asha@example.com';
 
-function setup() {
+function setup(email: string | null = EMAIL) {
+  const phrase = confirmationPhrase(email);
   render(
     <MemoryRouter initialEntries={['/profile']}>
       <Routes>
-        <Route path="/profile" element={<DeleteAccount email={EMAIL} />} />
+        <Route path="/profile" element={<DeleteAccount email={email} />} />
         <Route path="/login" element={<p>login page</p>} />
       </Routes>
     </MemoryRouter>,
   );
   fireEvent.click(screen.getByRole('button', { name: /delete my account/i }));
   return {
-    field: screen.getByLabelText(new RegExp(`Type ${EMAIL}`)),
+    field: screen.getByLabelText(`Type ${phrase} to confirm`),
     confirm: screen.getByRole('button', { name: /delete forever/i }),
   };
 }
@@ -110,5 +112,39 @@ describe('DeleteAccount', () => {
   it('re-enables the button after a failure so the user can retry', async () => {
     await failWith({ data: null, error: httpError(429, { error: 'Too many attempts.' }), reason: 'invoke-error' });
     await waitFor(() => expect(screen.getByRole('button', { name: /delete forever/i })).toBeEnabled());
+  });
+
+  it('asks a Hide My Email account for DELETE, not a relay address nobody has seen', async () => {
+    const relay = '8x7k2m9q4p@privaterelay.appleid.com';
+    h.invoke.mockResolvedValue({ data: { deleted: true }, error: null, reason: null });
+    const { field, confirm } = setup(relay);
+    expect(field).toHaveAttribute('type', 'text');
+    fireEvent.change(field, { target: { value: relay } });
+    expect(confirm).toBeDisabled();
+    fireEvent.change(field, { target: { value: ' delete ' } });
+    expect(confirm).toBeEnabled();
+    fireEvent.click(confirm);
+    await screen.findByText('login page');
+    expect(h.invoke).toHaveBeenCalledWith('account-delete', { confirm: 'DELETE' });
+  });
+
+  it('lets an account with no email delete too, and never confirms on an empty field', () => {
+    const { field, confirm } = setup(null);
+    fireEvent.change(field, { target: { value: '' } });
+    expect(confirm).toBeDisabled();
+    fireEvent.change(field, { target: { value: 'DELETE' } });
+    expect(confirm).toBeEnabled();
+  });
+});
+
+describe('confirmationPhrase', () => {
+  it('is the address the person knows, and DELETE when they cannot know it', () => {
+    expect(confirmationPhrase('asha@example.com')).toBe('asha@example.com');
+    expect(confirmationPhrase(' Asha@Example.com ')).toBe('Asha@Example.com');
+    expect(confirmationPhrase('abc123@PrivateRelay.AppleID.com')).toBe('DELETE');
+    expect(confirmationPhrase('')).toBe('DELETE');
+    expect(confirmationPhrase(undefined)).toBe('DELETE');
+    // A real mailbox that merely mentions Apple is still the person's own address.
+    expect(confirmationPhrase('me@privaterelay.appleid.com.example.org')).toBe('me@privaterelay.appleid.com.example.org');
   });
 });

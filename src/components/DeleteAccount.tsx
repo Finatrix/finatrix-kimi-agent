@@ -1,6 +1,7 @@
 import { useId, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
+import { confirmationPhrase } from '../lib/accountDeletion';
 import { invokeAuthed } from '../lib/functions';
 import { clearSyncedLocal, setLastUid } from '../tools/cloudSync';
 import { Field, Notice } from './AuthShell';
@@ -8,13 +9,14 @@ import { Field, Notice } from './AuthShell';
 /**
  * Permanent account deletion, from inside the product.
  *
- * Required by Google Play for any app with sign-up, and expected of a finance
- * product anyway. Two deliberate steps — reveal, then type the account's email
- * — because this is the one irreversible action the app offers, and a single
- * mis-tap must never reach it. The server side is
- * `supabase/functions/account-delete`, which re-checks identity from the token
- * and removes files, rows and the login together.
+ * Required by Google Play for any app with sign-up, and by App Review 5.1.1(v)
+ * for any app with accounts. Two deliberate steps — reveal, then type the
+ * account's email (see `confirmationPhrase`) — because this is the one
+ * irreversible action the app offers, and a single mis-tap must never reach it.
+ * The server side is `supabase/functions/account-delete`, which re-checks
+ * identity from the token and removes files, rows and the login together.
  */
+
 /**
  * What to tell someone whose deletion did not complete.
  *
@@ -39,7 +41,7 @@ async function failureMessage(result: { error: unknown; reason: string | null })
   return 'Could not reach FinatriX to delete your account. Check your connection and try again.';
 }
 
-export default function DeleteAccount({ email }: { email: string }) {
+export default function DeleteAccount({ email }: { email: string | null | undefined }) {
   const { signOut } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -48,7 +50,9 @@ export default function DeleteAccount({ email }: { email: string }) {
   const [error, setError] = useState<string | null>(null);
   const panelId = useId();
 
-  const confirmed = typed.trim().toLowerCase() === email.trim().toLowerCase();
+  const phrase = confirmationPhrase(email);
+  const byEmail = phrase !== 'DELETE';
+  const confirmed = typed.trim().toLowerCase() === phrase.toLowerCase();
 
   async function remove() {
     if (!confirmed || busy) return;
@@ -92,12 +96,15 @@ export default function DeleteAccount({ email }: { email: string }) {
         <div id={panelId}>
           {error && <Notice kind="error">{error}</Notice>}
           <Field
-            label={`Type ${email} to confirm`}
-            type="email"
+            label={`Type ${phrase} to confirm`}
+            type={byEmail ? 'email' : 'text'}
             autoComplete="off"
+            autoCapitalize={byEmail ? 'none' : 'characters'}
+            autoCorrect="off"
+            spellCheck={false}
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
-            placeholder={email}
+            placeholder={phrase}
           />
           <div className="flex gap-3">
             <button

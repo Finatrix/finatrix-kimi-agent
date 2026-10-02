@@ -108,7 +108,8 @@ export default function Profile() {
         Sign out
       </button>
 
-      {user.email && <DeleteAccount email={user.email} />}
+      {/* Every account can be deleted, whatever its email (see confirmationPhrase). */}
+      <DeleteAccount email={user.email} />
     </AuthShell>
   );
 }

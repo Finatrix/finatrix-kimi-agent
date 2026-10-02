@@ -110,7 +110,7 @@ export function buildDecisions(p: LifeProfile, sh: ShortFmt): Decision[] {
   }
   list.push({ id: 'insurance', cat: 'safe', ic: 'health', c: 'rgba(29,125,70,.09)', t: 'Get health + term life insurance', s: 'One hospital bill without cover can wipe years of savings', smart: p.savings * 0.55, bad: -p.expenses * 24, custom: false, minAge: p.age, imp: `Shields ${sh(p.savings * 3)}` });
   if (hasDebt) {
-    list.push({ id: 'paydebt', cat: 'safe', ic: 'check', c: 'rgba(29,125,70,.09)', t: `Prepay debt (${sh(p.debtTotal)} outstanding)`, s: 'Pay more than the EMI — interest saved is a guaranteed return', smart: p.debtTotal * 0.42, bad: 0, custom: false, minAge: p.age, imp: `+${sh(p.debtTotal * 0.42)} saved` });
+    list.push({ id: 'paydebt', cat: 'safe', ic: 'check', c: 'rgba(29,125,70,.09)', t: `Prepay debt (${sh(p.debtTotal)} outstanding)`, s: 'Pay more than the EMI — every extra payment cuts the interest still to come', smart: p.debtTotal * 0.42, bad: 0, custom: false, minAge: p.age, imp: `+${sh(p.debtTotal * 0.42)} saved` });
   }
   list.push({ id: 'ccwise', cat: 'safe', ic: 'emi', c: 'rgba(29,125,70,.09)', t: 'Use credit card wisely (pay in full)', s: 'Never revolve balance. Earn rewards, build credit score.', smart: p.expenses * 3, bad: 0, custom: false, minAge: p.age, imp: '+Credit score & rewards' });
   list.push({ id: 'nominees', cat: 'safe', ic: 'bills', c: 'rgba(29,125,70,.09)', t: 'Add nominees & write a basic will', s: 'Ensures your wealth reaches your family smoothly', smart: p.savings * 0.1, bad: 0, custom: false, minAge: p.age, imp: 'Peace of mind' });

@@ -34,7 +34,12 @@ export default function Privacy() {
           address and a securely hashed password (handled by our authentication provider),
           plus an optional display name you choose. If you sign in with Google instead,
           Google shares your name, email address and a link to your profile picture with us,
-          and those are stored with your account.
+          and those are stored with your account. If you sign in with Apple, Apple shares the
+          name you allow and either your email address or, if you choose to hide it, a
+          private relay address that forwards to it. We also keep the sign-in token Apple
+          issues, encrypted and readable only by our servers, for one purpose: when you
+          delete your account we use it to tell Apple to remove FinatriX from your Apple
+          Account&rsquo;s sign-in list.
         </li>
         <li>
           <strong>Tool data you enter</strong> — figures you type into the tools (for
@@ -179,9 +184,12 @@ export default function Privacy() {
       <H2 id="delete-account">Deleting your account</H2>
       <P>
         You can delete your account yourself, on the website or in either app: sign in,
-        open <b>Profile</b>, choose <b>Delete account</b> and confirm with your email address.
-        This immediately and permanently deletes your login, your synced tool data, your
-        Careers records and any files you uploaded. Nothing is kept for later recovery.
+        open <b>Profile</b>, choose <b>Delete account</b> and confirm by typing your email
+        address (or DELETE, if you signed in with Apple and hid your address). This
+        immediately and permanently deletes your login, your synced tool data, your
+        Careers records and any files you uploaded, and, if you signed in with Apple,
+        revokes FinatriX&rsquo;s access to your Apple Account. Nothing is kept for later
+        recovery.
         Payment records held by our payment processor are retained by that processor as the
         law requires. If you cannot sign in, email{' '}
         <a href={SUPPORT_MAILTO} className="fx-prose-link">
