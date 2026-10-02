@@ -106,7 +106,7 @@ legal attestation before its privacy disclosure can be published.
 | Simulator Release build | PASS |
 | Launch / safe areas | PASS — clear of the Dynamic Island and home indicator |
 | Sign-in screen | PASS in Simulator before provider enablement; final Apple/Google buttons need a physical-device test |
-| Archive / signing / TestFlight | Signed IPA 1.0.0 (1) uploaded, processed and attached to the App Store Connect version. IPA verifies with Apple Distribution signature and the correct entitlements. Physical TestFlight installation is **not yet verified** |
+| Archive / signing / TestFlight | Signed IPA 1.0.0 (1) uploaded, processed and attached to the App Store Connect version. IPA verifies with Apple Distribution signature and the correct entitlements. Internal TestFlight group **FinatriX Team** lists one invited tester and build **Ready to Test** with no sessions yet. Physical TestFlight installation is **not yet verified** |
 | Universal Links | Both hosts serve HTTP 200 JSON without redirect and with `AY79GYWLDP.co.finatrix.app`; `verify:native` passes 18/18. Installation-time device handoff still untested |
 | Apple sign-in / revocation | Backend configured — `node scripts/configure-apple-signin.mjs --check` confirms provider, client ID/secret, redirect and five edge secrets. Successful native sign-in, encrypted token storage and revocation still need live tests |
 | Camera OCR, VoiceOver, physical device | Not done (Simulator has no camera; physical device after TestFlight) |
@@ -174,7 +174,7 @@ legal attestation before its privacy disclosure can be published.
 | Google 12 testers × 14 days | **12 testers, 1 continuous day** on 2 Oct in the production-access panel; roughly 13 days remain if opt-ins persist |
 | Google production access application | Not yet — answer template in ANDROID.md §11 (fill with real tester evidence only) |
 | Apple developer enrolment | **ACTIVE** — Individual Apple Developer Program, Team ID `AY79GYWLDP`, renewal 2 Oct 2027 |
-| Apple App Store Connect | App record 6818361672, processed build 1.0.0 (1) attached, six screenshots and metadata saved; **Prepare for Submission**, not submitted |
+| Apple App Store Connect | App record 6818361672, processed build 1.0.0 (1) attached, six screenshots and metadata saved; internal TestFlight build **Ready to Test**; App Store version **Prepare for Submission**, not submitted |
 | Play listing and Data safety | Four approved changes published on 2 Oct; installed closed Alpha remains code 1 |
 
 ## 9. Deployment log
