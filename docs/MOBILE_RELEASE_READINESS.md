@@ -16,11 +16,11 @@ verified state, the blockers and what only the account owner can do.
 
 | | Android | iOS |
 |---|---|---|
-| Technical readiness | **93%** | **82%** |
+| Technical readiness | **93%** | **80%** |
 | Submission-package readiness | **88%** | **72%** |
 | Verdict | **READY FOR CLOSED TEST AFTER CODE 5 UPLOAD** | **TESTFLIGHT BUILD READY; DEVICE VALIDATION PENDING** |
 | P0 technical blockers | 0 | 1 (physical TestFlight test) |
-| P1 verification gaps | 2 (real Google sign-in and deletion) | 2 (real Apple sign-in/revocation and Universal Links on device) |
+| P1 verification gaps | 2 (real Google sign-in and deletion) | 3 (real Apple sign-in/revocation, Universal Links on device, and the iOS 15.4 runtime floor) |
 
 Store waiting periods are kept out of these numbers on purpose: Google's
 12-testers × 14-days gate decides *when* Android can go public, not whether
@@ -32,6 +32,8 @@ accounts), and old Android versions have only been exercised with their
 factory WebViews. **Why iOS is not higher:** the Apple provider and signed
 archive are configured, but real Apple sign-in/revocation, Universal Links and
 the complete TestFlight flow have not been tested on the paired physical iPhone.
+The only installed Simulator runtime is iOS 26.5, so the declared iOS 15.4
+minimum remains unverified on its actual WKWebView engine.
 App Store Connect still needs a reviewer account, contact fields and the owner's
 legal attestation before its privacy disclosure can be published.
 
@@ -61,9 +63,9 @@ legal attestation before its privacy disclosure can be published.
 | **Careers hidden in the apps** (nav, palette, footer, drawer, topic cards; route → dashboard; no `/careers` deep-link claim on either platform) | Unlaunched placeholder in a store binary (App Review 2.1) | `careersNativeEntry.test.tsx` (12), `appleAppSite.test.ts`; a `/careers/jobs` link opens Chrome, not the app |
 | **Web-only chrome hidden in the apps** (breadcrumbs, duplicate Home) and device-neutral copy | Browser furniture inside an app | Android and iOS sign-in screenshots |
 | **Modal dialogs make the page behind them `inert`** | TalkBack swiped out of the AI panel into hidden content (Android WebView ignores `aria-modal`) | TalkBack tree 197 → 51 nodes with the panel open; `inertOutside.test.tsx`; `e2e/dialog-inert.spec.ts` on Chromium, Pixel 7 and WebKit |
-| **iOS offers Google only together with Apple** | The Apple button pointed at a disabled provider; 4.8 forbids Google alone | `authProviders.test.tsx`; Simulator sign-in shows email only |
-| **Sign in with Apple token revocation** (`apple-token`, `account-delete`, `apple_auth_tokens`) | Guideline 5.1.1(v) | `supabase/functions/_e2e/apple-revocation.ts` 10/10 (real functions; mock Apple verifies every ES256 client secret); unit tests; deployed and probed (503 "Not configured" until the Apple keys exist) |
-| **OpenRouter `data_collection: deny`** | Keep prompts away from providers that store or train on them | Deno E2E (fallback chain intact, override works); deployed as `careers-ai` v40 — **currently overridden to `allow`** (§2) |
+| **iOS offers Google only together with Apple** | The Apple button previously pointed at a disabled provider; 4.8 forbids Google alone | `authProviders.test.tsx`; provider and build flag are now enabled, so the signed build offers both; real sign-in still needs testing |
+| **Sign in with Apple token revocation** (`apple-token`, `account-delete`, `apple_auth_tokens`) | Guideline 5.1.1(v) | `supabase/functions/_e2e/apple-revocation.ts` 10/10 (real functions; mock Apple verifies every ES256 client secret); unit tests; edge secrets now set, live token storage/revocation still untested |
+| **OpenRouter `data_collection: deny`** | Keep prompts away from providers that store or train on them | Deno E2E (fallback chain intact, override works); deployed as `careers-ai` v42 — **currently overridden to `allow`** (§2) |
 | **Old-WebView support**: bundle targets Chrome 91 / Safari 15.4 + `public/compat.js`; below WebView 91 a blocking "Update needed" dialog | Factory WebView 91 rendered a blank screen; 66 and 53 cannot run the bundle at all | Android 11 / WebView 91: every tool, Reports, Settings and sign-in render with no console errors. Android 9 / WebView 66 and Android 7 / WebView 53: install and launch without a crash and show the prompt |
 | **PDF import is honest on older engines** (pdf.js legacy build; message below Chrome 125 / iOS 18) | pdf.js's official legacy floor | `pdfCompatibility.test.ts`; `e2e/compatibility-import.spec.ts` reads a real PDF on 3 engines |
 | **XLSX fallback inflater** (`fflate`, lazy, size-capped) | iOS 15.4–16.3 lack `DecompressionStream('deflate-raw')` | `xlsxImport.test.ts` with `DecompressionStream` removed |
@@ -72,16 +74,16 @@ legal attestation before its privacy disclosure can be published.
 | **Play screenshot 4 (Goal plan) recaptured** | It showed the old "Suggested instruments / ~12% CAGR" copy | `android/store/screenshots/4-goal-plan.png`, 1080×1920 RGB, fictional data, demo status bar — upload it to the listing |
 | **iOS App Store screenshots** | None existed | 6 × 1320×2868, opaque RGB, fictional data — `ios/store/screenshots/`, repeatable via `ios/store/seed-demo-data.py` + `capture-screenshots.sh` |
 
-## 4. Store rules in force (checked 2026-10-01)
+## 4. Store rules in force (checked 2026-10-02)
 
 | Rule | Requirement | FinatriX |
 |---|---|---|
 | Play target API | API 36 for new apps/updates since 2026-08-31 | targetSdk 36 — PASS |
-| Play testing gate | Personal accounts created after 2023-11-13: 12 testers opted in for 14 continuous days | Personal account per notes — progress UNKNOWN |
+| Play testing gate | Personal accounts created after 2023-11-13: 12 testers opted in for 14 continuous days | Live console: 12 testers, 1 continuous day on 2 Oct; production application disabled |
 | Play account deletion | In-app + web resource | Both — PASS |
 | Play payments | Play Billing for digital goods | Nothing sold in-app — PASS |
 | App Store SDK | Xcode 26 / iOS 26 SDK | Xcode 26.6 / SDK 26.5 — PASS |
-| Apple 4.8 | Equivalent privacy-preserving login when Google is offered | iOS offers no third-party login until Apple is configured — compliant at every stage |
+| Apple 4.8 | Equivalent privacy-preserving login when Google is offered | Signed iOS build offers Apple and Google together; provider configured, live flow pending |
 | Apple 5.1.1(v) | In-app deletion; revoke SIWA tokens | Built and deployed; paid team and provider configured, but untested with a real Apple account |
 | Apple 5.1.2(i) | Explicit consent before sending personal data to third-party AI | Consent gate enforced in the transport — PASS |
 
@@ -104,6 +106,7 @@ legal attestation before its privacy disclosure can be published.
 | Area | Result |
 |---|---|
 | Simulator Release build | PASS |
+| Declared iOS 15.4 minimum | NOT VERIFIED on iOS 15.4: Xcode only has the iOS 26.5 Simulator runtime; the bundle is compiled for Safari 15.4, and optional PDF import is gated to iOS 18+ |
 | Launch / safe areas | PASS — clear of the Dynamic Island and home indicator |
 | Sign-in screen | PASS in Simulator before provider enablement; final Apple/Google buttons need a physical-device test |
 | Archive / signing / TestFlight | Signed IPA 1.0.0 (1) uploaded, processed and attached to the App Store Connect version. IPA verifies with Apple Distribution signature and the correct entitlements. Internal TestFlight group **FinatriX Team** lists one invited tester and build **Ready to Test** with no sessions yet. Physical TestFlight installation is **not yet verified** |
@@ -136,6 +139,8 @@ legal attestation before its privacy disclosure can be published.
   with a disposable account are not yet verified.
 - iOS: successful native Apple sign-in, encrypted token storage/revocation and
   Universal Links are not yet verified on the signed physical-device build.
+- iOS: the declared iOS 15.4/WKWebView minimum has no actual runtime or device
+  test; only iOS 26.5 Simulator is installed.
 - iOS submission: App Privacy is entered but its **Publish** dialog requires
   the owner's accuracy/legal attestation. Reviewer sign-in and contact fields
   remain blank in App Store Connect.

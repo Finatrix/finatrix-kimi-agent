@@ -16,9 +16,9 @@ from the repository's build checks. The console has **managed publishing on**.
 
 ## Declarations and listing
 
-All 10 App content declarations are actioned. The **Data safety** revision is
-approved and published; the **Financial features** declaration was last seen
-as **In review** in App content.
+All 10 App content declarations are actioned. At the latest check neither
+**Data safety** nor **Financial features** displayed an "In review" badge.
+The Data safety revision was approved and published with the listing changes.
 
 - Financial features now declares educational budgeting, expense tracking,
   net-worth and goal tools under **Other**, with an explanation that FinatriX
