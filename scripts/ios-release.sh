@@ -52,6 +52,10 @@ archive() {
     exit 1
   fi
 
+  # Install first: the Apple-flag check below loads Vite to read .env, and a
+  # fresh worktree has no node_modules until this runs.
+  if [[ "${FX_CLEAN_INSTALL:-}" == "1" ]]; then npm ci; fi
+
   # VITE_* is inlined at build time and a missing value fails nothing. On iOS the
   # Apple flag decides whether ANY third-party sign-in is offered (src/lib/
   # authProviders.ts), so it must be a decision, not an accident of the shell.
@@ -64,7 +68,6 @@ archive() {
     exit 1
   fi
 
-  if [[ "${FX_CLEAN_INSTALL:-}" == "1" ]]; then npm ci; fi
   npm run build
   npx cap sync ios
 
