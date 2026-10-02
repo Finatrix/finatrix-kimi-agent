@@ -765,7 +765,12 @@ body.fx-has-add-fab .fx-tools .wrap { padding-bottom: calc(18px + var(--ctl-h-lg
    or to read, and the stack degrades into a row of chips. Desktop keeps exactly
    the 2:1 it already had; narrow screens trade it for a real height instead.
    Chart.js needs `maintainAspectRatio:false` to honour this box. */
-.fx-tools .fx-trend-canvas { position: relative; aspect-ratio: 2; }
+/* Clipped: Chart.js resizes the canvas on the frame AFTER its container
+   shrinks, and until then a canvas still at the old width (measured: 361px in
+   a 320px viewport on a slow WebKit) pushed the whole page into sideways
+   scroll. The wrapper's own width never depends on the canvas, so clipping
+   loses nothing. */
+.fx-tools .fx-trend-canvas { position: relative; aspect-ratio: 2; min-width: 0; overflow: hidden; }
 @media (max-width: 640px) {
   .fx-tools .fx-trend-canvas { aspect-ratio: auto; height: 280px; }
 }

@@ -20,6 +20,10 @@ async function openWorkspace(page: Page) {
   await page.evaluate(() => localStorage.clear());
   await page.reload();
   await expect(page.getByRole('button', { name: 'Search tools, guides and actions' })).toBeVisible();
+  // The ⌘K listener is attached in an effect after the first paint, so the
+  // trigger can be visible a moment before the key is heard — on a loaded CI
+  // runner that moment was long enough to swallow the shortcut.
+  await page.waitForLoadState('networkidle');
 }
 
 /**
@@ -32,7 +36,8 @@ function palette(page: Page) {
 
 async function openPalette(page: Page) {
   await page.keyboard.press('ControlOrMeta+k');
-  await expect(page.getByRole('dialog', { name: 'Command palette' })).toBeVisible();
+  // The palette is a lazy chunk fetched on first open; give a slow runner time.
+  await expect(page.getByRole('dialog', { name: 'Command palette' })).toBeVisible({ timeout: 15_000 });
   return page.getByRole('combobox', { name: 'Search tools, guides and actions' });
 }
 
