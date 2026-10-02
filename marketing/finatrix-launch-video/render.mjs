@@ -39,7 +39,10 @@ async function shoot(f) {
   return page.screenshot({ type: 'png', animations: 'disabled', caret: 'hide' });
 }
 
-if (mode === 'safe') {
+if (mode === 'rects') {
+  await page.evaluate((f) => window.FILM.seek(f), Number(list));
+  console.log(JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('.badge, .badge svg, .disc, .tag, .word')].map((e) => { const r = e.getBoundingClientRect(); return [e.className.baseVal ?? e.className, Math.round(r.left), Math.round(r.top), Math.round(r.right), Math.round(r.bottom)]; }))));
+} else if (mode === 'safe') {
   // Every readable piece of copy must sit inside the phone-safe area:
   // 90 px left/right, 160 px top, 260 px bottom.
   const bad = {};
@@ -49,7 +52,9 @@ if (mode === 'safe') {
       const op = (e) => { let o = 1; for (; e && e.id !== 'stage'; e = e.parentElement) { const cs = getComputedStyle(e); if (cs.visibility === 'hidden') return 0; o *= +cs.opacity; } return o; };
       return [...document.querySelectorAll('.hl .in, .kick, .note, .chip, #word, .word, .tag, .cta, .disc, .badge, .mchip, .bigchip, .xchip')]
         .filter((e) => op(e) > 0.6)
-        .map((e) => { const rg = document.createRange(); rg.selectNodeContents(e); const r = rg.getBoundingClientRect();
+        .map((e) => { const rg = document.createRange(); rg.selectNodeContents(e);
+          // a range over inline SVG reports the glyph's own coordinate box, so measure the element
+          const r = e.querySelector('svg') ? e.getBoundingClientRect() : rg.getBoundingClientRect();
           // a line's mask (overflow: hidden) clips what is outside it
           const m = e.closest('.ln'); if (m) { const c = m.getBoundingClientRect(); if (r.bottom <= c.top || r.top >= c.bottom) return null; return { t: e.textContent.trim().slice(0, 28), l: r.left, r: r.right, top: Math.max(r.top, c.top), b: Math.min(r.bottom, c.bottom) }; } return { t: e.textContent.trim().slice(0, 28), l: r.left, r: r.right, top: r.top, b: r.bottom }; })
         .filter((r) => r && (r.l < 89.5 || r.r > 990.5 || r.top < 159.5 || r.b > 1660.5));

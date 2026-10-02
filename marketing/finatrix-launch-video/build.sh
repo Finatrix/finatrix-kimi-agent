@@ -17,7 +17,7 @@ if [[ "$CUT" == teaser ]]; then
   TITLE="FinatriX — teaser"
 else
   FILM=film2; PIC=renders/master/film2-picture.mov; SYNTH=audio/synth2.mjs; MIX=audio/mix2.wav
-  OUT=renders/finatrix-launch-vertical.mp4; POSTER=renders/finatrix-launch-poster.png; POSTER_FRAME=470
+  OUT=renders/finatrix-launch-vertical.mp4; POSTER=renders/finatrix-launch-poster.png; POSTER_FRAME=258
   TITLE="FinatriX — launch film"
   # The narration lines are resampled from Kokoro's 24 kHz to the mix rate.
   mkdir -p vo/48k

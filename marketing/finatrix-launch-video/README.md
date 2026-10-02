@@ -4,8 +4,8 @@ Two cuts. Both are built from the same captures of the real app.
 
 | File | What it is |
 | --- | --- |
-| `renders/finatrix-launch-vertical.mp4` | **The launch film.** 56.6 s, with voiceover. H.264 High@4.2, 1080×1920, 30 fps progressive, yuv420p BT.709, ~18 Mb/s, AAC-LC 48 kHz stereo, fast-start |
-| `renders/finatrix-launch-poster.png` | Poster frame for the launch film |
+| `renders/finatrix-launch-vertical.mp4` | **The launch film.** 56.6 s, with voiceover. H.264 High@4.2, 1080×1920, 30 fps progressive, yuv420p BT.709, 12 Mb/s on average (16 Mb/s cap; SSIM 0.996 against the lossless master), AAC-LC 48 kHz stereo 320 kb/s, fast-start, 87.6 MB |
+| `renders/finatrix-launch-poster.png` | Poster frame (frame 258: the bitten coin, "Where did it *all* go?") |
 | `renders/finatrix-teaser-16s.mp4`, `renders/finatrix-teaser-poster.png` | The first 16 s cut: music only, no voiceover |
 | `src/film2.html`, `src/film2.js`, `src/timeline2.json` | Editable source for the launch film. `FILM.seek(frame)` paints one frame; the timeline places every scene, word and sound cue |
 | `src/film.*`, `src/timeline.json` | Editable source for the teaser |
@@ -47,8 +47,8 @@ rates" (ParkSmart); "Benchmarks are medians" (PeerCompare); and
 
 **Sound.** All music and sound effects are original and synthesized from code
 (`audio/synth2.mjs`) at 120 BPM. The drop lands on "Meet FinatriX", and the brand
-hit lands at 48.0 s. The voice ducks the music by up to ~9 dB. The master is
-−14 LUFS integrated with a true peak of −1 dBTP or lower.
+hit lands at 48.0 s. The voice ducks the music by up to ~9 dB. The master measures
+−13.9 LUFS integrated with a −1.5 dBTP true peak and no clipping.
 
 **Voice.** Kokoro-82M, run fully offline (see `vo/README.md`). Every line, and the
 final mix, was transcribed back with Whisper to check intelligibility.
