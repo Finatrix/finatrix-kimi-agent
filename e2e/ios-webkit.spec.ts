@@ -136,10 +136,22 @@ async function bootAsApp(page: Page, insets: Insets, theme: 'dark' | 'light' = '
 }
 
 /** Console errors and uncaught exceptions, collected for the life of the page. */
+/**
+ * The one console error a deliberately credential-less build must produce —
+ * the same allowance as `public-crawl.spec.ts`. CI builds with
+ * FX_ALLOW_UNCONFIGURED_BUILD=1 and no `.env`, so src/lib/supabase.ts reports
+ * the missing backend loudly, as it should. Ignored only when that opt-out is
+ * set: a configured build that logs it still fails.
+ */
+const EXPECTED_IN_UNCONFIGURED_BUILD =
+  process.env.FX_ALLOW_UNCONFIGURED_BUILD === '1'
+    ? /^\[FinatriX\] Supabase misconfigured: VITE_SUPABASE_(URL|ANON_KEY) is not set in this build\.$/
+    : /(?!)/; // matches nothing
+
 function watchForErrors(page: Page): string[] {
   const errors: string[] = [];
   page.on('console', (m) => {
-    if (m.type() === 'error') errors.push(m.text());
+    if (m.type() === 'error' && !EXPECTED_IN_UNCONFIGURED_BUILD.test(m.text())) errors.push(m.text());
   });
   page.on('pageerror', (e) => errors.push(`uncaught: ${e.message}`));
   return errors;

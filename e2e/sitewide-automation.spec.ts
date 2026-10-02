@@ -35,7 +35,16 @@ for (const [route, heading] of [
   await page.setViewportSize({ width: 320, height: 800 });
   // Responsive charts resize through ResizeObserver on the next frame. Wait
   // for the resulting layout rather than sampling the previous canvas width.
-  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  // On failure the poll reports WHICH elements stick out, not just "false":
+  // CI keeps no page snapshot, and a bare boolean cannot be debugged.
+  await expect.poll(() => page.evaluate(() => {
+    const vw = innerWidth;
+    if (document.documentElement.scrollWidth <= vw + 1) return [];
+    return Array.from(document.querySelectorAll('body *'))
+      .filter((el) => el.getBoundingClientRect().right > vw + 1)
+      .slice(0, 8)
+      .map((el) => `${el.tagName.toLowerCase()}.${String(el.className).split(' ')[0]} right=${Math.round(el.getBoundingClientRect().right)} of ${vw}`);
+  }), { message: 'elements wider than the 320px screen' }).toEqual([]);
   const a11y = await new AxeBuilder({ page }).include('main').withTags(['wcag2a', 'wcag2aa', 'wcag22aa']).analyze();
   expect(a11y.violations).toEqual([]);
   expect(errors).toEqual([]);
