@@ -16,13 +16,18 @@
   user's keychain when they sign in inside the app — less typing, and one less
   reason to pick a password weak enough to remember.
 
+  `com.apple.developer.applesignin` is here although the app's own code never
+  calls AuthenticationServices: Sign in with Apple runs through Supabase's OAuth
+  flow in an SFSafariViewController, the same return leg Google uses. That flow
+  is keyed on a Services ID (co.finatrix.signin), and Apple only lets a Services
+  ID sign in on behalf of a PRIMARY App ID that has the Sign in with Apple
+  capability. Automatic signing enables on the App ID what this file declares,
+  so the requirement is recorded in the repository, where review sees it,
+  instead of as a portal toggle nothing here mentions — losing it would break
+  Apple sign-in for everyone with nothing in the app to show why. It also
+  leaves the native sheet (docs/IOS.md §4.3) one plugin away.
+
   NOT here, deliberately:
-    com.apple.developer.applesignin  Sign in with Apple runs through Supabase's
-                                     OAuth flow in an SFSafariViewController, the
-                                     same return leg Google uses, so it needs a
-                                     Services ID in the Developer portal rather
-                                     than this entitlement. See docs/IOS.md §
-                                     "Sign in with Apple".
     aps-environment                  No push notifications.
     com.apple.developer.icloud-*     No iCloud. Sync is Supabase's, so it works
                                      on Android and the web too.
@@ -35,6 +40,10 @@
 		<string>applinks:www.finatrix.co</string>
 		<string>webcredentials:finatrix.co</string>
 		<string>webcredentials:www.finatrix.co</string>
+	</array>
+	<key>com.apple.developer.applesignin</key>
+	<array>
+		<string>Default</string>
 	</array>
 </dict>
 </plist>

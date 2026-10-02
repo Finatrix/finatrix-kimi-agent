@@ -75,13 +75,15 @@
   // "App ID Prefix"), which is what /.well-known/apple-app-site-association needs
   // in front of the bundle id for iOS Universal Links. Public — it is in every
   // app's receipt — so it lives here rather than in a secret, exactly like the
-  // Android fingerprints above. Left EMPTY until the Apple Developer account
-  // exists: the Worker then 404s that path, which is a visible state, rather than
-  // publishing a file that names the wrong app and looks healthy while every
-  // finatrix.co link keeps opening in Safari. See docs/IOS.md.
+  // Android fingerprints above. AY79GYWLDP is the paid team that signs
+  // co.finatrix.app (Xcode → Settings → Accounts). Emptying it makes the Worker
+  // 404 that path — a visible state — rather than publish a file naming the
+  // wrong app that looks healthy while every link opens in Safari. Apple's CDN
+  // caches the file and devices read it at INSTALL time, so a change here
+  // reaches an installed app only after a reinstall. See docs/IOS.md §4.2.
   "vars": {
     "CANONICAL_HOST": "finatrix.co",
-    "APPLE_APP_ID_PREFIX": "",
+    "APPLE_APP_ID_PREFIX": "AY79GYWLDP",
     "ANDROID_CERT_SHA256": "B6:E9:AD:C3:E2:55:75:D8:A4:FA:CE:B3:3E:6A:69:1A:76:F6:76:2B:D8:A4:B8:41:8E:99:09:BD:A8:6F:EF:FB,FC:B1:BA:96:DF:61:99:AB:16:78:73:60:C7:D7:3F:2C:58:48:56:01:A9:4B:E1:EA:68:A6:D0:12:10:13:5F:4C"
   },
 
