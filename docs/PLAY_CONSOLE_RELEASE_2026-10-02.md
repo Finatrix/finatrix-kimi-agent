@@ -16,8 +16,9 @@ from the repository's build checks. The console has **managed publishing on**.
 
 ## Declarations and listing
 
-All 10 App content declarations are actioned; the **Data safety** and
-**Financial features** revisions show **In review**.
+All 10 App content declarations are actioned. The **Data safety** revision is
+approved and published; the **Financial features** declaration was last seen
+as **In review** in App content.
 
 - Financial features now declares educational budgeting, expense tracking,
   net-worth and goal tools under **Other**, with an explanation that FinatriX
@@ -43,21 +44,27 @@ All 10 App content declarations are actioned; the **Data safety** and
 ## Final Android artifact awaiting upload
 
 A draft closed Alpha release exists with name
-`1.0.0 (4) - WebView compatibility` and en-GB release notes. It has **no app
-bundle attached**. The final versionCode 4 bundle is:
+`1.0.0 (5) - WebView compatibility` and en-GB release notes. It has **no app
+bundle attached**. The latest release candidate is:
 
-`android/release-candidates/1.0.0-code4/finatrix-1.0.0-code4.aab`
+`android/release-candidates/1.0.0-code5/finatrix-1.0.0-code5.aab`
 
-SHA-256: `4659f31d28f8a134cc0b3c9ae45d3f1567b9a88e26d7e63b7b3221507e23ec6c`.
-It was built from commit `18731721edd7cdc3ff3cf41186afc6502c48a073`.
+SHA-256: `a10d8d4af786d7e97469673738c0b021da51533d7076e5418b2d31dcc6b2ca46`.
+It was built from commit `bff53e16fdd6b9a09a3fc890a86fd46b410ad8f2`
+(tag `android-1.0.0-code5-rc1`). Code 4 predates the private-email account
+deletion fix and the latest financial wording; **do not upload code 4**.
 Its APK counterpart has SHA-256
-`e9fe84a25e38708b111c3f4b2f2e3caa218a28633d59eece4d6ca44a8664b873`.
+`2d15b57b22eda5b85cec85906ef3248940a947afcf65fb570100cfdd567b3e12`.
+The exact code 5 APK launched Dashboard, Budget, Expenses, Goals and Net Worth
+on API 36/WebView 133 and API 30/WebView 91, without logged JavaScript or
+fatal errors. The code 5 APK and AAB signatures were verified.
 
 The Chrome computer-use file chooser returned **"Not allowed"** when asked to
 select either the AAB or the corrected screenshot. This was an upload-tool
 failure: Play did not reject the files, and they were not transmitted. The
-release draft and local files are ready for an owner upload in the console.
-After upload, check Play's parsed versionCode **4**, versionName **1.0.0**,
+Chrome extension needs **Allow access to file URLs** enabled under its Details
+page before another automated upload attempt. The release draft and local files
+are ready. After upload, check Play's parsed versionCode **5**, versionName **1.0.0**,
 min SDK **24**, target SDK **36**, signing certificate and pre-launch report
 before sending the release for review.
 
@@ -65,7 +72,7 @@ before sending the release for review.
 
 - [Publishing overview](https://play.google.com/console/u/0/developers/7823622614998702068/app/4974122264088929838/publishing)
 - [Closed Alpha track](https://play.google.com/console/u/0/developers/7823622614998702068/app/4974122264088929838/tracks/4698855542178505056)
-- [Draft versionCode 4 release](https://play.google.com/console/u/0/developers/7823622614998702068/app/4974122264088929838/tracks/4698855542178505056/releases/2/prepare)
+- [Draft versionCode 5 release](https://play.google.com/console/u/0/developers/7823622614998702068/app/4974122264088929838/tracks/4698855542178505056/releases/2/prepare)
 - [Default store listing](https://play.google.com/console/u/0/developers/7823622614998702068/app/4974122264088929838/store-listings/default/edit)
 
 This document records console observations, not a claim of public-launch

@@ -3,7 +3,7 @@
 > **Release status lives in [MOBILE_RELEASE_READINESS.md](MOBILE_RELEASE_READINESS.md)**
 > (last updated 2026-10-02). This file is the how-to; that one is the verified
 > current state, blockers and remaining owner actions. Current release
-> candidate: **1.0.0 / versionCode 4** from commit `1873172`.
+> candidate: **1.0.0 / versionCode 5** from commit `bff53e1`.
 
 The Android app is the FinatriX web app packaged natively with
 [Capacitor 8](https://capacitorjs.com). The same `dist/` the website ships is
@@ -120,7 +120,7 @@ password in a password manager anyway.
 ## 6. Releasing
 
 ```bash
-npm run android:release -- 5 1.0.1      # versionCode, versionName (code 4 is the current RC)
+npm run android:release -- 6 1.0.1      # versionCode, versionName (code 5 is the current RC)
 ```
 
 Output: `android/app/build/outputs/bundle/release/app-release.aab` (R8-minified,
