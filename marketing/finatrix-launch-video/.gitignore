@@ -1,0 +1,5 @@
+# Regenerable / heavy intermediates (see build.sh)
+renders/master/
+renders/review/
+audio/mix.wav
+capture/state-*.json
