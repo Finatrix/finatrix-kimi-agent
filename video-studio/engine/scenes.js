@@ -247,6 +247,7 @@ export function questionScene({ at = 'where', text, accent, arcText = null, size
       ctx.rotate(wob + (1 - p) * -0.5);
       ctx.scale(p, p);
       ctx.font = '900 760px Geist';
+      ctx.letterSpacing = '0px';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       const g = ctx.createLinearGradient(-220, -360, 220, 300);
@@ -278,6 +279,7 @@ export function questionScene({ at = 'where', text, accent, arcText = null, size
 function arcType(ctx, str, cx, cy, r, t, t0, d, accent) {
   ctx.save();
   ctx.font = '700 46px Geist';
+  ctx.letterSpacing = '0px';
   ctx.fillStyle = C.mute;
   const ws = [...str].map((ch) => ctx.measureText(ch).width);
   const total = ws.reduce((a, b) => a + b, 0);

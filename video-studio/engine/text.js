@@ -1,5 +1,5 @@
 // Kinetic typography. Markup: *serif italic accent*, _accent colour_, ~muted~, | line break.
-import { W, C, clamp, lerp, ease, luminance, readableOnPaper } from './core.js';
+import { W, C, clamp, lerp, ease, luminance, readableOnPaper, auditText } from './core.js';
 
 const SERIF = '"Instrument Serif"';
 
@@ -108,7 +108,8 @@ export function kinetic(ctx, markup, x, y, t, o = {}) {
       dy = (1 - ease.outCubic(p)) * size * 0.15;
     }
     if (out != null && t > out) {
-      const q = ease.inCubic(clamp((t - out - wd.i * 0.025) / 0.28));
+      // fast exit: fully gone ~0.28 s after `out`, so the next line never lands on it
+      const q = ease.inCubic(clamp((t - out - wd.i * 0.008) / 0.2));
       a *= 1 - q;
       dy -= q * size * 0.5;
     }
@@ -134,6 +135,7 @@ export function kinetic(ctx, markup, x, y, t, o = {}) {
       ctx.fillStyle = wd.style === 'serif' || wd.style === 'accent' ? accent : wd.style === 'muted' ? muted : color;
     }
     ctx.fillText(wd.text, -wd.w / 2, 0);
+    if (p >= 1) auditText(ctx, wd.text, -wd.w / 2, -size * (wd.style === 'serif' ? 0.78 : 0.74), wd.w / 2, size * 0.2);
     ctx.restore();
   }
   ctx.restore();
@@ -151,6 +153,9 @@ export function label(ctx, str, x, y, { size = 32, weight = 600, color = C.ink, 
   ctx.textBaseline = baseline;
   ctx.fillText(str, x, y);
   const w = ctx.measureText(str).width;
+  const x0 = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x;
+  const top = baseline === 'middle' ? y - size * 0.38 : baseline === 'top' ? y + size * 0.1 : y - size * 0.74;
+  auditText(ctx, str, x0, top, x0 + w, top + size * 0.76);
   ctx.restore();
   return w;
 }

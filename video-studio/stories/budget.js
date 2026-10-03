@@ -93,7 +93,7 @@ export default function story({ timeline, logo }) {
           meltBlob(ctx, W / 2, 980, R, ACCENT, meltP, 1430, 'budgetmelt', val > 0 ? inr(val) : '₹0', 104);
         }
         calendarChip(ctx, 905, 560, t, '1', '20', gone.s - 0.1, { alpha: ease.outCubic(clamp((t - dropAt) / 0.3)) });
-        kinetic(ctx, 'It lands on *the 1st.*', W / 2, HEAD_Y, t, { size: 92, accent: ACCENT, t0: lands.s - 0.05, span: lands.d * 0.7, out: gone.s - 0.25 });
+        kinetic(ctx, 'It lands on *the 1st.*', W / 2, HEAD_Y, t, { size: 92, accent: ACCENT, t0: lands.s - 0.05, span: lands.d * 0.7, out: gone.s - 0.35 });
         kinetic(ctx, 'By the 20th? *Gone.*', W / 2, HEAD_Y, t, { size: 92, accent: C.loss, t0: gone.s - 0.05, span: gone.d * 0.7 });
       },
       sfx: (s) => [[s.word('lands', 'lands') + 0.3, 'thud', 1], [s.line('gone').s, 'drip', 0.9], [s.line('gone').s + 0.6, 'drip', 0.6], [s.line('gone').s - 0.1, 'flip', 0.6]],
@@ -274,7 +274,7 @@ export default function story({ timeline, logo }) {
             ctx.restore();
           }
         }
-        kinetic(ctx, 'It splits it *50 / 30 / 20.*', W / 2, 250, t, { size: 76, accent: ACCENT, t0: sp.s + sp.d * 0.35, span: sp.d * 0.5, out: gp.s - 0.2 });
+        kinetic(ctx, 'It splits it *50 / 30 / 20.*', W / 2, 250, t, { size: 76, accent: ACCENT, t0: sp.s + sp.d * 0.35, span: sp.d * 0.5, out: gp.s - 0.35 });
         kinetic(ctx, 'Not a score. *The gap.*', W / 2, 250, t, { size: 84, accent: C.loss, t0: gp.s - 0.05, span: gp.d * 0.7 });
       },
       sfx: (s) => [

@@ -379,6 +379,7 @@ export function chip(ctx, x, y, text, { on = 0, accent = '#D4AF37', size = 30, a
   ctx.save();
   ctx.globalAlpha *= alpha;
   ctx.font = `700 ${size}px Geist`;
+  ctx.letterSpacing = `${-0.01 * size}px`; // match label(): stale spacing would mis-size the chip
   const tw = ctx.measureText(text).width;
   const w = tw + size * 1.6 + (iconName ? size * 1.2 : 0);
   const h = size * 2;

@@ -39,7 +39,7 @@ function hookCard(ctx, w, h, t) {
 }
 
 /** Balance scale. tilt in radians (+ = left pan down). Returns pan centres. */
-function scale(ctx, cx, cy, tilt, { beam = 380, drop = 250, alpha = 1, dark = false } = {}) {
+function scale(ctx, cx, cy, tilt, { beam = 330, drop = 250, alpha = 1, dark = false } = {}) {
   ctx.save();
   ctx.globalAlpha *= alpha;
   const col = dark ? 'rgba(255,255,255,0.85)' : '#3A3A44';
@@ -162,7 +162,7 @@ export default function story({ timeline, logo }) {
         label(ctx, 'OWN', pans[0][0], pans[0][1] + 90, { size: 36, weight: 900, color: darken(ACCENT, 0.2) });
         label(ctx, 'OWE', pans[1][0], pans[1][1] + 90, { size: 36, weight: 900, color: DEBT });
         // items in the OWN pan
-        const slots = [[-100, -50, 58], [10, -62, 74], [104, -54, 64], [0, -190, 120]];
+        const slots = [[-108, -52, 56], [0, -60, 62], [108, -52, 56], [0, -235, 105]];
         drops.forEach((it, i) => {
           const fall = clamp((t - it.at) / 0.45);
           if (fall <= 0) return;
@@ -181,7 +181,7 @@ export default function story({ timeline, logo }) {
           const x = pans[1][0];
           const y = lerp(-300, pans[1][1] - 120, ease.inQuad(fall));
           critter(ctx, x, y - 10, 120, DEBT, { look: [-0.6, 0.2], blink: blink(t, 3), mouth: { type: 'chomp', open: 0.4 + 0.3 * Math.sin(t * 8) }, brow: 0.8, shadow: false });
-          if (fall > 0.9) pill(ctx, x, y + 150, 'Home loan ₹32 L', { size: 28, bg: DEBT, fg: '#fff' });
+          if (fall > 0.9) pill(ctx, x - 40, y - 205, 'Home loan ₹32 L', { size: 28, bg: DEBT, fg: '#fff' });
           burst(ctx, t - d.s - s.line('l4').d * 0.35 - 0.45, x, pans[1][1], { seed: 'thud', n: 18, colors: [DEBT, '#fff'], speed: 700, gravity: 1400, size: 9, life: 0.8 });
         }
         // running totals

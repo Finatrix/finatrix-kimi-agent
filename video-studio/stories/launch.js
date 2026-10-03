@@ -150,8 +150,8 @@ const DEMOS = [
       ctx.fillStyle = c;
       rr(ctx, -sw / 2, -90, sw, 180, 26);
       ctx.fill();
-      label(ctx, `${Math.round(p * 100)}%`, 0, -18, { size: 54, weight: 900, color: '#fff' });
-      label(ctx, n, 0, 40, { size: 26, weight: 700, color: 'rgba(255,255,255,0.9)' });
+      label(ctx, `${Math.round(p * 100)}%`, 0, -18, { size: Math.min(54, sw * 0.4), weight: 900, color: '#fff' });
+      label(ctx, n, 0, 40, { size: Math.min(26, sw * 0.2), weight: 700, color: 'rgba(255,255,255,0.9)' });
       ctx.restore();
       sx += w * p;
     });
@@ -473,6 +473,7 @@ export function makeLaunch(variant) {
           ctx.translate(CX, y);
           ctx.scale(q, q);
           ctx.font = '700 34px Geist';
+          ctx.letterSpacing = '0px';
           const tw = ctx.measureText(n).width + 140;
           ctx.fillStyle = 'rgba(255,255,255,0.1)';
           rr(ctx, -tw / 2, -40, tw, 80, 40);
@@ -495,6 +496,7 @@ export function makeLaunch(variant) {
           ctx.translate(CX, 1585);
           ctx.scale(q, q);
           ctx.font = '800 54px Geist';
+          ctx.letterSpacing = '0px';
           const tw = ctx.measureText(tl.name).width + 100;
           ctx.fillStyle = tl.color;
           rr(ctx, -tw / 2, -54, tw, 108, 54);
@@ -569,8 +571,8 @@ export function makeLaunch(variant) {
         const d1 = clamp((T - s.start - s.word('launch', 'october') + 0.1) / 0.5);
         const d2 = clamp((T - s.start - s.word('launch', 'fourteenth') + 0.05) / 0.5);
         if (d1 > 0 || d2 > 0) {
-          flap(ctx, CX - 150, 1430, 250, 260, d2 > 0 ? '14' : '··', Math.max(d2, 0.01));
-          flap(ctx, CX + 150, 1430, 250, 260, 'OCT', d1);
+          flap(ctx, CX - 190, 1430, 250, 260, d2 > 0 ? '14' : '··', Math.max(d2, 0.01));
+          flap(ctx, CX + 145, 1430, 380, 260, 'OCT', d1);
           if (d2 > 0) burst(ctx, T - s.start - s.word('launch', 'fourteenth'), CX, 1430, { seed: 'date', n: 40, colors: [C.gold, '#fff', '#7C5CFF'], speed: 1500, gravity: 900, size: 11, life: 1.4, shape: 'rect' });
         }
       }
@@ -603,11 +605,11 @@ export function makeLaunch(variant) {
         kinetic(ctx, markup, CX, o.y ?? 300, T - s.start, { size: o.size ?? 84, color: '#FFFFFF', accent: o.accent ?? '#FFD27A', t0: (o.at ?? Lr.s) - 0.05, span: o.span ?? Lr.d * 0.7, out, anim: o.anim ?? 'rise', maxW: 940 });
       };
       if (T < R0 + 0.2) {
-        head('hook', 'Eight money questions decide how *free* you’ll be.', { out: tS('hook2') - 0.25, size: 88 });
-        head('hook2', 'Most of us never *answer* them.', { out: R0 - 0.2, size: 88 });
+        head('hook', 'Eight money questions decide how *free* you’ll be.', { out: tS('hook2') - 0.35, size: 88 });
+        head('hook2', 'Most of us never *answer* them.', { out: R0 - 0.35, size: 88 });
       }
       if (T > R0 - 0.3 && T < T1 + 0.2) {
-        head('reveal', '_FinatriX_ answers *all eight.*', { out: T1 - 0.4, accent: C.gold, size: 92 });
+        head('reveal', '_FinatriX_ answers *all eight.*', { out: T1 - 0.45, accent: C.gold, size: 92 });
         const fq = ease.outBack(clamp((T - s.start - s.word('reveal', 'free')) / 0.4));
         if (fq > 0 && T < T1 - 0.3) {
           ctx.save();
@@ -619,16 +621,16 @@ export function makeLaunch(variant) {
       }
       if (T > T1 - 0.4 && T < SF) {
         TOOLS.forEach((_, i) => {
-          const next = i < 7 ? toolStarts[i + 1] - 0.35 : SF - 0.3;
+          const next = i < 7 ? toolStarts[i + 1] - 0.38 : SF - 0.38;
           head('t' + (i + 1), QUESTIONS[i], { out: next, accent: lighten(TOOLS[i].color, 0.25), size: 80, span: 0.8 });
         });
       }
-      if (T > SF - 0.3 && T < WK) head('safe', 'Safe and secure, *by design.*', { out: WK - 0.3, accent: '#8CFFC8', span: 0.7 });
+      if (T > SF - 0.3 && T < WK) head('safe', 'Safe and secure, *by design.*', { out: WK - 0.38, accent: '#8CFFC8', span: 0.7 });
       if (T > WK - 0.3 && T < WY) {
-        head('weekly', 'Every week: *safety & privacy* updates.', { out: MO - 0.3, accent: '#8CFFC8', size: 76 });
-        head('monthly', 'Every month: *new improvements.*', { out: WY - 0.3, accent: '#8EC5FF', size: 76, y: 300 });
+        head('weekly', 'Every week: *safety & privacy* updates.', { out: MO - 0.38, accent: '#8CFFC8', size: 76 });
+        head('monthly', 'Every month: *new improvements.*', { out: WY - 0.38, accent: '#8EC5FF', size: 76, y: 300 });
       }
-      if (T > WY - 0.3 && T < LA) head('why', 'Stability *today.* Freedom *tomorrow.*', { out: LA - 0.3, accent: '#FFD27A', size: 86, span: 1.6 });
+      if (T > WY - 0.3 && T < LA) head('why', 'Stability *today.* Freedom *tomorrow.*', { out: LA - 0.38, accent: '#FFD27A', size: 86, span: 1.6 });
     }
 
     const sc = (at, mood, sfx) => ({ at, mood, trans: 'cut', push: 0, grain: 1.3, draw, sfx });

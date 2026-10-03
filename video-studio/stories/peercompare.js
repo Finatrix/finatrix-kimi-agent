@@ -38,13 +38,13 @@ function hookCard(ctx, w, h, t) {
   const q = ease.outBack(clamp((t - 1.2) / 0.4));
   if (q > 0) {
     ctx.save();
-    ctx.translate(w - 250, 486);
-    ctx.rotate(-0.05);
+    ctx.translate(w - 190, 96);
+    ctx.rotate(-0.04);
     ctx.scale(q, q);
     ctx.fillStyle = '#F2EEFF';
-    rr(ctx, -200, -50, 400, 100, 50);
+    rr(ctx, -150, -40, 300, 80, 40);
     ctx.fill();
-    label(ctx, 'Is that good?', 0, 0, { size: 38, weight: 800, color: ACCENT });
+    label(ctx, 'Is that good?', 0, 0, { size: 32, weight: 800, color: ACCENT });
     ctx.restore();
   }
 }
@@ -204,19 +204,21 @@ export default function story({ timeline, logo }) {
         const { t } = s;
         const msgs = ['I save 60%!', 'Just bought a car', 'My SIP is ₹50k', 'Crypto 10x', 'New phone again', 'I spend nothing', 'Promoted!', 'Moving to Dubai', 'Index funds only', 'F&O is easy'];
         const R = rng('chat');
+        // two staggered columns, one bubble per row, so no two bubbles ever touch
         msgs.forEach((m, i) => {
-          const x0 = 120 + R() * 840;
-          const y0 = 760 + R() * 900;
+          const x0 = i % 2 ? 690 : 390;
+          const y0 = 720 + i * 98;
           const sp = 0.6 + R();
-          const x = x0 + Math.sin(t * sp * 2 + i) * 60;
-          const y = y0 + Math.cos(t * sp * 1.6 + i * 2) * 40;
+          const x = x0 + Math.sin(t * sp * 2 + i) * 22;
+          const y = y0 + Math.cos(t * sp * 1.6 + i * 2) * 8;
           const q = ease.outBack(clamp((t - 0.1 - i * 0.12) / 0.3));
           if (q <= 0) return;
           ctx.save();
           ctx.translate(x, y);
-          ctx.rotate(Math.sin(t * 3 + i) * 0.08);
+          ctx.rotate(Math.sin(t * 3 + i) * 0.03);
           ctx.scale(q, q);
           ctx.font = '700 34px Geist';
+          ctx.letterSpacing = '0px';
           const w = ctx.measureText(m).width + 60;
           ctx.fillStyle = i % 2 ? 'rgba(124,92,255,0.9)' : 'rgba(255,255,255,0.92)';
           rr(ctx, -w / 2, -38, w, 76, 38);
@@ -272,6 +274,7 @@ export default function story({ timeline, logo }) {
           CITIES.forEach(([n, col], i) => {
             const txt = `${n} ×${col.toFixed(2)}`;
             ctx.font = '700 26px Geist';
+            ctx.letterSpacing = '0px';
             const w = ctx.measureText(txt).width + 26 * 1.6;
             if (x + w > box.w) {
               x = 0;

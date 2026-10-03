@@ -229,7 +229,7 @@ export default function story({ timeline, logo }) {
           ctx.lineTo(gx - 16, y + h - (IMP_C[30] / MAX) * h);
           ctx.stroke();
           ctx.restore();
-          label(ctx, 'the gap', x + w - 140, y + h * 0.45, { size: 44, weight: 800, color: '#FFE27A', alpha: clamp(q), italic: false });
+          label(ctx, 'the gap', x + w * 0.47, y + h * 0.93, { size: 40, weight: 800, color: '#FFE27A', alpha: clamp(q), italic: false });
         }
         label(ctx, 'Illustrative · same assumptions, one difference', W / 2, 1640, { size: 26, weight: 600, color: 'rgba(255,255,255,0.5)' });
       },
@@ -266,6 +266,7 @@ export default function story({ timeline, logo }) {
           let y = 0;
           GOALS.forEach((g, i) => {
             ctx.font = '700 30px Geist';
+            ctx.letterSpacing = '0px';
             const w = ctx.measureText(g).width + 30 * 1.6;
             if (x + w > box.w) {
               x = 0;

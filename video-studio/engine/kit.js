@@ -139,7 +139,7 @@ export function headlines(ctx, s, list, { y = HEAD_Y, size = 84, accent = '#16A3
   list.forEach(([id, markup, o = {}], i) => {
     const L = s.line(id);
     const next = list[i + 1];
-    const out = o.keep ? null : next ? (next[2]?.at ?? s.line(next[0]).s) - 0.22 : null;
+    const out = o.keep ? null : next ? (next[2]?.at ?? s.line(next[0]).s) - 0.32 : null;
     kinetic(ctx, markup, W / 2, o.y ?? y, s.t, { size: o.size ?? size, color: o.color ?? color, accent: o.accent ?? accent, t0: (o.at ?? L.s) - 0.05, span: o.span ?? L.d * 0.65, out, maxW, anim: o.anim ?? anim });
   });
 }

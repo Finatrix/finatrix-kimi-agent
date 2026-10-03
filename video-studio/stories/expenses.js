@@ -269,13 +269,13 @@ export default function story({ timeline, logo }) {
         const { t } = s;
         const R = rng('ghosts');
         for (let i = 0; i < 9; i++) {
-          const x = 140 + R() * 800;
-          const y0 = 900 + R() * 800;
+          const x = i % 2 ? 70 + R() * 40 : 970 + R() * 40;
+          const y0 = 800 + R() * 900;
           const y = y0 - t * (60 + R() * 60);
           const a = clamp(1 - t / 3.2 + R() * 0.3) * 0.9;
           const name = i % 3 === 0 ? 'qr' : 'cash';
-          icon(ctx, name, x, y, 120 + R() * 60, { color: `rgba(190,255,215,${a})`, lw: 6, rot: (R() - 0.5) * 0.6 });
-          if (i % 2 === 0) label(ctx, ['₹120', '₹60', '₹450', '₹35', '₹200'][i % 5], x, y + 100, { size: 34, weight: 700, color: `rgba(190,255,215,${a * 0.8})` });
+          icon(ctx, name, x, y, 76 + R() * 20, { color: `rgba(190,255,215,${a})`, lw: 6, rot: (R() - 0.5) * 0.6 });
+          if (i % 2 === 0) label(ctx, ['₹120', '₹60', '₹450', '₹35', '₹200'][i % 5], x, y + 80, { size: 30, weight: 700, color: `rgba(190,255,215,${a * 0.8})` });
         }
         // the statement with blank rows
         const p = spring(t - 0.4, 9, 0.6);
@@ -325,8 +325,9 @@ export default function story({ timeline, logo }) {
         const after = [3, 0, 1, 2, 4];
         const fr = s.word('split', 'frequent');
         const rp = ease.inOutCubic(clamp((t - fr) / 0.6));
-        ctx.font = '700 28px Geist';
-        const widths = cats.map((c) => ctx.measureText(c).width + 28 * 1.6);
+        ctx.font = '700 25px Geist';
+        ctx.letterSpacing = '-0.25px';
+        const widths = cats.map((c) => ctx.measureText(c).width + 25 * 1.6);
         const posOf = (order, idx) => {
           let x = 0;
           let y = 0;
@@ -336,16 +337,19 @@ export default function story({ timeline, logo }) {
               y += 90;
             }
             if (j === idx) return [x, y];
-            x += widths[j] + 16;
+            x += widths[j] + 12;
           }
           return [0, 0];
         };
         cats.forEach((c, i) => {
           const [ax, ay] = posOf(before, i);
           const [bx, by] = posOf(after, i);
-          const x = lerp(ax, bx, rp);
-          const y = lerp(ay, by, rp) - (i === 3 ? Math.sin(rp * Math.PI) * 60 : 0);
-          chip(ctx, box.x + x + widths[i] / 2, box.y + 280 + y, c, { on: i === 3 ? clamp(rp * 2) : 0, accent: FOOD, size: 28 });
+          // the chip rises clear of the row, travels, then settles: it never crosses another chip
+          const lift = i === 3 ? 92 * Math.min(1, Math.min(rp, 1 - rp) / 0.22) : 0;
+          const hx = i === 3 ? ease.inOutCubic(clamp((rp - 0.22) / 0.56)) : rp;
+          const x = lerp(ax, bx, hx);
+          const y = lerp(ay, by, hx) - lift;
+          chip(ctx, box.x + x + widths[i] / 2, box.y + 280 + y, c, { on: i === 3 ? clamp(rp * 2) : 0, accent: FOOD, size: 25 });
         });
         if (rp > 0.9) label(ctx, '★ frequent', box.x + widths[3] / 2, box.y + 340, { size: 22, weight: 700, color: FOOD });
         // logged entries list

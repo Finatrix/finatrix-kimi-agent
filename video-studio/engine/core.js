@@ -155,3 +155,28 @@ export function readableOnPaper(c, min = 3.6) {
   _readable.set(c, x);
   return x;
 }
+
+// ---------- layout audit (off unless the renderer enables it) ----------
+export const AUDIT = { on: false, texts: [], rects: [] };
+function txBox(ctx, x0, y0, x1, y1) {
+  const m = ctx.getTransform();
+  const pts = [[x0, y0], [x1, y0], [x0, y1], [x1, y1]].map(([x, y]) => [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f]);
+  const xs = pts.map((p) => p[0]);
+  const ys = pts.map((p) => p[1]);
+  return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+}
+/** Record a drawn text run (local coords; left/top/right/bottom of the ink box). */
+export function auditText(ctx, str, x0, y0, x1, y1, alpha = 1) {
+  if (!AUDIT.on || !str || !str.trim()) return;
+  const a = ctx.globalAlpha * alpha;
+  if (a < 0.3) return;
+  const m = ctx.getTransform();
+  const sc = Math.hypot(m.a, m.b);
+  AUDIT.texts.push({ str, box: txBox(ctx, x0, y0, x1, y1), scale: sc, rot: Math.abs(Math.atan2(m.b, m.a)) });
+}
+/** Record a rounded-rect container. */
+export function auditRect(ctx, x, y, w, h) {
+  if (!AUDIT.on || w < 30 || h < 30) return;
+  if (ctx.globalAlpha < 0.6) return;
+  AUDIT.rects.push(txBox(ctx, x, y, x + w, y + h));
+}

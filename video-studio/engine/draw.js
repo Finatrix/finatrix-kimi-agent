@@ -1,7 +1,8 @@
 // Drawing primitives: glossy spheres, critters, melt, shards, particles, cards.
-import { W, H, C, clamp, lerp, ease, rng, mix, lighten, darken, rgba, noise1, prog } from './core.js';
+import { W, H, C, clamp, lerp, ease, rng, mix, lighten, darken, rgba, noise1, prog, auditText, auditRect } from './core.js';
 
 export function rr(ctx, x, y, w, h, r) {
+  auditRect(ctx, x, y, w, h);
   r = Math.max(0, Math.min(r, w / 2, h / 2));
   ctx.beginPath();
   ctx.moveTo(x + r, y);
@@ -122,6 +123,8 @@ export function embossText(ctx, str, x, y, size, { color = 'rgba(20,10,0,0.78)',
   ctx.fillText(str, x, y + s * 0.045);
   ctx.fillStyle = color;
   ctx.fillText(str, x, y);
+  const em = ctx.measureText(str);
+  auditText(ctx, str, x - em.width / 2, y - s * 0.38, x + em.width / 2, y + s * 0.38);
   ctx.restore();
 }
 
@@ -628,10 +631,13 @@ export function tabular(ctx, str, x, y, size, { weight = 800, color = C.ink, ali
   const total = widths.reduce((a, b) => a + b, 0);
   let cx = align === 'center' ? x - total / 2 : align === 'right' ? x - total : x;
   ctx.textAlign = 'center';
+  const left = cx;
   [...str].forEach((ch, i) => {
     ctx.fillText(ch, cx + widths[i] / 2, y);
     cx += widths[i];
   });
+  const top = baseline === 'middle' ? y - size * 0.38 : baseline === 'alphabetic' ? y - size * 0.72 : y;
+  auditText(ctx, str, left, top, left + total, top + size * 0.76);
   ctx.restore();
   return total;
 }
