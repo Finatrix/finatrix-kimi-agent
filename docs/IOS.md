@@ -314,6 +314,50 @@ which means OCR's capture path.
 Safari → Develop → Simulator → FinatriX attaches the web inspector to a debug
 build.
 
+### Testing the iOS 15.4 floor
+
+The declared minimum is iOS 15.4, and nothing in CI runs it — Playwright's
+WebKit and the runtime bundled with Xcode are both current. Xcode 26 no longer
+lists iOS 15 under Settings → Components and `xcodebuild -downloadPlatform`
+answers "not available", but Apple still serves the runtime. One-time setup
+(5.4 GB; no `sudo` — it installs into your user folder):
+
+```bash
+curl -L -C - -o ios154.dmg "https://devimages-cdn.apple.com/downloads/xcode/simulators/com.apple.pkg.iPhoneSimulatorSDK15_4-15.4.1.1650505652.dmg"
+```
+```bash
+hdiutil attach -nobrowse -readonly -mountpoint ./mnt ios154.dmg && pkgutil --check-signature ./mnt/iPhoneSimulatorSDK15_4.pkg
+```
+```bash
+pkgutil --expand-full ./mnt/iPhoneSimulatorSDK15_4.pkg ./expanded && mkdir -p ~/Library/Developer/CoreSimulator/Profiles/Runtimes && mv ./expanded/Payload ~/Library/Developer/CoreSimulator/Profiles/Runtimes/"iOS 15.4.simruntime" && hdiutil detach ./mnt && killall -9 com.apple.CoreSimulator.CoreSimulatorService
+```
+
+The signature check must say "signed Apple Software". Then create a device —
+the iPhone SE (3rd generation) is the smallest screen the runtime supports:
+
+```bash
+xcrun simctl create "iOS 15.4 SE" com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation com.apple.CoreSimulator.SimRuntime.iOS-15-4 && xcrun simctl boot "iOS 15.4 SE"
+```
+
+and run the check against the build you intend to ship:
+
+```bash
+npm run build && node scripts/ios-floor-check.mjs "iOS 15.4 SE" dist
+```
+
+It opens 23 routes in Mobile Safari on that runtime and fails on any uncaught
+or console error, any horizontal overflow, a blank page, a collapsed section
+that will not expand, or an Expenses "+" flow that does not save. About three
+minutes. **It tests the iOS 15.4 engine with the web bundle, not the native
+shell** — to see the shell start and render, install the Simulator `.app` on
+the same device (`xcrun simctl install "iOS 15.4 SE" App.app`). Camera, the
+keyboard and file import need a phone.
+
+Two traps, both found the hard way: the app registers a service worker that
+serves hashed assets cache-first, so a harness must use a fresh origin every
+run (the script picks a free port) or it tests an earlier run's code; and
+`simctl openurl https://…` opens Safari rather than the app — see above.
+
 **App Store screenshots** (fictional data, 1320×2868, no alpha):
 
 ```bash

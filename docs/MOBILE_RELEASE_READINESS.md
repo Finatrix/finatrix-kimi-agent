@@ -22,7 +22,7 @@ verified state, the blockers and what only the account owner can do.
 | Submission-package readiness | **90%** | **80%** |
 | Verdict | **CODE 6 LIVE TO CLOSED TESTERS (3 Oct 11:08); DAY 2 OF 14** | **BUILD 2 IN A READY-FOR-REVIEW DRAFT, NOT SUBMITTED; DEVICE VALIDATION PENDING** |
 | P0 technical blockers | 0 | 1 (complete the physical-device flow) |
-| P1 verification gaps | 2 (real Google sign-in and deletion) | 3 (real Apple sign-in/revocation, Universal Links on device, and the iOS 15.4 runtime floor) |
+| P1 verification gaps | 2 (real Google sign-in and deletion) | 2 (real Apple sign-in/revocation, Universal Links on device) |
 
 Store waiting periods are kept out of these numbers on purpose: Google's
 12-testers × 14-days gate decides *when* Android can go public, not whether
@@ -36,8 +36,9 @@ and in the iOS Simulator (iPhone 17e) with a Release build. **Why Android is
 not 100% technical:** a real Google sign-in under PKCE and account deletion
 end-to-end still need a disposable account. **Why iOS is not higher:** real
 Apple sign-in/revocation, Universal Links and the full TestFlight flow have
-not been run on the paired physical iPhone beyond installation and launch, and the declared iOS 15.4 minimum
-has no runtime test (only the iOS 26.5 Simulator runtime is installed).
+not been run on the paired physical iPhone beyond installation and launch. (The
+declared iOS 15.4 minimum *was* run on 2026-10-03 on a real iOS 15.4 runtime —
+§5, §11 — and is no longer a gap.)
 
 ## 2. Release candidates
 
@@ -119,7 +120,7 @@ has no runtime test (only the iOS 26.5 Simulator runtime is installed).
 | Area | Result |
 |---|---|
 | Simulator Release build | PASS |
-| Declared iOS 15.4 minimum | NOT VERIFIED on iOS 15.4: Xcode only has the iOS 26.5 Simulator runtime; the bundle is compiled for Safari 15.4, and optional PDF import is gated to iOS 18+ |
+| Declared iOS 15.4 minimum | **PASS on a real iOS 15.4 runtime (19E240), iPhone SE 3rd gen, 2026-10-03.** (a) The exact build 2 Simulator bundle installs and launches (`MinimumOSVersion` 15.4) and renders the dashboard, with no crash report. (b) `scripts/ios-floor-check.mjs` opened 23 routes in Mobile Safari on that runtime (UA `OS 15_4`): 0 uncaught errors, 0 console errors, 0 px horizontal overflow, no blank page; every collapsed "Show calculation, examples & FAQ" section expands; Expenses "+" → sheet → decimal amount → "Add transaction" saves and closes. Also reported by the engine: `100dvh` supported; `DecompressionStream`, `AbortSignal.timeout` and `Array.toSorted` **absent**, which is the exact set `compat.js`, the XLSX inflater and the PDF gate exist for. Not covered: the native shell's plugins (keyboard, status bar, camera, haptics) and PDF/XLSX/CSV import on that engine — those need the phone checklist or a device on iOS 15 |
 | Launch / safe areas | PASS — clear of the Dynamic Island and home indicator |
 | Sign-in screen | PASS in Simulator before provider enablement; final Apple/Google buttons need a physical-device test |
 | Archive / signing / TestFlight | Signed IPA 1.0.0 (2) uploaded, processed and attached to the App Store Connect version. IPA verifies with Apple Distribution signature and the correct entitlements. Installed from TestFlight on the paired iPhone 16 Pro (iOS 26.6.2) on 2026-10-03; `devicectl` reports `co.finatrix.app` version 1.0.0 build 2, and the dashboard launched in iPhone Mirroring. Full physical-device checklist remains open. |
@@ -173,8 +174,6 @@ Store Connect together if the account outlives review.
   with a disposable account are not yet verified.
 - iOS: successful native Apple sign-in, encrypted token storage/revocation and
   Universal Links are not yet verified on the signed physical-device build.
-- iOS: the declared iOS 15.4/WKWebView minimum has no actual runtime or device
-  test; only iOS 26.5 Simulator is installed (evidence in §11).
 - iOS: App Availability set to 174 countries/regions, excluding mainland China;
   future regions are not automatically enabled. **The EU trader status is not
   declared** (App Store Connect → Business, checked 2026-10-03: "you need to
@@ -237,8 +236,10 @@ seeded; production is restored and `main` carries the release (§12).
    step 4 passes.
 8. **Legal review** — [LEGAL_REVIEW_PACKAGE.md](LEGAL_REVIEW_PACKAGE.md),
    including the Individual-account question under Guideline 5.1.1(ix).
-9. **iOS minimum version — decided.** Keep 15.4 for build 2. Test on an iOS
-   15.4 device or compatible runtime when one is available (§11).
+9. **iOS minimum version — decided and now tested.** Keep 15.4 for build 2; it
+   ran on a real iOS 15.4 runtime on 2026-10-03 (§5, §11). Re-run
+   `node scripts/ios-floor-check.mjs <simulator> dist` against every build you
+   intend to ship (IOS.md §9).
 10. **Google production access (from ≈ 15 Oct).** When the dashboard enables
     "Apply for production", answer from ANDROID.md §11 with the testers' real
     feedback, then promote code 6 (or a later code) from the closed track.
@@ -317,7 +318,7 @@ mandatory testing gate is incomplete (earliest ≈ 15 Oct).**
 | Capacitor and plugins | `capacitor-swift-pm` 8.5.2 and all five plugins declare `.iOS(.v15)` |
 | Why the app says 15.4 | `100dvh` sizing (Safari 15.4+); the bundle targets Safari 15.4; PDF import is gated to iOS 18+ and says so; XLSX has a bundled inflater for 15.4–16.3 |
 | Xcode | Xcode 26.6 archives and validates at 15.4 (build 2 `MinimumOSVersion` 15.4) |
-| Runtime test | **None.** Only the iOS 26.5 Simulator runtime is installed; Playwright's WebKit is current WebKit, not the 15.4 engine. An older runtime is a multi-GB download from Apple and may not run on this macOS 26.6 host |
+| Runtime test | **Done 2026-10-03.** The earlier belief that this was impractical was wrong: Apple still serves the iOS 15.4 runtime (5.4 GB, signed), it expands without admin rights into `~/Library/Developer/CoreSimulator/Profiles/Runtimes`, and it boots on this macOS 26.6 host. Results in §5; recipe in IOS.md §9. Playwright's WebKit remains current WebKit and is not evidence for the floor |
 | Devices affected | iOS 15 is the last release for iPhone 6s/6s Plus, 7/7 Plus and SE (1st gen); raising to 16.0 drops exactly those |
 | CI | No iOS job in `.github/workflows` |
 
@@ -325,8 +326,8 @@ mandatory testing gate is incomplete (earliest ≈ 15 Oct).**
 floor; the bundle targets Safari 15.4, optional PDF import is gated to iOS 18,
 and the XLSX inflater covers older WebKit. Raising it would exclude the
 iOS-15-only iPhone families and require a new build. This is a supported
-configuration judgment, not an iOS 15.4 runtime test; obtain a device or
-compatible runtime when practical.
+configuration judgment that has since been **tested** on an iOS 15.4 runtime
+(§5); a physical iOS 15 device would still be the stronger evidence.
 
 ## 12. Production regression and repair (2026-10-03)
 
