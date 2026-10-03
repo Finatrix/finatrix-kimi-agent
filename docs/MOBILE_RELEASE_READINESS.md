@@ -20,7 +20,7 @@ verified state, the blockers and what only the account owner can do.
 |---|---|---|
 | Technical readiness | **98%** | **95%** |
 | Submission-package readiness | **95%** | **95%** |
-| Verdict | **CODE 6 LIVE TO CLOSED TESTERS (3 Oct 11:08); DAY 2 OF 14** | **BUILD 2 READY TO SUBMIT — A DRAFT, DELIBERATELY NOT SUBMITTED; OWNER REPORTS THE DEVICE PASS DONE** |
+| Verdict | **CODE 6 LIVE TO CLOSED TESTERS (3 Oct 11:08); DAY 2 OF 14** | **BUILD 2 SUBMITTED TO APP REVIEW 2026-10-03 19:04 AEST — WAITING FOR REVIEW** |
 | P0 technical blockers | 0 | 1 (complete the physical-device flow) |
 | P1 verification gaps | 2 (real Google sign-in and deletion) | 2 (real Apple sign-in/revocation, Universal Links on device) |
 
@@ -227,8 +227,7 @@ seeded; production is restored and `main` carries the release (§12).
    relaunch, sign out, sign in, Delete account, relaunch, sign in again
    (fresh account expected).
 6. ~~**AI routing.**~~ Verified live (§2).
-7. **Submit for Review (Apple)** — deliberately left as a draft. Press it once
-   step 4 passes.
+7. ~~**Submit for Review (Apple)**~~ — done 2026-10-03 19:04 AEST. Next: wait for Apple's email (≤ 48 h). Approved → press **Release This Version** (release is manual). Rejected → read the message in App Review and send it to the engineer.
 8. **Legal review** — [LEGAL_REVIEW_PACKAGE.md](LEGAL_REVIEW_PACKAGE.md),
    including the Individual-account question under Guideline 5.1.1(ix).
 9. **iOS minimum version — decided and now tested.** Keep 15.4 for build 2; it
@@ -252,7 +251,7 @@ seeded; production is restored and `main` carries the release (§12).
 | Play store listing | Corrected Goal-plan screenshot (`4-goal-plan.png`, uploaded as `4-goal-plan-2026-10-02.png`, 1080×1920) added as the 6th phone screenshot; AI-asset declaration "Don't label" (real capture). Publishing overview on 3 Oct shows "App update published" with nothing in review and nothing waiting to publish, so it went out with code 6. The public listing was not re-opened to confirm the image |
 | Apple developer enrolment | **ACTIVE** — Individual Apple Developer Program, Team ID `AY79GYWLDP`, renewal 2 Oct 2027 |
 | Apple TestFlight | Build 2 processed and installed on iPhone 16 Pro from the internal group; dashboard launch verified. **Build 1: beta review REJECTED (2.1(a)) for the external groups Family and Friends.** Beta App Review Information: contact saved, review notes saved 3 Oct, "Sign-in required" still unticked (§7 step 1) |
-| Apple App Store version 1.0.0 | **Ready for Review draft** (created 3 Oct 00:59), build **2** attached; **Submit for Review has not been clicked, by instruction**. Price **Free**; availability **174 countries/regions except mainland China**; reviewer contact, sign-in and notes saved; the sign-in is verified against the backend and the account is seeded |
+| Apple App Store version 1.0.0 | **SUBMITTED 2026-10-03 19:04 AEST by the owner's instruction — "Waiting for Review"** (Apple: "up to 48 hours"). Build **2**, release **manual** (press *Release This Version* after approval). Before submitting, a paragraph was appended to the App Review notes (2,094 characters, saved and re-read after a reload): *FinatriX provides no financial services — holds no money, has no accounts with a bank or broker, executes no trades or transactions, makes no loans; educational calculators and a personal record-keeper; InvestMatch shows example allocations to research, not recommendations.* It answers Guideline 5.1.1(ix) and the regulated-advice reading before Apple asks. Sign-in is verified against the backend and the demo account is seeded. Price **Free**; **174 countries/regions except mainland China** |
 | Apple EU trader status (DSA) | **Declared 3 Oct; "In Review"** at Apple (Business → Compliance, 27 countries). EU storefronts follow once it is approved |
 | Apple Paid Apps Agreement | "Pending User Info" (created 3 Oct), with a bank account "Processing" and a US tax questionnaire "Missing Tax Info". **Not needed for a free app with no in-app purchases and does not block submission or release.** Left untouched; complete it only if the app ever sells anything through Apple |
 
