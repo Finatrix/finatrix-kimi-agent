@@ -1,0 +1,13 @@
+{
+  "name": "finatrix-video-studio",
+  "private": true,
+  "type": "module",
+  "description": "Deterministic motion-graphics explainer films for the FinatriX money tools.",
+  "scripts": {
+    "render": "node render.mjs",
+    "build": "./make.sh"
+  },
+  "devDependencies": {
+    "playwright": "^1.61.0"
+  }
+}

@@ -1,0 +1,6 @@
+# rendered films, stills and audio stems
+out/
+# Kokoro TTS model files (~120 MB) — downloaded, not committed
+.models/
+node_modules/
+__pycache__/

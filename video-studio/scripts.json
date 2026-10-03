@@ -1,0 +1,594 @@
+{
+ "budget": [
+  [
+   "hook",
+   "Your salary isn't too small."
+  ],
+  [
+   "lie",
+   "Your budget is lying to you."
+  ],
+  [
+   "lands",
+   "Eighty thousand lands on the first."
+  ],
+  [
+   "gone",
+   "By the twentieth? Gone."
+  ],
+  [
+   "where",
+   "So where did it go?"
+  ],
+  [
+   "l1",
+   "Rent took twenty-eight thousand."
+  ],
+  [
+   "l2",
+   "Bills and groceries, twenty more."
+  ],
+  [
+   "l3",
+   "Wants, another twenty."
+  ],
+  [
+   "l4",
+   "And savings? Just twelve."
+  ],
+  [
+   "night",
+   "And you only find out at midnight, on the twentieth."
+  ],
+  [
+   "reveal",
+   "Meet FinatriX Budget Builder."
+  ],
+  [
+   "split",
+   "Enter your take-home, and it splits it fifty, thirty, twenty."
+  ],
+  [
+   "gap",
+   "Then shows you the gap. Not a score."
+  ],
+  [
+   "stamp",
+   "Needs, over by eight thousand. Savings, short by four."
+  ],
+  [
+   "feature",
+   "Turns out, it's not your groceries. It's your rent."
+  ],
+  [
+   "morning",
+   "So before the salary even lands, every rupee already has a job."
+  ],
+  [
+   "tag",
+   "Less guessing. More saving."
+  ],
+  [
+   "end",
+   "FinatriX Budget Builder. Free, at finatrix dot co."
+  ]
+ ],
+ "expenses": [
+  [
+   "hook",
+   "You think food delivery costs you four thousand a month."
+  ],
+  [
+   "lie",
+   "You're lying to yourself."
+  ],
+  [
+   "lands",
+   "Log it for four weeks, and the real number shows up."
+  ],
+  [
+   "gone",
+   "Eleven thousand, two hundred."
+  ],
+  [
+   "where",
+   "But how?"
+  ],
+  [
+   "l1",
+   "No crazy order. The biggest was eight ninety."
+  ],
+  [
+   "l2",
+   "The typical one? Three ten."
+  ],
+  [
+   "l3",
+   "There were thirty-four of them."
+  ],
+  [
+   "l4",
+   "Plus seven subscriptions. Three you never open."
+  ],
+  [
+   "night",
+   "And your cash and UPI? No statement remembers them."
+  ],
+  [
+   "reveal",
+   "Meet FinatriX Expense Tracker."
+  ],
+  [
+   "split",
+   "Log as you go. Your frequent categories surface first."
+  ],
+  [
+   "gap",
+   "Then read the month by pattern, not by total."
+  ],
+  [
+   "stamp",
+   "The problem isn't size. It's frequency."
+  ],
+  [
+   "feature",
+   "No bank connection. Nothing here can read your accounts."
+  ],
+  [
+   "morning",
+   "Four weeks in, you finally know where it all goes."
+  ],
+  [
+   "tag",
+   "Fewer surprises. More left over."
+  ],
+  [
+   "end",
+   "FinatriX Expense Tracker. Free, at finatrix dot co."
+  ]
+ ],
+ "investmatch": [
+  [
+   "hook",
+   "Every risk quiz asks how brave you feel."
+  ],
+  [
+   "lie",
+   "That's the wrong question."
+  ],
+  [
+   "lands",
+   "Two people. Same answers. Aggressive. Twenty thousand a month."
+  ],
+  [
+   "gone",
+   "One needs the money in ten years or more. The other, within three."
+  ],
+  [
+   "where",
+   "Should they own the same portfolio?"
+  ],
+  [
+   "l1",
+   "A bad quarter doesn't care how brave you felt."
+  ],
+  [
+   "l2",
+   "Three years may not be enough to recover."
+  ],
+  [
+   "l3",
+   "So the brave one panics,"
+  ],
+  [
+   "l4",
+   "and sells at the bottom."
+  ],
+  [
+   "night",
+   "Appetite is what you feel on a calm day."
+  ],
+  [
+   "reveal",
+   "Meet FinatriX InvestMatch."
+  ],
+  [
+   "split",
+   "Answer honestly. Enter what you can actually sustain."
+  ],
+  [
+   "gap",
+   "Ten years plus? It stays aggressive."
+  ],
+  [
+   "stamp",
+   "Switch to one to three years, and it drops to conservative. Same appetite."
+  ],
+  [
+   "feature",
+   "Because horizon is a fact. Then it projects your SIP, before and after inflation."
+  ],
+  [
+   "morning",
+   "Educational, not advice. No fund names. Just the logic, made visible."
+  ],
+  [
+   "tag",
+   "Less guessing. More conviction."
+  ],
+  [
+   "end",
+   "FinatriX InvestMatch. Free, at finatrix dot co."
+  ]
+ ],
+ "parksmart": [
+  [
+   "hook",
+   "Five lakh rupees. Parked for nine months."
+  ],
+  [
+   "lie",
+   "Every rate comparison is lying to you."
+  ],
+  [
+   "lands",
+   "A short duration fund pays seven point four. An arbitrage fund, seven point one."
+  ],
+  [
+   "gone",
+   "Higher rate wins. Obviously."
+  ],
+  [
+   "where",
+   "Right?"
+  ],
+  [
+   "l1",
+   "Add your tax slab."
+  ],
+  [
+   "l2",
+   "At a five percent slab, the short duration fund keeps twenty-six thousand."
+  ],
+  [
+   "l3",
+   "At thirty percent? Nineteen thousand four hundred."
+  ],
+  [
+   "l4",
+   "The arbitrage fund keeps twenty-one thousand three hundred. The winner flips."
+  ],
+  [
+   "night",
+   "And rate tables never show you that column."
+  ],
+  [
+   "reveal",
+   "Meet FinatriX ParkSmart."
+  ],
+  [
+   "split",
+   "Enter the amount, the horizon, and your slab."
+  ],
+  [
+   "gap",
+   "It ranks every option by what you keep, after tax."
+  ],
+  [
+   "stamp",
+   "Read the post-tax column. Not the rate."
+  ],
+  [
+   "feature",
+   "And it flags liquidity, so you can actually exit."
+  ],
+  [
+   "morning",
+   "Idle cash, finally working as hard as you do."
+  ],
+  [
+   "tag",
+   "Less tax drag. More return."
+  ],
+  [
+   "end",
+   "FinatriX ParkSmart. Free, at finatrix dot co."
+  ]
+ ],
+ "peercompare": [
+  [
+   "hook",
+   "Eighteen lakh a year. Seventy-five thousand a month, spent."
+  ],
+  [
+   "lie",
+   "Is that good? The internet is lying to you."
+  ],
+  [
+   "lands",
+   "Same numbers, two cities."
+  ],
+  [
+   "gone",
+   "In Mumbai, the benchmark is fifty-nine thousand eight hundred. Close."
+  ],
+  [
+   "where",
+   "In Indore?"
+  ],
+  [
+   "l1",
+   "Thirty-four thousand two hundred. You're spending more than double."
+  ],
+  [
+   "l2",
+   "Same salary."
+  ],
+  [
+   "l3",
+   "Same spend."
+  ],
+  [
+   "l4",
+   "Two different verdicts."
+  ],
+  [
+   "night",
+   "And comparing with friends just measures noise."
+  ],
+  [
+   "reveal",
+   "Meet FinatriX PeerCompare."
+  ],
+  [
+   "split",
+   "Enter your age, your city, your income, and a few numbers."
+  ],
+  [
+   "gap",
+   "It adjusts for cost of living, across fourteen Indian cities, plus tier two and three."
+  ],
+  [
+   "stamp",
+   "Income. Savings. Investments. Net worth. Expenses. Each on its own scale."
+  ],
+  [
+   "feature",
+   "Start with the weakest one. Here, it's expenses."
+  ],
+  [
+   "morning",
+   "No one else's data is read. Check back in a few months."
+  ],
+  [
+   "tag",
+   "Less comparing. More clarity."
+  ],
+  [
+   "end",
+   "FinatriX PeerCompare. Free, at finatrix dot co."
+  ]
+ ],
+ "goals": [
+  [
+   "hook",
+   "You want thirty lakh, in fifteen years."
+  ],
+  [
+   "lie",
+   "Your SIP calculator is lying to you."
+  ],
+  [
+   "lands",
+   "Because thirty lakh today"
+  ],
+  [
+   "gone",
+   "won't be thirty lakh then."
+  ],
+  [
+   "where",
+   "At six percent inflation?"
+  ],
+  [
+   "l1",
+   "It becomes seventy-one point nine lakh."
+  ],
+  [
+   "l2",
+   "Plan for thirty,"
+  ],
+  [
+   "l3",
+   "and you've funded about forty-two percent."
+  ],
+  [
+   "l4",
+   "The rest? A shortfall nobody warned you about."
+  ],
+  [
+   "night",
+   "And you find out in year fifteen."
+  ],
+  [
+   "reveal",
+   "Meet FinatriX Reverse Goal Planner."
+  ],
+  [
+   "split",
+   "Start from the goal, not the instalment."
+  ],
+  [
+   "gap",
+   "Enter the target, the years, and what you've already saved."
+  ],
+  [
+   "stamp",
+   "Switch on inflation, and it works backwards to your monthly SIP."
+  ],
+  [
+   "feature",
+   "Three return paths. And a ten percent yearly step-up, if your income is rising."
+  ],
+  [
+   "morning",
+   "Price the goal right. Fund it fully. No surprise in year fifteen."
+  ],
+  [
+   "tag",
+   "Less hoping. More planning."
+  ],
+  [
+   "end",
+   "FinatriX Reverse Goal Planner. Free, at finatrix dot co."
+  ]
+ ],
+ "lifemap": [
+  [
+   "hook",
+   "What will you be worth at sixty?"
+  ],
+  [
+   "lie",
+   "Any app that tells you is lying."
+  ],
+  [
+   "lands",
+   "Nobody can forecast forty years."
+  ],
+  [
+   "gone",
+   "But you can compare two lives."
+  ],
+  [
+   "where",
+   "Same person. Same start."
+  ],
+  [
+   "l1",
+   "One finances a big wedding,"
+  ],
+  [
+   "l2",
+   "a car on EMI,"
+  ],
+  [
+   "l3",
+   "and lets lifestyle creep in."
+  ],
+  [
+   "l4",
+   "The other doesn't."
+  ],
+  [
+   "night",
+   "Thirty years later, the gap is the whole story."
+  ],
+  [
+   "reveal",
+   "Meet FinatriX LifeMap."
+  ],
+  [
+   "split",
+   "Set your age, your income, your career, and what you have today."
+  ],
+  [
+   "gap",
+   "Pick the goals that are really yours. A home. Study abroad. Early retirement."
+  ],
+  [
+   "stamp",
+   "It compounds, amortises, and scores your financial health at every stage."
+  ],
+  [
+   "feature",
+   "Change one decision. Re-run. The difference is the answer."
+  ],
+  [
+   "morning",
+   "Not a forecast. A comparison you can actually trust."
+  ],
+  [
+   "tag",
+   "Fewer guesses. Better decades."
+  ],
+  [
+   "end",
+   "FinatriX LifeMap. Free, at finatrix dot co."
+  ]
+ ],
+ "networth": [
+  [
+   "hook",
+   "What are you actually worth?"
+  ],
+  [
+   "lie",
+   "Your bank balance is lying to you."
+  ],
+  [
+   "lands",
+   "One point four lakh in the salary account."
+  ],
+  [
+   "gone",
+   "But that's one number out of five."
+  ],
+  [
+   "where",
+   "What about the rest?"
+  ],
+  [
+   "l1",
+   "Mutual funds, six point two lakh."
+  ],
+  [
+   "l2",
+   "EPF, four point one."
+  ],
+  [
+   "l3",
+   "The flat, forty-eight lakh."
+  ],
+  [
+   "l4",
+   "And the home loan? Thirty-two lakh."
+  ],
+  [
+   "night",
+   "Count one side without the other, and the answer is just wrong."
+  ],
+  [
+   "reveal",
+   "Meet FinatriX Net Worth."
+  ],
+  [
+   "split",
+   "Add what you own. Add what you owe. The balance, not the EMI."
+  ],
+  [
+   "gap",
+   "One subtraction."
+  ],
+  [
+   "stamp",
+   "Twenty-seven point seven lakh. The real one."
+  ],
+  [
+   "feature",
+   "Each month, update only what moved. Everything else carries forward."
+  ],
+  [
+   "morning",
+   "No bank connection. No market feed. Just your numbers, and the trend."
+  ],
+  [
+   "tag",
+   "Less guessing. More knowing."
+  ],
+  [
+   "end",
+   "FinatriX Net Worth. Free, at finatrix dot co."
+  ]
+ ]
+}
