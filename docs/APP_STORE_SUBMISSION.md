@@ -142,11 +142,18 @@ The app sells nothing and shows no prices. FinatriX Pro exists on the website on
 FinatriX is not a bank, broker or registered adviser and executes no transactions. All figures are estimates from user input under stated assumptions.
 ```
 
-**Demo account:** create a throwaway one before submitting and put the address
-and password in the Sign-In Information fields — never in the notes body.
-Seed it with a month of budget and expense data so the dashboard is not empty.
-The saved notes currently say this account is present, but those fields are
-blank; correct the mismatch before App Review submission.
+**Demo account:** a throwaway one exists and its address and password are in
+the Sign-In Information fields — never put them in the notes body. On
+2026-10-03 the saved sign-in was confirmed against the backend, and the account
+was seeded with three months of fictional budget, expense, net-worth and goal
+data (the dataset behind the store screenshots). If a reviewer deletes it,
+recreate and reseed it before the next submission.
+
+**TestFlight has its own copy.** Beta App Review reads TestFlight → Test
+Information → Beta App Review Information, not the fields above. Build 1 was
+rejected under 2.1(a) on 2026-10-02 because that section had no sign-in. Its
+notes are now saved; its "Sign-in required" box and two credential fields
+still have to be filled by the account owner.
 
 ## 8. App Privacy questionnaire
 
@@ -269,7 +276,7 @@ resolved in code, or is listed as an accepted answer with its reasoning.
 
 | Guideline | Risk | Status |
 |---|---|---|
-| 2.1 App Completeness | A demo account that does not work, or an empty app | Guest mode works fully; demo account still needs to be entered in Sign-In Information |
+| 2.1 App Completeness | A demo account that does not work, or an empty app | Guest mode works fully; the demo account is entered, verified against the backend and seeded (2026-10-03). TestFlight beta review already raised 2.1(a) once, for the separate beta credentials (§7) |
 | 2.3.1 Hidden features | — | Nothing gated on a hidden flag |
 | **3.1.1 In-app purchase** | Prices or a link to the Stripe checkout | **Resolved.** `canPurchaseInApp()` is false in both apps; `/pricing` and the Careers sales pages redirect (`isPurchasePage`); tests pin it |
 | 4.2 Minimum functionality | "A website in an app" | Eight calculators, on-device storage, offline operation, camera OCR, haptics, native navigation gestures — none of which a web page does |
@@ -287,10 +294,10 @@ resolved in code, or is listed as an accepted answer with its reasoning.
 ## 13. Before you press Submit
 
 - [ ] docs/IOS.md §12 release checklist complete
-- [ ] `https://finatrix.co/support` returns 200
-- [ ] `https://finatrix.co/privacy` names iOS, the camera permission and account deletion
-- [ ] Demo account created, seeded, and entered in Sign-In Information
-- [ ] Six screenshots at 6.9" (ready in `ios/store/screenshots/`; retake if a screen changed)
+- [x] `https://finatrix.co/support` returns 200 (2026-10-03)
+- [x] `https://finatrix.co/privacy` names iOS, the camera permission and account deletion (live chunk checked 2026-10-03)
+- [x] Demo account created, seeded, and entered in Sign-In Information (2026-10-03; the saved sign-in is verified against the backend — signing in from the app itself is on the device checklist)
+- [x] Six screenshots at 6.9" (ready in `ios/store/screenshots/`; retake if a screen changed)
 - [ ] App Privacy questionnaire answered from §8 and agreeing with `PrivacyInfo.xcprivacy`
 - [x] Age rating questionnaire answered from §6 (18+ override; the current form has no AI question)
-- [ ] Review notes pasted from §7
+- [x] Review notes pasted from §7 (App Store version 2026-10-02; TestFlight Beta App Review 2026-10-03)

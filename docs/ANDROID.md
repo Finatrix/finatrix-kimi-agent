@@ -286,6 +286,13 @@ Google asks how the closed test was run before granting production access.
 **Fill every bracket from real Play Console data and real tester feedback.
 Never estimate or invent tester activity.**
 
+Facts read from the console on 2026-10-03, to save looking them up again: 12
+testers opted in, invited through one Google Group (`testers-community`); the
+dashboard counted 1 continuous day on 2 October and 2 on 3 October, so the
+fourteenth falls on or about 15 October; the testers moved from code 5 to
+code 6 on 3 October. What they did and said is not in the console — that part
+has to come from them.
+
 - *How did you recruit testers?* [who they are — e.g. colleagues, friends,
   a community — and how they were invited (email list / Google Group)]
 - *How many testers, and for how long?* [count from Play Console → Testing →

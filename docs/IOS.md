@@ -364,14 +364,14 @@ If `ios/` is ever regenerated with `npx cap add ios`, re-apply:
 
 ## 12. Release checklist
 
-- [ ] `npm run verify:native` green (live iOS/Android CORS and association files)
+- [x] `npm run verify:native` green (live iOS/Android CORS and association files) — 18/18 on 2026-10-03, and now run by the Deploy workflow after every deploy
 - [ ] `npm test` green
 - [ ] `npm run test:e2e` green (includes the `ios-webkit` project)
 - [ ] `npm run ios:sync` run against the bundle being shipped
-- [ ] `CURRENT_PROJECT_VERSION` increased
-- [ ] `MARKETING_VERSION` matches the Android `versionName`
+- [x] `CURRENT_PROJECT_VERSION` increased (2, for 1.0.0 build 2)
+- [x] `MARKETING_VERSION` matches the Android `versionName` (both 1.0.0)
 - [x] `APPLE_APP_ID_PREFIX` set and both hosts serving the association file (2026-10-02)
-- [ ] Edge functions deployed with `capacitor://localhost` allow-listed
+- [x] Edge functions deployed with `capacitor://localhost` allow-listed (all seven app-facing functions, 2026-10-03)
 - [x] Supabase Apple provider configured and `VITE_AUTH_APPLE=1` in the build env (2026-10-02)
 - [ ] `APPLE_SIWA_*` and `APPLE_TOKEN_ENC_KEY` secrets set; a test Apple account signed in, then deleted from Profile, and it no longer appears under Settings → Apple ID → Sign in with Apple
 - [ ] Screenshots retaken (§9) if any captured screen changed
