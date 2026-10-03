@@ -1,0 +1,3 @@
+This is not a bank statement.
+It has no table header and no transactions.
+The app should refuse it with a clear message, not crash.
