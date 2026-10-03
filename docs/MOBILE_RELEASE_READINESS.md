@@ -54,7 +54,7 @@ declared iOS 15.4 minimum *was* run on 2026-10-03 on a real iOS 15.4 runtime —
 | iOS previous | build 1 from `b30b4cc` (tag `ios-1.0.0-build1-rc1`) — **rejected by TestFlight beta review on 2026-10-02 (Guideline 2.1(a), no demo account)**; see §6 |
 | Code 6 vs build 2 | Identical app code. The two commits between them change only the iOS build number and `scripts/ios-release.sh` |
 | Website | Live Worker `finatrix-co` serves the release frontend built from `14d6c4f` (new tool layout, AI consent gate), with `APPLE_APP_ID_PREFIX` and `ANDROID_CERT_SHA256` bound. Built without `VITE_AUTH_APPLE`, as CI builds it, so the website offers Google and email sign-in only; Apple sign-in on the web has never been tested and is not offered. History and versions in §9 |
-| AI routing secret | `CAREERS_AI_DATA_COLLECTION` override removed 2026-10-03; deployed `careers-ai` (v45, from `14d6c4f`) defaults to `deny`. The owner delegated the choice after the [AI privacy audit](AI_PRIVACY_AUDIT.md) was provided. `secrets list` shows neither that override nor `CAREERS_AI_MODELS`, and all six models in the default chain list live endpoints on OpenRouter. An authenticated live prompt has still not been sent, so an actual answer under `deny` remains unverified. |
+| AI routing secret | `CAREERS_AI_DATA_COLLECTION` override removed 2026-10-03; deployed `careers-ai` (v45, from `14d6c4f`) defaults to `deny`. **Verified live 2026-10-03 18:30 AEST:** two `money-chat` calls from a signed-in account both succeeded (`anthropic/claude-sonnet-5`, `ai_usage_log.success = true`), so a compliant provider exists under `deny`. The owner delegated the choice after the [AI privacy audit](AI_PRIVACY_AUDIT.md) |
 | Since code 6 / build 2 | One app-code commit is in neither binary: `33e4a66` clips the Expenses trend-chart wrapper so a Chart.js canvas that has not resized yet cannot widen the page (seen only on a slow WebKit CI runner at 320px). It ships with the next build; it is not a reason for one. |
 
 ## 3. What changed since the 2026-10-01 audit (newest first)
@@ -175,17 +175,12 @@ Store Connect together if the account outlives review.
 - iOS: successful native Apple sign-in, encrypted token storage/revocation and
   Universal Links are not yet verified on the signed physical-device build.
 - iOS: App Availability set to 174 countries/regions, excluding mainland China;
-  future regions are not automatically enabled. **The EU trader status is not
-  declared** (App Store Connect → Business, checked 2026-10-03: "you need to
-  let us know whether or not you are a trader… Complete Compliance
-  Requirements"). Until it is, the app is withheld from the 27 EU storefronts;
-  it does not block submission or release elsewhere. Free Apps Agreement:
-  active to 1 Oct 2027.
+  future regions are not automatically enabled. **EU trader status declared
+  3 Oct 2026; Apple shows the Digital Services Act row as "In Review"** for the
+  27 EU countries. Free Apps Agreement: active to 1 Oct 2027.
 
 ### P2
-- `careers-ai` now defaults to `data_collection: deny` after removal of the
-  `allow` override. Run a live authenticated AI prompt to confirm model
-  availability under the stricter routing rule.
+- ~~`careers-ai` under `data_collection: deny`~~ — verified, see §2.
 - `careers-ai/index.ts` contains literal NUL bytes, so git treats it as binary
   (diffs invisible) — fix with the next backend deploy.
 - No Play pre-launch report has ever been generated (codes 1, 5 and now 6); the
@@ -210,10 +205,7 @@ seeded; production is restored and `main` carries the release (§12).
    Review Information, Save. Then add build 2 to the Family and Friends groups
    so it goes to beta review in place of the rejected build 1. An agent cannot
    do this step: it means typing a password into a field.
-2. **EU trader status (Apple).** Business → "Complete Compliance Requirements".
-   A legal self-declaration, with a phone and email Apple verifies and — for a
-   trader — publishes on the EU product page. Until it is made the app is
-   simply absent from EU storefronts.
+2. ~~**EU trader status (Apple).**~~ Done 3 Oct, now "In Review" at Apple.
 3. **App Availability (Apple) — set.** Free, 174 countries/regions excluding
    mainland China, with future regions off.
 4. **Physical device — install complete.** FinatriX 1.0.0 (2) launched from
@@ -229,9 +221,7 @@ seeded; production is restored and `main` carries the release (§12).
    from the closed track: Google sign-in with a throwaway Google account,
    relaunch, sign out, sign in, Delete account, relaunch, sign in again
    (fresh account expected).
-6. **AI routing — decided.** The `allow` override was removed, restoring the
-   deployed `deny` default. While signed in during step 4, ask FinatriX AI one
-   question: an answer confirms a provider is available under `deny`.
+6. ~~**AI routing.**~~ Verified live (§2).
 7. **Submit for Review (Apple)** — deliberately left as a draft. Press it once
    step 4 passes.
 8. **Legal review** — [LEGAL_REVIEW_PACKAGE.md](LEGAL_REVIEW_PACKAGE.md),
@@ -258,7 +248,8 @@ seeded; production is restored and `main` carries the release (§12).
 | Apple developer enrolment | **ACTIVE** — Individual Apple Developer Program, Team ID `AY79GYWLDP`, renewal 2 Oct 2027 |
 | Apple TestFlight | Build 2 processed and installed on iPhone 16 Pro from the internal group; dashboard launch verified. **Build 1: beta review REJECTED (2.1(a)) for the external groups Family and Friends.** Beta App Review Information: contact saved, review notes saved 3 Oct, "Sign-in required" still unticked (§7 step 1) |
 | Apple App Store version 1.0.0 | **Ready for Review draft** (created 3 Oct 00:59), build **2** attached; **Submit for Review has not been clicked, by instruction**. Price **Free**; availability **174 countries/regions except mainland China**; reviewer contact, sign-in and notes saved; the sign-in is verified against the backend and the account is seeded |
-| Apple EU trader status (DSA) | **Not declared** — Business page still asks for it. EU storefronts withheld until it is (§7 step 2) |
+| Apple EU trader status (DSA) | **Declared 3 Oct; "In Review"** at Apple (Business → Compliance, 27 countries). EU storefronts follow once it is approved |
+| Apple Paid Apps Agreement | "Pending User Info" (created 3 Oct), with a bank account "Processing" and a US tax questionnaire "Missing Tax Info". **Not needed for a free app with no in-app purchases and does not block submission or release.** Left untouched; complete it only if the app ever sells anything through Apple |
 
 ## 9. Deployment log
 
