@@ -536,16 +536,23 @@ describe('edge function deploy coverage', () => {
   });
 
   /**
-   * Both of these are called by something that cannot present a Supabase JWT —
-   * `sendBeacon` has no way to set an Authorization header, and Stripe calls
-   * server-to-server. With the gateway check on, every request is rejected 401
-   * before the function runs: analytics goes 100% dark, and paid customers are
-   * never provisioned.
+   * `analytics-collect` is called by `sendBeacon` which cannot set an
+   * Authorization header, so the gateway check would reject it 401 before the
+   * function runs, dropping 100% of analytics.
+   *
+   * `careers-billing-webhook` is called server-to-server by Stripe and cannot
+   * present a Supabase JWT, so the check would reject it 401, breaking
+   * provisioning.
+   *
+   * `careers-ai`, `careers-jobs`, and `careers-email` authenticate the caller
+   * in-function via anonClient.auth.getUser(). The gateway check is redundant
+   * and can falsely 401 on sessions signed with ES256, breaking the functions
+   * while their own getUser() call would succeed.
    */
-  it.each(['analytics-collect', 'careers-billing-webhook'])(
+  it.each(['analytics-collect', 'careers-billing-webhook', 'careers-ai', 'careers-jobs', 'careers-email'])(
     '%s is deployed with --no-verify-jwt',
     (slug) => {
-      expect(workflow).toMatch(new RegExp(`functions deploy ${slug} --no-verify-jwt`));
+      expect(workflow).toMatch(new RegExp(`functions deploy[^\\n]*\\b${slug}\\b[^\\n]*--no-verify-jwt`));
     },
   );
 
