@@ -1,0 +1,6 @@
+# Renders and working files — everything here is reproducible from the scripts.
+out/
+clips/
+storyboard/
+audio/stems/
+audio/*-mix.wav

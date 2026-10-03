@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>FinatriX launch film — 3D finale</title>
+<style>
+  @font-face { font-family: 'Inter'; font-weight: 500; src: url('../node_modules/@fontsource/inter/files/inter-latin-500-normal.woff') format('woff'); }
+  @font-face { font-family: 'Inter'; font-weight: 600; src: url('../node_modules/@fontsource/inter/files/inter-latin-600-normal.woff') format('woff'); }
+  @font-face { font-family: 'Kanit'; font-weight: 600; src: url('../node_modules/@fontsource/kanit/files/kanit-latin-600-normal.woff') format('woff'); }
+
+  html, body { margin: 0; width: 100vw; height: 100vh; overflow: hidden; background: #050505; }
+  canvas { position: absolute; inset: 0; width: 100vw; height: 100vh; display: block; }
+  .layer { position: absolute; inset: 0; pointer-events: none; }
+
+  /* The live-action act is framed 2.39:1. These bars open when the turn begins. */
+  .bar { position: absolute; left: 0; right: 0; background: #000; height: 12.83vh; }
+  .bar.top { top: 0; } .bar.bottom { bottom: 0; }
+
+  #flash { background: #fff; opacity: 0; }
+
+  #cta { display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+         top: 80.5vh; opacity: 0; color: #f2f2f2; font-family: 'Inter', sans-serif; }
+  #cta .kicker { font-weight: 500; font-size: 1.6vh; letter-spacing: 0.42em; text-transform: uppercase;
+                 color: rgba(255,255,255,0.62); margin-bottom: 1.5vh; }
+  #cta .stores { display: flex; gap: 1.6vh; }
+  #cta .store { font-weight: 600; font-size: 2.4vh; letter-spacing: 0.02em; padding: 1.1vh 2.8vh;
+                border: 1px solid rgba(212,175,55,0.75); border-radius: 999px; background: rgba(212,175,55,0.07); }
+  #legal { top: auto; bottom: 3.4vh; height: auto; text-align: center; opacity: 0;
+           font-family: 'Inter', sans-serif; font-weight: 500; font-size: 1.35vh; letter-spacing: 0.08em;
+           color: rgba(255,255,255,0.42); }
+</style>
+<script type="importmap">
+{ "imports": {
+    "three": "../node_modules/three/build/three.module.js",
+    "three/addons/": "../node_modules/three/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+  <canvas id="stage"></canvas>
+  <div class="layer" id="flash"></div>
+  <div class="layer" id="cta">
+    <div class="kicker">Available on</div>
+    <div class="stores"><span class="store">App Store</span><span class="store">Google Play</span></div>
+  </div>
+  <div class="layer" id="legal">Educational tools — not financial advice.</div>
+  <div class="layer" id="letterbox"><div class="bar top"></div><div class="bar bottom"></div></div>
+  <script type="module" src="./finale.js"></script>
+</body>
+</html>

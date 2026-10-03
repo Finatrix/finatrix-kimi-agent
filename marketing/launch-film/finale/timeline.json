@@ -1,0 +1,81 @@
+{
+  "duration": 34.145,
+  "voice": "am_michael",
+  "cues": {
+    "life": {
+      "start": 1.55,
+      "end": 2.846,
+      "text": "Life gets hard..."
+    },
+    "manage": {
+      "start": 3.146,
+      "end": 4.946,
+      "text": "when you can't manage your money."
+    },
+    "budget": {
+      "start": 6.046,
+      "end": 6.987,
+      "text": "Your budget."
+    },
+    "expenses": {
+      "start": 7.387,
+      "end": 8.536,
+      "text": "Your expenses."
+    },
+    "investments": {
+      "start": 8.936,
+      "end": 10.087,
+      "text": "Your investments."
+    },
+    "future": {
+      "start": 10.487,
+      "end": 12.12,
+      "text": "Your plans for the future."
+    },
+    "networth": {
+      "start": 12.57,
+      "end": 14.551,
+      "text": "And knowing what you're truly worth."
+    },
+    "converge": {
+      "start": 15.351,
+      "end": 17.73,
+      "text": "What if one app could bring it all together..."
+    },
+    "lift": {
+      "start": 17.93,
+      "end": 19.119,
+      "text": "and lift you up?"
+    },
+    "logo": {
+      "start": 19.869,
+      "end": 21.744,
+      "text": "That's why you need Finnatricks."
+    },
+    "eight": {
+      "start": 22.594,
+      "end": 23.624,
+      "text": "Eight tools."
+    },
+    "one": {
+      "start": 23.974,
+      "end": 24.885,
+      "text": "One place."
+    },
+    "infinite": {
+      "start": 25.235,
+      "end": 26.548,
+      "text": "Infinite solutions."
+    },
+    "available": {
+      "start": 27.448,
+      "end": 30.156,
+      "text": "Available on the App Store and Google Play."
+    },
+    "date": {
+      "start": 30.456,
+      "end": 31.945,
+      "text": "October fourteenth."
+    }
+  }
+}

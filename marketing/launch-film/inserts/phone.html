@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>FinatriX launch film — phone insert</title>
+<style>
+  /* Inter in two subsets: latin, and latin-ext for the rupee sign (U+20B9). */
+  @font-face { font-family: 'Inter'; font-weight: 500; src: url('../node_modules/@fontsource/inter/files/inter-latin-500-normal.woff') format('woff'); unicode-range: U+0000-00FF, U+2000-206F, U+2212; }
+  @font-face { font-family: 'Inter'; font-weight: 600; src: url('../node_modules/@fontsource/inter/files/inter-latin-600-normal.woff') format('woff'); unicode-range: U+0000-00FF, U+2000-206F, U+2212; }
+  @font-face { font-family: 'Inter'; font-weight: 500; src: url('../node_modules/@fontsource/inter/files/inter-latin-ext-500-normal.woff') format('woff'); unicode-range: U+20A0-20C0; }
+  @font-face { font-family: 'Inter'; font-weight: 600; src: url('../node_modules/@fontsource/inter/files/inter-latin-ext-600-normal.woff') format('woff'); unicode-range: U+20A0-20C0; }
+
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #050607; font-family: 'Inter', sans-serif; }
+  #room { position: absolute; inset: 0; overflow: hidden; }
+  #bokeh { position: absolute; inset: -80px; filter: blur(26px); }
+  .orb { position: absolute; border-radius: 50%; }
+  #spill { position: absolute; left: 50%; top: 46%; width: 1300px; height: 1100px; transform: translate(-50%, -50%);
+           background: radial-gradient(closest-side, rgba(150,180,255,0.16), rgba(150,180,255,0) 70%); }
+  #rig { position: absolute; left: 50%; top: 0; width: 640px; height: 1360px; margin-left: -320px; transform-origin: 50% 30%; }
+  #phone { position: absolute; inset: 0; border-radius: 92px; background: #0a0a0b;
+           box-shadow: 0 0 0 2px #3a3b3f, 0 0 0 5px #17181a, 0 40px 120px rgba(0,0,0,0.75), inset 0 0 0 2px rgba(255,255,255,0.05); }
+  #screen { position: absolute; inset: 16px; border-radius: 78px; overflow: hidden;
+            background: radial-gradient(120% 70% at 20% 10%, #2b3d5c 0%, #172033 38%, #0c0f18 70%), #0c0f18; }
+  #screen::before { content: ''; position: absolute; inset: 0;
+            background: radial-gradient(60% 40% at 85% 75%, rgba(212,175,55,0.18), rgba(212,175,55,0) 70%); }
+  #date { position: absolute; top: 118px; width: 100%; text-align: center; color: rgba(255,255,255,0.82); font-weight: 600; font-size: 27px; letter-spacing: 0.01em; }
+  #clock { position: absolute; top: 146px; width: 100%; text-align: center; color: rgba(255,255,255,0.94); font-weight: 600; font-size: 168px; letter-spacing: -0.03em; line-height: 1; }
+  #stack { position: absolute; left: 20px; right: 20px; top: 384px; }
+  .card { position: absolute; left: 0; right: 0; height: 142px; border-radius: 32px; box-sizing: border-box; padding: 20px 22px 0 108px;
+          background: rgba(44,46,54,0.62); backdrop-filter: blur(22px) saturate(1.5); -webkit-backdrop-filter: blur(22px) saturate(1.5);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.08); transform-origin: 50% 0; }
+  .card .icon { position: absolute; left: 22px; top: 24px; width: 66px; height: 66px; border-radius: 17px; display: grid; place-items: center; }
+  .card .icon svg { width: 36px; height: 36px; fill: none; stroke: #fff; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .card .head { display: flex; justify-content: space-between; color: rgba(255,255,255,0.55); font-weight: 600; font-size: 19px; letter-spacing: 0.08em; }
+  .card .title { margin-top: 6px; color: #fff; font-weight: 600; font-size: 28px; white-space: nowrap; }
+  .card .title .amt.debit { color: #ff8a80; }
+  .card .title .amt.credit { color: #7ee2a8; }
+  .card .body { margin-top: 3px; color: rgba(255,255,255,0.74); font-weight: 500; font-size: 22.5px; white-space: nowrap; }
+  .card.alert { background: rgba(120,24,24,0.62); }
+  #glare { position: absolute; inset: -40%; background: linear-gradient(115deg, rgba(255,255,255,0) 42%, rgba(255,255,255,0.07) 48%, rgba(255,255,255,0) 56%); }
+  #sleep { position: absolute; inset: 0; background: #000; opacity: 0; }
+</style>
+</head>
+<body>
+  <div id="room">
+    <div id="bokeh"></div>
+    <div id="spill"></div>
+    <div id="rig">
+      <div id="phone">
+        <div id="screen">
+          <div id="date"></div>
+          <div id="clock"></div>
+          <div id="stack"></div>
+          <div id="glare"></div>
+          <div id="sleep"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="./phone.js"></script>
+</body>
+</html>
