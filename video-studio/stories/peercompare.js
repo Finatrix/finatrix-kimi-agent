@@ -38,8 +38,8 @@ function hookCard(ctx, w, h, t) {
   const q = ease.outBack(clamp((t - 1.2) / 0.4));
   if (q > 0) {
     ctx.save();
-    ctx.translate(w - 250, 120);
-    ctx.rotate(0.06);
+    ctx.translate(w - 250, 486);
+    ctx.rotate(-0.05);
     ctx.scale(q, q);
     ctx.fillStyle = '#F2EEFF';
     rr(ctx, -200, -50, 400, 100, 50);
@@ -339,7 +339,7 @@ export default function story({ timeline, logo }) {
         paper(ctx, t, ACCENT, 'weak');
         const f = s.line('feature');
         const ex = s.word('feature', 'expenses');
-        const p = spring(t - 0.1, 10, 0.55);
+        const p = spring(t + 0.12, 10, 0.55);
         ctx.save();
         ctx.translate(W / 2, 1050);
         ctx.scale(p, p);
