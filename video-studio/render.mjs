@@ -52,6 +52,22 @@ const duration = await page.evaluate(() => window.STUDIO.duration);
 const outDir = path.join(ROOT, 'out', tool);
 fs.writeFileSync(path.join(outDir, 'cues.json'), JSON.stringify(await page.evaluate(() => window.STUDIO.cues()), null, 1));
 
+if (args.includes('--audit')) {
+  const issues = await page.evaluate(() => window.STUDIO.audit(0.25));
+  // keep issues that persist >= 2 consecutive samples
+  const key = (i) => `${i.kind}|${i.at}|${i.a}|${i.b ?? ''}`;
+  const byKey = new Map();
+  for (const i of issues) {
+    if (!byKey.has(key(i))) byKey.set(key(i), []);
+    byKey.get(key(i)).push(i);
+  }
+  const rows = [];
+  for (const [k, list] of byKey) if (list.length >= 2) rows.push(`${list[0].T.toFixed(2)}-${list[list.length - 1].T.toFixed(2)}  ${k}${list[0].spill ? '  spill=' + list[0].spill : ''}${list[0].box ? '  ' + list[0].box : ''}`);
+  console.log(rows.sort().join('\n') || 'clean');
+  await browser.close();
+  srv.close();
+  process.exit(0);
+}
 const stills = opt('stills', null);
 if (stills) {
   fs.mkdirSync(path.join(outDir, 'stills'), { recursive: true });

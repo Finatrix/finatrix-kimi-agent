@@ -58,6 +58,17 @@ node render.mjs goals --stills 0,0.5,1,1.5,2
 ./sheets.sh goals                        # out/goals/sheet_*.png
 ```
 
+### Layout audit
+
+```bash
+node render.mjs <tool> --audit
+```
+
+Samples every scene at 4 fps and lists text that collides with other text,
+spills out of its pill, card or field, or runs off-screen, for anything that
+lasts at least half a second. It can't see text sitting on graphics, so check
+those in contact sheets.
+
 ## How it fits together
 
 - `scripts.json`: the voiceover, line by line. Line ids (`hook`, `lie`, `lands`,
