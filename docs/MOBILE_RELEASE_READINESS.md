@@ -18,9 +18,9 @@ verified state, the blockers and what only the account owner can do.
 
 | | Android | iOS |
 |---|---|---|
-| Technical readiness | **95%** | **85%** |
-| Submission-package readiness | **90%** | **80%** |
-| Verdict | **CODE 6 LIVE TO CLOSED TESTERS (3 Oct 11:08); DAY 2 OF 14** | **BUILD 2 IN A READY-FOR-REVIEW DRAFT, NOT SUBMITTED; DEVICE VALIDATION PENDING** |
+| Technical readiness | **98%** | **95%** |
+| Submission-package readiness | **95%** | **95%** |
+| Verdict | **CODE 6 LIVE TO CLOSED TESTERS (3 Oct 11:08); DAY 2 OF 14** | **BUILD 2 READY TO SUBMIT — A DRAFT, DELIBERATELY NOT SUBMITTED; OWNER REPORTS THE DEVICE PASS DONE** |
 | P0 technical blockers | 0 | 1 (complete the physical-device flow) |
 | P1 verification gaps | 2 (real Google sign-in and deletion) | 2 (real Apple sign-in/revocation, Universal Links on device) |
 
@@ -143,12 +143,15 @@ declared iOS 15.4 minimum *was* run on 2026-10-03 on a real iOS 15.4 runtime —
 
 ### P0
 **iOS**
-1. The signed build installed and launched from TestFlight on the iPhone 16 Pro,
-   but camera, OAuth, import, offline and accessibility flows remain untested there.
-
-
-   iPhone Mirroring could not be used to run it unattended on 2026-10-03: it
-   asks for the Mac login password and the phone was in use.
+1. ~~Physical-iPhone validation~~ — **reported complete by the owner on
+   2026-10-03** (all of LAUNCH_GUIDE.md Task 1 on the iPhone 16 Pro: sign-in,
+   Apple and Google, sign-out and relaunch, deletion, links, import, camera,
+   offline, VoiceOver). This is the owner's report, not something an agent
+   observed, and it is partly unobservable from the backend: the accounts used
+   for sign-in and deletion were other than the demo account, and a deleted
+   account leaves no trace. What the backend does corroborate: two signed-in AI
+   calls succeeded under `deny` that evening, a Google sign-in happened at
+   18:34 AEST, and no Apple identity or Apple token remains.
 
 Resolved 2026-10-03 — **the reviewer sign-in.** iOS 1.0.0 (build 2) is in a
 **Ready for Review** draft, not submitted. The earlier doubt about the saved
@@ -170,10 +173,12 @@ Store Connect together if the account outlives review.
   notes are now saved (§3); the two credential fields are **USER ACTION** (§7).
   This gates external TestFlight testers only, not the App Store submission —
   but it is the same reviewer question, so it is a preview of App Review.
-- Android: successful native Google PKCE sign-in and end-to-end account deletion
-  with a disposable account are not yet verified.
-- iOS: successful native Apple sign-in, encrypted token storage/revocation and
-  Universal Links are not yet verified on the signed physical-device build.
+- Android: Google sign-in and account deletion were reported done by the owner on
+  2026-10-03 (LAUNCH_GUIDE.md Task 6); not independently observable, see P0 above.
+- iOS: native Apple sign-in, token revocation and Universal Links on the signed
+  build were reported done by the owner on 2026-10-03 (Task 1.5, 1.7); the empty
+  `apple_auth_tokens` table and absence of any Apple identity are consistent with
+  that, and with Apple sign-in never having happened — treat as owner-reported.
 - iOS: App Availability set to 174 countries/regions, excluding mainland China;
   future regions are not automatically enabled. **EU trader status declared
   3 Oct 2026; Apple shows the Digital Services Act row as "In Review"** for the
