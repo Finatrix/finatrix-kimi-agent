@@ -279,3 +279,40 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+
+  # The installed apps' view of production, checked after BOTH deploys.
+  #
+  # `verify:production` above only looks at what a browser on finatrix.co
+  # needs. The Android and iOS apps need three more things that no web check
+  # touches: /.well-known/assetlinks.json and apple-app-site-association (both
+  # published from Worker vars in wrangler.jsonc), and CORS for the app origins
+  # `https://localhost` and `capacitor://localhost` on every edge function.
+  #
+  # On 2026-10-03 a push to a main that predated those vars deployed green:
+  # both association files went 404, so links stopped opening in the apps, and
+  # careers-ai refused the iOS origin, so the app's AI panel could not reach its
+  # backend — while every gate in this file passed. This job is the one that
+  # would have gone red.
+  #
+  # It waits for both jobs because it reads what each of them publishes, and it
+  # retries because a function deploy can take a moment to reach the edge.
+  native-apps:
+    needs: [deploy, edge-functions]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Verify app links and app-origin CORS on production
+        run: |
+          for attempt in 1 2 3; do
+            if npm run verify:native; then exit 0; fi
+            if [ "$attempt" -lt 3 ]; then sleep 60; fi
+          done
+          echo "::error::Production no longer serves what the installed Android and iOS apps need — see the failed lines above and docs/MOBILE_RELEASE_READINESS.md."
+          exit 1
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}

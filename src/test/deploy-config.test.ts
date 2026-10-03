@@ -495,6 +495,20 @@ describe('deploy workflow preflight', () => {
   it('gives the production verifier the credential its auth checks need', () => {
     expect(stepScript('Verify production domain')).toContain('VITE_SUPABASE_URL');
   });
+
+  /**
+   * The web verifier cannot see what the installed apps need: the two
+   * association files and CORS for the app origins. A deploy that dropped all
+   * of it shipped green on 2026-10-03, so the native verifier now runs against
+   * production — after BOTH jobs, because it reads what each one publishes.
+   */
+  it('verifies the installed apps against production after both deploys', () => {
+    expect(workflow).toMatch(/native-apps:\n\s+needs: \[deploy, edge-functions\]/);
+    const step = stepScript('Verify app links and app-origin CORS on production');
+    expect(step).toContain('npm run verify:native');
+    // Without the backend URL the CORS half reports one failure and checks nothing.
+    expect(step).toContain('VITE_SUPABASE_URL');
+  });
 });
 
 /**
