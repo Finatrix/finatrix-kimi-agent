@@ -216,8 +216,8 @@ export const TOOL_GUIDES: Record<ToolId, ToolGuide> = {
         { label: 'Horizon', value: '9 months' },
         { label: 'Option A — interest-bearing', value: '7.5% gross, taxed at slab' },
         { label: 'Option B — equity-taxed', value: '7.5% gross, taxed as equity' },
-        { label: 'At a 5% slab', value: 'A keeps ~7.1%; B keeps ~6.6% → A wins' },
-        { label: 'At a 30% slab', value: 'A keeps ~5.3%; B keeps ~6.6% → B wins' },
+        { label: 'At a 5% slab', value: 'A keeps ~7.1%; B keeps ~6.0% → A wins' },
+        { label: 'At a 30% slab', value: 'A keeps ~5.3%; B keeps ~6.0% → B wins' },
       ],
       conclusion:
         'Identical headline rates, and the ranking reverses on the slab alone. This is why ParkSmart asks for your slab before it ranks anything, and why the post-tax column is the one to read.',
