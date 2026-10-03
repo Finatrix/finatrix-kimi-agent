@@ -590,5 +590,145 @@
    "end",
    "FinatriX Net Worth. Free, at finatrix dot co."
   ]
+ ],
+ "launch": [
+  [
+   "hook",
+   "Eight money questions decide how free you'll be."
+  ],
+  [
+   "hook2",
+   "Most of us never answer them."
+  ],
+  [
+   "reveal",
+   "FinatriX answers all eight. For free."
+  ],
+  [
+   "t1",
+   "Where should my salary go? Budget Builder."
+  ],
+  [
+   "t2",
+   "Where did it actually go? Expense Tracker."
+  ],
+  [
+   "t3",
+   "How should I invest? InvestMatch."
+  ],
+  [
+   "t4",
+   "Where do I park idle cash? ParkSmart."
+  ],
+  [
+   "t5",
+   "Am I on track? PeerCompare."
+  ],
+  [
+   "t6",
+   "What should I save each month? Reverse Goal Planner."
+  ],
+  [
+   "t7",
+   "Where will my choices lead? LifeMap."
+  ],
+  [
+   "t8",
+   "What am I really worth? Net Worth."
+  ],
+  [
+   "safe",
+   "Safe and secure by design. Encrypted, with no bank connection. Nothing reads your accounts."
+  ],
+  [
+   "weekly",
+   "Safety and privacy updates, every week."
+  ],
+  [
+   "monthly",
+   "New improvements, every month."
+  ],
+  [
+   "why",
+   "Built for people who want stability today, and freedom tomorrow."
+  ],
+  [
+   "launch",
+   "FinatriX. Coming October fourteenth."
+  ],
+  [
+   "end",
+   "At finatrix dot co."
+  ]
+ ],
+ "launch-nodomain": [
+  [
+   "hook",
+   "Eight money questions decide how free you'll be."
+  ],
+  [
+   "hook2",
+   "Most of us never answer them."
+  ],
+  [
+   "reveal",
+   "FinatriX answers all eight. For free."
+  ],
+  [
+   "t1",
+   "Where should my salary go? Budget Builder."
+  ],
+  [
+   "t2",
+   "Where did it actually go? Expense Tracker."
+  ],
+  [
+   "t3",
+   "How should I invest? InvestMatch."
+  ],
+  [
+   "t4",
+   "Where do I park idle cash? ParkSmart."
+  ],
+  [
+   "t5",
+   "Am I on track? PeerCompare."
+  ],
+  [
+   "t6",
+   "What should I save each month? Reverse Goal Planner."
+  ],
+  [
+   "t7",
+   "Where will my choices lead? LifeMap."
+  ],
+  [
+   "t8",
+   "What am I really worth? Net Worth."
+  ],
+  [
+   "safe",
+   "Safe and secure by design. Encrypted, with no bank connection. Nothing reads your accounts."
+  ],
+  [
+   "weekly",
+   "Safety and privacy updates, every week."
+  ],
+  [
+   "monthly",
+   "New improvements, every month."
+  ],
+  [
+   "why",
+   "Built for people who want stability today, and freedom tomorrow."
+  ],
+  [
+   "launch",
+   "FinatriX. Coming October fourteenth."
+  ],
+  [
+   "end",
+   "Mark the date."
+  ]
  ]
 }

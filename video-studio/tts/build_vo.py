@@ -25,8 +25,8 @@ SR = 24000
 SPOKEN = {"FinatriX": "Finatrix", "SIP": "S I P", "EMI": "E M I", "UPI": "U P I", "EPF": "E P F"}
 BRAND_IPA = "faɪnˈeɪtɹɪks"
 # Breathing room after the beats that land a point.
-GAP_AFTER = {"lie": 0.45, "where": 0.35, "l4": 0.4, "night": 0.55, "stamp": 0.3, "feature": 0.5, "tag": 0.35}
-DEFAULT_GAP = 0.2
+GAP_AFTER = {"hook2": 0.4, "reveal": 0.5, "t8": 0.5, "monthly": 0.35, "why": 0.5, "lie": 0.45, "where": 0.35, "l4": 0.4, "night": 0.55, "stamp": 0.3, "feature": 0.5, "tag": 0.35}
+DEFAULT_GAP = 0.32 if any(a.startswith("launch") for a in sys.argv[3:]) else 0.2
 LEAD, TAIL = 0.35, 1.8
 
 
