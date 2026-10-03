@@ -17,7 +17,8 @@ import InvestMatchPage from '../tools/pages/InvestMatchPage';
  * `type="text"` with `inputMode="decimal"` on purpose: a `type="number"` input
  * reports an empty value for anything not yet a valid number, so `"12."` wiped
  * the field and decimals could not be typed at all. See ui/MoneyField.tsx.
- * InvestMatch's plain integer questions are still spinbuttons.
+ * The same holds for InvestMatch's money questions; only its age question,
+ * a whole number, is still a spinbutton.
  */
 
 /** Every money field the page renders, with the name AT would announce. */
@@ -108,11 +109,11 @@ describe('InvestMatch — question labelling', () => {
     expect(screen.getByRole('spinbutton', { name: 'How old are you?' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByText('Next'));
-    expect(screen.getByRole('spinbutton', { name: 'Monthly income (₹)' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Monthly income (₹)' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByText('Next'));
     expect(
-      screen.getByRole('spinbutton', { name: 'How much can you invest monthly? (₹)' })
+      screen.getByRole('textbox', { name: 'How much can you invest monthly? (₹)' })
     ).toBeInTheDocument();
   });
 
@@ -120,6 +121,26 @@ describe('InvestMatch — question labelling', () => {
     renderPage();
     expect(screen.getByRole('spinbutton', { name: 'How old are you?' }))
       .toHaveAccessibleDescription('Between 18 and 75.');
+
+    // The money questions keep their range note now that they are text fields.
+    fireEvent.click(screen.getByText('Next'));
+    expect(screen.getByRole('textbox', { name: 'Monthly income (₹)' }))
+      .toHaveAccessibleDescription('1 or more.');
+  });
+
+  it('accepts a decimal and arithmetic in a money answer', () => {
+    renderPage();
+    fireEvent.click(screen.getByText('Next')); // age → income
+    const income = screen.getByRole('textbox', { name: 'Monthly income (₹)' });
+    expect(income).toHaveAttribute('type', 'text');
+    expect(income).toHaveAttribute('inputmode', 'decimal');
+    // "12." is not a valid number, so a number input would have blanked here.
+    fireEvent.change(income, { target: { value: '45000.' } });
+    expect(income).toHaveValue('45000.');
+    fireEvent.change(income, { target: { value: '30000+15000' } });
+    fireEvent.click(screen.getByText('Next')); // income → monthly, committing 45000
+    fireEvent.click(screen.getByText('Back'));
+    expect(screen.getByRole('textbox', { name: 'Monthly income (₹)' })).toHaveValue('45000');
   });
 
   it('groups the choice questions under their prompt', () => {

@@ -205,6 +205,15 @@ export function questionLabel(q: ImQuestion, sym: string): string {
 }
 
 /**
+ * True for a question answered in money. Keyed on the same `(₹)` marker
+ * questionLabel swaps for the market's symbol, because IM_Q itself is pinned
+ * to the original tool by the parity suite and cannot carry a new field.
+ */
+export function isAmountQuestion(q: ImQuestion): boolean {
+  return q.type === 'num' && q.t.includes('(₹)');
+}
+
+/**
  * The placeholder for a numeric question, scaled to the market.
  *
  * "e.g. 50000" is a sensible monthly income in rupees and an absurd one in

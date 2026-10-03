@@ -2,6 +2,9 @@ import { PublishedPeerComparison } from '../ui/PublishedPeerComparison';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { PageHead, ToolFoot } from '../ui/common';
+import { AmountInput } from '../ui/AmountInput';
+import { PercentField } from '../ui/MoneyField';
+import { plainAmount } from '../lib/formula';
 import { Icon } from '../ui/Icon';
 import { getJSON, setJSON } from '../lib/storage';
 import { computePeerCompare, type PeerResult, type Metric, type PeerInput } from '../lib/peercompare';
@@ -34,6 +37,14 @@ const KEY_MAP: Record<keyof Fields, string> = {
   age: 'pc-age', city: 'pc-city', income: 'pc-income', savings: 'pc-savings', invest: 'pc-invest', debt: 'pc-debt', rate: 'pc-rate', expenses: 'pc-expenses',
 };
 
+/** Fields typed as money, which accept arithmetic. Age and the rate do not. */
+const MONEY: ReadonlySet<keyof Fields> = new Set(['income', 'savings', 'invest', 'debt', 'expenses']);
+
+/** A field as validated and saved: money resolved to its plain number (see plainAmount). */
+function plain(f: Fields, k: keyof Fields): string {
+  return MONEY.has(k) ? plainAmount(f[k]) : f[k];
+}
+
 function num(v: string): number {
   return v.trim() ? Number(v) : NaN;
 }
@@ -54,7 +65,7 @@ function LegacyPeerComparePage() {
   const [f, setF] = useState<Fields>(() => defaultsFor(market));
   const [result, setResult] = useState<PeerResult | null>(null);
   const [error, setError] = useState('');
-  const input: PeerInput = { age: num(f.age), cityKey: f.city, income: num(f.income), savings: num(f.savings), invest: num(f.invest), debt: num(f.debt), rate: num(f.rate), expenses: num(f.expenses) };
+  const input: PeerInput = { age: num(f.age), cityKey: f.city, income: num(plain(f, 'income')), savings: num(plain(f, 'savings')), invest: num(plain(f, 'invest')), debt: num(plain(f, 'debt')), rate: num(f.rate), expenses: num(plain(f, 'expenses')) };
   const inputError = peerInputError(input, peer);
   const cashFlow = inputError ? null : peerCashFlow(input);
 
@@ -63,7 +74,7 @@ function LegacyPeerComparePage() {
     setF(next);
     setError('');
     const snapshot: Record<string, string> = {};
-    (Object.keys(KEY_MAP) as (keyof Fields)[]).forEach((kk) => { snapshot[KEY_MAP[kk]] = next[kk]; });
+    (Object.keys(KEY_MAP) as (keyof Fields)[]).forEach((kk) => { snapshot[KEY_MAP[kk]] = plain(next, kk); });
     setJSON('fx_peercompare', { ...snapshot, market: market.id, currency: code });
   };
 
@@ -105,16 +116,16 @@ function LegacyPeerComparePage() {
               </select>
             </Field>
           </div>
-          <Field label={`Monthly income (${sym})`} id="pc-income"><input className="fi" type="number" step="any" id="pc-income" value={f.income} min={0} inputMode="decimal" onChange={(e) => set('income', e.target.value)} /></Field>
+          <Field label={`Monthly income (${sym})`} id="pc-income"><AmountInput id="pc-income" sym={sym} placeholder="" value={f.income} onChange={(v) => set('income', v)} /></Field>
           <div className="grid2">
-            <Field label={`Total savings (${sym})`} id="pc-savings"><input className="fi" type="number" step="any" id="pc-savings" value={f.savings} min={0} inputMode="decimal" onChange={(e) => set('savings', e.target.value)} /></Field>
-            <Field label={`Total investments (${sym})`} id="pc-invest"><input className="fi" type="number" step="any" id="pc-invest" value={f.invest} min={0} inputMode="decimal" onChange={(e) => set('invest', e.target.value)} /></Field>
+            <Field label={`Total savings (${sym})`} id="pc-savings"><AmountInput id="pc-savings" sym={sym} placeholder="" value={f.savings} onChange={(v) => set('savings', v)} /></Field>
+            <Field label={`Total investments (${sym})`} id="pc-invest"><AmountInput id="pc-invest" sym={sym} placeholder="" value={f.invest} onChange={(v) => set('invest', v)} /></Field>
           </div>
           <div className="grid2">
-            <Field label={`Total debt (${sym})`} id="pc-debt"><input className="fi" type="number" step="any" id="pc-debt" value={f.debt} min={0} inputMode="decimal" onChange={(e) => set('debt', e.target.value)} /></Field>
-            <Field label="Monthly savings rate (%)" id="pc-rate"><input className="fi" type="number" step="any" id="pc-rate" value={f.rate} min={0} max={100} inputMode="decimal" onChange={(e) => set('rate', e.target.value)} /></Field>
+            <Field label={`Total debt (${sym})`} id="pc-debt"><AmountInput id="pc-debt" sym={sym} placeholder="" value={f.debt} onChange={(v) => set('debt', v)} /></Field>
+            <Field label="Monthly savings rate (%)" id="pc-rate"><PercentField id="pc-rate" value={f.rate} onChange={(v) => set('rate', v)} /></Field>
           </div>
-          <Field label={`Monthly expenses (${sym})`} id="pc-expenses"><input className="fi" type="number" step="any" id="pc-expenses" value={f.expenses} min={0} inputMode="decimal" onChange={(e) => set('expenses', e.target.value)} /></Field>
+          <Field label={`Monthly expenses (${sym})`} id="pc-expenses"><AmountInput id="pc-expenses" sym={sym} placeholder="" value={f.expenses} onChange={(v) => set('expenses', v)} /></Field>
           {cashFlow && <aside className="well" aria-label="Cash-flow cross-check" style={{ marginBottom: 18 }}>
             <b>Automatic consistency check</b>
             <p className="note">Income minus expenses leaves {cfmt(cashFlow.surplus)} a month. Your entered savings rate implies {cfmt(cashFlow.impliedSavings)} a month.</p>

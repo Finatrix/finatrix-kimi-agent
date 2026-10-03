@@ -81,7 +81,7 @@ it('resets reference input and confirmation when the population measure changes'
   fireEvent.change(screen.getByLabelText(/Your matching figure/), { target: { value: '1000' } });
   screen.getAllByRole('checkbox').forEach((checkbox) => fireEvent.click(checkbox));
   fireEvent.change(screen.getByLabelText('Published reference'), { target: { value: 'AU-SIH-2019-20-WEALTH-MEDIAN' } });
-  expect(screen.getByLabelText(/Your matching figure/)).toHaveValue(null);
+  expect(screen.getByLabelText(/Your matching figure/)).toHaveValue('');
   screen.getAllByRole('checkbox').forEach((checkbox) => expect(checkbox).not.toBeChecked());
 });
 

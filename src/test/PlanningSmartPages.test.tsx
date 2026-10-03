@@ -54,11 +54,11 @@ describe('planning smart assists in the actual pages', () => {
     localStorage.setItem('fx_lifemap', JSON.stringify({ 'lm-income': '70000' }));
     show(<LifeMapPage />);
     const income = screen.getByLabelText(/Monthly income/);
-    expect(income).toHaveValue(70000);
+    expect(income).toHaveValue('70000');
     expect(income).not.toHaveAttribute('aria-describedby');
     fireEvent.click(screen.getByText('Refresh from your other tools'));
     fireEvent.click(screen.getByRole('button', { name: 'Use latest saved figures' }));
-    expect(income).toHaveValue(90000);
+    expect(income).toHaveValue('90000');
     expect(income).toHaveAccessibleDescription('From your Budget');
     fireEvent.change(income, { target: { value: '85000' } });
     expect(income).not.toHaveAttribute('aria-describedby');

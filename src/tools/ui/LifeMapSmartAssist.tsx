@@ -2,15 +2,22 @@ import { useMemo, useState } from 'react';
 import { calcScore, calcWealth, type Decision, type LifeProfile } from '../lib/lifemap';
 import { firstLifeMapAge } from '../lib/planningAutomation';
 import { SmartAssist } from './SmartAssist';
+import { AmountInput } from './AmountInput';
+import { plainAmount } from '../lib/formula';
+import { useCurrency } from '../CurrencyContext';
 
 export function LifeMapSmartAssist({ profile, decisions, applied, age, money, onToggle, onReset, onAge }: {
   profile: LifeProfile; decisions: Decision[]; applied: Set<string>; age: number; money: (n: number) => string;
   onToggle: (id: string) => void; onReset: () => void; onAge: (age: number) => void;
 }) {
+  const { sym } = useCurrency();
   const [target, setTarget] = useState('');
   const [pinned, setPinned] = useState<{ values: number[]; score: number; count: number } | null>(null);
-  const validTarget = target.trim() !== '' && Number.isFinite(Number(target)) && Number(target) > 0 && Number(target) <= 1e12;
-  const firstAge = useMemo(() => validTarget ? firstLifeMapAge(profile, decisions, applied, Number(target)) : null, [profile, decisions, applied, target, validTarget]);
+  // The field accepts arithmetic; every check reads the plain number it means.
+  const targetPlain = plainAmount(target);
+  const targetValue = Number(targetPlain);
+  const validTarget = targetPlain !== '' && Number.isFinite(targetValue) && targetValue > 0 && targetValue <= 1e12;
+  const firstAge = useMemo(() => validTarget ? firstLifeMapAge(profile, decisions, applied, targetValue) : null, [profile, decisions, applied, targetValue, validTarget]);
   const current = calcWealth(profile, decisions, applied, age, true);
   const options = useMemo(() => {
     const base = calcWealth(profile, decisions, applied, age, true);
@@ -26,9 +33,10 @@ export function LifeMapSmartAssist({ profile, decisions, applied, age, money, on
     {pinned && <p className="note" role="status">At age {age}, your current path is {money(Math.abs(current - pinned.values[age]))} {current >= pinned.values[age] ? 'above' : 'below'} the pinned scenario ({pinned.count} decisions). Pinned model score: {pinned.score}; current: {calcScore(profile, applied)}. Move the age slider to compare another year.</p>}
     <div style={{ marginTop: 16 }}>
       <label className="fl" htmlFor="lm-target-check">Find the first modelled age for a wealth target</label>
-      <input id="lm-target-check" className="fi" type="number" min={1} max={1e12} step="any" placeholder="Enter a target amount" value={target} onChange={(e) => setTarget(e.target.value)} />
-      {target && !validTarget && <p className="note" role="status">Enter a positive target no greater than 1 trillion.</p>}
-      {validTarget && <div aria-live="polite"><p className="note">{firstAge === null ? 'This target is not reached by age 60 under the current model.' : `First reaches ${money(Number(target))} at age ${firstAge} under the current disciplined-path assumptions. Figures are nominal; inflation is not applied.`}</p>{firstAge !== null && <button className="btn btn-ghost btn-sm" type="button" onClick={() => onAge(firstAge)}>Jump to age {firstAge}</button>}</div>}
+      <AmountInput id="lm-target-check" sym={sym} placeholder="Enter a target amount" value={target} onChange={setTarget}
+        errorId={target && !validTarget ? 'lm-target-check-error' : undefined} />
+      {target && !validTarget && <p id="lm-target-check-error" className="note" role="status">Enter a positive target no greater than 1 trillion.</p>}
+      {validTarget && <div aria-live="polite"><p className="note">{firstAge === null ? 'This target is not reached by age 60 under the current model.' : `First reaches ${money(targetValue)} at age ${firstAge} under the current disciplined-path assumptions. Figures are nominal; inflation is not applied.`}</p>{firstAge !== null && <button className="btn btn-ghost btn-sm" type="button" onClick={() => onAge(firstAge)}>Jump to age {firstAge}</button>}</div>}
     </div>
     <details style={{ marginTop: 16 }}>
       <summary style={{ cursor: 'pointer', fontWeight: 700 }}>Largest untried modelled changes at age {age}</summary>

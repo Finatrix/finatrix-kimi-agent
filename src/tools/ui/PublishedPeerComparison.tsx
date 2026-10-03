@@ -5,6 +5,9 @@ import type { MarketPack } from '../lib/markets';
 import { PageHead, ToolFoot } from './common';
 import { MarketNote } from './MarketNote';
 import { Methodology } from './ResultExplainer';
+import { AmountInput } from './AmountInput';
+import { plainAmount } from '../lib/formula';
+import { currencySym } from '../lib/format';
 
 /** Compare only matched definitions. A median is never fed to pcPct. */
 export function PublishedPeerComparison({ market }: { market: MarketPack }) {
@@ -22,9 +25,14 @@ export function PublishedPeerComparison({ market }: { market: MarketPack }) {
   const row = summaries.find((r) => r.id === selected);
   if (!row) return null;
   const money = (n: number) => new Intl.NumberFormat(market.locale, { style: 'currency', currency: row.currency, maximumFractionDigits: 0 }).format(n);
-  const partsValid = parts.every((value) => value.trim() && Number.isFinite(Number(value)) && Math.abs(Number(value)) <= 1e12);
-  const partsTotal = parts.reduce((total, value) => total + Number(value), 0);
-  const secondNumber = second.trim() && Number.isFinite(Number(second)) && Math.abs(Number(second)) <= 1e12 && (row.negativeAllowed || Number(second) >= 0) ? Number(second) : null;
+  const sym = currencySym(row.currency);
+  // The figure fields accept arithmetic; every check reads the plain number
+  // each one means (see plainAmount) and is otherwise unchanged.
+  const partValues = parts.map(plainAmount);
+  const partsValid = partValues.every((value) => value.trim() && Number.isFinite(Number(value)) && Math.abs(Number(value)) <= 1e12);
+  const partsTotal = partValues.reduce((total, value) => total + Number(value), 0);
+  const secondPlain = plainAmount(second);
+  const secondNumber = secondPlain.trim() && Number.isFinite(Number(secondPlain)) && Math.abs(Number(secondPlain)) <= 1e12 && (row.negativeAllowed || Number(secondPlain) >= 0) ? Number(secondPlain) : null;
   return <div className="fx-page">
     <PageHead chip="PeerCompare" chipColor="var(--purple)" chipBg="rgba(110,59,212,.09)" icon="peer" title="Put a published figure in context.">
       Explore official statistics for {market.name}. Compare the same population, period and definition; a national median is not a financial target.
@@ -47,21 +55,22 @@ export function PublishedPeerComparison({ market }: { market: MarketPack }) {
     </div>
     <form className="card" onSubmit={(e) => {
       e.preventDefault();
-      const value = Number(amount);
-      if (!amount.trim() || !Number.isFinite(value) || Math.abs(value) > 1e12 || (!row.negativeAllowed && value < 0) || !confirmed || !definitionChecked || !periodChecked) {
+      const plain = plainAmount(amount);
+      const value = Number(plain);
+      if (!plain.trim() || !Number.isFinite(value) || Math.abs(value) > 1e12 || (!row.negativeAllowed && value < 0) || !confirmed || !definitionChecked || !periodChecked) {
         setError('Enter a finite amount and complete all three matching checks.'); setResult(null); return;
       }
       setError(''); setResult(value);
     }}>
       <label className="fl" htmlFor="pc-reference-amount">Your matching figure ({row.currency}, {row.unit})</label>
-      <input className="fi" id="pc-reference-amount" type="number" step="any" inputMode="decimal" value={amount}
-        aria-describedby="pc-reference-help" onChange={(e) => { setAmount(e.target.value); setResult(null); }} />
+      <AmountInput id="pc-reference-amount" sym={sym} placeholder="" value={amount}
+        describedBy="pc-reference-help" onChange={(v) => { setAmount(v); setResult(null); }} />
       <p id="pc-reference-help" className="note">Use a figure for {row.period} with the definition above. No currency conversion or inflation adjustment is applied. You can read the reference without entering anything.</p>
       <button type="button" className="btn btn-ghost btn-sm" aria-expanded={builderOpen} aria-controls="pc-figure-builder" onClick={() => setBuilderOpen(!builderOpen)}>Build my matching figure from parts</button>
       {builderOpen && <div id="pc-figure-builder" className="well" style={{ marginTop: 16 }}>
         <h2 style={{ fontSize: 16 }}>Add the parts you have checked</h2>
         <p className="note">Enter non-overlapping components in {row.currency}, {row.unit}, on the {row.period} basis. For net worth, enter liabilities as negative amounts. For income, follow every inclusion and exclusion in the published definition. No missing component is inferred.</p>
-        {parts.map((value, i) => <div className="fg" key={i}><label className="fl" htmlFor={`pc-part-${i}`}>Component {i + 1} ({row.currency})</label><input className="fi" id={`pc-part-${i}`} type="number" step="any" inputMode="decimal" value={value} onChange={(e) => setParts((prev) => prev.map((item, j) => j === i ? e.target.value : item))} /></div>)}
+        {parts.map((value, i) => <div className="fg" key={i}><label className="fl" htmlFor={`pc-part-${i}`}>Component {i + 1} ({row.currency})</label><AmountInput id={`pc-part-${i}`} sym={sym} placeholder="" value={value} onChange={(v) => setParts((prev) => prev.map((item, j) => j === i ? v : item))} /></div>)}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button type="button" className="btn btn-ghost btn-sm" disabled={parts.length >= 10} onClick={() => setParts([...parts, ''])}>Add component</button>
           {parts.length > 2 && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setParts(parts.slice(0, -1))}>Remove last component</button>}
@@ -89,7 +98,7 @@ export function PublishedPeerComparison({ market }: { market: MarketPack }) {
         <h2 id="pc-second-title" style={{ fontSize: 17 }}>Compare a second matching figure</h2>
         <p className="note">Enter another figure using the same checked definition, population and period. This is a separate illustration; it does not replace your first entry.</p>
         <label className="fl" htmlFor="pc-second">Second matching figure ({row.currency})</label>
-        <input className="fi" type="number" step="any" inputMode="decimal" id="pc-second" value={second} onChange={(e) => setSecond(e.target.value)} />
+        <AmountInput id="pc-second" sym={sym} placeholder="" value={second} onChange={setSecond} />
         <div aria-live="polite">{secondNumber !== null ? <p>{money(secondNumber)} is {money(Math.abs(secondNumber - row.value))} {secondNumber >= row.value ? 'above' : 'below'} the published median, and {money(Math.abs(secondNumber - result))} {secondNumber >= result ? 'higher' : 'lower'} than your first figure.</p> : <p className="note">Enter a complete, finite figure to compare. Blank is not zero.</p>}</div>
       </section>}
     </form>

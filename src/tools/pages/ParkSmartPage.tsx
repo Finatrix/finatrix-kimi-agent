@@ -1,5 +1,8 @@
 import { useState } from 'react';
 import { useToast } from '../ui/Toast';
+import { AmountInput } from '../ui/AmountInput';
+import { PercentField } from '../ui/MoneyField';
+import { plainAmount } from '../lib/formula';
 import { PageHead, ToolFoot } from '../ui/common';
 import { Icon } from '../ui/Icon';
 import { cfmtSh } from '../lib/format';
@@ -39,8 +42,13 @@ export default function ParkSmartPage() {
   const [result, setResult] = useState<ParkResult | null>(null);
   const [resultPack, setResultPack] = useState<ParkInstruments>(park);
 
+  // The amount field accepts arithmetic; everything that reads it — the checks
+  // below, the result view and the dashboard reading the save — sees the plain
+  // number it means. See plainAmount.
+  const amountPlain = plainAmount(amount);
+
   const persist = (next: Partial<Saved>) => {
-    setJSON('fx_parksmart', { 'ps-amount': amount, 'ps-duration': dur, 'ps-slab': slab, market: market.id, currency: code, ...next });
+    setJSON('fx_parksmart', { 'ps-amount': amountPlain, 'ps-duration': dur, 'ps-slab': slab, market: market.id, currency: code, ...next });
   };
 
   // A rate stored under a previous market may not exist in this one (30% is an
@@ -48,8 +56,8 @@ export default function ParkSmartPage() {
   const rate = park.rateOptions.some((o) => String(o.value) === slab) ? slab : defaultRate;
 
   const submit = () => {
-    const amt = Math.max(0, Number(amount) || 0);
-    if (!Number.isFinite(Number(amount)) || amt < park.minAmount || amt > 1e12) {
+    const amt = Math.max(0, Number(amountPlain) || 0);
+    if (!Number.isFinite(Number(amountPlain)) || amt < park.minAmount || amt > 1e12) {
       notify(`Please enter at least ${cfmt(park.minAmount)}.`, 'error');
       return;
     }
@@ -91,8 +99,8 @@ export default function ParkSmartPage() {
           </div>}
           <div className="fg">
             <label className="fl" htmlFor="ps-amount">Amount to park ({sym})</label>
-            <input className="fi" type="number" step="any" id="ps-amount" value={amount} min={park.minAmount} inputMode="decimal"
-              onChange={(e) => { setAmount(e.target.value); persist({ 'ps-amount': e.target.value }); }} />
+            <AmountInput id="ps-amount" sym={sym} placeholder="" value={amount}
+              onChange={(v) => { setAmount(v); persist({ 'ps-amount': plainAmount(v) }); }} />
           </div>
           <label className="fl">Quick select</label>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
@@ -128,8 +136,8 @@ export default function ParkSmartPage() {
               <input id={`ps-name-${i}`} className="fi" type="text" maxLength={60} value={quoteNames[i]} placeholder="e.g. My savings account"
                 onChange={(e) => setQuoteNames((prev) => prev.map((v, j) => j === i ? e.target.value : v))} />
               <label className="fl" htmlFor={`ps-quote-${i}`}>Annual net rate for option {i + 1} (%)</label>
-              <input id={`ps-quote-${i}`} className="fi" type="number" step="any" min={0} max={100} inputMode="decimal" value={value}
-                onChange={(e) => setQuoteRates((prev) => prev.map((v, j) => j === i ? e.target.value : v))} />
+              <PercentField id={`ps-quote-${i}`} value={value}
+                onChange={(next) => setQuoteRates((prev) => prev.map((v, j) => j === i ? next : v))} />
               <label className="fl" htmlFor={`ps-access-${i}`}>Access for option {i + 1}</label>
               <select id={`ps-access-${i}`} className="fs" value={String(quoteAccess[i])}
                 onChange={(e) => setQuoteAccess((prev) => prev.map((v, j) => j === i ? e.target.value === 'true' : v))}>
@@ -152,7 +160,7 @@ export default function ParkSmartPage() {
           result={result}
           pack={resultPack}
           liquidOnly={liquidOnly}
-          amount={Math.max(0, Number(amount) || 0)}
+          amount={Math.max(0, Number(amountPlain) || 0)}
           dur={dur}
           rate={enteredRates ? 0 : Number(rate)}
           market={market}

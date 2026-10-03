@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useToast } from '../ui/Toast';
+import { AmountInput } from '../ui/AmountInput';
+import { plainAmount } from '../lib/formula';
 import { PageHead, ToolFoot } from '../ui/common';
 import { Icon, type IconName } from '../ui/Icon';
 import { getJSON, setJSON } from '../lib/storage';
@@ -17,6 +19,16 @@ import { ymdLocal } from '../../lib/date';
 type Fields = { name: string; target: string; years: string; existing: string; inflate: boolean };
 const BASE_DEFAULTS: Omit<Fields, 'target' | 'years'> = { name: '', existing: '0', inflate: true };
 const KEYS = { name: 'gp-name', target: 'gp-target', years: 'gp-years', existing: 'gp-existing', inflate: 'gp-inflate' } as const;
+
+/**
+ * The fields as saved. The money fields accept arithmetic, but the dashboard
+ * and calendar read `fx_goals` back as plain numbers, so a formula is stored
+ * as its result — see plainAmount.
+ */
+const stored = (f: Fields) => ({
+  [KEYS.name]: f.name, [KEYS.target]: plainAmount(f.target), [KEYS.years]: f.years,
+  [KEYS.existing]: plainAmount(f.existing), [KEYS.inflate]: f.inflate,
+});
 
 export default function GoalPlannerPage() {
   const { notify } = useToast();
@@ -41,25 +53,29 @@ export default function GoalPlannerPage() {
   const set = (patch: Partial<Fields>) => {
     const next = { ...f, ...patch };
     setF(next);
-    setJSON('fx_goals', { ...getJSON('fx_goals', {}), [KEYS.name]: next.name, [KEYS.target]: next.target, [KEYS.years]: next.years, [KEYS.existing]: next.existing, [KEYS.inflate]: next.inflate });
+    setJSON('fx_goals', { ...getJSON('fx_goals', {}), ...stored(next) });
   };
 
   const submit = () => {
-    const targetToday = Math.max(0, Number(f.target) || 0);
+    // Every check below is unchanged; it reads the plain-number form of the
+    // money fields so a typed `120000*5` is validated as the 600000 it means.
+    const target = plainAmount(f.target);
+    const existing = plainAmount(f.existing);
+    const targetToday = Math.max(0, Number(target) || 0);
     if (targetToday < goals.minTarget) {
       notify(`Please enter a target of at least ${cfmt(goals.minTarget)}.`, 'error');
       return;
     }
-    if (!f.existing.trim() || !Number.isFinite(Number(f.target)) || Number(f.target) > 1e12 || Number(f.existing) < 0 || !Number.isFinite(Number(f.existing)) || Number(f.existing) > 1e12 || !Number.isInteger(Number(f.years)) || Number(f.years) < 1 || Number(f.years) > 40) {
+    if (!existing || !Number.isFinite(Number(target)) || Number(target) > 1e12 || Number(existing) < 0 || !Number.isFinite(Number(existing)) || Number(existing) > 1e12 || !Number.isInteger(Number(f.years)) || Number(f.years) < 1 || Number(f.years) > 40) {
       notify('Use a whole-year deadline from 1 to 40 and non-negative amounts no greater than 1 trillion.', 'error');
       return;
     }
     setResult(computeGoalPlanner({
-      name: f.name, targetToday: Number(f.target) || 0, years: Number(f.years) || 0,
-      existing: Number(f.existing) || 0, inflate: f.inflate,
+      name: f.name, targetToday: Number(target) || 0, years: Number(f.years) || 0,
+      existing: Number(existing) || 0, inflate: f.inflate,
     }, goals.inflation, goals.paths));
     // Anchor the calendar to a real plan date, not a deadline that moves every day.
-    setJSON('fx_goals', { ...getJSON('fx_goals', {}), [KEYS.name]: f.name, [KEYS.target]: f.target, [KEYS.years]: f.years, [KEYS.existing]: f.existing, [KEYS.inflate]: f.inflate, 'gp-planned-on': ymdLocal(new Date()) });
+    setJSON('fx_goals', { ...getJSON('fx_goals', {}), ...stored(f), 'gp-planned-on': ymdLocal(new Date()) });
     // The plan is on screen — this visit reached the tool's actual output.
     track('tool_completed', { tool: 'goals', bucket: market.id });
   };
@@ -94,7 +110,7 @@ export default function GoalPlannerPage() {
           </div>
           <div className="fg">
             <label className="fl" htmlFor="gp-target">Target amount in today's money ({sym})</label>
-            <input className="fi" type="number" step="any" id="gp-target" value={f.target} min={goals.minTarget} inputMode="decimal" onChange={(e) => set({ target: e.target.value })} />
+            <AmountInput id="gp-target" sym={sym} placeholder="" value={f.target} onChange={(v) => set({ target: v })} />
           </div>
           <div className="grid2">
             <div className="fg">
@@ -103,7 +119,7 @@ export default function GoalPlannerPage() {
             </div>
             <div className="fg">
               <label className="fl" htmlFor="gp-existing">Already saved ({sym})</label>
-              <input className="fi" type="number" step="any" id="gp-existing" value={f.existing} min={0} inputMode="decimal" onChange={(e) => set({ existing: e.target.value })} />
+              <AmountInput id="gp-existing" sym={sym} placeholder="" value={f.existing} onChange={(v) => set({ existing: v })} />
             </div>
           </div>
           <label className="fx-checkrow" style={{ fontSize: 14, color: 'var(--ink2)', marginBottom: 18 }}>

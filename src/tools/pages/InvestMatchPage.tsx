@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Link } from 'react-router';
 import { useToast } from '../ui/Toast';
+import { AmountInput } from '../ui/AmountInput';
+import { plainAmount } from '../lib/formula';
 import { PageHead, ToolFoot } from '../ui/common';
 import { getJSON, setJSON } from '../lib/storage';
 import {
-  IM_Q, IM_RL, computeInvestMatch, questionLabel, questionPlaceholder,
-  type ImAnswers, type ImNumQuestion,
+  IM_Q, IM_RL, computeInvestMatch, isAmountQuestion, questionLabel, questionPlaceholder,
+  type ImAnswers,
 } from '../lib/investmatch';
 import { useCurrency } from '../CurrencyContext';
 import { useMarket } from '../MarketContext';
@@ -35,6 +37,9 @@ export default function InvestMatchPage() {
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const q = IM_Q[step];
+  // Money answers accept arithmetic; age does not. The checks below read the
+  // plain number either way (see plainAmount).
+  const numPlain = isAmountQuestion(q) ? plainAmount(numDraft) : numDraft;
 
   // Seed the number draft whenever we land on a numeric question.
   useEffect(() => {
@@ -46,8 +51,8 @@ export default function InvestMatchPage() {
 
   const commitNum = (a: ImAnswers): ImAnswers | null => {
     if (q.type === 'num') {
-      const value = Number(numDraft);
-      if (!numDraft.trim() || !Number.isFinite(value) || value < q.min || value > (q.max ?? 1e12)) {
+      const value = Number(numPlain);
+      if (!numPlain.trim() || !Number.isFinite(value) || value < q.min || value > (q.max ?? 1e12)) {
         setError(`Enter ${q.max ? `a value from ${q.min} to ${q.max}` : `a value from ${q.min} to 1 trillion`}. Your answer will not be silently changed.`);
         return null;
       }
@@ -95,6 +100,11 @@ export default function InvestMatchPage() {
       // Fired here rather than at `build()` so a submission rejected by the
       // minimum-investment guard above is never counted as a completion.
       track('tool_completed', { tool: 'investmatch', bucket: market.id });
+  };
+
+  const submitOnEnter = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return;
+    if (step < IM_Q.length - 1) goNext(); else build();
   };
 
   const reset = () => {
@@ -147,26 +157,42 @@ export default function InvestMatchPage() {
           </div>
           {q.type === 'num' ? (
             <>
-              <input
-                className="fi"
-                type="number" step="any"
-                id="im-input"
-                value={numDraft}
-                placeholder={questionPlaceholder(q as ImNumQuestion, market.invest.defaults)}
-                min={q.min}
-                max={q.max}
-                inputMode="decimal"
-                aria-labelledby="im-question"
-                aria-describedby={error ? 'im-range im-error' : 'im-range'}
-                aria-invalid={Boolean(error)}
-                autoFocus
-                onChange={(e) => { setNumDraft(e.target.value); setError(''); }}
-                onKeyDown={(e) => { if (e.key === 'Enter') { if (step < IM_Q.length - 1) goNext(); else build(); } }}
-              />
+              {isAmountQuestion(q) ? (
+                <AmountInput
+                  id="im-input"
+                  sym={sym}
+                  value={numDraft}
+                  placeholder={questionPlaceholder(q, market.invest.defaults)}
+                  ariaLabelledBy="im-question"
+                  describedBy="im-range"
+                  errorId={error ? 'im-error' : undefined}
+                  invalid={Boolean(error)}
+                  autoFocus
+                  onChange={(v) => { setNumDraft(v); setError(''); }}
+                  onKeyDown={submitOnEnter}
+                />
+              ) : (
+                <input
+                  className="fi"
+                  type="number"
+                  id="im-input"
+                  value={numDraft}
+                  placeholder={questionPlaceholder(q, market.invest.defaults)}
+                  min={q.min}
+                  max={q.max}
+                  inputMode="numeric"
+                  aria-labelledby="im-question"
+                  aria-describedby={error ? 'im-range im-error' : 'im-range'}
+                  aria-invalid={Boolean(error)}
+                  autoFocus
+                  onChange={(e) => { setNumDraft(e.target.value); setError(''); }}
+                  onKeyDown={submitOnEnter}
+                />
+              )}
               <div id="im-range" className="note" style={{ marginTop: 8 }}>
                 {q.max != null ? `Between ${q.min} and ${q.max}.` : `${q.min} or more.`}
               </div>
-              {q.k === 'monthly' && Number(numDraft) > ans.income && <p className="tip tip-warn">This monthly investment is greater than your entered income. Check that you can fund it after expenses and debt payments.</p>}
+              {q.k === 'monthly' && Number(numPlain) > ans.income && <p className="tip tip-warn">This monthly investment is greater than your entered income. Check that you can fund it after expenses and debt payments.</p>}
             </>
           ) : (
             <div role="group" aria-labelledby="im-question">

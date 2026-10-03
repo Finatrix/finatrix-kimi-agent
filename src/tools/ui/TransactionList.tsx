@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Icon } from './Icon';
+import { AmountInput } from './AmountInput';
+import { plainAmount } from '../lib/formula';
 import { useAskAi } from './AiAssistant';
 import { focusAriaLabel } from '../ai/focus';
 import type { FlatCat } from './TransactionModal';
@@ -40,6 +42,8 @@ interface Props {
   hasAnyEver: boolean;
   cats: FlatCat[];
   cfmt: (n: number) => string;
+  /** Currency symbol, for the amount filters' arithmetic preview. */
+  sym: string;
   monthLabelText: string;
   now: Date;
   onAdd: () => void;
@@ -65,7 +69,7 @@ export interface TransactionListHandle {
 }
 
 export default function TransactionList({
-  items, hasAnyEver, cats, cfmt, monthLabelText, now,
+  items, hasAnyEver, cats, cfmt, sym, monthLabelText, now,
   onAdd, onEdit, onDuplicate, onDelete,
   onBulkDelete, onBulkDuplicate, onBulkCategory, onBulkAddTags, onExport, apiRef,
 }: Props) {
@@ -244,11 +248,11 @@ export default function TransactionList({
           <div className="grid2" style={{ marginTop: 10 }}>
             <div className="fg" style={{ margin: 0 }}>
               <label className="fl" htmlFor="tx-min">Min amount</label>
-              <input className="fi" id="tx-min" type="number" inputMode="decimal" min={0} placeholder="0" value={filters.amountMin ?? ''} onChange={(e) => setFilters((f) => ({ ...f, amountMin: e.target.value === '' ? null : Number(e.target.value) }))} />
+              <AmountBound id="tx-min" sym={sym} placeholder="0" value={filters.amountMin} onChange={(v) => setFilters((f) => ({ ...f, amountMin: v }))} />
             </div>
             <div className="fg" style={{ margin: 0 }}>
               <label className="fl" htmlFor="tx-max">Max amount</label>
-              <input className="fi" id="tx-max" type="number" inputMode="decimal" min={0} placeholder="Any" value={filters.amountMax ?? ''} onChange={(e) => setFilters((f) => ({ ...f, amountMax: e.target.value === '' ? null : Number(e.target.value) }))} />
+              <AmountBound id="tx-max" sym={sym} placeholder="Any" value={filters.amountMax} onChange={(v) => setFilters((f) => ({ ...f, amountMax: v }))} />
             </div>
           </div>
 
@@ -372,6 +376,35 @@ export default function TransactionList({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * An optional amount bound. Blank is "no bound" (null), which is not the same
+ * as 0: a minimum of 0 is a real filter, and it hides refunds.
+ *
+ * MoneyField's approach rather than MoneyField itself, which commits 0 for a
+ * blank field: while focused the field shows the user's own draft, so "12."
+ * survives long enough to become "12.5"; on blur it re-renders from the
+ * filter, so "Clear filters" empties it. A half-typed formula leaves the
+ * current bound alone until it reads as a number.
+ */
+function AmountBound({ id, sym, placeholder, value, onChange }: {
+  id: string; sym: string; placeholder: string; value: number | null; onChange: (value: number | null) => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  return (
+    <AmountInput
+      id={id} sym={sym} placeholder={placeholder}
+      value={draft ?? (value == null ? '' : String(value))}
+      onChange={(raw) => {
+        setDraft(raw);
+        if (!raw.trim()) { onChange(null); return; }
+        const plain = plainAmount(raw);
+        if (plain) onChange(Number(plain));
+      }}
+      onBlur={() => setDraft(null)}
+    />
   );
 }
 

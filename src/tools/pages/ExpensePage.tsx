@@ -859,7 +859,7 @@ export default function ExpensePage() {
           <OverviewTab
             r={r} items={items} monthTx={monthTx} selMonth={selMonth} flatCats={flatCats}
             defaultCatKey={defaultCatKey} learnedWords={learnedWords}
-            cfmt={cfmt} now={now} catMeta={catMeta}
+            cfmt={cfmt} sym={sym} now={now} catMeta={catMeta}
             addFromQuickAdd={addFromQuickAdd} quickSeed={quickSeed}
             openAdd={openAdd} openEdit={openEdit}
             duplicateTransaction={duplicateTransaction} deleteTransaction={deleteTransaction}
@@ -1019,7 +1019,7 @@ interface OverviewProps {
   defaultCatKey: string;
   /** Words the ledger has taught the quick-add line. See `learnCategoryWords`. */
   learnedWords: ReadonlyMap<string, string>;
-  cfmt: (n: number) => string; now: Date;
+  cfmt: (n: number) => string; sym: string; now: Date;
   catMeta: Map<string, CatMeta>;
   /** Commit a parsed one-line entry. False when it could not be logged. */
   addFromQuickAdd: (parsed: QuickAddResult) => boolean;
@@ -1050,7 +1050,7 @@ interface OverviewProps {
 
 function OverviewTab({
   r, items, monthTx, selMonth, flatCats, defaultCatKey, learnedWords,
-  cfmt, now, catMeta,
+  cfmt, sym, now, catMeta,
   addFromQuickAdd, quickSeed, openAdd, openEdit, duplicateTransaction, deleteTransaction,
   bulkDelete, bulkDuplicate, bulkCategory, bulkAddTags, exportTransactions,
   code, listApi, panels, onFlipPanel, score, validKeys, todayKey, onGoToMonth,
@@ -1363,6 +1363,7 @@ function OverviewTab({
         hasAnyEver={items.length > 0}
         cats={flatCats}
         cfmt={cfmt}
+        sym={sym}
         monthLabelText={monthLabel(selMonth)}
         now={now}
         apiRef={listApi}

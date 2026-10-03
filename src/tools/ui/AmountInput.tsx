@@ -1,4 +1,4 @@
-import { useId, useState, type RefObject } from 'react';
+import { useId, useState, type KeyboardEvent, type RefObject } from 'react';
 import { evaluateFormula, isFormula } from '../lib/formula';
 
 /**
@@ -37,10 +37,16 @@ export interface AmountInputProps {
   invalid?: boolean;
   /** Id of the caller's error message, merged into aria-describedby. */
   errorId?: string;
+  /** Ids of the caller's standing hints (an accepted range, where a value came from), merged into aria-describedby. */
+  describedBy?: string;
   placeholder?: string;
   required?: boolean;
   /** Accessible name, when there is no visible <label> pointing at this id. */
   ariaLabel?: string;
+  /** Id of a visible prompt that names the field but is not a <label>. */
+  ariaLabelledBy?: string;
+  autoFocus?: boolean;
+  onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void;
   onBlur?: () => void;
   /** Fired when the field gains focus. Used by MoneyField to enter draft mode. */
   onFocus?: () => void;
@@ -48,7 +54,8 @@ export interface AmountInputProps {
 
 export function AmountInput({
   id, value, onChange, sym, className = 'fi', inputRef,
-  invalid = false, errorId, placeholder = '0', required, ariaLabel, onBlur, onFocus,
+  invalid = false, errorId, describedBy, placeholder = '0', required, ariaLabel, ariaLabelledBy,
+  autoFocus, onKeyDown, onBlur, onFocus,
 }: AmountInputProps) {
   // Set on blur only, so a partially typed formula is never an error yet.
   const [blurredValue, setBlurredValue] = useState<string | null>(null);
@@ -78,7 +85,7 @@ export function AmountInput({
    */
   const showBlurError = !!blurError && !errorId;
 
-  const describedBy = [errorId, showPreview || showBlurError ? hintId : null]
+  const ariaDescribedBy = [describedBy, errorId, showPreview || showBlurError ? hintId : null]
     .filter(Boolean)
     .join(' ') || undefined;
 
@@ -96,10 +103,13 @@ export function AmountInput({
         placeholder={placeholder}
         required={required}
         aria-label={ariaLabel}
+        aria-labelledby={ariaLabelledBy}
         aria-invalid={invalid || !!blurError}
-        aria-describedby={describedBy}
+        aria-describedby={ariaDescribedBy}
+        autoFocus={autoFocus}
         value={value}
         onFocus={onFocus}
+        onKeyDown={onKeyDown}
         onChange={(e) => {
           setBlurredValue(null);
           onChange(e.target.value);

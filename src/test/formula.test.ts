@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  evaluateFormula, formulaAmount, formulaSignedAmount, isFormula, roundAmount,
+  evaluateFormula, formulaAmount, formulaSignedAmount, isFormula, plainAmount, roundAmount,
 } from '../tools/lib/formula';
 
 /**
@@ -200,3 +200,39 @@ describe('formulaSignedAmount', () => {
     }
   });
 });
+
+describe('plainAmount', () => {
+  // The contract: only ever a string a `type="number"` field could have
+  // reported, so every `Number()` downstream behaves exactly as it did.
+  it('returns a plain number exactly as typed — not rounded, not capped', () => {
+    expect(plainAmount('35000')).toBe('35000');
+    expect(plainAmount('1000.555')).toBe('1000.555');
+    expect(plainAmount('2000000000000')).toBe('2000000000000');
+    expect(plainAmount('-250')).toBe('-250');
+    expect(plainAmount('12.')).toBe('12.');
+    expect(plainAmount('.5')).toBe('.5');
+    expect(plainAmount('  42  ')).toBe('42');
+  });
+
+  it('resolves a formula to its result', () => {
+    expect(plainAmount('500000*2')).toBe('1000000');
+    expect(plainAmount('120/4')).toBe('30');
+    expect(plainAmount('=10+5+3+2')).toBe('20');
+    expect(plainAmount('(100-25)/5')).toBe('15');
+    expect(plainAmount('100/3')).toBe('33.33');
+  });
+
+  it('is empty for anything unfinished or unreadable, never a guess', () => {
+    for (const raw of ['', '   ', '.', '-', '500000*', '12+', '(1', 'abc', '5,00,000', '1e5', '1/0']) {
+      expect(plainAmount(raw)).toBe('');
+    }
+  });
+
+  it('never yields a string the dashboard would misread', () => {
+    // dashboard.ts strips non-digits before parseFloat, so a raw `500000*2`
+    // would read back as 5,000,002. The resolved form reads back exactly.
+    const dashboardNum = (v: string) => parseFloat(v.replace(/[^0-9.-]/g, ''));
+    expect(dashboardNum(plainAmount('500000*2'))).toBe(1000000);
+  });
+});
+

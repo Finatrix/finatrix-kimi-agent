@@ -9,6 +9,7 @@ import type { BudgetStore } from '../lib/budget';
 import { emergencyPlan, loadPlanning, monthlyReview, recurringKey, recurringPayments, savePlanning, PLANNING_KEY, type PlanningState } from '../lib/planning';
 import { ymdLocal } from '../../lib/date';
 import { useAskAi } from './AiAssistant';
+import { MoneyField } from './MoneyField';
 import './planning.css';
 
 export function DashboardGuide({ hasData }: { hasData: boolean }) {
@@ -42,7 +43,7 @@ export default function DashboardPlanning() {
 }
 
 function PlanningWorkspace({ currency }: { currency: string }) {
-  const { cfmt } = useCurrency();
+  const { cfmt, sym } = useCurrency();
   const [month, setMonth] = useState(() => prevMonth(currentMonth()));
   const [revision, setRevision] = useState(0);
   const [state, setState] = useState(() => loadPlanning(currency));
@@ -143,11 +144,19 @@ function PlanningWorkspace({ currency }: { currency: string }) {
             {([
               ['essentials', `Monthly essentials (${currency})`], ['months', 'Months of cover'],
               ['saved', `Accessible savings already set aside (${currency})`], ['contribution', `Monthly contribution (${currency})`],
-            ] as const).map(([field, label]) => <label key={field}>{label}<input className="fi" type="number" inputMode={field === 'months' ? 'numeric' : 'decimal'} min={field === 'months' ? 1 : 0} max={field === 'months' ? 24 : 1e12} step={field === 'months' ? 1 : 'any'} value={state.emergency[field] || ''} onChange={e => {
-              const value = Number(e.target.value);
-              if (!Number.isFinite(value) || value < 0 || value > 1e12) return;
-              update({ ...state, emergency: { ...state.emergency, [field]: field === 'months' ? Math.min(24, Math.max(1, Math.round(value))) : value } });
-            }} /></label>)}
+            ] as const).map(([field, label]) => {
+              const id = `ef-${field}`;
+              const commit = (value: number) => update({ ...state, emergency: { ...state.emergency, [field]: value } });
+              // Money is MoneyField, never `type="number"`: a number input reports
+              // '' for "12.", which this numeric state turned into 0 and wiped.
+              return <div className="fx-plan-field" key={field}><label htmlFor={id}>{label}</label>{field === 'months'
+                ? <input id={id} className="fi" type="number" inputMode="numeric" min={1} max={24} step={1} value={state.emergency.months || ''} onChange={e => {
+                  const value = Number(e.target.value);
+                  if (!Number.isFinite(value) || value < 0 || value > 1e12) return;
+                  commit(Math.min(24, Math.max(1, Math.round(value))));
+                }} />
+                : <MoneyField id={id} className="fi" sym={sym} value={state.emergency[field]} onCommit={commit} />}</div>;
+            })}
           </div>
         </div>
         <div>

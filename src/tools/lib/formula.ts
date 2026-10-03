@@ -266,3 +266,26 @@ export function formulaSignedAmount(input: string): number {
   const r = evaluateFormula(input);
   return r.ok ? r.value : 0;
 }
+
+/** A bare decimal — the only shape a `type="number"` field reports besides ''. */
+const PLAIN_NUMBER = /^[+-]?(\d+\.?\d*|\.\d+)$/;
+
+/**
+ * A text amount field reduced to the string a `type="number"` input would
+ * have reported: a plain number exactly as typed, a formula as its result,
+ * and '' for anything unfinished or unreadable.
+ *
+ * For tools that keep their fields as raw strings, validate them with
+ * `Number()`, and save them for other modules to read back the same way. The
+ * dashboard's own parser strips non-digits, so a saved `500000*2` would come
+ * back as 5,000,002; resolving at the boundary keeps every downstream
+ * `Number()` — and every validation message — exactly as it was. A plain
+ * number skips the evaluator entirely, so it is neither rounded nor capped
+ * here: the range checks that already exist keep doing that job.
+ */
+export function plainAmount(input: string): string {
+  const body = String(input ?? '').trim();
+  if (PLAIN_NUMBER.test(body)) return body;
+  const r = evaluateFormula(body);
+  return r.ok ? String(r.value) : '';
+}

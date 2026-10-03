@@ -3,17 +3,26 @@ import { computeGoalPlanner, type GoalResult } from '../lib/goals';
 import type { MarketPack } from '../lib/markets';
 import './planning.css';
 import { Disclosure } from './Disclosure';
+import { AmountInput } from './AmountInput';
+import { plainAmount } from '../lib/formula';
+import { useCurrency } from '../CurrencyContext';
 
 export default function GoalComparison({ baseline, market, money }: { baseline: GoalResult; market: MarketPack; money: (n: number) => string }) {
   const [target, setTarget] = useState(String(baseline.targetToday));
   const [years, setYears] = useState(String(Math.min(40, baseline.years + 1)));
   const [saved, setSaved] = useState(String(baseline.existing));
   const [available, setAvailable] = useState('');
-  const valid = Number.isFinite(Number(target)) && Number(target) >= market.goals.minTarget && Number(target) <= 1e12
+  const { sym } = useCurrency();
+  // The money fields accept arithmetic; the checks below read the plain number
+  // each one means (see plainAmount) and are otherwise unchanged.
+  const targetN = plainAmount(target);
+  const savedN = plainAmount(saved);
+  const availableN = plainAmount(available);
+  const valid = Number.isFinite(Number(targetN)) && Number(targetN) >= market.goals.minTarget && Number(targetN) <= 1e12
     && Number.isFinite(Number(years)) && Number(years) >= 1 && Number(years) <= 40 && Number.isInteger(Number(years))
-    && saved !== '' && Number.isFinite(Number(saved)) && Number(saved) >= 0 && Number(saved) <= 1e12;
-  const alternative = valid ? computeGoalPlanner({ name: baseline.name, targetToday: Number(target), years: Number(years), existing: Number(saved), inflate: baseline.inflate }, market.goals.inflation, market.goals.paths) : null;
-  const budget = available !== '' && Number.isFinite(Number(available)) && Number(available) >= 0 ? Number(available) : null;
+    && savedN !== '' && Number.isFinite(Number(savedN)) && Number(savedN) >= 0 && Number(savedN) <= 1e12;
+  const alternative = valid ? computeGoalPlanner({ name: baseline.name, targetToday: Number(targetN), years: Number(years), existing: Number(savedN), inflate: baseline.inflate }, market.goals.inflation, market.goals.paths) : null;
+  const budget = availableN !== '' && Number.isFinite(Number(availableN)) && Number(availableN) >= 0 ? Number(availableN) : null;
   return <section className="fx-planning fx-planning-surface" aria-labelledby="goal-compare-title">
     <h2 id="goal-compare-title">Compare the trade-offs</h2>
     <p>Try a different target, deadline or starting balance. Both scenarios use the same inflation and return assumptions as your plan. Your saved goal stays as it is.</p>
@@ -21,10 +30,10 @@ export default function GoalComparison({ baseline, market, money }: { baseline: 
         ~1,000px between the reader and the rest of their answer. */}
     <Disclosure variant="inline" showLabel="Show the scenario comparison" hideLabel="Hide the scenario comparison">
     <div className="fx-plan-fields">
-      <label>Alternative target in today’s money<input className="fi" type="number" min={market.goals.minTarget} max={1e12} step="any" value={target} onChange={e => setTarget(e.target.value)} /></label>
-      <label>Alternative deadline (whole years)<input className="fi" type="number" min={1} max={40} step={1} value={years} onChange={e => setYears(e.target.value)} /></label>
-      <label>Savings allocated to this alternative<input className="fi" type="number" min={0} max={1e12} step="any" value={saved} onChange={e => setSaved(e.target.value)} /></label>
-      <label>Available each month after other commitments (optional)<input className="fi" type="number" min={0} max={1e12} step="any" value={available} onChange={e => setAvailable(e.target.value)} placeholder="Your own contribution limit" /></label>
+      <div className="fx-plan-field"><label htmlFor="gc-target">Alternative target in today’s money</label><AmountInput id="gc-target" sym={sym} placeholder="" value={target} onChange={setTarget} /></div>
+      <div className="fx-plan-field"><label htmlFor="gc-years">Alternative deadline (whole years)</label><input id="gc-years" className="fi" type="number" inputMode="numeric" min={1} max={40} step={1} value={years} onChange={e => setYears(e.target.value)} /></div>
+      <div className="fx-plan-field"><label htmlFor="gc-saved">Savings allocated to this alternative</label><AmountInput id="gc-saved" sym={sym} placeholder="" value={saved} onChange={setSaved} /></div>
+      <div className="fx-plan-field"><label htmlFor="gc-available">Available each month after other commitments (optional)</label><AmountInput id="gc-available" sym={sym} value={available} onChange={setAvailable} placeholder="Your own contribution limit" /></div>
     </div>
     {!valid && <p role="status">Enter a target of at least {money(market.goals.minTarget)}, a whole-year deadline from 1 to 40, and non-negative savings. Amounts must be no more than 1 trillion.</p>}
     {alternative && <>

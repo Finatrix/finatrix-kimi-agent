@@ -5,6 +5,8 @@ import { useDialogFocus } from '../../hooks/useDialogFocus';
 import { getChartTheme } from '../lib/chartTheme';
 import { useCurrency } from '../CurrencyContext';
 import { PageHead, ToolFoot } from '../ui/common';
+import { AmountInput } from '../ui/AmountInput';
+import { plainAmount } from '../lib/formula';
 import { ResultExplainer, type MethodRow } from '../ui/ResultExplainer';
 import { MarketNote } from '../ui/MarketNote';
 import { useMarket } from '../MarketContext';
@@ -42,6 +44,21 @@ const FORM_DEFAULTS: Form = {
 };
 const numF = (v: string) => { const n = Number(v); return isFinite(n) ? Math.max(0, n) : 0; };
 
+/** The profile's money fields, which accept arithmetic. */
+const MONEY_KEYS = ['lm-income', 'lm-expenses', 'lm-savings', 'lm-emergency', 'lm-invest', 'lm-sip', 'lm-debt-total', 'lm-debt-emi'] as const;
+
+/**
+ * The form with every money field reduced to its plain number (see
+ * plainAmount). The readiness checks, the profile and the save all read this,
+ * so they see exactly the strings they did before the fields took formulas —
+ * and the dashboard, which rebuilds a profile from `fx_lifemap`, never meets one.
+ */
+function resolveAmounts(form: Form): Form {
+  const out = { ...form };
+  for (const k of MONEY_KEYS) if (typeof out[k] === 'string') out[k] = plainAmount(out[k]);
+  return out;
+}
+
 export default function LifeMapPage() {
   const { cfmt, cfmtSh, code, sym } = useCurrency();
   const { market } = useMarket();
@@ -68,7 +85,7 @@ export default function LifeMapPage() {
   const setField = (k: string, v: string) => {
     const next = { ...form, [k]: v };
     setForm(next);
-    setJSON('fx_lifemap', next);
+    setJSON('fx_lifemap', resolveAmounts(next));
     if (seed.sources[k]) {
       const sources = { ...seed.sources };
       delete sources[k];
@@ -77,13 +94,14 @@ export default function LifeMapPage() {
   };
 
   const launch = () => {
-    if (lifeMapReadiness(form).length) return;
+    const v = resolveAmounts(form);
+    if (lifeMapReadiness(v).length) return;
       const p = buildProfile({
-        name: form['lm-name'], age: numF(form['lm-age']), income: numF(form['lm-income']),
-        expenses: numF(form['lm-expenses']), savings: numF(form['lm-savings']), emergency: numF(form['lm-emergency']),
-        invest: numF(form['lm-invest']), sipYn: form['lm-sip-yn'] === 'yes', sip: numF(form['lm-sip']),
-        debtYn: form['lm-debt-yn'] === 'yes', debtTotal: numF(form['lm-debt-total']), debtEmi: numF(form['lm-debt-emi']),
-        career: form['lm-career'], goals: [...goals],
+        name: v['lm-name'], age: numF(v['lm-age']), income: numF(v['lm-income']),
+        expenses: numF(v['lm-expenses']), savings: numF(v['lm-savings']), emergency: numF(v['lm-emergency']),
+        invest: numF(v['lm-invest']), sipYn: v['lm-sip-yn'] === 'yes', sip: numF(v['lm-sip']),
+        debtYn: v['lm-debt-yn'] === 'yes', debtTotal: numF(v['lm-debt-total']), debtEmi: numF(v['lm-debt-emi']),
+        career: v['lm-career'], goals: [...goals],
       });
       setProfile(p);
       setDec(lifeMapDecisionsForMarket(buildDecisions(p, (n) => cfmtSh(n)), market));
@@ -107,7 +125,7 @@ export default function LifeMapPage() {
           setSeed(fresh);
           const next = { ...form, ...fresh.values };
           setForm(next);
-          setJSON('fx_lifemap', next);
+          setJSON('fx_lifemap', resolveAmounts(next));
         }} />
         <MarketNote market={market} />
       </div>
@@ -135,11 +153,13 @@ export default function LifeMapPage() {
         <SipDialog
           dialog={dialog}
           sh={(n) => cfmtSh(n)}
+          sym={sym}
           onCancel={() => setDialog(null)}
           onChange={(amt) => setDialog({ ...dialog, amt })}
           onConfirm={() => {
-            const amt = Number(dialog.amt);
-            if (!dialog.amt.trim() || !Number.isFinite(amt) || amt < 500 || amt > 1e12) return;
+            const raw = plainAmount(dialog.amt);
+            const amt = Number(raw);
+            if (!raw || !Number.isFinite(amt) || amt < 500 || amt > 1e12) return;
             const updated = lifeMapDecisionsForMarket([updateCustomDecision(dialog.d, amt, (n) => cfmtSh(n))], market)[0];
             setDec((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
             setApplied((prev) => new Set(prev).add(updated.id));
@@ -210,25 +230,16 @@ function SetupForm({ form, goals, seed, setField, setGoals, onLaunch, sym, month
   setGoals: (s: Set<string>) => void; onLaunch: () => void; sym: string;
   monthlyTerm: string; onRefresh: () => void;
 }) {
-  const issues = lifeMapReadiness(form);
-  const N = (k: string, label: string, extra?: React.InputHTMLAttributes<HTMLInputElement>) => {
+  const values = resolveAmounts(form);
+  const issues = lifeMapReadiness(values);
+  /** A labelled field, with a note when its value was seeded from another tool. */
+  const field = (k: string, label: string, control: (hintId: string | undefined) => React.ReactNode) => {
     const from = seed.sources[k];
     const hintId = from ? `${k}-from` : undefined;
     return (
       <div className="fg">
         <label className="fl" htmlFor={k}>{label}</label>
-        {/* `step="any"` on every money field. Without it the browser treats a
-            typed decimal point as invalid and refuses the keystroke, so a
-            balance of 12,500.50 could not be entered at all — the same defect
-            MoneyField exists to fix elsewhere in the app. */}
-        <input
-          className="fi"
-          id={k}
-          value={form[k]}
-          aria-describedby={hintId}
-          onChange={(e) => setField(k, e.target.value)}
-          {...extra}
-        />
+        {control(hintId)}
         {from && (
           <p id={hintId} className="note" style={{ marginTop: 5 }}>
             From your {from}
@@ -237,6 +248,13 @@ function SetupForm({ form, goals, seed, setField, setGoals, onLaunch, sym, month
       </div>
     );
   };
+  const N = (k: string, label: string, extra?: React.InputHTMLAttributes<HTMLInputElement>) => field(k, label, (hintId) => (
+    <input className="fi" id={k} value={form[k]} aria-describedby={hintId} onChange={(e) => setField(k, e.target.value)} {...extra} />
+  ));
+  // Money is text with a decimal keypad, never `type="number"`: see MoneyField.
+  const M = (k: string, label: string) => field(k, label, (hintId) => (
+    <AmountInput id={k} sym={sym} placeholder="" value={form[k]} describedBy={hintId} onChange={(v) => setField(k, v)} />
+  ));
   return (
     <div className="card" style={{ maxWidth: 720, margin: '0 auto 16px' }}>
       <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Your financial profile</div>
@@ -249,32 +267,32 @@ function SetupForm({ form, goals, seed, setField, setGoals, onLaunch, sym, month
       <div className="grid2">
         {N('lm-name', 'Your name', { type: 'text', placeholder: 'e.g. Nitya Prakash' })}
         {N('lm-age', 'Current age', { type: 'number', min: 16, max: 45, inputMode: 'numeric' })}
-        {N('lm-income', `Monthly income (${sym})`, { type: 'number', step: 'any', min: 0, inputMode: 'decimal' })}
-        {N('lm-expenses', `Monthly expenses (${sym})`, { type: 'number', step: 'any', min: 0, inputMode: 'decimal' })}
+        {M('lm-income', `Monthly income (${sym})`)}
+        {M('lm-expenses', `Monthly expenses (${sym})`)}
       </div>
       <div className="well" style={{ fontSize: 13, color: 'var(--ink2)', lineHeight: 1.6, marginBottom: 18 }}>
         <Icon name="zap" size={14} style={{ display: 'inline', verticalAlign: 'text-bottom', color: 'var(--gold)' }} /> Include all loan EMIs in{' '}
         <b style={{ color: 'var(--ink)' }}>monthly expenses</b>. Savings and investments are entered separately below — don't double-count.
       </div>
       <div className="grid2">
-        {N('lm-savings', `Total savings — bank + FD + cash (${sym})`, { type: 'number', step: 'any', min: 0, inputMode: 'decimal' })}
-        {N('lm-emergency', `Of which, emergency fund (${sym})`, { type: 'number', step: 'any', min: 0, inputMode: 'decimal' })}
-        {N('lm-invest', `Total investments so far (${sym})`, { type: 'number', step: 'any', min: 0, inputMode: 'decimal' })}
+        {M('lm-savings', `Total savings — bank + FD + cash (${sym})`)}
+        {M('lm-emergency', `Of which, emergency fund (${sym})`)}
+        {M('lm-invest', `Total investments so far (${sym})`)}
         <div className="fg">
           <label className="fl" htmlFor="lm-sip-yn">Do you invest monthly?</label>
           <select className="fs" id="lm-sip-yn" value={form['lm-sip-yn']} onChange={(e) => setField('lm-sip-yn', e.target.value)}>
             <option value="no">No, not yet</option><option value="yes">Yes, I do</option>
           </select>
         </div>
-        {form['lm-sip-yn'] === 'yes' && N('lm-sip', `Monthly ${monthlyTerm.toLowerCase()} (${sym})`, { type: 'number', step: 'any', min: 0, inputMode: 'decimal' })}
+        {form['lm-sip-yn'] === 'yes' && M('lm-sip', `Monthly ${monthlyTerm.toLowerCase()} (${sym})`)}
         <div className="fg">
           <label className="fl" htmlFor="lm-debt-yn">Any outstanding loans / debt?</label>
           <select className="fs" id="lm-debt-yn" value={form['lm-debt-yn']} onChange={(e) => setField('lm-debt-yn', e.target.value)}>
             <option value="no">No</option><option value="yes">Yes</option>
           </select>
         </div>
-        {form['lm-debt-yn'] === 'yes' && N('lm-debt-total', `Total debt outstanding (${sym})`, { type: 'number', step: 'any', min: 0, inputMode: 'decimal' })}
-        {form['lm-debt-yn'] === 'yes' && N('lm-debt-emi', `Monthly EMI / repayment (${sym})`, { type: 'number', step: 'any', min: 0, inputMode: 'decimal' })}
+        {form['lm-debt-yn'] === 'yes' && M('lm-debt-total', `Total debt outstanding (${sym})`)}
+        {form['lm-debt-yn'] === 'yes' && M('lm-debt-emi', `Monthly EMI / repayment (${sym})`)}
         <div className="fg">
           <label className="fl" htmlFor="lm-career">Career field</label>
           <select className="fs" id="lm-career" value={form['lm-career']} onChange={(e) => setField('lm-career', e.target.value)}>
@@ -299,8 +317,8 @@ function SetupForm({ form, goals, seed, setField, setGoals, onLaunch, sym, month
         </div>
       </div>
       {issues.length > 0 && <div className="tip tip-info" role="status" style={{ marginTop: 16 }}><b>Check these inputs before simulating</b><ul>{issues.map((issue) => <li key={issue}>{issue}</li>)}</ul></div>}
-      {Number(form['lm-expenses']) >= Number(form['lm-income']) && <p className="note">Expenses meet or exceed income. The model has no positive monthly surplus to grow.</p>}
-      {form['lm-sip-yn'] === 'yes' && Number(form['lm-sip']) > Math.max(0, Number(form['lm-income']) - Number(form['lm-expenses'])) && <p className="note">Your monthly investment exceeds income minus expenses. Check whether you have counted it twice or are drawing on existing savings.</p>}
+      {Number(values['lm-expenses']) >= Number(values['lm-income']) && <p className="note">Expenses meet or exceed income. The model has no positive monthly surplus to grow.</p>}
+      {form['lm-sip-yn'] === 'yes' && Number(values['lm-sip']) > Math.max(0, Number(values['lm-income']) - Number(values['lm-expenses'])) && <p className="note">Your monthly investment exceeds income minus expenses. Check whether you have counted it twice or are drawing on existing savings.</p>}
       <button className="btn" style={{ marginTop: 22 }} disabled={issues.length > 0} onClick={onLaunch}>
         Launch my LifeMap →
       </button>
@@ -615,12 +633,13 @@ function WealthChart({ profile: p, dec, applied, cfmt, code }: { profile: LifePr
   return <canvas ref={ref} height={185} role="img" aria-label={summary} />;
 }
 
-function SipDialog({ dialog, sh, onCancel, onChange, onConfirm }: {
-  dialog: { d: Decision; amt: string }; sh: (n: number) => string;
+function SipDialog({ dialog, sh, sym, onCancel, onChange, onConfirm }: {
+  dialog: { d: Decision; amt: string }; sh: (n: number) => string; sym: string;
   onCancel: () => void; onChange: (amt: string) => void; onConfirm: () => void;
 }) {
   const isStart = dialog.d.ck === 'start';
-  const validAmount = dialog.amt.trim() !== '' && Number.isFinite(Number(dialog.amt)) && Number(dialog.amt) >= 500 && Number(dialog.amt) <= 1e12;
+  const amt = plainAmount(dialog.amt);
+  const validAmount = amt !== '' && Number.isFinite(Number(amt)) && Number(amt) >= 500 && Number(amt) <= 1e12;
   const cardRef = useRef<HTMLDivElement>(null);
   const amountRef = useRef<HTMLInputElement>(null);
   // `aria-modal` below claims the rest of the page is inert; this is what makes
@@ -634,12 +653,14 @@ function SipDialog({ dialog, sh, onCancel, onChange, onConfirm }: {
         <div style={{ fontSize: 13, color: 'var(--ink2)', marginBottom: 18, lineHeight: 1.55 }}>
           {isStart ? 'How much do you want to invest every month?' : `You invest ${sh(dialog.d.ca ?? 0)}/mo. How much extra do you want to add monthly?`}
         </div>
-        <input ref={amountRef} className="fi" type="number" step="any" min={500} max={1e12} inputMode="decimal" value={dialog.amt} aria-invalid={!validAmount}
-          aria-label={isStart ? 'Monthly SIP amount' : 'Extra monthly SIP amount'}
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') onConfirm(); else if (e.key === 'Escape') onCancel(); }}
-          style={{ marginBottom: 16 }} />
-        {!validAmount && <p className="note" role="status">Enter an amount from 500 to 1 trillion.</p>}
+        <div style={{ marginBottom: 16 }}>
+          <AmountInput id="lm-sip-amount" inputRef={amountRef} sym={sym} placeholder="" value={dialog.amt} invalid={!validAmount}
+            errorId={validAmount ? undefined : 'lm-sip-amount-error'}
+            ariaLabel={isStart ? 'Monthly SIP amount' : 'Extra monthly SIP amount'}
+            onChange={onChange}
+            onKeyDown={(e) => { if (e.key === 'Enter') onConfirm(); else if (e.key === 'Escape') onCancel(); }} />
+        </div>
+        {!validAmount && <p id="lm-sip-amount-error" className="note" role="status">Enter an amount from 500 to 1 trillion.</p>}
         <div style={{ display: 'flex', gap: 10 }}>
           <button type="button" onClick={onCancel} style={{ flex: 1, padding: 13, borderRadius: 980, border: '1px solid var(--hair)', background: 'rgba(255,255,255,.03)', color: 'var(--ink)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
           <button type="button" onClick={onConfirm} disabled={!validAmount} style={{ flex: 2, padding: 13, borderRadius: 980, border: 'none', background: 'linear-gradient(180deg,var(--gold-2),var(--gold))', color: '#1a1400', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Confirm</button>

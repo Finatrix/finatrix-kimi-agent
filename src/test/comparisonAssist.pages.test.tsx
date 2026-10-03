@@ -59,13 +59,13 @@ describe('InvestMatch smart interactions', () => {
     change(/Monthly income/, '60000');
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(screen.getByLabelText(/Monthly income/)).toHaveValue(60000);
+    expect(screen.getByLabelText(/Monthly income/)).toHaveValue('60000');
     change(/Monthly income/, '');
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     expect(screen.getByText('Question 1 of 6')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(screen.getByLabelText(/Monthly income/)).toHaveValue(60000);
+    expect(screen.getByLabelText(/Monthly income/)).toHaveValue('60000');
   });
 
   it.each([{ market: 'US', currency: 'INR' }, { market: 'IN', currency: 'USD' }, {}])('does not reuse answers with incompatible or absent provenance: %j', (provenance) => {
@@ -80,11 +80,11 @@ describe('ParkSmart smart interactions', () => {
     active = 'AU'; currency = 'AUD';
     localStorage.setItem('fx_parksmart', JSON.stringify({ 'ps-amount': '47000', 'ps-duration': '6-12', market: 'AU', currency: 'AUD' }));
     mount(<ParkSmartPage />);
-    expect(screen.getByLabelText(/Amount to park/)).toHaveValue(5000);
+    expect(screen.getByLabelText(/Amount to park/)).toHaveValue('5000');
     fireEvent.click(screen.getByRole('button', { name: 'Use saved amount and duration' }));
-    expect(screen.getByLabelText(/Amount to park/)).toHaveValue(47000);
+    expect(screen.getByLabelText(/Amount to park/)).toHaveValue('47000');
     expect(screen.getByLabelText('Parking duration')).toHaveValue('6-12');
-    expect(screen.getByLabelText('Annual net rate for option 1 (%)')).toHaveValue(null);
+    expect(screen.getByLabelText('Annual net rate for option 1 (%)')).toHaveValue('');
   });
 
   it('uses access preferences to exclude a higher quote and keeps the zero-rate alternative valid', () => {
@@ -157,9 +157,9 @@ describe('PeerCompare smart interactions', () => {
     mount(<PeerComparePage />);
     change(/Monthly income/, '1000'); change(/Monthly expenses/, '900'); change('Monthly savings rate (%)', '20');
     expect(screen.getByText(/implies more savings than/)).toBeInTheDocument();
-    expect(screen.getByLabelText('Monthly savings rate (%)')).toHaveValue(20);
+    expect(screen.getByLabelText('Monthly savings rate (%)')).toHaveValue('20');
     fireEvent.click(screen.getByRole('button', { name: 'Use the income-minus-expenses rate' }));
-    expect(screen.getByLabelText('Monthly savings rate (%)')).toHaveValue(10);
+    expect(screen.getByLabelText('Monthly savings rate (%)')).toHaveValue('10.0');
     change(/Total savings/, '');
     fireEvent.click(screen.getByRole('button', { name: 'Show the comparison' }));
     expect(screen.getByRole('alert')).toHaveTextContent('savings');
@@ -186,7 +186,7 @@ describe('PeerCompare smart interactions', () => {
     expect(screen.getByRole('button', { name: 'Use component total' })).toBeDisabled();
     change('Component 2 (AUD)', '786');
     fireEvent.click(screen.getByRole('button', { name: 'Use component total' }));
-    expect(screen.getByLabelText(/Your matching figure/)).toHaveValue(1786);
+    expect(screen.getByLabelText(/Your matching figure/)).toHaveValue('1786');
     screen.getAllByRole('checkbox').forEach((checkbox) => expect(checkbox).not.toBeChecked());
     fireEvent.click(screen.getByRole('button', { name: 'Build my matching figure from parts' }));
     fireEvent.click(screen.getByRole('button', { name: 'Compare matching figures' }));
@@ -200,7 +200,7 @@ describe('PeerCompare smart interactions', () => {
     expect(screen.getByRole('status')).toHaveTextContent('$1,786 compared with $1,786');
     change('Published reference', 'AU-SIH-2019-20-WEALTH-MEDIAN');
     expect(screen.queryByRole('region', { name: 'Compare a second matching figure' })).not.toBeInTheDocument();
-    expect(screen.getByLabelText(/Your matching figure/)).toHaveValue(null);
+    expect(screen.getByLabelText(/Your matching figure/)).toHaveValue('');
     expect(screen.getByRole('link', { name: 'Track my own net worth' })).toHaveAttribute('href', '/tools/networth');
   });
 });
