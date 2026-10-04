@@ -20,7 +20,7 @@ verified state, the blockers and what only the account owner can do.
 |---|---|---|
 | Technical readiness | **98%** | **95%** |
 | Submission-package readiness | **95%** | **95%** |
-| Verdict | **CODE 6 LIVE TO CLOSED TESTERS (3 Oct 11:08); DAY 2 OF 14** | **BUILD 2 SUBMITTED TO APP REVIEW 2026-10-03 19:04 AEST — WAITING FOR REVIEW** |
+| Verdict | **CODE 6 LIVE TO CLOSED TESTERS (3 Oct 11:08); DAY 2 OF 14** | **BUILD 2 SUBMITTED 2026-10-03 19:04 AEST; REJECTED 2026-10-04 (2.1 INFORMATION NEEDED) — REPLY AND SCREEN RECORDING PENDING, see [APP_REVIEW_2_1_RESPONSE.md](APP_REVIEW_2_1_RESPONSE.md)** |
 | P0 technical blockers | 0 | 1 (complete the physical-device flow) |
 | P1 verification gaps | 2 (real Google sign-in and deletion) | 2 (real Apple sign-in/revocation, Universal Links on device) |
 

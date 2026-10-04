@@ -6,6 +6,11 @@
 > is uploaded, processed and attached to version 1.0.0. The privacy answers are
 > entered but still require the owner's Publish attestation. Reviewer sign-in
 > and contact fields are blank.
+>
+> **Update 2026-10-04:** build 2 was submitted on 3 Oct and Apple rejected it
+> under 2.1 "Information Needed" (limited App Review history). The answer is in
+> [APP_REVIEW_2_1_RESPONSE.md](APP_REVIEW_2_1_RESPONSE.md); §7 below is the
+> rewritten Notes text.
 
 Everything App Store Connect asks for, answered. The build and signing runbook is
 docs/IOS.md; this is the paperwork.
@@ -124,22 +129,45 @@ assistant is one more reason not to claim 4+.
 
 ## 7. App Review notes
 
-Entered in App Store Connect on 2026-10-02 (1,798 characters):
+**Current text (3,418 characters; the field holds 4,000) — rewritten 2026-10-04**
+to answer Apple's Guideline 2.1 "Information Needed" request, which asks for
+the purpose, access instructions, external services, regional differences and
+regulated-industry position *in the Notes field* itself. It replaces the
+2,094-character text entered on 2026-10-02/03. The reply, the recording script
+and the order of work are in [APP_REVIEW_2_1_RESPONSE.md](APP_REVIEW_2_1_RESPONSE.md).
+The sample files it points to are `docs/launch/finatrix-review-samples.zip`,
+attached to the version as the App Review attachment.
 
 ```
-FinatriX is a personal-finance education tool. Every calculator works fully without an account: open the app and use Budget, Expenses, Goals, Net Worth and the rest straight away. Data is stored on the device.
+WHAT IT IS
+FinatriX is a personal-finance planning and education app for adults, mainly in India (market packs: India, US, UK, UAE, Australia, Singapore, China). It solves a common problem: people can see their spending totals but not whether their plan actually works. It splits take-home pay 50/30/20, logs a spend from one line of text, works a goal back to the monthly SIP it needs, and shows the working behind every number. It is a calculator suite: it holds no money, moves no money and gives no personal advice.
 
-Signing in adds only cloud sync across devices and the optional AI assistant. A demo account is in the Sign-In Information fields: tap SIGN IN (top right), then use the email form below "or sign in with email". Sign in with Apple is presented first, then Google.
+HOW TO USE IT
+No account is needed. Every calculator works at once and data stays on the device. The demo account in the Sign-In Information fields adds sample data: tap SIGN IN (top right), then use the email form below "or sign in with email". Sign in with Apple and Google are offered too. Main features are in the tab bar: Dashboard, Budget (50/30/20 plan), Expenses (tap the round + and type "340 lunch"; Import reads statements), Goals, Net Worth, LifeMap. Sample statement files (CSV, PDF, photo) are in the attachment: Expenses > Import > choose a file (PDF import needs iOS 18 or later).
 
-FinatriX AI (optional, signed-in only; the gold sparkle button at the bottom right, "Open FinatriX AI") asks for explicit permission before any question or statement description is sent to its AI provider (OpenRouter and the model it routes to). Declining leaves every calculator fully usable. The permission can be withdrawn in Settings under FinatriX AI.
+FINATRIX AI (OPTIONAL, SIGNED-IN ONLY)
+Gold sparkle button, bottom right ("Open FinatriX AI"). Before anything is sent it asks permission, naming OpenRouter and the model it routes to. Declining leaves every calculator usable; the permission can be withdrawn in Settings. No name, email or account ID is sent.
 
-Account deletion: menu (top left) > Profile > Delete account, then type the account's email address to confirm (or DELETE, for a Sign in with Apple "Hide My Email" address). It deletes the account and all its data immediately and irreversibly, and revokes the app's Sign in with Apple authorization. If you delete the demo account, please tell us so we can recreate it.
+EXTERNAL SERVICES
+- Supabase: the app's own backend (sign-in, cloud sync of the user's data, server functions). Used only when signed in, plus anonymous analytics.
+- Sign in with Apple, Google sign-in, email and password: authentication.
+- OpenRouter, routing to Google, Anthropic or OpenAI models: the optional AI assistant, only after consent, only through our Supabase function.
+- First-party anonymous analytics on our own endpoint: no ads, no third-party SDKs, no tracking; can be switched off in Settings.
+- On-device text recognition for statement photos; photos are never uploaded.
+- Payments: none in the app (no in-app purchases, prices or checkout links). The website has a paid plan through Stripe that the app never shows.
+- Data providers: none. Rates and tax figures are dated reference data bundled in the app, cited to official public sources (Settings > Reference data).
 
-Camera: requested only if you choose "Take Photo" in Expenses > Import. The photo is read by an on-device text-recognition engine and never uploaded. PDF statements need iOS 18 or later; on older iOS the app says so and offers CSV, Excel and photo import instead.
+ACCOUNT DELETION
+Menu (top left) > Profile > Delete account, then type the account's email (or DELETE for a Hide My Email address). Immediate and irreversible; it also revokes the Sign in with Apple authorization. If you delete the demo account, please tell us so we can recreate it.
 
-The app sells nothing and shows no prices. FinatriX Pro exists on the website only; in the app the pricing pages redirect and every purchase control is hidden (Guideline 3.1.1).
+CAMERA
+Requested only if you choose Take Photo in Expenses > Import. The photo is read on the device and never uploaded.
 
-FinatriX is not a bank, broker or registered adviser and executes no transactions. All figures are estimates from user input under stated assumptions.
+REGIONS
+Features are identical in every region. Only reference content (currency, tax rules, published rates, deposit-protection facts) differs by market pack. The pack defaults from the device language and time zone (no location or IP lookup) and can be changed in Settings.
+
+REGULATION AND CONTENT
+FinatriX is not a bank, broker, lender or registered adviser. It executes no transactions, links no accounts and collects no bank credentials. Estimates come from user input under stated assumptions, with a disclaimer in the listing and in the app. It has no user-generated content shared between users, so no reporting or blocking is needed, and it contains no licensed third-party content.
 ```
 
 **Demo account:** a throwaway one exists and its address and password are in
@@ -276,7 +304,7 @@ resolved in code, or is listed as an accepted answer with its reasoning.
 
 | Guideline | Risk | Status |
 |---|---|---|
-| 2.1 App Completeness | A demo account that does not work, or an empty app | Guest mode works fully; the demo account is entered, verified against the backend and seeded (2026-10-03). TestFlight beta review already raised 2.1(a) once, for the separate beta credentials (§7) |
+| 2.1 App Completeness | A demo account that does not work, or an empty app. **Raised by Apple twice:** TestFlight 2.1(a) on 2026-10-02, then App Review 2.1 "Information Needed" on 2026-10-04 (answered in [APP_REVIEW_2_1_RESPONSE.md](APP_REVIEW_2_1_RESPONSE.md)) | Guest mode works fully; the demo account is entered, verified against the backend and seeded (2026-10-03). TestFlight beta review already raised 2.1(a) once, for the separate beta credentials (§7) |
 | 2.3.1 Hidden features | — | Nothing gated on a hidden flag |
 | **3.1.1 In-app purchase** | Prices or a link to the Stripe checkout | **Resolved.** `canPurchaseInApp()` is false in both apps; `/pricing` and the Careers sales pages redirect (`isPurchasePage`); tests pin it |
 | 4.2 Minimum functionality | "A website in an app" | Eight calculators, on-device storage, offline operation, camera OCR, haptics, native navigation gestures — none of which a web page does |
@@ -300,4 +328,5 @@ resolved in code, or is listed as an accepted answer with its reasoning.
 - [x] Six screenshots at 6.9" (ready in `ios/store/screenshots/`; retake if a screen changed)
 - [ ] App Privacy questionnaire answered from §8 and agreeing with `PrivacyInfo.xcprivacy`
 - [x] Age rating questionnaire answered from §6 (18+ override; the current form has no AI question)
-- [x] Review notes pasted from §7 (App Store version 2026-10-02; TestFlight Beta App Review 2026-10-03)
+- [ ] Review notes re-pasted from §7 (rewritten 2026-10-04 for the 2.1 reply; the 2026-10-02/03 text is superseded) and the sample-files zip attached
+- [ ] 2.1 reply sent with the screen recording ([APP_REVIEW_2_1_RESPONSE.md](APP_REVIEW_2_1_RESPONSE.md))
