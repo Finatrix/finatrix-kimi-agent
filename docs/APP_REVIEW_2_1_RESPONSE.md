@@ -128,7 +128,7 @@ FinatriX
 
 - [ ] Recording made on the iPhone, on the latest iOS, from launch to sign-out
 - [ ] iOS version in reply item 1 matches the phone
-- [ ] Notes block pasted (§7 of APP_STORE_SUBMISSION.md) and **sample-files zip attached**
+- [x] Notes block pasted (§7 of APP_STORE_SUBMISSION.md) and **sample-files zip attached** — done 2026-10-04 and verified after a reload
 - [ ] Demo account still signs in (take 10); if you ever deleted it, reseed it first ([MOBILE_RELEASE_READINESS.md](MOBILE_RELEASE_READINESS.md) §3)
 - [ ] Reply sent with the video, then **Resubmit to App Review** if enabled
 

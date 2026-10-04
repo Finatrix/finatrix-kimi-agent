@@ -328,5 +328,5 @@ resolved in code, or is listed as an accepted answer with its reasoning.
 - [x] Six screenshots at 6.9" (ready in `ios/store/screenshots/`; retake if a screen changed)
 - [ ] App Privacy questionnaire answered from §8 and agreeing with `PrivacyInfo.xcprivacy`
 - [x] Age rating questionnaire answered from §6 (18+ override; the current form has no AI question)
-- [ ] Review notes re-pasted from §7 (rewritten 2026-10-04 for the 2.1 reply; the 2026-10-02/03 text is superseded) and the sample-files zip attached
+- [x] Review notes re-pasted from §7 and the sample-files zip attached (2026-10-04; saved and read back after a reload: 3,418 characters, attachment `finatrix-review-samples.zip`)
 - [ ] 2.1 reply sent with the screen recording ([APP_REVIEW_2_1_RESPONSE.md](APP_REVIEW_2_1_RESPONSE.md))
