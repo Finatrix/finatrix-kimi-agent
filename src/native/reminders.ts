@@ -41,7 +41,11 @@ export async function scheduleReminders(plan: readonly PlannedReminder[]): Promi
         title: p.title,
         body: p.body,
         // Not exact: a reminder a few minutes late is fine, and exact alarms
-        // need a permission this app has no reason to hold.
+        // need a permission this app has no reason to hold. It has to be said
+        // explicitly — the plugin defaults to exact, and on Android 12+ that
+        // opens the system "Alarms & reminders" screen and leaves this call
+        // waiting on it, so nothing was ever scheduled.
+        isExactNotification: false,
         schedule: { at: p.at, allowWhileIdle: true },
         extra: { href: p.href },
       })),
