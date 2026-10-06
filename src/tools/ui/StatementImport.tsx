@@ -20,6 +20,7 @@
  */
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { ymdLocal } from '../../lib/date';
 import { useInertOutside } from '../../hooks/useInertOutside';
 import { createPortal } from 'react-dom';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
@@ -78,6 +79,8 @@ export default function StatementImport({
   const [shown, setShown] = useState(PAGE_SIZE);
   const [password, setPassword] = useState('');
   const [dragging, setDragging] = useState(false);
+  const [bulkDate, setBulkDate] = useState('');
+  const undated = useMemo(() => drafts.filter((draft) => !draft.date), [drafts]);
 
   const cardRef = useRef<HTMLDivElement>(null);
   useInertOutside(cardRef);
@@ -292,6 +295,27 @@ export default function StatementImport({
                     <button type="button" className="fx-imp-btn fx-imp-sm" onClick={() => setAllIncluded(false)}>Clear</button>
                   </div>
                 </div>
+
+                {/* A screenshot of a payments app often carries no dates at all
+                    ("2 days ago"), and its rows are usually from one day. One
+                    date for all of them beats typing it into every row. */}
+                {undated.length > 0 && (
+                  <div className="fx-imp-setdate">
+                    <label htmlFor="fx-imp-bulk-date">
+                      {undated.length} row{undated.length === 1 ? ' has' : 's have'} no date. Set one for {undated.length === 1 ? 'it' : 'all of them'}:
+                    </label>
+                    <input
+                      id="fx-imp-bulk-date" type="date" className="fx-imp-input fx-imp-input-sm"
+                      value={bulkDate} max={ymdLocal(new Date())} onChange={(e) => setBulkDate(e.target.value)}
+                    />
+                    <button
+                      type="button" className="fx-imp-btn fx-imp-sm" disabled={!bulkDate}
+                      onClick={() => undated.forEach((draft) => updateDraft(draft.id, { date: bulkDate }))}
+                    >
+                      Apply
+                    </button>
+                  </div>
+                )}
 
                 {visible.length === 0 ? (
                   <p className="fx-imp-empty">No rows match this filter.</p>
@@ -667,6 +691,8 @@ const STYLES = `
 .fx-imp-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;}
 .fx-imp-filters{display:flex;gap:6px;flex-wrap:wrap;}
 .fx-imp-bulk{display:flex;gap:6px;}
+.fx-imp-setdate{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 10px;padding:10px 12px;border-radius:10px;background:var(--gold-bg);font-size:12.5px;color:var(--ink2);}
+.fx-imp-setdate label{flex:1 1 200px;min-width:0;}
 .fx-imp-chip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:980px;
   border:1.5px solid var(--hair2);background:var(--card);color:var(--ink);font-size:12px;font-weight:600;
   font-family:inherit;cursor:pointer;transition:border-color .15s,background .15s;}

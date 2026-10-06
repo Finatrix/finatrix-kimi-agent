@@ -182,7 +182,7 @@ const CURRENCY_HINTS: ReadonlyArray<[RegExp, string]> = [
   [/\bGBP\b|£/, 'GBP'], [/\bEUR\b|€/, 'EUR'], [/\bSGD\b/i, 'SGD'], [/\bAED\b/i, 'AED'],
 ];
 
-function sniffStatementCurrency(text: string): string | null {
+export function sniffStatementCurrency(text: string): string | null {
   const head = text.slice(0, 4_000);
   for (const [re, code] of CURRENCY_HINTS) if (re.test(head)) return code;
   return null;

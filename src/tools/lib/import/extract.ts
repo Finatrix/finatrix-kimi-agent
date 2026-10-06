@@ -40,6 +40,7 @@ import { sanitizeText } from '../../../lib/sanitize';
 import { pdfCompatibilityMessage } from '../../../lib/pdfCompatibility';
 import { parseCsvStatement, parseStatementMatrix, StatementParseError } from './csv';
 import { parseTextStatement } from './statement';
+import { parseLooseList } from './looseList';
 import { readWorkbookGrid } from './xlsx';
 import { reconcile, resolveDirections, type Reconciliation } from './reconcile';
 import type { StatementDoc } from './types';
@@ -58,6 +59,19 @@ const MIN_PDF_TEXT_CHARS = 200;
  * document, while a photo of a cat still lands well under it.
  */
 const MIN_OCR_TEXT_CHARS = 40;
+
+/**
+ * Text recognised from an image. A statement is tried first; when that finds no
+ * dated rows the text is read as a payments-app list instead (see looseList.ts),
+ * which accepts a description and an amount with the date left for the person
+ * to fill in.
+ */
+export function readRecognisedText(text: string, now: Date): StatementDoc {
+  const statement = parseTextStatement(text, now, 'ocr');
+  if (statement.rows.length > 0) return statement;
+  const list = parseLooseList(text, now);
+  return list.rows.length > 0 ? list : statement;
+}
 
 export const ACCEPTED_EXTENSIONS = [
   'csv', 'tsv', 'txt', 'pdf', 'xlsx', 'xls',
@@ -185,7 +199,7 @@ export async function extractStatement(
   let pages: number | null = null;
 
   if (IMAGE_EXTENSIONS.has(extension) && !isPdf) {
-    doc = parseTextStatement(sanitizeText(await recogniseImages([file])), now, 'ocr');
+    doc = readRecognisedText(sanitizeText(await recogniseImages([file])), now);
   } else if (extension === 'xlsx' || extension === 'xls') {
     doc = await readWorkbook(file, now);
   } else if (isPdf) {
@@ -235,7 +249,7 @@ export async function extractStatement(
           'This PDF has no selectable text and could not be scanned on this device. Please download the statement as a PDF or CSV from your bank instead.',
         );
       }
-      doc = parseTextStatement(sanitizeText(await recogniseImages(images)), now, 'ocr');
+      doc = readRecognisedText(sanitizeText(await recogniseImages(images)), now);
     } else {
       doc = parseTextStatement(sanitizeText(text), now);
     }
