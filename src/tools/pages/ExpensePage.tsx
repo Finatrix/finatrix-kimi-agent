@@ -1070,6 +1070,48 @@ function OverviewTab({
 
   return (
     <>
+      {/* Recording a payment is why most visits happen, so it leads the page.
+          It used to sit below the score, pacing, bank balance, envelope and
+          trend cards — in an empty month, ten cards of zeros away. */}
+      {/* Add expense — one line for the common case, one button for everything
+          else.
+
+          This card used to carry the one-line field AND a full structured form
+          (amount, date, a 23-tile category grid, note, submit) — while the
+          transaction list below it opened `TransactionModal`, a *richer* form
+          with merchant, payment method, tags, notes and recurring. Two forms
+          for one job: the shorter one was the one that could not express a
+          whole transaction, and it cost roughly 700px of scroll to reach the
+          list it duplicated. So the structured form is now the sheet, reached
+          from here and from the list's own Add button, and there is exactly one
+          place to answer each question. */}
+      <div className="card">
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>Add an expense</div>
+
+        {flatCats.length > 0 ? (
+          <>
+            <QuickAddBar
+              cats={flatCats}
+              learned={learnedWords}
+              cfmt={cfmt}
+              now={now}
+              onAdd={addFromQuickAdd}
+              fallbackCategory={defaultCatKey}
+              seed={quickSeed ?? undefined}
+            />
+            <button type="button" className="btn" onClick={openAdd}>
+              Add an expense
+            </button>
+            <p className="note" style={{ marginTop: 8, marginBottom: 0 }}>
+              Opens the full form — merchant, payment method, tags and notes.
+              A future date schedules the spend instead of counting it today.
+            </p>
+          </>
+        ) : (
+          <div className="note">Add categories in Budget Builder to start tracking.</div>
+        )}
+      </div>
+
       {/* KPI strip.
           A month in the future holds only scheduled entries, so "Monthly spent"
           and "Budget used" would both be lies there — nothing has been spent and
@@ -1242,7 +1284,7 @@ function OverviewTab({
       {/* Needs / Wants / Savings */}
       <div className="card">
         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>Needs · Wants · Savings</div>
-        <div className="grid3">
+        <div className="grid3 fx-tiles">
           {r.sections.map((s) => {
             const tone = budgetTone(s.budget, s.spent);
             const fill = budgetFillPct(s.budget, s.spent);
@@ -1283,45 +1325,6 @@ function OverviewTab({
       >
         <TrendChart trend={r.trend} cfmt={cfmt} code={code} />
       </PanelCard>
-
-      {/* Add expense — one line for the common case, one button for everything
-          else.
-
-          This card used to carry the one-line field AND a full structured form
-          (amount, date, a 23-tile category grid, note, submit) — while the
-          transaction list below it opened `TransactionModal`, a *richer* form
-          with merchant, payment method, tags, notes and recurring. Two forms
-          for one job: the shorter one was the one that could not express a
-          whole transaction, and it cost roughly 700px of scroll to reach the
-          list it duplicated. So the structured form is now the sheet, reached
-          from here and from the list's own Add button, and there is exactly one
-          place to answer each question. */}
-      <div className="card">
-        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>Add an expense</div>
-
-        {flatCats.length > 0 ? (
-          <>
-            <QuickAddBar
-              cats={flatCats}
-              learned={learnedWords}
-              cfmt={cfmt}
-              now={now}
-              onAdd={addFromQuickAdd}
-              fallbackCategory={defaultCatKey}
-              seed={quickSeed ?? undefined}
-            />
-            <button type="button" className="btn" onClick={openAdd}>
-              Add an expense
-            </button>
-            <p className="note" style={{ marginTop: 8, marginBottom: 0 }}>
-              Opens the full form — merchant, payment method, tags and notes.
-              A future date schedules the spend instead of counting it today.
-            </p>
-          </>
-        ) : (
-          <div className="note">Add categories in Budget Builder to start tracking.</div>
-        )}
-      </div>
 
       {/* Per-category budget health */}
       <CategoryBudgetsCard

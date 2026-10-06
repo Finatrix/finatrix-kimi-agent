@@ -8,6 +8,7 @@ import { trackPageView } from './lib/analytics'
 import { applySeo } from './lib/seo'
 import { RESET_PASSWORD_PATH } from './shared/routes'
 import NativeShell from './native/NativeShell'
+import KeyboardBar from './components/KeyboardBar'
 import { canPurchaseInApp, isNativeApp } from './native/platform'
 
 // Route-level code-splitting: each page (and its heavy deps like the
@@ -144,6 +145,7 @@ export default function App() {
       <RouteMetadata />
       <ScrollManager />
       <NativeShell />
+      <KeyboardBar />
       <Suspense fallback={<RouteFallback />}>
         {/* The single `main` landmark for the whole app (WCAG 1.3.1). This was
             a plain <div>, which gave screen-reader users no way to jump to the

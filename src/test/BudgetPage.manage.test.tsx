@@ -30,6 +30,9 @@ describe('income sources', () => {
     const card = incomeCard();
     // Legacy single-figure income seeds Salary.
     expect(within(card).getByLabelText(/^Salary amount/)).toHaveValue('50000');
+    // Sources with no amount fold away once any source has one.
+    expect(within(card).queryByLabelText(/^Rental Income amount/)).toBeNull();
+    fireEvent.click(within(card).getByRole('button', { name: /^Show \d+ more sources?$/ }));
 
     fireEvent.change(within(card).getByLabelText(/^Rental Income amount/), { target: { value: '18000' } });
     fireEvent.change(within(card).getByLabelText(/^Dividend amount/), { target: { value: '2000' } });
@@ -59,6 +62,7 @@ describe('income sources', () => {
   it('archives a source out of the total and restores it unchanged', () => {
     renderPage();
     const card = incomeCard();
+    fireEvent.click(within(card).getByRole('button', { name: /^Show \d+ more sources?$/ }));
     fireEvent.change(within(card).getByLabelText(/^Interest amount/), { target: { value: '5000' } });
     expect(screen.getByLabelText('Total monthly take-home income')).toHaveTextContent('₹55,000');
 

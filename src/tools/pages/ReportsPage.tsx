@@ -74,16 +74,27 @@ export default function ReportsPage() {
         )}
       </div>
 
-      <section className="card" aria-label="Smart report preparation">
-        <h2 style={{ fontSize: 17, margin: '0 0 6px' }}>Smart report preparation</h2>
-        <p className="note">{availableCount} of 2 reports ready for {monthLabel(selMonth)}. Readiness updates as your saved data changes. Every export is checked again before it is generated.</p>
+      {/* The same facts as before, as a checklist rather than a paragraph:
+          status first, one line per finding, then what each format is for. */}
+      <section className="card fx-report-prep" aria-label="Smart report preparation">
+        <div className="fx-report-prep-head">
+          <h2>Smart report preparation</h2>
+          <span className={`pill ${availableCount === 2 ? 'pill-ok' : 'pill-mute'}`}>{availableCount} of 2 reports ready for {monthLabel(selMonth)}</span>
+        </div>
         {latestComplete && latestComplete !== selMonth && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSelMonth(latestComplete)}>Use latest month with both sources: {monthLabel(latestComplete)}</button>}
-        {review.transactionCount > 0 && <p style={{ fontSize: 13 }}>{review.transactionCount} transactions dated {review.firstDate} to {review.lastDate}. This is recorded activity; missing days do not prove there was no spending.</p>}
-        {review.budget && <p style={{ fontSize: 13 }}>Budget preview: {review.budget.currency} {review.budget.spent.toLocaleString()} allocated; {review.budget.free.toLocaleString()} left from recorded income.</p>}
-        {review.checks.length > 0 ? <ul style={{ fontSize: 13, paddingLeft: 20 }}>
-          {review.checks.map((check) => <li key={check.message} style={{ marginBottom: 8 }}>{check.message}{' '}<Link to={check.href}>Review source</Link></li>)}
-        </ul> : <p className="note">{anyAvailable ? 'No issues found in the available saved amounts, dates and budget split. Completeness still depends on what you entered.' : 'Save a budget or transactions for this month to prepare a report.'}</p>}
-        <p className="note">Choose PDF for a readable summary, Excel for analysis, or CSV for moving data into another tool.</p>
+        <ul className="fx-checklist">
+          {review.transactionCount > 0 && <li className="is-ok">{review.transactionCount} transactions dated {review.firstDate} to {review.lastDate}. This is recorded activity; missing days do not prove there was no spending.</li>}
+          {review.budget && <li className="is-ok">Budget preview: {review.budget.currency} {review.budget.spent.toLocaleString()} allocated; {review.budget.free.toLocaleString()} left from recorded income.</li>}
+          {review.checks.length > 0
+            ? review.checks.map((check) => <li key={check.message} className="is-warn">{check.message}{' '}<Link to={check.href}>Review source</Link></li>)
+            : <li className={anyAvailable ? 'is-ok' : 'is-none'}>{anyAvailable ? 'No issues found in the available saved amounts, dates and budget split. Completeness still depends on what you entered.' : 'Save a budget or transactions for this month to prepare a report.'}</li>}
+        </ul>
+        <div className="fx-format-grid" aria-label="What each format is for">
+          <div><b>PDF</b><span>A readable summary</span></div>
+          <div><b>Excel</b><span>For analysis</span></div>
+          <div><b>CSV</b><span>For another tool</span></div>
+        </div>
+        <p className="note">Readiness updates as your saved data changes. Every export is checked again before it is generated.</p>
       </section>
 
       {!anyAvailable ? (

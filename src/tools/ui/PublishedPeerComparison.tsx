@@ -105,6 +105,6 @@ export function PublishedPeerComparison({ market }: { market: MarketPack }) {
     <aside className="card" aria-label="A useful next step"><h2 style={{ fontSize: 17 }}>Make it useful for your own plan</h2><p className="note">{row.unit.includes('week') || row.unit.includes('month') || row.unit.includes('year') ? 'A historical household income reference cannot determine your monthly budget. Use your current income, expenses and commitments to plan what is affordable today.' : 'A national wealth median cannot tell you what you need. Track your own assets and debts over time, keeping household and personal totals distinct.'}</p><Link className="btn btn-ghost btn-sm" to={row.unit.includes('week') || row.unit.includes('month') || row.unit.includes('year') ? '/tools/budget' : '/tools/networth'}>{row.unit.includes('week') || row.unit.includes('month') || row.unit.includes('year') ? 'Plan with my current budget' : 'Track my own net worth'}</Link></aside>
     <Methodology toolId="peercompare" market={market} />
     <MarketNote market={market} />
-    <ToolFoot>Built with care by <b>FinatriX</b> · Published references, not targets</ToolFoot>
+    <ToolFoot>Published references, not targets</ToolFoot>
   </div>;
 }

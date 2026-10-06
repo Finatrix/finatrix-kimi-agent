@@ -400,6 +400,16 @@ function EmptyState({ onStart }: { onStart: () => void }) {
         <Icon name="plus" size={15} style={{ marginRight: 6 }} aria-hidden="true" />
         Add your first account
       </button>
+      {/* A picture of the result, so the first entry has a visible point. It is
+          a drawing, not data, and says so. */}
+      <figure className="nw-empty-example">
+        <figcaption>Example only · the line you get after a few months of entries</figcaption>
+        <svg viewBox="0 0 300 64" width="100%" aria-hidden="true" focusable="false">
+          <line x1="4" y1="60" x2="296" y2="60" stroke="var(--hair)" strokeWidth="1" />
+          <polyline points="4,52 62,47 120,43 178,33 236,27 296,15" fill="none" stroke="var(--gold)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="296" cy="15" r="4" fill="var(--gold)" />
+        </svg>
+      </figure>
     </div>
   );
 }

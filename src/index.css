@@ -559,6 +559,62 @@ html.fx-native.fx-kb-open .fx-add-dock {
   display: none !important;
 }
 
+/* Keys docked on the on-screen keyboard — formula operators for amount fields,
+   and "Done" to put the keyboard away (components/KeyboardBar.tsx). `bottom` is
+   set inline from the visual viewport. */
+/* Carries .fx-tools.fx-scope like every portal root (portalTokenScope test);
+   the doubled class keeps these rules ahead of the lazily-loaded tools.css. */
+.fx-kbbar.fx-scope {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px max(10px, var(--fx-safe-right)) 6px max(10px, var(--fx-safe-left));
+  background: var(--surface-2);
+  border-top: 1px solid var(--hairline);
+}
+.fx-kbbar-keys {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 6px;
+  min-width: 0;
+}
+.fx-kbbar-key {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--hairline);
+  background: transparent;
+  color: var(--ink);
+  font: 600 18px/1 inherit;
+  font-variant-numeric: tabular-nums;
+}
+.fx-kbbar-key:active { background: var(--hairline); }
+.fx-kbbar-done {
+  flex: 0 0 auto;
+  margin-left: auto;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: 0;
+  background: transparent;
+  color: var(--accent-text);
+  font: 600 15px/1 inherit;
+}
+/* While the bar is up it replaces the floating buttons and the tab bar, and the
+   focused field must be able to scroll clear of it. */
+html.fx-kbbar-open { scroll-padding-bottom: 72px; }
+html.fx-kbbar-open .fx-mobnav,
+html.fx-kbbar-open .fx-ai-dock,
+html.fx-kbbar-open .fx-wallet-dock,
+html.fx-kbbar-open .fx-add-dock {
+  display: none !important;
+}
+
 /* Large system font (html.fx-text-lg — src/native/bridge.ts syncTextZoom).
    WebView text zoom grows the text but not the viewport, so the app bar's one
    row stops fitting: at 200% the wordmark ran under the search button and

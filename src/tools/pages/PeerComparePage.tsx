@@ -98,6 +98,11 @@ function LegacyPeerComparePage() {
         <p>The {market.name} model references are in {market.currency}. Your current display currency is {code}; comparing these amounts would mix different units.</p>
         <p className="note">Switch to {market.currency}, then enter or review every monetary figure in that currency. Switching does not convert your amounts. Restate any figures held in another currency before comparing.</p>
         <button type="button" className="btn" onClick={() => { setResult(null); setF(defaultsFor(market)); setError(''); setCode(market.currency); }}>Switch to {market.currency}</button>
+        {/* Shows what the tool asks for, so the switch is not a leap in the dark. */}
+        <p className="note" style={{ marginTop: 16, marginBottom: 0 }}>After switching you enter:</p>
+        <div className="fx-pc-preview">
+          {['Your age', 'Location', 'Monthly income', 'Total savings', 'Total investments', 'Total debt', 'Savings rate', 'Monthly expenses'].map((label) => <span key={label}>{label}</span>)}
+        </div>
       </aside> : !result ? (
         <div className="card">
           {saved.market === market.id && saved.currency === code && <div className="well" style={{ marginBottom: 18 }}>
@@ -142,7 +147,7 @@ function LegacyPeerComparePage() {
       )}
 
       <MarketNote market={market} />
-      <ToolFoot>Built with care by <b>FinatriX</b> · Benchmarks are reference points, not targets</ToolFoot>
+      <ToolFoot>Benchmarks are reference points, not targets</ToolFoot>
     </div>
   );
 }

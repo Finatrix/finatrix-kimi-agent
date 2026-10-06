@@ -114,7 +114,7 @@ export default function LifeMapPage() {
   if (!profile) {
     return (
       <div className="fx-page" style={{ paddingBottom: 64 }}>
-        <PageHead chip="LifeMap" chipColor="var(--purple)" chipBg="rgba(110,59,212,.1)" icon="lifemap" title="Simulate your entire financial life." chipPadTop={48}>
+        <PageHead marketNotice chip="LifeMap" chipColor="var(--purple)" chipBg="rgba(110,59,212,.1)" icon="lifemap" title="Simulate your entire financial life." chipPadTop={48}>
           Enter your numbers once. Travel through time. See how every decision — good or bad —
           reshapes your wealth trajectory from today to retirement. Everything past today is a
           projection from stated assumptions, not a forecast of what will happen.
@@ -167,7 +167,7 @@ export default function LifeMapPage() {
           }}
         />
       )}
-      <ToolFoot>Projections are illustrative — actual returns vary · Built with care by <b>FinatriX</b> · Not financial advice</ToolFoot>
+      <ToolFoot>Projections are illustrative — actual returns vary</ToolFoot>
     </div>
   );
 }
@@ -186,8 +186,13 @@ export default function LifeMapPage() {
 function LifeMapIntro({ seed }: { seed: LifeMapSeed }) {
   return (
     <div className="card" style={{ maxWidth: 720, margin: '0 auto 16px' }}>
-      <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 10 }}>Before you start</div>
-      <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {/* Four facts in one line, with the full explanation one tap away — the
+          paragraphs used to stand between the reader and the form. */}
+      <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Before you start</div>
+      <p className="note" style={{ margin: 0 }}>Projects today&rsquo;s position to age 60 · estimates are fine · stays on your device or in your account · change anything later.</p>
+      <details style={{ marginTop: 8 }}>
+      <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: 13, color: 'var(--accent-text)' }}>What it does and where your data stays</summary>
+      <ul style={{ margin: '10px 0 0', paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 8 }}>
         <li style={{ fontSize: 13.5, lineHeight: 1.65, color: 'var(--ink2)' }}>
           <b style={{ color: 'var(--ink)' }}>What it does.</b> Takes today&rsquo;s position and carries
           it to age 60 under two sets of habits, so you can see what a decision costs or earns over
@@ -208,6 +213,7 @@ function LifeMapIntro({ seed }: { seed: LifeMapSeed }) {
           account when you are signed in. Nothing is sent anywhere to produce the projection.
         </li>
       </ul>
+      </details>
       {seed.from.length > 0 && (
         <p className="tip tip-info" style={{ marginTop: 14, marginBottom: 0 }}>
           <b>Some of this is already filled in</b> from your {listSources(seed.from)}. Change anything
@@ -259,17 +265,23 @@ function SetupForm({ form, goals, seed, setField, setGoals, onLaunch, sym, month
     <div className="card" style={{ maxWidth: 720, margin: '0 auto 16px' }}>
       <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Your financial profile</div>
       <div className="note" style={{ marginBottom: 22 }}>Your inputs are private — kept on your device as a guest, or saved to your account when signed in.</div>
-      <details style={{ marginBottom: 20 }}>
-        <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Refresh from your other tools</summary>
-        <p className="note">Replace available income, spending, savings, investment and debt fields with your latest saved Budget, Expenses, Net Worth and InvestMatch figures. Fields without a source stay as entered. Review partial-month spending before continuing.</p>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={onRefresh}>Use latest saved figures</button>
-      </details>
+      {/* The fastest way through the form, so it is the first thing in it
+          rather than a collapsed line. */}
+      <div className="well fx-lm-prefill">
+        <div>
+          <b>Use what you already entered</b>
+          <p className="note">Replace available income, spending, savings, investment and debt fields with your latest saved Budget, Expenses, Net Worth and InvestMatch figures. Fields without a source stay as entered. Review partial-month spending before continuing.</p>
+        </div>
+        <button type="button" className="btn btn-sm" onClick={onRefresh}>Use latest saved figures</button>
+      </div>
+      <h3 className="fx-lm-step">1 · You</h3>
       <div className="grid2">
         {N('lm-name', 'Your name', { type: 'text', placeholder: 'e.g. Nitya Prakash' })}
         {N('lm-age', 'Current age', { type: 'number', min: 16, max: 45, inputMode: 'numeric' })}
         {M('lm-income', `Monthly income (${sym})`)}
         {M('lm-expenses', `Monthly expenses (${sym})`)}
       </div>
+      <h3 className="fx-lm-step">2 · Money</h3>
       <div className="well" style={{ fontSize: 13, color: 'var(--ink2)', lineHeight: 1.6, marginBottom: 18 }}>
         <Icon name="zap" size={14} style={{ display: 'inline', verticalAlign: 'text-bottom', color: 'var(--gold)' }} /> Include all loan EMIs in{' '}
         <b style={{ color: 'var(--ink)' }}>monthly expenses</b>. Savings and investments are entered separately below — don't double-count.
@@ -300,6 +312,7 @@ function SetupForm({ form, goals, seed, setField, setGoals, onLaunch, sym, month
           </select>
         </div>
       </div>
+      <h3 className="fx-lm-step">3 · Goals</h3>
       <div className="fg" style={{ marginBottom: 6 }}>
         <label className="fl">Your top financial goals (pick any)</label>
         <div className="lm-goals-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginTop: 4 }}>

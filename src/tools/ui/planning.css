@@ -47,3 +47,7 @@
   .fx-planning-head { gap: 12px; }
   .fx-plan-guide { padding: 18px; }
 }
+
+/* Getting-started checklist: which of the three steps already have data. */
+.fx-plan-progress { color: var(--accent-text); font-weight: 600; }
+.fx-plan-done { color: var(--green); font-weight: 600; font-size: 12px; }

@@ -37,6 +37,7 @@ import { AiProvider, AiLauncher } from './ui/AiAssistant';
 import { warnIfOverdue } from '../reference/review';
 import { isNativeApp } from '../native/platform';
 import { showCareersEntry } from '../lib/careersEntry';
+import { useReminderSync } from './lib/useReminderSync';
 import './tools.css';
 
 // Lazy on purpose: the palette carries the whole command registry (including
@@ -100,6 +101,38 @@ function CurrencySelect({ className }: { className?: string } = {}) {
         </option>
       ))}
     </select>
+  );
+}
+
+/**
+ * Which market's rules the tools are reading, beside the currency they display
+ * in. The two are separate settings (lib/markets) and the header used to show
+ * only the currency, so "UK rules, rupee amounts" was invisible until a tool's
+ * figures stopped making sense.
+ */
+function MarketChip({ className, onNavigate }: { className?: string; onNavigate?: () => void }) {
+  const { market } = useMarket();
+  return (
+    <Link
+      to="/tools/settings"
+      onClick={onNavigate}
+      className={className}
+      aria-label={`Rules: ${market.name}. Change market`}
+      title={`Rules: ${market.name}`}
+      style={{
+        flex: '0 0 auto',
+        fontSize: 12,
+        fontWeight: 600,
+        color: 'var(--ink)',
+        background: 'var(--card)',
+        border: '1px solid var(--hair)',
+        borderRadius: 980,
+        padding: '7px 10px',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      <span aria-hidden="true">{market.flag}</span> {market.id}
+    </Link>
   );
 }
 
@@ -205,7 +238,7 @@ function MobileTabBar({ activeTool, onMore, moreActive, drawerOpen }: { activeTo
  */
 function MarketReviewNote() {
   const { market } = useMarket();
-  return <AssumptionsReviewed asOf={market.asOf} scope={market.name} />;
+  return <div className="fx-assumptions-row"><AssumptionsReviewed asOf={market.asOf} scope={market.name} /></div>;
 }
 
 function ToolSkeleton() {
@@ -250,6 +283,7 @@ export default function ToolsLayout() {
   const { open: paletteOpen, openPalette, closePalette } = useCommandPalette();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeTool = useActiveTool();
+  useReminderSync();
 
   /**
    * One line in the development console when a published reference has gone
@@ -469,6 +503,7 @@ export default function ToolsLayout() {
                   controls and a sign-in button: measured, it pushed the
                   document 97px wider than the viewport. The drawer below has
                   the same control, so nothing is lost. */}
+              <MarketChip className="fx-cur-desktop" />
               <CurrencySelect className="fx-cur-desktop" />
               <ThemeToggle />
               {user ? (
@@ -577,6 +612,10 @@ export default function ToolsLayout() {
             <div className="flex items-center justify-between gap-3 px-5 py-3 fx-cur-drawer">
               <span className="text-[15px] text-ink">Currency</span>
               <CurrencySelect />
+            </div>
+            <div className="flex items-center justify-between gap-3 px-5 py-3 fx-cur-drawer">
+              <span className="text-[15px] text-ink">Market rules</span>
+              <MarketChip onNavigate={() => setDrawerOpen(false)} />
             </div>
             <div className="mt-1 mb-1 px-5 text-[10px] uppercase tracking-[0.12em] text-ink-3 font-mono">Tools</div>
             {TOOLS.map((t) => (

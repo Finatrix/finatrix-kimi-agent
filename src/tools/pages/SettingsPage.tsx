@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { RemindersCard } from '../ui/Reminders';
 import { Link } from 'react-router';
 import { PageHead, ToolFoot } from '../ui/common';
 import { Icon } from '../ui/Icon';
@@ -63,6 +64,10 @@ export default function SettingsPage() {
       </PageHead>
 
       <DataReadiness />
+
+      <Section title="Reminders" desc="A daily nudge to add your spending, a weekly look at the month, and bills the day before they fall due.">
+        <RemindersCard />
+      </Section>
 
       {/* Appearance */}
       <Section title="Appearance" desc="Choose a theme. FinatriX follows your system by default until you pick one.">

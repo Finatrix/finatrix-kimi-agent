@@ -82,7 +82,7 @@ export default function GoalPlannerPage() {
 
   return (
     <div className="fx-page">
-      <PageHead chip="Goal planner" chipColor="var(--gold)" chipBg="rgba(176,138,54,.12)" icon="goal" title="What would it take to reach your goal?">
+      <PageHead marketNotice chip="Goal planner" chipColor="var(--gold)" chipBg="rgba(176,138,54,.12)" icon="goal" title="What would it take to reach your goal?">
         Estimate a monthly contribution, then compare what changes with a different target or deadline.
       </PageHead>
 
@@ -138,7 +138,7 @@ export default function GoalPlannerPage() {
       )}
 
       <MarketNote market={market} />
-      <ToolFoot>Return rates are illustrative assumptions from historical averages, not guarantees · Built with care by <b>FinatriX</b> · Not financial advice</ToolFoot>
+      <ToolFoot>Return rates are illustrative assumptions from historical averages, not guarantees</ToolFoot>
     </div>
   );
 }
@@ -179,6 +179,27 @@ function GoalResultView({ result, market, money, onReset, onUseYears }: {
         </div>
         {existing > 0 && <div className="note" style={{ marginTop: 6, color: 'var(--green)' }}>Head start: {money(existing)} already saved</div>}
       </div>
+
+      {/* The point of the tool is the difference between the paths, so that
+          difference is shown on one line before the detail of each. Display
+          only: every figure is the one its card below already shows. */}
+      {results.length > 1 && (
+        <section className="card fx-path-compare" aria-label="Return paths compared">
+          <div className="fx-path-compare-title">{market.invest.monthlyTerm} needed, by return path</div>
+          <div className="fx-path-compare-grid" style={{ gridTemplateColumns: `repeat(${results.length}, minmax(0, 1fr))` }}>
+            {results.map((p) => (
+              <div key={p.n} className="fx-path-compare-cell">
+                <div className="fx-path-compare-name" style={{ color: p.c }}>{p.n.replace(/ path$/i, '')}</div>
+                <div className="note">~{Math.round(p.rate * 100)}% a year</div>
+                <div className="fx-path-compare-amount">{money(p.monthly)}</div>
+                <div className="bar" aria-hidden="true"><div className="bar-fill" style={{ width: `${p.investPct}%`, background: p.c }} /></div>
+                <div className="note">Your money {p.investPct}%</div>
+              </div>
+            ))}
+          </div>
+          <div className="note">Lower monthly amounts assume higher returns, which carry more risk. Returns are assumptions, not guarantees.</div>
+        </section>
+      )}
 
       {results.map((p) => <PathCard key={p.n} p={p} money={money} monthlyTerm={market.invest.monthlyTerm} />)}
 

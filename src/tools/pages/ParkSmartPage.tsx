@@ -3,7 +3,7 @@ import { useToast } from '../ui/Toast';
 import { AmountInput } from '../ui/AmountInput';
 import { PercentField } from '../ui/MoneyField';
 import { plainAmount } from '../lib/formula';
-import { PageHead, ToolFoot } from '../ui/common';
+import { PageHead } from '../ui/common';
 import { Icon } from '../ui/Icon';
 import { cfmtSh } from '../lib/format';
 import { getJSON, setJSON } from '../lib/storage';
@@ -87,7 +87,7 @@ export default function ParkSmartPage() {
 
   return (
     <div className="fx-page">
-      <PageHead chip="ParkSmart" chipColor="var(--teal)" chipBg="rgba(12,128,121,.09)" icon="bank" title="Idle money shouldn't idle.">
+      <PageHead marketNotice chip="ParkSmart" chipColor="var(--teal)" chipBg="rgba(12,128,121,.09)" icon="bank" title="Idle money shouldn't idle.">
         {enteredRates ? `Compare two cash options in ${market.name} using rates you enter after taxes and fees. No bank rate or tax exemption is assumed.` : <>Compare what idle cash actually earns after tax across {park.options.length} parking options in {market.name} — tuned to your duration, your tax rate and current rules.</>}
       </PageHead>
 
@@ -172,7 +172,6 @@ export default function ParkSmartPage() {
       )}
 
       <MarketNote market={market} />
-      <ToolFoot>Built with care by <b>FinatriX</b> · Not financial advice</ToolFoot>
     </div>
   );
 }
@@ -248,7 +247,7 @@ function ParkResultView({ result, pack, liquidOnly, amount, dur, rate, market, m
 
   return (
     <div>
-      <div className="card result-hero-anim" style={{ background: 'linear-gradient(135deg,rgba(20,184,166,.16),rgba(13,13,15,.86) 62%)' }}>
+      <div className="card result-hero-anim" style={{ background: 'linear-gradient(135deg,rgba(20,184,166,.16),var(--card-solid) 62%)' }}>
         <span className="pill" style={{ background: 'rgba(12,128,121,.12)', color: 'var(--teal)' }}>{enteredRates ? 'Highest modeled earnings from your inputs' : 'Highest post-tax return'}</span>
         <div style={{ fontSize: 23, fontWeight: 700, letterSpacing: '-.015em', marginTop: 10 }}>
           <Icon name={best.ic} size={18} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> {best.n}
@@ -279,25 +278,34 @@ function ParkResultView({ result, pack, liquidOnly, amount, dur, rate, market, m
         <div className="note">{money(amount)} for {PS_DL[dur]}</div>
       </div>
 
-      {ranked.map((o, i) => (
-        <div key={o.n} className="card result-card-anim" style={{ padding: '18px 20px', ...(i === 0 ? { border: '1.5px solid rgba(12,128,121,.35)', boxShadow: 'var(--shadow)' } : {}) }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span className={`fx-rank${i === 0 ? ' is-top' : ''}`}>{i + 1}</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24 }}><Icon name={o.ic} size={18} style={{ color: 'var(--teal)' }} /></span>
-            <span style={{ flex: 1, fontSize: 14, fontWeight: 600 }}>{o.n}</span>
-            <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--green)' }}>{money(o.net)}</span>
-          </div>
-          <div className="note" style={{ margin: '7px 0 7px 36px' }}>{o.d}</div>
-          <div style={{ display: 'flex', gap: 14, fontSize: 11, color: 'var(--ink3)', marginLeft: 36, flexWrap: 'wrap' }}>
-            <span>{enteredRates ? 'Entered net' : 'Gross'} {o.rate}%</span><span>Post-tax {o.effRate.toFixed(2)}%</span>
-            <span className={`pill ${o.liquid ? 'pill-ok' : 'pill-bad'}`} style={{ fontSize: 10 }}>{o.liquid ? 'Liquid' : 'Locked'}</span>
-            <span>Risk: {o.risk}</span>
-          </div>
-          <div className="bar bar-sm" style={{ margin: '9px 0 0 36px' }}>
-            <div className="bar-fill" style={{ width: `${((o.net / maxNet) * 100).toFixed(0)}%`, background: i === 0 ? 'var(--teal)' : 'var(--hair)' }} />
-          </div>
-        </div>
-      ))}
+      {/* One scannable list instead of a tall card per option: the earnings
+          differ by small amounts, so they have to be readable against each
+          other. The description opens on demand. Same figures as before. */}
+      <div className="card result-card-anim fx-park-list">
+        {ranked.map((o, i) => (
+          <details key={o.n} className={`fx-park-row${i === 0 ? ' is-top' : ''}`}>
+            <summary>
+              <span className={`fx-rank${i === 0 ? ' is-top' : ''}`}>{i + 1}</span>
+              <span className="fx-park-name">
+                <Icon name={o.ic} size={16} style={{ color: 'var(--teal)', display: 'inline', verticalAlign: '-3px', marginRight: 6 }} />
+                {o.n}
+              </span>
+              <span className="fx-park-net">{money(o.net)}</span>
+              <span className="fx-park-meta">
+                <span>{enteredRates ? 'Entered net' : 'Gross'} {o.rate}%</span>
+                <span>Post-tax {o.effRate.toFixed(2)}%</span>
+                <span className={`pill ${o.liquid ? 'pill-ok' : 'pill-bad'}`} style={{ fontSize: 10 }}>{o.liquid ? 'Liquid' : 'Locked'}</span>
+                <span>Risk: {o.risk}</span>
+              </span>
+              <span className="bar bar-sm fx-park-bar" aria-hidden="true">
+                <span className="bar-fill" style={{ display: 'block', width: `${((o.net / maxNet) * 100).toFixed(0)}%`, background: i === 0 ? 'var(--teal)' : 'var(--hair)' }} />
+              </span>
+            </summary>
+            <div className="note fx-park-desc">{o.d}</div>
+          </details>
+        ))}
+        <div className="note" style={{ marginTop: 10 }}>Select an option to read what it is and how it is protected.</div>
+      </div>
 
       <div className="card" style={{ background: 'var(--gold-bg)' }}>
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Keep in mind</div>

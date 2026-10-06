@@ -585,6 +585,23 @@ describe('platform-specific native wiring', () => {
     dispose();
   });
 
+  it('does not replay a warm sign-in return after the page it reloaded starts a new bridge', async () => {
+    // iOS: getLaunchUrl() reports the LAST url the app was opened with. The
+    // first bridge handles the warm link; the bridge of the reloaded page must
+    // not read it back and reload again with the already-spent code.
+    const url = 'https://finatrix.co/tools/goals';
+    const first = start('ios');
+    appListeners.get('appUrlOpen')?.({ url });
+    await settle();
+    first();
+    navigate.mockClear();
+    app.getLaunchUrl.mockImplementationOnce(async () => ({ url }));
+    const second = start('ios');
+    await settle();
+    expect(navigate).not.toHaveBeenCalled();
+    second();
+  });
+
   it('clears keyboard visibility when the bridge is disposed', () => {
     const dispose = start('ios');
     keyboardListeners.get('keyboardWillShow')?.();

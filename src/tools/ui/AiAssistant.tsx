@@ -2,6 +2,7 @@ import {
   Suspense, createContext, lazy, useCallback, useContext, useEffect, useMemo, useRef, useState,
 } from 'react';
 import type { AiFocus } from '../ai/focus';
+import { registerDockSlot } from './dockSlots';
 import { useAiMonth } from './AiMonthScope';
 
 /**
@@ -171,11 +172,17 @@ export function AiLauncher() {
     }
   }, []);
 
+  const walletSlot = useCallback((el: HTMLDivElement | null) => registerDockSlot('wallet', el), []);
+  const addSlot = useCallback((el: HTMLDivElement | null) => registerDockSlot('add', el), []);
+
   if (!ai) return null;
 
   return (
     <>
       <div className="fx-ai-dock">
+        {/* Slots for the Wallet pill and the add button — see ui/dockSlots.ts. */}
+        <div className="fx-dock-slot is-wallet" ref={walletSlot} />
+        <div className="fx-dock-slot" ref={addSlot} />
         {collapsed ? (
           <button
             key="collapsed"
@@ -242,9 +249,16 @@ const FAB_STYLES = `
    pill size itself inside means swapping between the expanded and collapsed
    states changes nothing about the document — no reflow, no layout shift, and
    the pill always grows leftward from the same corner. */
-.fx-tools .fx-ai-dock{position:fixed;right:16px;
+.fx-tools .fx-ai-dock{position:fixed;left:16px;right:16px;
   bottom:calc(18px + var(--fx-bottomnav-h,0px) + var(--fx-safe-bottom));
-  z-index:var(--z-fab);display:flex;justify-content:flex-end;}
+  z-index:var(--z-fab);display:flex;justify-content:flex-end;align-items:center;gap:10px;
+  /* The dock spans the screen so Wallet can sit at its left end; only the
+     controls themselves take taps, never the gap between them. */
+  pointer-events:none;}
+.fx-tools .fx-ai-dock > *{pointer-events:auto;}
+.fx-tools .fx-dock-slot{display:flex;min-width:0;}
+.fx-tools .fx-dock-slot:empty{display:none;}
+.fx-tools .fx-dock-slot.is-wallet{margin-right:auto;flex:0 1 auto;}
 .fx-tools .fx-ai-fab{display:inline-flex;align-items:center;height:var(--ctl-h-lg);
   border-radius:var(--ctl-pill);border:var(--ctl-bw) solid var(--fab-border);background:var(--gold);color:#1a1400;
   font-family:inherit;font-size:13px;font-weight:600;
@@ -292,7 +306,7 @@ const FAB_STYLES = `
    it survives down to the smallest screens — the collapsed state, not a
    breakpoint, is now how the launcher gets out of the way. */
 @media(max-width:380px){
-  .fx-tools .fx-ai-dock{right:12px;}
+  .fx-tools .fx-ai-dock{left:12px;right:12px;}
   .fx-tools .fx-ai-fab-ask{padding-left:13px;}
 }
 @media (prefers-reduced-motion:reduce){

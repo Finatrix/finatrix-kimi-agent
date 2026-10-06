@@ -24,9 +24,17 @@ export default function NativeShell() {
       if (cancelled) return;
       dispose = startNativeBridge({ navigate: (to, opts) => navigateRef.current(to, opts) });
     });
+    // A tapped reminder opens the screen it is about. Its own chunk: the
+    // notifications plugin is not needed to start the app.
+    let stopReminderTaps: (() => void) | undefined;
+    void import('./reminders').then(({ listenForReminderTaps }) => {
+      if (cancelled) return;
+      stopReminderTaps = listenForReminderTaps((to) => navigateRef.current(to));
+    }).catch(() => {});
     return () => {
       cancelled = true;
       dispose?.();
+      stopReminderTaps?.();
     };
   }, []);
 

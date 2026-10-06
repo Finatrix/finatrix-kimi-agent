@@ -4,6 +4,7 @@ import { useToast } from '../ui/Toast';
 import { AmountInput } from '../ui/AmountInput';
 import { plainAmount } from '../lib/formula';
 import { PageHead, ToolFoot } from '../ui/common';
+import { Icon } from '../ui/Icon';
 import { getJSON, setJSON } from '../lib/storage';
 import {
   IM_Q, IM_RL, computeInvestMatch, isAmountQuestion, questionLabel, questionPlaceholder,
@@ -119,7 +120,7 @@ export default function InvestMatchPage() {
         <Head market={market} />
         <InvestResult ans={ans} market={market} money={cfmt} onReset={reset} />
         <MarketNote market={market} />
-        <ToolFoot>Projections assume historical averages repeat, which is not guaranteed · Built with care by <b>FinatriX</b> · Not financial advice</ToolFoot>
+        <ToolFoot>Projections assume historical averages repeat, which is not guaranteed</ToolFoot>
       </div>
     );
   }
@@ -145,6 +146,26 @@ export default function InvestMatchPage() {
             <div key={i} className={`sd ${i <= step ? 'on' : ''}`} />
           ))}
         </div>
+        {/* Earlier answers stay visible and one tap from editable, instead of
+            being reachable only by pressing Back repeatedly. */}
+        {step > 0 && (
+          <div className="fx-im-answers" aria-label="Your answers so far">
+            {IM_Q.slice(0, step).map((prev, i) => {
+              const value = ans[prev.k as keyof ImAnswers];
+              const shown = prev.type === 'opt'
+                ? prev.opts?.find((o) => o.v === value)?.l ?? String(value)
+                : isAmountQuestion(prev) ? cfmt(Number(value)) : String(value);
+              const label = questionLabel(prev, sym).replace(/\s*\(.*\)\s*$/, '').replace(/\?$/, '');
+              return (
+                <button key={prev.k} type="button" className="fx-im-answer" onClick={() => { setError(''); setStep(i); }}
+                  aria-label={`${label}: ${shown}. Change this answer`}>
+                  <span>{shown}</span>
+                  <Icon name="edit" size={12} />
+                </button>
+              );
+            })}
+          </div>
+        )}
         <div className="card">
           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink3)', marginBottom: 8 }}>
             Question {step + 1} of {IM_Q.length}
@@ -226,14 +247,14 @@ export default function InvestMatchPage() {
       </div>
       </>}
       <MarketNote market={market} />
-      <ToolFoot>Projections assume historical averages repeat, which is not guaranteed · Built with care by <b>FinatriX</b> · Not financial advice</ToolFoot>
+      <ToolFoot>Projections assume historical averages repeat, which is not guaranteed</ToolFoot>
     </div>
   );
 }
 
 function Head({ market }: { market: MarketPack }) {
   return (
-    <PageHead chip="InvestMatch" chipColor="var(--green)" chipBg="rgba(29,125,70,.09)" icon="invest" title="An allocation, illustrated.">
+    <PageHead marketNotice chip="InvestMatch" chipColor="var(--green)" chipBg="rgba(29,125,70,.09)" icon="invest" title="An allocation, illustrated.">
       Six quick questions. An illustrative split across the instrument classes available in{' '}
       {market.name}, with the horizon-aware risk control most tools skip. It explains a shape —
       it never names a product or tells you what to buy.

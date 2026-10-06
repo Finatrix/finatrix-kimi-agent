@@ -12,7 +12,8 @@ import { useAskAi } from './AiAssistant';
 import { MoneyField } from './MoneyField';
 import './planning.css';
 
-export function DashboardGuide({ hasData }: { hasData: boolean }) {
+export function DashboardGuide({ hasData, done = [] }: { hasData: boolean; /** Whether each of the three steps already has saved data. */ done?: boolean[] }) {
+  const doneCount = done.filter(Boolean).length;
   const ai = useAskAi();
   const [params, setParams] = useSearchParams();
   useEffect(() => {
@@ -23,11 +24,11 @@ export function DashboardGuide({ hasData }: { hasData: boolean }) {
     setParams(next, { replace: true });
   }, [params, setParams, ai]);
   return <details className="fx-planning fx-plan-guide" open={!hasData || undefined}>
-    <summary>Getting started · three useful first steps</summary>
+    <summary>Getting started · three useful first steps{done.length > 0 && <span className="fx-plan-progress"> · {doneCount} of 3 done</span>}</summary>
     <ol>
-      <li><Link to="/welcome">1. Set up your month</Link><p>Choose your market and add your take-home income. You can skip any step.</p></li>
-      <li><Link to="/tools/expenses">2. Add your spending</Link><p>Enter a few payments or import a statement. Review imported entries before saving.</p></li>
-      <li><Link to="/tools/goals">3. Plan something that matters</Link><p>Compare a target with a longer deadline before committing to a monthly amount.</p></li>
+      <li className={done[0] ? 'is-done' : undefined}><Link to="/welcome">1. Set up your month</Link>{done[0] && <span className="fx-plan-done"> · Done</span>}<p>Choose your market and add your take-home income. You can skip any step.</p></li>
+      <li className={done[1] ? 'is-done' : undefined}><Link to="/tools/expenses">2. Add your spending</Link>{done[1] && <span className="fx-plan-done"> · Done</span>}<p>Enter a few payments or import a statement. Review imported entries before saving.</p></li>
+      <li className={done[2] ? 'is-done' : undefined}><Link to="/tools/goals">3. Plan something that matters</Link>{done[2] && <span className="fx-plan-done"> · Done</span>}<p>Compare a target with a longer deadline before committing to a monthly amount.</p></li>
     </ol>
     <div className="fx-plan-actions" style={{ marginTop: 18 }}>
       <button type="button" className="btn btn-ghost btn-sm" disabled={!ai?.enabled} onClick={() => ai?.open()}>Help me get started in chat</button>

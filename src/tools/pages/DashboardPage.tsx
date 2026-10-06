@@ -6,6 +6,8 @@ import { readDashboard, type DashboardSnapshot, type Pillar } from '../lib/dashb
 import { getUpcomingEvents } from '../lib/calendar';
 import { onLocalWrite } from '../lib/storage';
 import DashboardPlanning, { DashboardGuide } from '../ui/DashboardPlanning';
+import { Disclosure } from '../ui/Disclosure';
+import { ReminderPrompt } from '../ui/Reminders';
 import { monthLabel, currentMonth } from '../lib/month';
 import {
   DASH_SECTIONS, getDashPrefs, toggleSection, moveSection, resetDashPrefs,
@@ -308,22 +310,30 @@ export default function DashboardPage() {
         )}
       </section>
 
+      <ReminderPrompt />
       <WorkspaceNavigator />
-      <DashboardGuide hasData={snap.hasAnyData} />
+      <DashboardGuide
+        hasData={snap.hasAnyData}
+        done={(['budget', 'expenses', 'goals'] as const).map((id) => !!snap.pillars.find((p) => p.id === id)?.done)}
+      />
 
-      <nav className="fx-dash-sections" aria-label="Dashboard sections">
+      {/* With nothing recorded, the sections below this point have nothing to
+          show: six "open this tool" cards that repeat the checklist above and
+          three planning panels that each say so. They wait until there is
+          data, or one tap away, instead of being scrolled past. */}
+      {snap.hasAnyData && <nav className="fx-dash-sections" aria-label="Dashboard sections">
         <a href="#monthly-review">Monthly review</a>
         <a href="#recurring-payments">Recurring payments</a>
         <a href="#emergency-fund">Emergency fund</a>
         <Link to="/tools/goals">Compare goal scenarios</Link>
-      </nav>
+      </nav>}
       <details className="card fx-dash-library">
         <summary>Explore your finance tools · {snap.activeCount} in use</summary>
         <Journey pillars={snap.pillars} nextId={nextId} />
       </details>
 
       {/* ── Connected metric cards ── */}
-      <div className="fx-dash-grid">
+      {snap.hasAnyData && <div className="fx-dash-grid">
         {/* Cashflow */}
         {snap.income != null ? (
           <CardShell eyebrow="Income less spending" href="/tools/budget" cta="Budget">
@@ -449,10 +459,17 @@ export default function DashboardPage() {
         ) : (
           <SetupCard eyebrow="LifeMap" title="Simulate your whole financial life" desc="Carry today's position forward to retirement and see what a habit is worth over decades — the view a monthly budget cannot give you." href="/tools/lifemap" cta="Open LifeMap" />
         )}
-      </div>
+      </div>}
 
       {/* ── Customise dashboard ── */}
-      <DashboardPlanning />
+      {snap.hasAnyData ? <DashboardPlanning /> : (
+        <Disclosure
+          showLabel="Monthly review, recurring payments and emergency fund"
+          hideLabel="Hide monthly review, recurring payments and emergency fund"
+        >
+          <DashboardPlanning />
+        </Disclosure>
+      )}
       {snap.hasAnyData && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', margin: '2px 0 -4px' }}>
           <button

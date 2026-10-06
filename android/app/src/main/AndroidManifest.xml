@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Backup: a phone-to-phone transfer carries everything (Android 12+);
          cloud backup excludes the WebView storage, which holds the session's
@@ -87,4 +88,10 @@
          storage permission is requested, and none is needed — files are chosen
          through the system picker, which grants access per file. -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Reminders (the local-notifications plugin) are scheduled inexactly:
+         a nudge a few minutes late is fine. The plugin's manifest also asks
+         for exact alarms, which this app has no use for, so that request is
+         removed from the merged manifest rather than shipped unused. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" tools:node="remove" />
 </manifest>

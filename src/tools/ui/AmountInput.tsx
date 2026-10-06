@@ -98,6 +98,10 @@ export function AmountInput({
         // See the note above: text + decimal keypad, not a number field.
         type="text"
         inputMode="decimal"
+        // Opts into the on-screen formula keys (components/KeyboardBar.tsx): the
+        // decimal keypad has no operators.
+        data-fx-formula=""
+        enterKeyHint="done"
         autoComplete="off"
         spellCheck={false}
         placeholder={placeholder}

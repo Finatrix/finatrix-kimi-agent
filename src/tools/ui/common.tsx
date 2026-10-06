@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Icon, type IconName } from './Icon';
+import { MarketCurrencyNotice } from './MarketNote';
 
 /** Tool page header: colored chip + headline + subhead (matches .page-head). */
 export function PageHead({
@@ -10,6 +11,7 @@ export function PageHead({
   title,
   children,
   chipPadTop,
+  marketNotice = false,
 }: {
   chip: string;
   chipColor: string;
@@ -18,6 +20,8 @@ export function PageHead({
   title: string;
   children: ReactNode;
   chipPadTop?: number;
+  /** Tools that read the market's rules: flag a market/currency mismatch under the head. */
+  marketNotice?: boolean;
 }) {
   return (
     <div className="page-head" style={chipPadTop ? { paddingTop: chipPadTop } : undefined}>
@@ -27,6 +31,7 @@ export function PageHead({
       </span>
       <h1>{title}</h1>
       <p>{children}</p>
+      {marketNotice && <MarketCurrencyNotice />}
     </div>
   );
 }

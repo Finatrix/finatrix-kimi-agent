@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useDockSlot } from './dockSlots';
 
 /**
  * The Expense Tracker's floating "+": adding a spend is always one tap away.
@@ -38,13 +39,17 @@ import { createPortal } from 'react-dom';
  * `fx-tools fx-scope` for the colour tokens.
  */
 export function AddExpenseFab({ onAdd }: { onAdd: () => void }) {
+  const slot = useDockSlot('add');
+  // The extra foot-of-page padding is only for the un-docked fallback, where
+  // this button stacks above the assistant.
   useEffect(() => {
+    if (slot) return;
     document.body.classList.add('fx-has-add-fab');
     return () => document.body.classList.remove('fx-has-add-fab');
-  }, []);
+  }, [slot]);
 
   return createPortal(
-    <div className="fx-tools fx-scope fx-add-dock">
+    <div className={`fx-tools fx-scope fx-add-dock${slot ? ' is-docked' : ''}`}>
       <button
         type="button"
         className="fx-add-fab"
@@ -72,6 +77,6 @@ export function AddExpenseFab({ onAdd }: { onAdd: () => void }) {
         </svg>
       </button>
     </div>,
-    document.body,
+    slot ?? document.body,
   );
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useDockSlot } from './dockSlots';
 import { Icon } from './Icon';
 import { useCurrency } from '../CurrencyContext';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
@@ -67,6 +68,7 @@ export function WalletDock({ items, cats, budgetStore, month }: WalletDockProps)
    */
   const [fyChoice, setFyChoice] = useState<number | null>(loadFyChoice);
   const fyStart = fyChoice ?? defaultFyStart(code);
+  const slot = useDockSlot('wallet');
   const panelRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLButtonElement>(null);
 
@@ -101,7 +103,7 @@ export function WalletDock({ items, cats, budgetStore, month }: WalletDockProps)
           thousand pixels down the document instead of to the corner of the
           screen. Measured on a phone, where it was completely unreachable. */}
       {createPortal(
-        <div className="fx-tools fx-scope fx-wallet-dock">
+        <div className={`fx-tools fx-scope fx-wallet-dock${slot ? ' is-docked' : ''}`}>
           <style>{WALLET_STYLES}</style>
           <button
             ref={openerRef}
@@ -119,7 +121,7 @@ export function WalletDock({ items, cats, budgetStore, month }: WalletDockProps)
             </span>
           </button>
         </div>,
-        document.body,
+        slot ?? document.body,
       )}
 
       {open && createPortal(
@@ -333,6 +335,9 @@ const WALLET_STYLES = `
    the shell's page background — which drew a square tile behind the round
    pill. The dock itself must be see-through; only the pill is a surface. */
 .fx-tools.fx-wallet-dock{background:transparent;}
+/* Inside the shared dock (ui/dockSlots.ts) the dock positions it. */
+.fx-tools.fx-wallet-dock.is-docked{position:static;min-width:0;}
+.fx-tools.fx-wallet-dock.is-docked .fx-wallet-fab{max-width:100%;}
 .fx-tools .fx-wallet-fab{display:inline-flex;align-items:center;gap:9px;height:var(--ctl-h-lg);padding:0 16px;
   border-radius:var(--ctl-pill);border:var(--ctl-bw) solid var(--hair);background:var(--card-solid,var(--card));
   color:var(--ink);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;

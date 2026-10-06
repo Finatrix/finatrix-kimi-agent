@@ -11,6 +11,7 @@ import { calendarIcs, calendarOutflows } from '../lib/planningAutomation';
 import { getJSON, setJSON } from '../lib/storage';
 import { downloadBlob } from '../lib/exporters';
 import { SmartAssist } from '../ui/SmartAssist';
+import { Disclosure } from '../ui/Disclosure';
 import { useOptionalToast } from '../ui/Toast';
 
 const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
@@ -97,41 +98,16 @@ export default function CalendarPage() {
 
       <div style={{ marginBottom: 14 }}>
         <MonthNav activeMonth={selMonth} months={months} onSwitch={(month) => { setSelMonth(month); setSelectedDay(null); }} pastNote="Viewing another month" pastColor="var(--gold)" allowFuture />
+        {/* The arrows and month pills above cover the usual case; the free
+            month field is the third way to do the same thing, so it waits
+            behind a toggle instead of sitting between the month and its grid. */}
+        <Disclosure variant="inline" showLabel="Jump to another month" hideLabel="Hide the month field">
         <label className="fl" htmlFor="calendar-jump-month">Jump to any planning month</label>
         <input className="fi" id="calendar-jump-month" type="month" value={selMonth} onChange={event => {
           if (/^\d{4}-(0[1-9]|1[0-2])$/.test(event.target.value)) { setSelMonth(event.target.value); setSelectedDay(null); }
         }} />
+        </Disclosure>
       </div>
-
-      <SmartAssist title="Plan around your busiest money days" description="Events are planning estimates from your saved tools. Confirm actual due dates with your provider; no payments or reminders are sent automatically.">
-        <div className="grid2">
-          <div><p className="note">Remaining projected outflows in this month</p><b>{cfmt(calendarOutflows(upcoming))}</b><p className="note">Bills and investment contributions; goal targets are excluded.</p></div>
-          <div><p className="note">Largest projected outflow day</p><b>{busiest ? `${busiest[0]} · ${cfmt(busiest[1])}` : 'No outflows to compare'}</b>{busiest && <div><button className="btn btn-ghost btn-sm" type="button" onClick={() => { setSelectedDay(Number(busiest[0].slice(8))); setType('all'); setQuery(''); setUpcomingOnly(false); }}>Show this day</button></div>}</div>
-        </div>
-        {events.some((event) => event.type === 'invest') && <div style={{ marginTop: 16 }}>
-          <label className="fl" htmlFor="calendar-invest-day">Preferred monthly investing day</label>
-          <select id="calendar-invest-day" className="fs" value={savedDay} onChange={(event) => setJSON('fx_investmatch', { ...getJSON('fx_investmatch', {}), calendarDay: Number(event.target.value) })}>
-            {Array.from({ length: 31 }, (_, i) => <option value={i + 1} key={i + 1}>{i + 1}</option>)}
-          </select>
-          <p className="note">Day 1 is a planning default until you choose a day. Days 29–31 move to the last day of shorter months. This changes the calendar only.</p>
-        </div>}
-        <div className="grid2" style={{ marginTop: 16 }}>
-          <div><label className="fl" htmlFor="calendar-type">Event type</label><select id="calendar-type" className="fs" value={type} onChange={(e) => setType(e.target.value as FinEventType | 'all')}><option value="all">All events</option>{(Object.keys(TYPE_LABEL) as FinEventType[]).map((key) => <option value={key} key={key}>{TYPE_LABEL[key]}</option>)}</select></div>
-          <div><label className="fl" htmlFor="calendar-search">Find an event</label><input id="calendar-search" type="search" className="fi" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search title or source" /></div>
-        </div>
-        <label className="fx-checkrow" style={{ margin: '12px 0' }}><input className="fx-check" type="checkbox" checked={upcomingOnly} onChange={(e) => setUpcomingOnly(e.target.checked)} />Today and later only</label>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {(selectedDay !== null || type !== 'all' || query || upcomingOnly) && <button className="btn btn-ghost btn-sm" type="button" onClick={() => { setSelectedDay(null); setType('all'); setQuery(''); setUpcomingOnly(false); }}>Clear filters{selectedDay !== null ? ` · day ${selectedDay}` : ''}</button>}
-          <button className="btn btn-ghost btn-sm" type="button" disabled={!filteredEvents.length} onClick={async () => {
-            try {
-              await downloadBlob(`finatrix-calendar-${selMonth}.ics`, new Blob([calendarIcs(filteredEvents, new Date(), code)], { type: 'text/calendar;charset=utf-8' }));
-            } catch {
-              notify('The calendar could not be exported. Please try again.', 'error');
-            }
-          }}>Export visible events to calendar</button>
-        </div>
-        <p className="note" role="status">{filteredEvents.length} of {events.length} events shown · {cfmt(calendarOutflows(filteredEvents))} projected outflows in this selection. Export creates all-day entries for you to import into your calendar.</p>
-      </SmartAssist>
 
       {/* Legend + month total */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -177,6 +153,36 @@ export default function CalendarPage() {
           })}
         </div>
       </div>
+
+      <SmartAssist title="Plan around your busiest money days" description="Events are planning estimates from your saved tools. Confirm actual due dates with your provider; no payments or reminders are sent automatically.">
+        <div className="grid2">
+          <div><p className="note">Remaining projected outflows in this month</p><b>{cfmt(calendarOutflows(upcoming))}</b><p className="note">Bills and investment contributions; goal targets are excluded.</p></div>
+          <div><p className="note">Largest projected outflow day</p><b>{busiest ? `${busiest[0]} · ${cfmt(busiest[1])}` : 'No outflows to compare'}</b>{busiest && <div><button className="btn btn-ghost btn-sm" type="button" onClick={() => { setSelectedDay(Number(busiest[0].slice(8))); setType('all'); setQuery(''); setUpcomingOnly(false); }}>Show this day</button></div>}</div>
+        </div>
+        {events.some((event) => event.type === 'invest') && <div style={{ marginTop: 16 }}>
+          <label className="fl" htmlFor="calendar-invest-day">Preferred monthly investing day</label>
+          <select id="calendar-invest-day" className="fs" value={savedDay} onChange={(event) => setJSON('fx_investmatch', { ...getJSON('fx_investmatch', {}), calendarDay: Number(event.target.value) })}>
+            {Array.from({ length: 31 }, (_, i) => <option value={i + 1} key={i + 1}>{i + 1}</option>)}
+          </select>
+          <p className="note">Day 1 is a planning default until you choose a day. Days 29–31 move to the last day of shorter months. This changes the calendar only.</p>
+        </div>}
+        <div className="grid2" style={{ marginTop: 16 }}>
+          <div><label className="fl" htmlFor="calendar-type">Event type</label><select id="calendar-type" className="fs" value={type} onChange={(e) => setType(e.target.value as FinEventType | 'all')}><option value="all">All events</option>{(Object.keys(TYPE_LABEL) as FinEventType[]).map((key) => <option value={key} key={key}>{TYPE_LABEL[key]}</option>)}</select></div>
+          <div><label className="fl" htmlFor="calendar-search">Find an event</label><input id="calendar-search" type="search" className="fi" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search title or source" /></div>
+        </div>
+        <label className="fx-checkrow" style={{ margin: '12px 0' }}><input className="fx-check" type="checkbox" checked={upcomingOnly} onChange={(e) => setUpcomingOnly(e.target.checked)} />Today and later only</label>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {(selectedDay !== null || type !== 'all' || query || upcomingOnly) && <button className="btn btn-ghost btn-sm" type="button" onClick={() => { setSelectedDay(null); setType('all'); setQuery(''); setUpcomingOnly(false); }}>Clear filters{selectedDay !== null ? ` · day ${selectedDay}` : ''}</button>}
+          <button className="btn btn-ghost btn-sm" type="button" disabled={!filteredEvents.length} onClick={async () => {
+            try {
+              await downloadBlob(`finatrix-calendar-${selMonth}.ics`, new Blob([calendarIcs(filteredEvents, new Date(), code)], { type: 'text/calendar;charset=utf-8' }));
+            } catch {
+              notify('The calendar could not be exported. Please try again.', 'error');
+            }
+          }}>Export visible events to calendar</button>
+        </div>
+        <p className="note" role="status">{filteredEvents.length} of {events.length} events shown · {cfmt(calendarOutflows(filteredEvents))} projected outflows in this selection. Export creates all-day entries for you to import into your calendar.</p>
+      </SmartAssist>
 
       {/* Event list (accessible primary representation) */}
       {events.length === 0 ? (

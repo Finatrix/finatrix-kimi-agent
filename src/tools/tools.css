@@ -231,6 +231,9 @@ body.fx-drawer-open .fx-add-dock { display: none; }
 .fx-tools .fx-add-fab:hover { transform: translateY(-1px); box-shadow: 0 16px 34px -12px rgba(0,0,0,.6), 0 3px 8px -3px rgba(0,0,0,.28); }
 .fx-tools .fx-add-fab:active { transform: scale(.94); }
 .fx-tools .fx-add-fab:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+/* Inside the shared dock (ui/dockSlots.ts): same row and height as its neighbours. */
+.fx-tools.fx-add-dock.is-docked { position: static; }
+.fx-tools.fx-add-dock.is-docked .fx-add-fab { width: var(--ctl-h-lg); height: var(--ctl-h-lg); }
 @keyframes fxAddFabIn { from { opacity: 0; transform: scale(.86); } to { opacity: 1; transform: none; } }
 /* Matches the AI dock's own small-screen inset, so the two stay one column. */
 @media (max-width: 380px) { .fx-tools.fx-add-dock { right: 12px; } }
@@ -931,3 +934,103 @@ body.fx-has-add-fab .fx-tools .wrap { padding-bottom: calc(18px + var(--ctl-h-lg
 /* Android app: the breadcrumb row is web-only (the system BACK replaces it),
    so the page keeps the breathing room that row used to give it. */
 html.fx-native .fx-tools .wrap { padding-top: 14px; }
+
+/* ---- Sources strip (ui/MarketNote.tsx) ----
+   One per tool page; the shell's own review-date line stands down when this is
+   present, so the review date is stated once. */
+.fx-tools .fx-market-note { margin: 18px 0 0; padding: 12px 14px; border: 1px solid var(--hair2); border-radius: 12px; font-size: 12px; line-height: 1.7; color: var(--ink3); }
+.fx-tools .fx-market-note-head { font-weight: 700; color: var(--ink2); margin-bottom: 2px; }
+.fx-tools .fx-market-note details { margin-top: 4px; }
+.fx-tools .fx-market-note summary { cursor: pointer; color: var(--accent-text); font-weight: 600; width: fit-content; padding: 4px 0; }
+.fx-tools .fx-market-note a { color: var(--accent-text); text-decoration: underline; }
+.fx-tools:has(.fx-market-note) .fx-assumptions-row { display: none; }
+
+/* ---- Market / currency mismatch (ui/MarketNote.tsx MarketCurrencyNotice) ---- */
+.fx-tools .fx-market-mismatch { margin: 16px auto 0; max-width: 620px; padding: 12px 14px; border-radius: 12px; background: var(--gold-bg); border: 1px solid var(--hair); text-align: left; font-size: 13px; line-height: 1.55; color: var(--ink2); }
+.fx-tools .fx-market-mismatch p { margin: 0; font-size: inherit; color: inherit; max-width: none; }
+.fx-tools .fx-market-mismatch b { color: var(--ink); }
+.fx-tools .fx-market-mismatch-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 10px; }
+.fx-tools .fx-market-mismatch-actions .btn { width: auto; padding: 8px 14px; font-size: 13px; }
+.fx-tools .fx-market-mismatch-actions a { color: var(--accent-text); text-decoration: underline; font-weight: 600; }
+
+/* ---- Goals: return paths side by side (pages/GoalPlannerPage.tsx) ---- */
+.fx-tools .fx-path-compare-title { font-size: 13px; font-weight: 700; margin-bottom: 12px; }
+.fx-tools .fx-path-compare-grid { display: grid; gap: 10px; margin-bottom: 12px; }
+.fx-tools .fx-path-compare-cell { min-width: 0; padding: 12px; border-radius: 12px; background: var(--well); display: flex; flex-direction: column; gap: 4px; }
+.fx-tools .fx-path-compare-name { font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
+.fx-tools .fx-path-compare-amount { font-size: clamp(17px, 5vw, 26px); font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+@media (max-width: 420px) { .fx-tools .fx-path-compare-cell { padding: 10px 8px; } }
+
+/* ---- ParkSmart: ranked options as one list (pages/ParkSmartPage.tsx) ---- */
+.fx-tools .fx-park-list { padding: 8px 18px 16px; }
+.fx-tools .fx-park-row { border-bottom: 1px solid var(--hair2); }
+.fx-tools .fx-park-row summary { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px 10px; align-items: center; padding: 12px 0; cursor: pointer; list-style: none; }
+.fx-tools .fx-park-row summary::-webkit-details-marker { display: none; }
+.fx-tools .fx-park-row summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 8px; }
+.fx-tools .fx-park-name { font-size: 14px; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.fx-tools .fx-park-net { font-size: 16px; font-weight: 700; color: var(--green); font-variant-numeric: tabular-nums; }
+.fx-tools .fx-park-meta { grid-column: 2 / 4; display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; font-size: 11px; color: var(--ink3); }
+.fx-tools .fx-park-bar { grid-column: 2 / 4; display: block; }
+.fx-tools .fx-park-desc { margin: 0 0 12px 36px; }
+
+/* ---- InvestMatch: answers so far (pages/InvestMatchPage.tsx) ---- */
+.fx-tools .fx-im-answers { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.fx-tools .fx-im-answer { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 12px; border-radius: var(--ctl-pill); border: 1px solid var(--hair); background: var(--card); color: var(--ink2); font: 600 12px/1.2 inherit; cursor: pointer; }
+.fx-tools .fx-im-answer:hover { border-color: var(--gold); color: var(--ink); }
+.fx-tools .fx-im-answer:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* ---- Reports: readiness checklist (pages/ReportsPage.tsx) ---- */
+.fx-tools .fx-report-prep-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.fx-tools .fx-report-prep-head h2 { font-size: 17px; margin: 0; }
+.fx-tools .fx-checklist { list-style: none; margin: 10px 0; padding: 0; font-size: 13px; }
+.fx-tools .fx-checklist li { position: relative; padding: 9px 0 9px 22px; border-bottom: 1px solid var(--hair2); line-height: 1.5; }
+.fx-tools .fx-checklist li:last-child { border-bottom: 0; }
+.fx-tools .fx-checklist li::before { content: ""; position: absolute; left: 2px; top: 15px; width: 9px; height: 9px; border-radius: 50%; background: var(--ink3); }
+.fx-tools .fx-checklist li.is-ok::before { background: var(--green); }
+.fx-tools .fx-checklist li.is-warn::before { background: var(--orange); }
+.fx-tools .fx-format-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 4px 0 10px; }
+.fx-tools .fx-format-grid div { background: var(--well); border-radius: 10px; padding: 10px; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--ink2); }
+.fx-tools .fx-format-grid b { font-size: 13px; color: var(--ink); }
+
+/* ---- PeerCompare: what comes after the currency switch ---- */
+.fx-tools .fx-pc-preview { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-top: 16px; opacity: .6; }
+.fx-tools .fx-pc-preview span { background: var(--well); border-radius: 10px; padding: 10px; font-size: 12px; color: var(--ink2); }
+
+/* ---- Net Worth: labelled example under the empty state ---- */
+.fx-tools .nw-empty-example { margin: 22px auto 0; max-width: 420px; padding: 12px 14px; border-radius: 12px; background: var(--well); opacity: .75; }
+.fx-tools .nw-empty-example figcaption { font-size: 11px; color: var(--ink3); margin-bottom: 6px; text-align: left; }
+
+/* ---- LifeMap setup: prefill first, form in three labelled parts ---- */
+.fx-tools .fx-lm-prefill { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; font-size: 13px; }
+.fx-tools .fx-lm-prefill > div { flex: 1 1 260px; min-width: 0; }
+.fx-tools .fx-lm-prefill .note { margin: 4px 0 0; }
+.fx-tools .fx-lm-prefill .btn { width: auto; flex: 0 0 auto; }
+.fx-tools .fx-lm-step { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ink3); margin: 6px 0 12px; padding-top: 14px; border-top: 1px solid var(--hair2); }
+
+/* ---- Budget: summary strip (pages/BudgetPage.tsx) ----
+   Sticky on a phone only, where the app bar above it is a fixed 48px; the
+   desktop bar wraps to a variable height, and the page is short enough there. */
+.fx-tools .bb-sticky { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 14px; margin: 0 0 14px; padding: 10px 14px; border: 1px solid var(--hair); border-radius: 14px; background: var(--card-solid); font-size: 12.5px; color: var(--ink2); font-variant-numeric: tabular-nums; }
+.fx-tools .bb-sticky b { color: var(--ink); font-weight: 700; margin-left: 2px; }
+.fx-tools .bb-sticky .is-over, .fx-tools .bb-sticky .is-over b { color: var(--red); }
+@media (max-width: 767px) {
+  .fx-tools .bb-sticky { position: sticky; top: calc(var(--fx-safe-top) + 56px); z-index: 5; box-shadow: 0 8px 20px -14px rgba(0,0,0,.45); }
+}
+
+/* ---- Phone density ----
+   Summary tiles stacked one per row made an empty Expenses month ~4,900px tall
+   on a phone. Short label/value tiles sit two (or three) abreast instead; the
+   general .grid2/.grid3 single-column rule above still governs forms. */
+@media (max-width: 640px) {
+  .fx-tools .fx-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .fx-tools .dash-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .fx-tools .dash-grid > .card { padding: 14px; min-width: 0; }
+  .fx-tools .grid3.fx-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .fx-tools .grid3.fx-tiles .well { padding: 10px; min-width: 0; }
+}
+
+/* ---- Reminders (ui/Reminders.tsx) ---- */
+.fx-tools .fx-reminder-prompt { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 18px; }
+.fx-tools .fx-reminder-prompt > div:first-child { flex: 1 1 260px; min-width: 0; font-size: 14px; }
+.fx-tools .fx-reminder-prompt .note { margin: 4px 0 0; }
+.fx-tools .fx-reminder-prompt-actions { display: flex; flex-wrap: wrap; gap: 8px; }

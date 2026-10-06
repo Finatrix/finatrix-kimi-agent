@@ -10,6 +10,9 @@ export function ExpenseRecordReview({ items, validKeys, onEdit, cfmt }: { items:
   const [visibleLimit, setVisibleLimit] = useState(20);
   const findings = useMemo(() => reviewExpenseRecords(items, validKeys), [items, validKeys]);
   const shown = findings.filter(f => filter === 'all' || f.kind === filter);
+  // Nothing to review is not a card's worth of news: the panel led the page
+  // with "No review hints in 0 records" before the first payment was typed.
+  if (findings.length === 0) return null;
   return <SmartAssist title="Smart record review" description="Checks the selected month for matching entries, dates, amounts and category gaps. These are review hints; your records stay under your control.">
     <details>
       <summary className="fx-smart-summary">{findings.length ? `${findings.length} review hints across ${items.length} records` : `No review hints in ${items.length} records`} · inspect</summary>

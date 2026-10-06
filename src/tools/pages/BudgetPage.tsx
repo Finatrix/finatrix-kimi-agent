@@ -509,6 +509,18 @@ export default function BudgetPage() {
         />
       </div>
 
+      {/* The three figures that say whether the plan is finished. They sat at
+          the foot of a long page; on a phone this strip follows the scroll so
+          they stay in view while categories are edited. Display only — the
+          same `computeBudget` result the totals card below reads. */}
+      {!pendingStart && (
+        <div className="bb-sticky" role="group" aria-label="Budget summary">
+          <span>Income <b>{cfmt(r.income)}</b></span>
+          <span>Allocated <b>{cfmt(r.spent)}</b></span>
+          <span className={r.pos ? undefined : 'is-over'}>{r.pos ? 'Left' : 'Over by'} <b>{cfmt(Math.abs(r.free))}</b></span>
+        </div>
+      )}
+
       {pendingStart ? (
         <StartMonthCard
           month={month}
@@ -801,6 +813,18 @@ function IncomeCard({
   }, [sources, onMove]);
   const reorder = useReorder(move);
 
+  // Most people have one or two income sources, and the page listed eight rows
+  // of zeros. Sources with no amount fold away behind a toggle. The row being
+  // edited never folds, so clearing a field does not remove it from under the
+  // cursor; custom sources always show, and with nothing entered yet the full
+  // list does.
+  const [showEmpty, setShowEmpty] = useState(false);
+  const [focusKey, setFocusKey] = useState<string | null>(null);
+  const filled = (s: IncomeSource) => (amounts[s.k] ?? 0) > 0;
+  const anyFilled = sources.some(filled);
+  const folded = (s: IncomeSource) => !manage && !showEmpty && anyFilled && !s.custom && !filled(s) && focusKey !== s.k;
+  const foldedCount = sources.filter(folded).length;
+
   return (
     <div className="card">
       <div className="bb-cardhd">
@@ -820,6 +844,7 @@ function IncomeCard({
 
       <div>
         {sources.map((s, i) => {
+          if (folded(s)) return null;
           const name = s.l.trim() || 'Untitled source';
           const hidden = hiddenKeys.includes(s.k);
           const amountId = `bb-inc-${s.k}`;
@@ -827,6 +852,8 @@ function IncomeCard({
             <div
               key={s.k}
               className={`row-line bb-row${hidden ? ' is-hidden' : ''}${manage ? reorder.rowClass(i) : ''}`}
+              onFocus={() => setFocusKey(s.k)}
+              onBlur={() => setFocusKey((k) => (k === s.k ? null : k))}
               {...(manage ? reorder.rowProps(i) : {})}
             >
               {manage && <DragHandle label={`Drag to reorder ${name}`} />}
@@ -870,6 +897,11 @@ function IncomeCard({
         })}
       </div>
 
+      {(foldedCount > 0 || (showEmpty && anyFilled && !manage)) && (
+        <button type="button" className="bb-add" aria-expanded={showEmpty} onClick={() => setShowEmpty((v) => !v)}>
+          {showEmpty ? 'Hide sources with no amount' : `Show ${foldedCount} more source${foldedCount === 1 ? '' : 's'}`}
+        </button>
+      )}
       <button type="button" className="bb-add" onClick={onAdd}>+ Add income source</button>
 
       {archived.length > 0 && (

@@ -427,6 +427,14 @@ export function startNativeBridge({ navigate }: BridgeOptions): () => void {
   listen(App.addListener('appUrlOpen', (e: URLOpenListenerEvent) => {
     if (disposed) return;
     receivedLink = true;
+    // Spend the launch-URL claim before handling the link. iOS answers
+    // `getLaunchUrl()` with the LAST url the app was opened with, not the one
+    // that started it, so an OAuth return handled here (which reloads the page)
+    // was read again by the reloaded page below and replayed: a second reload
+    // carrying a one-time code whose verifier the first load had already taken.
+    // That is the "sign-in fails the first time, works the second" report —
+    // the second attempt found the claim already spent.
+    claimLaunchUrl();
     handleOpenUrl(e.url, navigate);
   }));
   // A cold start from a link: the listener above was not yet registered when the
