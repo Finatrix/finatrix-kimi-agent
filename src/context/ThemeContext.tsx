@@ -28,6 +28,10 @@ interface ThemeContextValue {
   setTheme: (theme: Theme) => void;
   /** Flip between light and dark (persisted). */
   toggleTheme: () => void;
+  /** True while no explicit choice is stored, so the device's setting decides. */
+  followsSystem: boolean;
+  /** Drop the explicit choice and go back to following the device. */
+  followSystem: () => void;
 }
 
 // A safe, inert default so components that read the theme never crash when
@@ -37,6 +41,8 @@ const FALLBACK: ThemeContextValue = {
   theme: 'dark',
   setTheme: () => {},
   toggleTheme: () => {},
+  followsSystem: true,
+  followSystem: () => {},
 };
 
 const ThemeContext = createContext<ThemeContextValue>(FALLBACK);
@@ -81,15 +87,31 @@ function applyTheme(theme: Theme, animate: boolean) {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(getInitialTheme);
+  const [followsSystem, setFollowsSystem] = useState(() => readStored() === null);
 
   const setTheme = useCallback((next: Theme) => {
     setThemeState(next);
+    setFollowsSystem(false);
     applyTheme(next, true);
     try {
       localStorage.setItem(STORAGE_KEY, next);
     } catch {
       /* private mode / storage disabled — theme still applies for the session */
     }
+  }, []);
+
+  // One tap on the theme button used to pin the theme for good: the stored
+  // choice wins over the device, and nothing could remove it again.
+  const followSystem = useCallback(() => {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      /* storage disabled — nothing was pinned in the first place */
+    }
+    const next: Theme = window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    setFollowsSystem(true);
+    setThemeState(next);
+    applyTheme(next, true);
   }, []);
 
   const toggleTheme = useCallback(() => {
@@ -111,7 +133,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme, followsSystem, followSystem }}>
       {children}
     </ThemeContext.Provider>
   );

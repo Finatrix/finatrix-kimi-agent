@@ -30,7 +30,7 @@ export default function SettingsPage() {
   const { user } = useAuth();
   const { code, setCode } = useCurrency();
   const { id: marketId, market, setMarket, detected } = useMarket();
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, followsSystem, followSystem } = useTheme();
   const [confirmReset, setConfirmReset] = useState(false);
   const [, force] = useState(0);
 
@@ -70,16 +70,26 @@ export default function SettingsPage() {
       </Section>
 
       {/* Appearance */}
-      <Section title="Appearance" desc="Choose a theme. FinatriX follows your system by default until you pick one.">
+      <Section title="Appearance" desc="System follows your device's light or dark setting, and changes with it. Pick Light or Dark to keep one.">
         <div role="radiogroup" aria-label="Theme" style={{ display: 'flex', gap: 10 }}>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={followsSystem}
+            onClick={followSystem}
+            className={followsSystem ? 'btn btn-sm' : 'btn btn-ghost btn-sm'}
+            style={{ flex: 1 }}
+          >
+            System
+          </button>
           {(['light', 'dark'] as const).map((t) => (
             <button
               key={t}
               type="button"
               role="radio"
-              aria-checked={theme === t}
+              aria-checked={!followsSystem && theme === t}
               onClick={() => setTheme(t)}
-              className={theme === t ? 'btn btn-sm' : 'btn btn-ghost btn-sm'}
+              className={!followsSystem && theme === t ? 'btn btn-sm' : 'btn btn-ghost btn-sm'}
               style={{ flex: 1, textTransform: 'capitalize', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
             >
               <Icon name={t === 'light' ? 'sun' : 'lifemap'} size={15} />{t}
