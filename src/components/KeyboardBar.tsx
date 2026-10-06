@@ -99,6 +99,17 @@ export default function KeyboardBar() {
     };
   }, []);
 
+  // A field that is unmounted while focused — a sheet closing — fires no
+  // `focusout`, which would leave the bar up over nothing.
+  useEffect(() => {
+    if (!field) return;
+    const observer = new MutationObserver(() => {
+      if (!field.isConnected) setField(null);
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [field]);
+
   // Sit on top of the keyboard. Where the keyboard shrinks the layout viewport
   // (the apps) this resolves to 0; where it only shrinks the visual viewport
   // (mobile Safari) it is the keyboard's height.

@@ -609,15 +609,11 @@ html.fx-native.fx-kb-open .fx-add-dock {
   color: var(--accent-text);
   font: 600 15px/1 inherit;
 }
-/* While the bar is up it replaces the floating buttons and the tab bar, and the
-   focused field must be able to scroll clear of it. */
+/* The focused field must be able to scroll clear of the bar. The floating dock
+   and tab bar are NOT hidden here: in the apps `html.fx-kb-open` already does
+   that, and in a browser hiding the dock made its add button unfocusable at the
+   moment a closing sheet hands focus back to it. */
 html.fx-kbbar-open { scroll-padding-bottom: 72px; }
-html.fx-kbbar-open .fx-mobnav,
-html.fx-kbbar-open .fx-ai-dock,
-html.fx-kbbar-open .fx-wallet-dock,
-html.fx-kbbar-open .fx-add-dock {
-  display: none !important;
-}
 
 /* Large system font (html.fx-text-lg — src/native/bridge.ts syncTextZoom).
    WebView text zoom grows the text but not the viewport, so the app bar's one

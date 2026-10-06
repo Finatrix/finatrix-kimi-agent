@@ -274,14 +274,14 @@ function SetupForm({ form, goals, seed, setField, setGoals, onLaunch, sym, month
         </div>
         <button type="button" className="btn btn-sm" onClick={onRefresh}>Use latest saved figures</button>
       </div>
-      <h3 className="fx-lm-step">1 · You</h3>
+      <h2 className="fx-lm-step">1 · You</h2>
       <div className="grid2">
         {N('lm-name', 'Your name', { type: 'text', placeholder: 'e.g. Nitya Prakash' })}
         {N('lm-age', 'Current age', { type: 'number', min: 16, max: 45, inputMode: 'numeric' })}
         {M('lm-income', `Monthly income (${sym})`)}
         {M('lm-expenses', `Monthly expenses (${sym})`)}
       </div>
-      <h3 className="fx-lm-step">2 · Money</h3>
+      <h2 className="fx-lm-step">2 · Money</h2>
       <div className="well" style={{ fontSize: 13, color: 'var(--ink2)', lineHeight: 1.6, marginBottom: 18 }}>
         <Icon name="zap" size={14} style={{ display: 'inline', verticalAlign: 'text-bottom', color: 'var(--gold)' }} /> Include all loan EMIs in{' '}
         <b style={{ color: 'var(--ink)' }}>monthly expenses</b>. Savings and investments are entered separately below — don't double-count.
@@ -312,7 +312,7 @@ function SetupForm({ form, goals, seed, setField, setGoals, onLaunch, sym, month
           </select>
         </div>
       </div>
-      <h3 className="fx-lm-step">3 · Goals</h3>
+      <h2 className="fx-lm-step">3 · Goals</h2>
       <div className="fg" style={{ marginBottom: 6 }}>
         <label className="fl">Your top financial goals (pick any)</label>
         <div className="lm-goals-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginTop: 4 }}>

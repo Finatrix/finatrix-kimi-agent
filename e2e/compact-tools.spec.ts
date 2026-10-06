@@ -99,11 +99,16 @@ test.describe('Expense Tracker floating add', () => {
       return { top: r.top, bottom: r.bottom, left: r.left, right: r.right };
     });
     const plus = await rect('.fx-add-fab');
-    const ai = await rect('.fx-ai-dock');
+    // The add button now sits inside the shared dock (ui/dockSlots.ts), so the
+    // launcher is measured by its own pill rather than by the dock around both.
+    const ai = await rect('.fx-ai-fab');
+    const wallet = await rect('.fx-wallet-fab');
     const tabs = await rect('.fx-mobnav');
     const overlaps = (a: typeof plus, b: typeof plus) =>
       a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
     expect(overlaps(plus, ai), '+ overlaps the AI launcher').toBe(false);
+    expect(overlaps(plus, wallet), '+ overlaps the Wallet pill').toBe(false);
+    expect(overlaps(wallet, ai), 'Wallet overlaps the AI launcher').toBe(false);
     expect(overlaps(plus, tabs), '+ overlaps the tab bar').toBe(false);
 
     await fab.click();

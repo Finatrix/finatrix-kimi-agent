@@ -71,14 +71,14 @@ export default function SettingsPage() {
 
       {/* Appearance */}
       <Section title="Appearance" desc="System follows your device's light or dark setting, and changes with it. Pick Light or Dark to keep one.">
-        <div role="radiogroup" aria-label="Theme" style={{ display: 'flex', gap: 10 }}>
+        <div role="radiogroup" aria-label="Theme" style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
           <button
             type="button"
             role="radio"
             aria-checked={followsSystem}
             onClick={followSystem}
             className={followsSystem ? 'btn btn-sm' : 'btn btn-ghost btn-sm'}
-            style={{ flex: 1 }}
+            style={{ flex: '1 1 80px' }}
           >
             System
           </button>
@@ -90,7 +90,7 @@ export default function SettingsPage() {
               aria-checked={!followsSystem && theme === t}
               onClick={() => setTheme(t)}
               className={!followsSystem && theme === t ? 'btn btn-sm' : 'btn btn-ghost btn-sm'}
-              style={{ flex: 1, textTransform: 'capitalize', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+              style={{ flex: '1 1 80px', textTransform: 'capitalize', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
             >
               <Icon name={t === 'light' ? 'sun' : 'lifemap'} size={15} />{t}
             </button>
