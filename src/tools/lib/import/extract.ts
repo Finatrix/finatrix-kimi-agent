@@ -40,7 +40,7 @@ import { sanitizeText } from '../../../lib/sanitize';
 import { pdfCompatibilityMessage } from '../../../lib/pdfCompatibility';
 import { parseCsvStatement, parseStatementMatrix, StatementParseError } from './csv';
 import { parseTextStatement } from './statement';
-import { parseLooseList } from './looseList';
+import { maskedLines, parseLooseList, rowsFromLayout, type LayoutItem } from './looseList';
 import { readWorkbookGrid } from './xlsx';
 import { reconcile, resolveDirections, type Reconciliation } from './reconcile';
 import type { StatementDoc } from './types';
@@ -61,16 +61,30 @@ const MIN_PDF_TEXT_CHARS = 200;
 const MIN_OCR_TEXT_CHARS = 40;
 
 /**
- * Text recognised from an image. A statement is tried first; when that finds no
- * dated rows the text is read as a payments-app list instead (see looseList.ts),
- * which accepts a description and an amount with the date left for the person
- * to fill in.
+ * Works out which recognised lines form each transaction. Injected by the
+ * caller (the AI layer supplies one) so this library never imports a model; it
+ * receives lines with every digit hidden and answers in line numbers only.
  */
-export function readRecognisedText(text: string, now: Date): StatementDoc {
+export type LayoutReader = (maskedLines: readonly string[]) => Promise<LayoutItem[] | null>;
+
+/**
+ * Text recognised from an image. A statement is tried first. When that finds
+ * no dated rows the text is read as a payments or card-app list instead (see
+ * looseList.ts): by the layout reader when one is available and it finds at
+ * least as many rows, otherwise by the on-device rules.
+ */
+export async function readRecognisedText(text: string, now: Date, layout?: LayoutReader): Promise<StatementDoc> {
   const statement = parseTextStatement(text, now, 'ocr');
   if (statement.rows.length > 0) return statement;
-  const list = parseLooseList(text, now);
-  return list.rows.length > 0 ? list : statement;
+  const local = parseLooseList(text, now);
+  if (layout) {
+    const items = await layout(maskedLines(text)).catch(() => null);
+    if (items) {
+      const assisted = rowsFromLayout(text, items, now);
+      if (assisted.rows.length >= local.rows.length && assisted.rows.length > 0) return assisted;
+    }
+  }
+  return local.rows.length > 0 ? local : statement;
 }
 
 export const ACCEPTED_EXTENSIONS = [
@@ -174,7 +188,7 @@ async function readWorkbook(file: File, now: Date): Promise<StatementDoc> {
  */
 export async function extractStatement(
   file: File,
-  options: { password?: string; now?: Date } = {},
+  options: { password?: string; now?: Date; layout?: LayoutReader } = {},
 ): Promise<ExtractedStatement> {
   const now = options.now ?? new Date();
 
@@ -199,7 +213,7 @@ export async function extractStatement(
   let pages: number | null = null;
 
   if (IMAGE_EXTENSIONS.has(extension) && !isPdf) {
-    doc = readRecognisedText(sanitizeText(await recogniseImages([file])), now);
+    doc = await readRecognisedText(sanitizeText(await recogniseImages([file])), now, options.layout);
   } else if (extension === 'xlsx' || extension === 'xls') {
     doc = await readWorkbook(file, now);
   } else if (isPdf) {
@@ -249,7 +263,7 @@ export async function extractStatement(
           'This PDF has no selectable text and could not be scanned on this device. Please download the statement as a PDF or CSV from your bank instead.',
         );
       }
-      doc = readRecognisedText(sanitizeText(await recogniseImages(images)), now);
+      doc = await readRecognisedText(sanitizeText(await recogniseImages(images)), now, options.layout);
     } else {
       doc = parseTextStatement(sanitizeText(text), now);
     }

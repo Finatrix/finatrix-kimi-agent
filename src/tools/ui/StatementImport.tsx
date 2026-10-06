@@ -361,7 +361,8 @@ export default function StatementImport({
             <footer className="fx-imp-foot">
               <p className="fx-imp-note fx-imp-foot-note">
                 Only merchant descriptions are sent for AI categorisation — never amounts,
-                balances or account numbers.
+                balances or account numbers. For a screenshot, the assistant may also see its
+                text with every digit hidden, to tell which lines are one transaction.
               </p>
               <div className="fx-imp-actions">
                 <button type="button" className="fx-imp-btn" onClick={close}>Cancel</button>
@@ -438,7 +439,7 @@ function IdlePane({
 
       <ul className="fx-imp-points">
         <li>Your file is read on this device and never uploaded — photos included.</li>
-        <li>Amounts, dates and balances are read from the file itself — the assistant only names merchants and picks categories.</li>
+        <li>Amounts, dates and balances are read from the file itself — the assistant only names merchants, picks categories and, for a screenshot, says which lines belong together (it is shown the text with every digit hidden).</li>
         <li>Every row stays a draft until you review it and press Import.</li>
         <li>Rows read from a photo are always held back for you to check first.</li>
       </ul>

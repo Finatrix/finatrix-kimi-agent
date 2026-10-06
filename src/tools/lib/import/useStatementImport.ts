@@ -23,6 +23,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { readStatementLayout } from '../../ai/statementLayout';
 import { categorizeDescriptions, type CategoryOption } from '../../ai/statementCategorize';
 import { setAiConsent } from '../../../lib/ai/consent';
 import type { ExpenseItem } from '../expense';
@@ -187,7 +188,9 @@ export function useStatementImport({
       setAiMessage('');
       setAiAsked(0);
 
-      void extractStatement(file, { password })
+      // The layout assist only ever sees digit-masked lines, and only when the
+      // assistant is enabled for this import at all.
+      void extractStatement(file, { password, layout: aiEnabled ? readStatementLayout : undefined })
         .then((result) => {
           if (runId.current !== id) return;
           const learned = loadLearned();
@@ -210,7 +213,7 @@ export function useStatementImport({
           setMessage(error?.message ?? 'Could not read that file. Please try a CSV or PDF statement.');
         });
     },
-    [existing, runAi, validKeys],
+    [aiEnabled, existing, runAi, validKeys],
   );
 
   const start = useCallback((file: File) => read(file), [read]);
