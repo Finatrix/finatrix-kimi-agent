@@ -568,7 +568,11 @@ html.fx-native.fx-kb-open .fx-add-dock {
   position: fixed;
   left: 0;
   right: 0;
-  z-index: 90;
+  /* Above every sheet, dialog and panel (--z-modal 300, --z-panel 400): the
+     field being typed in is very often inside one — the Add transaction sheet
+     first of all — and at 90 the bar was drawn underneath it. Only the global
+     toast (1000) outranks it. */
+  z-index: 900;
   display: flex;
   align-items: center;
   gap: 8px;

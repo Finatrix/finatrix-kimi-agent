@@ -159,6 +159,7 @@
   --z-modal:   300;    /* transaction sheet, dialogs                        */
   --z-undo:    320;    /* undo bar — must clear the launcher                */
   --z-panel:   400;    /* AI panel (backdrop 400, surface 401)              */
+  /* 900 is the on-screen keyboard's key bar (.fx-kbbar in index.css). */
   --z-toast:  1000;    /* global toast — above everything by design         */
 
   /* ── Scroll offset ────────────────────────────────────────────────────

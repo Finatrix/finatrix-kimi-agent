@@ -68,3 +68,17 @@ describe('KeyboardBar', () => {
     expect(screen.queryByRole('toolbar')).toBeNull();
   });
 });
+
+describe('KeyboardBar stacking', () => {
+  it('is drawn above every sheet and panel, so a field inside a dialog still gets its keys', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const tokens = readFileSync(join(__dirname, '../styles/tokens.css'), 'utf8');
+    const css = readFileSync(join(__dirname, '../index.css'), 'utf8');
+    const token = (name: string) => Number(new RegExp(`--z-${name}:\\s*(\\d+)`).exec(tokens)?.[1]);
+    const bar = Number(/\.fx-kbbar\.fx-scope\s*\{[^}]*?z-index:\s*(\d+)/.exec(css)?.[1]);
+    expect(bar).toBeGreaterThan(token('modal'));
+    expect(bar).toBeGreaterThan(token('panel'));
+    expect(bar).toBeLessThan(token('toast'));
+  });
+});
