@@ -135,7 +135,8 @@ describe('published inflation is context, never a planning rate', () => {
 
   it('does not badge an unconfirmed release as the latest', () => {
     wrap();
-    fireEvent.change(screen.getByLabelText('Market'), { target: { value: 'IN' } });
+    // The UAE is the market whose national monthly print could not be verified.
+    fireEvent.change(screen.getByLabelText('Market'), { target: { value: 'AE' } });
     expect(screen.getByText(/A newer release may exist and has not been verified/i)).toBeInTheDocument();
   });
 });
