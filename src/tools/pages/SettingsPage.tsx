@@ -65,7 +65,7 @@ export default function SettingsPage() {
 
       <DataReadiness />
 
-      <Section title="Reminders" desc="A daily nudge to add your spending, a weekly look at the month, and bills the day before they fall due.">
+      <Section title="Reminders" desc="A thought in the morning, a nudge at lunchtime, and a reminder in the evening to add your spending, plus a weekly look at the month and bills the day before they fall due. Each is yours to switch off.">
         <RemindersCard />
       </Section>
 

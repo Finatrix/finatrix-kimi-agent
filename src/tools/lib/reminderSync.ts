@@ -1,6 +1,6 @@
 import { isNativeApp } from '../../native/platform';
 import { ymdLocal } from '../../lib/date';
-import { getJSON, store } from './storage';
+import { getJSON, setJSON } from './storage';
 import { getUpcomingEvents } from './calendar';
 import { readDashboard } from './dashboard';
 import type { ExpenseItem } from './expense';
@@ -45,10 +45,18 @@ export async function requestReminderPermission(): Promise<ReminderPermission> {
 const WEB_SHOWN_KEY = 'fx_reminder_shown';
 let webTimer: ReturnType<typeof setTimeout> | undefined;
 
+/** The kinds of reminder this browser has already shown today, so a re-plan cannot show one twice. */
+function shownToday(today: string): string[] {
+  const saved = getJSON<{ day?: unknown; kinds?: unknown }>(WEB_SHOWN_KEY, {});
+  return saved.day === today && Array.isArray(saved.kinds)
+    ? saved.kinds.filter((k): k is string => typeof k === 'string')
+    : [];
+}
+
 /**
  * A browser has no scheduler that outlives the tab without a push service, so
  * the website's version is honest about its reach: if a tab is open when the
- * next reminder falls due, it is shown then — once a day.
+ * next reminder falls due, it is shown then — once for each part of the day.
  */
 function scheduleInTab(plan: readonly PlannedReminder[]): void {
   if (webTimer) clearTimeout(webTimer);
@@ -59,16 +67,21 @@ function scheduleInTab(plan: readonly PlannedReminder[]): void {
   if (delay > 24 * 60 * 60 * 1000) return;
   webTimer = setTimeout(() => {
     const today = ymdLocal(new Date());
-    if (store.get(WEB_SHOWN_KEY, '') === today) return;
-    // Re-plan at the moment of truth: an entry may have been added since.
-    const due = currentPlan(new Date(Date.now() - 60_000))[0];
-    if (!due || due.id !== next.id) return;
-    try {
-      new Notification(due.title, { body: due.body, tag: 'fx-reminder' });
-      store.set(WEB_SHOWN_KEY, today);
-    } catch {
-      /* Some browsers only allow notifications from a service worker. */
+    const shown = shownToday(today);
+    if (!shown.includes(next.kind)) {
+      // Re-plan at the moment of truth: an entry may have been added since.
+      const due = currentPlan(new Date(Date.now() - 60_000))[0];
+      if (due && due.id === next.id) {
+        try {
+          new Notification(due.title, { body: due.body, tag: `fx-reminder-${due.kind}` });
+          setJSON(WEB_SHOWN_KEY, { day: today, kinds: [...shown, due.kind] });
+        } catch {
+          /* Some browsers only allow notifications from a service worker. */
+        }
+      }
     }
+    // A tab left open all day should hear all three, so line up the next one.
+    scheduleInTab(currentPlan(new Date(Date.now() + 1000)));
   }, Math.max(0, delay));
 }
 

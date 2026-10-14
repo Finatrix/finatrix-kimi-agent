@@ -6,7 +6,7 @@
  */
 
 import { supabase } from '../../lib/supabase';
-import { DEFAULT_SETTINGS } from '../constants';
+import { DEFAULT_SETTINGS, RETIRED_MODEL_IDS } from '../constants';
 import type {
   CareerDNA,
   CareerProfileFields,
@@ -74,7 +74,8 @@ export async function updateProfileMeta(
 }
 
 export function resolveSettings(profile: CareerProfileRow | null): CareersSettings {
-  return { ...DEFAULT_SETTINGS, ...(profile?.settings ?? {}) };
+  const settings = { ...DEFAULT_SETTINGS, ...(profile?.settings ?? {}) };
+  return { ...settings, model: RETIRED_MODEL_IDS[settings.model] ?? settings.model };
 }
 
 /**

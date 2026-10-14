@@ -40,6 +40,11 @@ export async function scheduleReminders(plan: readonly PlannedReminder[]): Promi
         id: p.id,
         title: p.title,
         body: p.body,
+        // Android folds a plain body to one line and cuts it off, which would
+        // clip the morning and midday lines mid-sentence. This lets the whole
+        // line show when the notification is expanded. Ignored on iOS, which
+        // wraps the body itself.
+        largeBody: p.body,
         // Not exact: a reminder a few minutes late is fine, and exact alarms
         // need a permission this app has no reason to hold. It has to be said
         // explicitly — the plugin defaults to exact, and on Android 12+ that

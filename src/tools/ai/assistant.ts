@@ -44,7 +44,7 @@ const MAX_OUTPUT_TOKENS = 3_200;
  * deployment that has not been configured for this model still answers — just
  * with the next one down.
  */
-const CHAT_MODEL = 'anthropic/claude-sonnet-5';
+export const CHAT_MODEL = 'anthropic/claude-sonnet-5.5';
 
 export interface AskSuccess extends AiAnswer {
   ok: true;

@@ -11,23 +11,31 @@ import { supabase } from '../supabase';
 
 /**
  * USD per 1,000 tokens, IN and OUT separately. Checked against OpenRouter's
- * published prices on 12 September 2026.
+ * published prices on 9 October 2026.
  *
- * Separate rates rather than one blended figure because output costs four to
- * six times input on every model here, and the two mixes this product produces
+ * Separate rates rather than one blended figure because output costs several
+ * times input on every model here, and the two mixes this product produces
  * are nothing alike: a money-chat answer is a long data snapshot in and a short
  * answer out, while a résumé parse is short in and long out. One blended rate
  * flattered the first and understated the second — and both token counts are
  * already recorded, so the accurate sum costs nothing.
  */
 const PRICE_PER_1K: Record<string, { in: number; out: number }> = {
-  'google/gemini-2.5-flash': { in: 0.0003, out: 0.0025 },
   'google/gemini-3.8-flash': { in: 0.00075, out: 0.00375 },
-  'anthropic/claude-haiku-4.5': { in: 0.001, out: 0.005 },
+  'anthropic/claude-haiku-5.5': { in: 0.0001, out: 0.0005 },
+  'anthropic/claude-sonnet-5.5': { in: 0.002, out: 0.010 },
+  'anthropic/claude-opus-5.5': { in: 0.004, out: 0.020 },
+  'openai/gpt-6.1-sol': { in: 0.002, out: 0.010 },
+  'openai/gpt-6-luna': { in: 0.0001, out: 0.0005 },
+  'moonshotai/kimi-k3': { in: 0.0005, out: 0.012 },
+  'deepseek/deepseek-v4.1-flash': { in: 0.0003, out: 0.0012 },
+  'qwen/qwen3.8-flash': { in: 0.00015, out: 0.00047 },
+  // Retired from the chain but still priced: an app build already installed, or
+  // an operator-set CAREERS_AI_MODELS, can still route to them, and an unpriced
+  // model is costed at DEFAULT_PRICE, which understates the larger ones.
+  'google/gemini-2.5-flash': { in: 0.0003, out: 0.0025 },
   'anthropic/claude-sonnet-5': { in: 0.002, out: 0.010 },
-  'anthropic/claude-opus-5': { in: 0.005, out: 0.025 },
   'openai/gpt-5.5': { in: 0.005, out: 0.030 },
-  'openai/gpt-5-mini': { in: 0.00025, out: 0.002 },
   'moonshotai/kimi-k2': { in: 0.00057, out: 0.0023 },
   'deepseek/deepseek-chat-v3.1': { in: 0.00025, out: 0.00095 },
   'qwen/qwen3-235b-a22b-2507': { in: 0.00022, out: 0.00088 },

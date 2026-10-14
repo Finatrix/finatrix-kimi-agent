@@ -1034,3 +1034,6 @@ html.fx-native .fx-tools .wrap { padding-top: 14px; }
 .fx-tools .fx-reminder-prompt > div:first-child { flex: 1 1 260px; min-width: 0; font-size: 14px; }
 .fx-tools .fx-reminder-prompt .note { margin: 4px 0 0; }
 .fx-tools .fx-reminder-prompt-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.fx-tools .fx-reminder-time { max-width: 220px; margin-top: 14px; }
+/* Tucked under the checkbox it belongs to, in line with that checkbox's text. */
+.fx-tools .fx-reminder-time.is-nested { margin: 4px 0 12px 28px; }

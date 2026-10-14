@@ -194,7 +194,7 @@ describe('data quality and freshness', () => {
   });
 
   it('holds the pack’s own review states', () => {
-    expect(inflationFor('IN')?.quality).toBe('REVIEW_DUE');
+    expect(inflationFor('IN')?.quality).toBe('VERIFIED_CURRENT');
     expect(inflationFor('AE')?.quality).toBe('STALE');
     expect(inflationFor('US')?.quality).toBe('VERIFIED_CURRENT');
   });
@@ -459,11 +459,12 @@ describe('user-facing language', () => {
 describe('the review mechanism', () => {
   it('reports only what the research itself flagged, on the day it was compiled', () => {
     // Not an empty report: the UAE price series was recorded as stale by the
-    // researchers, and India's as awaiting a release. Those are findings, and
-    // the report is supposed to carry them from day one.
+    // researchers, and that is still true after the 14 October CPI re-check
+    // because no national monthly print could be verified. India's was cleared
+    // by the September release, so it no longer appears.
     const report = reviewReport(new Date(2026, 8, 12));
     expect(report.overdue.map((i) => i.id)).toEqual(['AE-CPI_OBSERVATION']);
-    expect(report.due.map((i) => i.id)).toEqual(['IN-CPI_OBSERVATION']);
+    expect(report.due.map((i) => i.id)).toEqual([]);
   });
 
   it('lists a reference once, however many registries project it', () => {
