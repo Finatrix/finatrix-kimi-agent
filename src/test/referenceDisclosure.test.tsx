@@ -108,7 +108,7 @@ describe('the reference rows', () => {
 
   it('shows published inflation as comparison only, next to the planning rate', () => {
     wrap(<ReferenceRows toolId="goals" market="GB" />);
-    expect(screen.getByText(/2\.9% \(July 2026\)/)).toBeInTheDocument();
+    expect(screen.getByText(/3\.1% \(August 2026\)/)).toBeInTheDocument();
     expect(screen.getByText(/Shown for comparison only/)).toBeInTheDocument();
     expect(screen.getByText(/separate long-run assumption/)).toBeInTheDocument();
   });
