@@ -78,3 +78,22 @@ export function clampScore(input: unknown): number {
   if (!Number.isFinite(n)) return 0;
   return Math.min(100, Math.max(0, Math.round(n)));
 }
+
+/**
+ * A link that came from outside — a job provider, a scraped listing, a model —
+ * is only ever followed if it is a plain web address. `javascript:`, `data:`,
+ * `vbscript:` and friends parse as valid URLs and would run when clicked, so
+ * every external `href` and `window.open` goes through this. Returns the
+ * normalised URL, or '' when it is not an http(s) link.
+ */
+export function safeHttpUrl(input: unknown): string {
+  if (typeof input !== 'string') return '';
+  const raw = input.replace(CONTROL_CHARS, '').trim();
+  if (!raw || raw.length > 2_000) return '';
+  try {
+    const url = new URL(raw);
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : '';
+  } catch {
+    return '';
+  }
+}

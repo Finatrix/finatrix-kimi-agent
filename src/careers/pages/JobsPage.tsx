@@ -60,6 +60,7 @@ import {
 } from '../types/jobs';
 import { toCareersError, withRetry, type CareersError } from '../utils/errors';
 import { formatDate, scoreColor } from '../utils/format';
+import { safeHttpUrl } from '../../lib/sanitize';
 
 /**
  * Truthful trust/quality chips shown on each result. Every label maps to an
@@ -259,9 +260,9 @@ function JobWorkbench({
             </span>
           )}
           {target.jobRow?.location && <span>{target.jobRow.location}</span>}
-          {(target.jobRow?.apply_url ?? target.normalized?.apply_url) && (
+          {safeHttpUrl(target.jobRow?.apply_url ?? target.normalized?.apply_url) && (
             <a
-              href={target.jobRow?.apply_url ?? target.normalized?.apply_url}
+              href={safeHttpUrl(target.jobRow?.apply_url ?? target.normalized?.apply_url)}
               target="_blank" rel="noopener noreferrer"
               style={{ color: 'var(--gold)' }}
             >
@@ -1144,15 +1145,17 @@ export default function JobsPage() {
                       to say "Apply" for every result, including Adzuna's
                       redirect_url and Remotive's listing page — neither of
                       which is an application form. See search/applyUrl.ts. */}
-                  <a
-                    className="btn btn-ghost btn-sm"
-                    style={{ width: 'auto', textDecoration: 'none' }}
-                    href={job.apply_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {classifyApplyUrl(job.apply_url, job.via).label} ↗
-                  </a>
+                  {safeHttpUrl(job.apply_url) && (
+                    <a
+                      className="btn btn-ghost btn-sm"
+                      style={{ width: 'auto', textDecoration: 'none' }}
+                      href={safeHttpUrl(job.apply_url)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {classifyApplyUrl(job.apply_url, job.via).label} ↗
+                    </a>
+                  )}
                 </div>
               </div>
             );

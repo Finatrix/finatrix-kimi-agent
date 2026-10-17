@@ -17,6 +17,7 @@ import type {
 import { CareersError, mapSupabaseError } from '../utils/errors';
 import { sha256OfText } from '../utils/hash';
 import { sanitizeField, sanitizeText } from '../utils/sanitize';
+import { safeHttpUrl } from '../../lib/sanitize';
 
 export interface SearchOutcome {
   jobs: NormalizedJob[];
@@ -146,7 +147,7 @@ export async function saveJob(userId: string, job: NormalizedJob): Promise<JobRo
       country: sanitizeField(job.country, 8),
       work_mode: sanitizeField(job.work_mode, 20),
       employment_type: sanitizeField(job.employment_type, 60),
-      apply_url: sanitizeField(job.apply_url, 600),
+      apply_url: safeHttpUrl(job.apply_url).slice(0, 600),
       posted_at: job.posted_at,
       closes_at: job.closes_at,
       is_saved: true,

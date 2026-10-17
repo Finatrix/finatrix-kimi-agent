@@ -226,6 +226,10 @@ describe('deploy configuration', () => {
       expect(policy).toContain("form-action 'self'");
       // Never: eval is what makes a pdf.js font bug arbitrary code execution.
       expect(policy).not.toContain('unsafe-eval');
+      // The backend is named, not wildcarded: `*.supabase.co` would let a script
+      // that ever ran here send data to ANY Supabase project, an attacker's included.
+      expect(policy).not.toMatch(/\*\.supabase\.co/);
+      expect(policy).toMatch(/connect-src 'self' https:\/\/[a-z0-9]{20}\.supabase\.co wss:\/\/[a-z0-9]{20}\.supabase\.co;/);
     }
   });
 
