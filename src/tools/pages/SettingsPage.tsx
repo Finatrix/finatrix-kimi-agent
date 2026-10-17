@@ -15,6 +15,8 @@ import PrivacyControls from '../ui/PrivacyControls';
 import { DataReadiness } from '../ui/DataReadiness';
 import { store } from '../lib/storage';
 import { useAuth } from '../../context/AuthContext';
+import { rateApp, rateUrl, shareApp } from '../../lib/shareApp';
+import { replayWalkthrough } from '../../walkthrough/replay';
 
 function Section({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
   return (
@@ -224,6 +226,42 @@ export default function SettingsPage() {
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirmReset(false)} style={{ width: 'auto' }}>Cancel</button>
               </div>
             </div>
+          )}
+        </div>
+      </Section>
+
+      {/* Spread the word */}
+      <Section title="Share & rate" desc="FinatriX has no ads, so word of mouth is how it grows. A rating helps other people find it.">
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+          <button
+            type="button"
+            className="btn btn-sm"
+            style={{ flex: '1 1 160px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+            onClick={async () => {
+              const r = await shareApp();
+              if (r === 'copied') notify('Link copied. Paste it to a friend.', 'ok');
+              else if (r === 'failed') notify('Could not share. Try again.', 'error');
+            }}
+          >
+            <Icon name="share" size={15} />Share FinatriX
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            style={{ flex: '1 1 160px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+            onClick={replayWalkthrough}
+          >
+            <Icon name="sparkle" size={15} />Replay intro
+          </button>
+          {rateUrl() && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              style={{ flex: '1 1 160px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+              onClick={rateApp}
+            >
+              <Icon name="star" size={15} />Rate FinatriX
+            </button>
           )}
         </div>
       </Section>

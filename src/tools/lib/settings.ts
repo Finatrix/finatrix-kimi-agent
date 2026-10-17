@@ -11,7 +11,7 @@ import { clearNotificationState } from './notifications';
 import { store } from './storage';
 
 /** Non-synced local keys that still belong to the user and should be reset. */
-const LOCAL_ONLY_KEYS = ['fx_last_backup_export', 'fx_activity', 'fx_last_tool', 'fx_notif_read', 'fx_notif_dismissed', 'fx_notif_seen_at', 'fx_dash_layout', 'fx_exp_catsort', 'fx_onboarding_done'];
+const LOCAL_ONLY_KEYS = ['fx_last_backup_export', 'fx_activity', 'fx_last_tool', 'fx_notif_read', 'fx_notif_dismissed', 'fx_notif_seen_at', 'fx_dash_layout', 'fx_exp_catsort', 'fx_onboarding_done', 'fx_walkthrough_seen'];
 
 /** Human labels for the tool data keys (for the storage summary). */
 const KEY_LABEL: Record<string, string> = {

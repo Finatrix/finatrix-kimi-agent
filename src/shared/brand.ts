@@ -46,3 +46,12 @@ export const BRAND_URL = `https://${CANONICAL_HOST}/`;
  * it cannot check ownership, which is why this comment exists.
  */
 export const SOCIAL_PROFILES: readonly string[] = [];
+
+/** Google Play listing for the Android app (`co.finatrix.app`). */
+export const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=co.finatrix.app';
+
+/** App Store listing for the iOS app. */
+export const APP_STORE_URL = 'https://apps.apple.com/app/id6818361672';
+
+/** Opens the App Store's review sheet directly. */
+export const APP_STORE_REVIEW_URL = `${APP_STORE_URL}?action=write-review`;

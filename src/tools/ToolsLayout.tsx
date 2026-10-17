@@ -38,6 +38,7 @@ import { warnIfOverdue } from '../reference/review';
 import { isNativeApp } from '../native/platform';
 import { showCareersEntry } from '../lib/careersEntry';
 import { useReminderSync } from './lib/useReminderSync';
+import WalkthroughGate from '../walkthrough/WalkthroughGate';
 import './tools.css';
 
 // Lazy on purpose: the palette carries the whole command registry (including
@@ -672,6 +673,11 @@ export default function ToolsLayout() {
               rendered by AiProvider above, as a lazy chunk fetched on first
               open. */}
           {ready && <AiLauncher />}
+
+          {/* First-run intro. Decides only once the data has loaded, so a
+              signed-in user's synced records count as "not new"; the scenes
+              themselves are a lazy chunk fetched only when shown. */}
+          {ready && <WalkthroughGate />}
 
           {/* The palette mounts only while open, so its chunk (and the command
               registry inside it) is never fetched by someone who never uses it. */}

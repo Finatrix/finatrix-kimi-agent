@@ -13,7 +13,7 @@ export type IconName =
   | 'home' | 'car' | 'award' | 'warn' | 'check' | 'trending' | 'briefcase'
   | 'map' | 'clock' | 'dollar' | 'lock' | 'bank' | 'pie' | 'sun' | 'users'
   | 'zap' | 'arrow-up' | 'refresh' | 'layers' | 'compass' | 'sparkle'
-  | 'edit' | 'trash' | 'plus';
+  | 'edit' | 'trash' | 'plus' | 'share' | 'star';
 
 export function Icon({
   name,
@@ -203,6 +203,12 @@ export function IconSprite() {
         </symbol>
         <symbol id="ic-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
+        </symbol>
+        <symbol id="ic-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.6" y1="13.5" x2="15.4" y2="17.5" /><line x1="15.4" y1="6.5" x2="8.6" y2="10.5" />
+        </symbol>
+        <symbol id="ic-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="12 2 15.1 8.6 22 9.3 16.8 14 18.4 21 12 17.3 5.6 21 7.2 14 2 9.3 8.9 8.6" />
         </symbol>
       </defs>
     </svg>
