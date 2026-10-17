@@ -66,6 +66,52 @@ async function enable(prefs: ReminderPrefs, update: (next: ReminderPrefs) => voi
 
 /** Settings card: on/off, which parts of the day, and the time of each. */
 export function RemindersCard() {
+  if (isNativeApp()) return <NativeRemindersCard />;
+  return <BrowserRemindersCard />;
+}
+
+/**
+ * In the iOS and Android apps notifications are part of the product: nothing
+ * here switches them off. The person still sets the times, and the system
+ * permission stays theirs in device settings.
+ */
+function NativeRemindersCard() {
+  const [prefs, update] = useReminderPrefs();
+  const [permission, setPermission] = useState<ReminderPermission | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    void reminderPermission().then((p) => { if (live) setPermission(p); });
+    return () => { live = false; };
+  }, []);
+
+  return (
+    <div className="fx-reminders">
+      <p className="note" style={{ marginTop: 0 }}>
+        FinatriX sends up to three short notifications a day: a money thought in the morning, a nudge
+        around lunchtime and a reminder to add your spending. None of them has an amount in it, and
+        they stop by themselves if FinatriX is not opened for a week.
+      </p>
+      {permission === 'denied' && (
+        <p className="note" role="alert" style={{ color: 'var(--red)' }}>
+          Notifications are blocked for FinatriX on this device. Allow them in your device settings to receive them.
+        </p>
+      )}
+      <TimeField
+        id="fx-reminder-morning-time" label="Morning time"
+        hour={prefs.morningHour} minute={prefs.morningMinute}
+        onChange={(morningHour, morningMinute) => update({ ...prefs, morningHour, morningMinute })}
+      />
+      <TimeField
+        id="fx-reminder-time" label="Spending reminder time"
+        hour={prefs.hour} minute={prefs.minute}
+        onChange={(hour, minute) => update({ ...prefs, hour, minute })}
+      />
+    </div>
+  );
+}
+
+function BrowserRemindersCard() {
   const [prefs, update] = useReminderPrefs();
   const [permission, setPermission] = useState<ReminderPermission | null>(null);
   const [message, setMessage] = useState('');
@@ -160,6 +206,7 @@ export function ReminderPrompt() {
   const [prefs, update] = useReminderPrefs();
   const [message, setMessage] = useState('');
   const [supported, setSupported] = useState(false);
+  const native = isNativeApp();
 
   useEffect(() => {
     let live = true;
@@ -167,7 +214,8 @@ export function ReminderPrompt() {
     return () => { live = false; };
   }, []);
 
-  if (prefs.enabled !== null || !supported) return message ? <p className="note" role="alert">{message}</p> : null;
+  // The apps do not ask: notifications are not optional there.
+  if (native || prefs.enabled !== null || !supported) return message ? <p className="note" role="alert">{message}</p> : null;
 
   return (
     <aside className="card fx-reminder-prompt" aria-label="Daily reminders">

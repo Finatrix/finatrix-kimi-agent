@@ -11,6 +11,7 @@ import { computePeerCompare, type PeerResult, type Metric, type PeerInput } from
 import { useCurrency } from '../CurrencyContext';
 import { useMarket } from '../MarketContext';
 import { MarketNote } from '../ui/MarketNote';
+import { RegionBar } from '../ui/RegionBar';
 import { ResultExplainer, type MethodRow } from '../ui/ResultExplainer';
 import { Disclosure } from '../ui/Disclosure';
 import { reviewedLabel } from '../../shared/reviewed';
@@ -53,7 +54,7 @@ export default function PeerComparePage() {
   const { market } = useMarket();
   return market.peer.mode === 'published-context'
     ? <PublishedPeerComparison key={market.id} market={market} />
-    : <LegacyPeerComparePage />;
+    : <LegacyPeerComparePage key={market.id} />;
 }
 
 function LegacyPeerComparePage() {
@@ -92,6 +93,7 @@ function LegacyPeerComparePage() {
         Illustrative benchmarks for {cityEntries.length} locations across {market.name}, using an
         age-band and location model. These estimates provide context, not a population ranking or a target.
       </PageHead>
+      <RegionBar />
 
       {code !== market.currency ? <aside className="card" aria-label="Match the benchmark currency">
         <h2 style={{ fontSize: 18, marginTop: 0 }}>Use {market.currency} for this comparison</h2>

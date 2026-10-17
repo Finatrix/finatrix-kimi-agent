@@ -12,6 +12,7 @@ import { useCurrency } from '../CurrencyContext';
 import { useMarket } from '../MarketContext';
 import type { MarketPack } from '../lib/markets';
 import { MarketNote } from '../ui/MarketNote';
+import { RegionBar } from '../ui/RegionBar';
 import { DepositProtectionNote } from '../ui/ReferenceDisclosure';
 import { ResultExplainer, type MethodRow } from '../ui/ResultExplainer';
 import { Disclosure } from '../ui/Disclosure';
@@ -20,7 +21,13 @@ import { safeParkComparison } from '../lib/comparisonAssist';
 
 interface Saved { 'ps-amount'?: string; 'ps-duration'?: string; 'ps-slab'?: string; market?: string; currency?: string }
 
+/** Keyed by market: a new country brings its own amounts, rates and instruments, so the form starts fresh. */
 export default function ParkSmartPage() {
+  const { market } = useMarket();
+  return <ParkSmartTool key={market.id} />;
+}
+
+function ParkSmartTool() {
   const { notify } = useToast();
   const { cfmt, code, sym } = useCurrency();
   const { market } = useMarket();
@@ -90,6 +97,7 @@ export default function ParkSmartPage() {
       <PageHead marketNotice chip="ParkSmart" chipColor="var(--teal)" chipBg="rgba(12,128,121,.09)" icon="bank" title="Idle money shouldn't idle.">
         {enteredRates ? `Compare two cash options in ${market.name} using rates you enter after taxes and fees. No bank rate or tax exemption is assumed.` : <>Compare what idle cash actually earns after tax across {park.options.length} parking options in {market.name} — tuned to your duration, your tax rate and current rules.</>}
       </PageHead>
+      <RegionBar />
 
       {!result ? (
         <div className="card">

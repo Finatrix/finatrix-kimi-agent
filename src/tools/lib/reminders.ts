@@ -80,6 +80,16 @@ export function loadReminderPrefs(): ReminderPrefs {
   };
 }
 
+/**
+ * The preferences the native apps run on: every part of the day is on and
+ * there is no switch for it. Only the times stay the person's own. The system
+ * permission is still theirs to withhold in device settings; this only stops
+ * the app from offering a way to opt out of itself.
+ */
+export function alwaysOn(prefs: ReminderPrefs): ReminderPrefs {
+  return { ...prefs, enabled: true, daily: true, weekly: true, upcoming: true, morning: true, midday: true };
+}
+
 export function saveReminderPrefs(prefs: ReminderPrefs): void {
   setJSON(REMINDER_KEY, prefs);
 }

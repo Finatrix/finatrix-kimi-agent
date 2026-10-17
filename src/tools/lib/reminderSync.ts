@@ -5,7 +5,7 @@ import { getUpcomingEvents } from './calendar';
 import { readDashboard } from './dashboard';
 import type { ExpenseItem } from './expense';
 import {
-  REMINDER_HORIZON_DAYS, loadReminderPrefs, planReminders, type PlannedReminder,
+  REMINDER_HORIZON_DAYS, alwaysOn, loadReminderPrefs, planReminders, type PlannedReminder,
 } from './reminders';
 
 /**
@@ -18,7 +18,8 @@ export type ReminderPermission = 'granted' | 'denied' | 'prompt' | 'unsupported'
 
 export function currentPlan(now = new Date()): PlannedReminder[] {
   const snap = readDashboard();
-  return planReminders(now, loadReminderPrefs(), {
+  const saved = loadReminderPrefs();
+  return planReminders(now, isNativeApp() ? alwaysOn(saved) : saved, {
     expenses: getJSON<ExpenseItem[]>('fx_expenses', []),
     upcoming: getUpcomingEvents(now, REMINDER_HORIZON_DAYS + 1),
     overspent: snap.netCashflow != null && snap.netCashflow < 0,
@@ -89,8 +90,12 @@ export async function syncReminders(now = new Date()): Promise<void> {
   const plan = currentPlan(now);
   if (isNativeApp()) {
     const native = await import('../../native/reminders');
-    // Never schedule into a permission that is not there; never prompt from here.
-    await native.scheduleReminders((await native.reminderPermission()) === 'granted' ? plan : []);
+    // The apps ask for the system permission themselves, once, the first time
+    // the tools open; after that the state is the person's, in device settings.
+    // Never schedule into a permission that is not there.
+    let permission = await native.reminderPermission();
+    if (permission === 'prompt') permission = await native.requestReminderPermission();
+    await native.scheduleReminders(permission === 'granted' ? plan : []);
     return;
   }
   scheduleInTab(plan);

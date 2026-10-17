@@ -13,6 +13,7 @@ import {
 import { useCurrency } from '../CurrencyContext';
 import { useMarket } from '../MarketContext';
 import { MarketNote } from '../ui/MarketNote';
+import { RegionBar } from '../ui/RegionBar';
 import { ResultExplainer, type MethodRow } from '../ui/ResultExplainer';
 import { Disclosure } from '../ui/Disclosure';
 import type { MarketPack } from '../lib/markets';
@@ -21,7 +22,13 @@ import { investAnswerError, investScenarios } from '../lib/comparisonAssist';
 
 interface SavedAnswers { a?: ImAnswers; market?: string; currency?: string; savedAt?: string }
 
+/** Keyed by market: answers and defaults belong to one country's instruments. */
 export default function InvestMatchPage() {
+  const { market } = useMarket();
+  return <InvestMatchTool key={market.id} />;
+}
+
+function InvestMatchTool() {
   const { notify } = useToast();
   const { cfmt, sym, code } = useCurrency();
   const { market } = useMarket();
@@ -254,11 +261,14 @@ export default function InvestMatchPage() {
 
 function Head({ market }: { market: MarketPack }) {
   return (
+    <>
     <PageHead marketNotice chip="InvestMatch" chipColor="var(--green)" chipBg="rgba(29,125,70,.09)" icon="invest" title="An allocation, illustrated.">
       Six quick questions. An illustrative split across the instrument classes available in{' '}
       {market.name}, with the horizon-aware risk control most tools skip. It explains a shape —
       it never names a product or tells you what to buy.
     </PageHead>
+    <RegionBar />
+    </>
   );
 }
 

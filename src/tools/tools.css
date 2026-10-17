@@ -1037,3 +1037,14 @@ html.fx-native .fx-tools .wrap { padding-top: 14px; }
 .fx-tools .fx-reminder-time { max-width: 220px; margin-top: 14px; }
 /* Tucked under the checkbox it belongs to, in line with that checkbox's text. */
 .fx-tools .fx-reminder-time.is-nested { margin: 4px 0 12px 28px; }
+
+/* Country + currency strip at the top of the market-aware tools. */
+.fx-tools .fx-region { margin: 0 0 18px; padding: 14px 16px; border: 1px solid var(--hair2); border-radius: 14px; background: var(--fill-04); }
+.fx-tools .fx-region-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.fx-tools .fx-region-field .fl { margin-bottom: 6px; }
+.fx-tools .fx-region-hint { margin: 10px 0 0; }
+.fx-tools .fx-region-hint a { color: var(--accent-text); text-decoration: underline; }
+.fx-tools .fx-region-status { margin: 0; min-height: 0; font-size: 12px; font-weight: 600; color: var(--ink2); }
+.fx-tools .fx-region-status:empty { display: none; }
+.fx-tools .fx-region-status:not(:empty) { margin-top: 6px; }
+@media (max-width: 480px) { .fx-tools .fx-region-row { grid-template-columns: minmax(0, 1fr); } }

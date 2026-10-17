@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { RemindersCard } from '../ui/Reminders';
+import { isNativeApp } from '../../native/platform';
 import { Link } from 'react-router';
 import { PageHead, ToolFoot } from '../ui/common';
 import { Icon } from '../ui/Icon';
@@ -65,7 +66,7 @@ export default function SettingsPage() {
 
       <DataReadiness />
 
-      <Section title="Reminders" desc="A thought in the morning, a nudge at lunchtime, and a reminder in the evening to add your spending, plus a weekly look at the month and bills the day before they fall due. Each is yours to switch off.">
+      <Section title="Reminders" desc={`A thought in the morning, a nudge at lunchtime, and a reminder in the evening to add your spending, plus a weekly look at the month and bills the day before they fall due.${isNativeApp() ? '' : ' Each is yours to switch off.'}`}>
         <RemindersCard />
       </Section>
 
