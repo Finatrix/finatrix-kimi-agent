@@ -42,6 +42,7 @@ import {
 } from '../types/jobs';
 import { toCareersError, type CareersError } from '../utils/errors';
 import { fitLabel, formatDate, scoreColor } from '../utils/format';
+import { safeHttpUrl } from '../../lib/sanitize';
 
 /** Resume versions that can actually be matched against. Mirrors JobsPage. */
 function completeVersions(resumes: ResumeWithVersions[]): { label: string; version: ResumeVersionRow }[] {
@@ -166,7 +167,7 @@ export default function MatchQueuePage() {
     setActing(true);
     try {
       if (verdict === 'applied') {
-        const url = card.job.apply_url;
+        const url = safeHttpUrl(card.job.apply_url);
         if (url) window.open(url, '_blank', 'noopener,noreferrer');
         // Persist the job first so the application attaches to a real row —
         // the same ordering JobsPage uses when opening the workbench.
@@ -395,10 +396,10 @@ export default function MatchQueuePage() {
             <button className={`btn btn-sm ${acting ? 'btn-loading' : ''}`} disabled={acting} onClick={() => void decide('applied')}>
               {acting ? 'Saving…' : 'Apply ↗'}
             </button>
-            {card.job.apply_url && (
+            {safeHttpUrl(card.job.apply_url) && (
               <a
                 className="btn btn-ghost btn-sm" style={{ width: 'auto', textDecoration: 'none' }}
-                href={card.job.apply_url} target="_blank" rel="noopener noreferrer"
+                href={safeHttpUrl(card.job.apply_url)} target="_blank" rel="noopener noreferrer"
               >
                 View posting
               </a>

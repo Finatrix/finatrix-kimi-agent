@@ -88,6 +88,9 @@ describe('Budget Builder — category amount fields', () => {
 describe('InvestMatch — question labelling', () => {
   beforeEach(() => {
     localStorage.clear();
+    // An explicit currency choice: with none, the tool adopts the detected
+    // country's currency on first visit (see RegionBar).
+    localStorage.setItem('fx_currency', 'INR');
     cleanup();
   });
 

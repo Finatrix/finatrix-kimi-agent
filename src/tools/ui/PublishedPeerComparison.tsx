@@ -4,6 +4,7 @@ import { peerSummariesFor } from '../../reference/peerSummaries';
 import type { MarketPack } from '../lib/markets';
 import { PageHead, ToolFoot } from './common';
 import { MarketNote } from './MarketNote';
+import { RegionBar } from './RegionBar';
 import { Methodology } from './ResultExplainer';
 import { AmountInput } from './AmountInput';
 import { plainAmount } from '../lib/formula';
@@ -37,6 +38,7 @@ export function PublishedPeerComparison({ market }: { market: MarketPack }) {
     <PageHead chip="PeerCompare" chipColor="var(--purple)" chipBg="rgba(110,59,212,.09)" icon="peer" title="Put a published figure in context.">
       Explore official statistics for {market.name}. Compare the same population, period and definition; a national median is not a financial target.
     </PageHead>
+    <RegionBar />
     <div className="card">
       <label className="fl" htmlFor="pc-summary">Published reference</label>
       <select className="fs" id="pc-summary" value={selected} onChange={(e) => { setSelected(e.target.value); setAmount(''); setConfirmed(false); setDefinitionChecked(false); setPeriodChecked(false); setParts(['', '']); setSecond(''); setResult(null); setError(''); }}>

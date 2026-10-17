@@ -42,6 +42,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Least privilege: nothing here writes to the repository with GITHUB_TOKEN.
+permissions:
+  contents: read
+
 concurrency:
   group: deploy-production
   cancel-in-progress: false

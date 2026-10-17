@@ -159,13 +159,29 @@ export const STORAGE_BUCKET = 'resumes';
  */
 export const AI_MODEL_OPTIONS = [
   { id: '', label: 'Automatic (recommended)' },
-  { id: 'google/gemini-2.5-flash', label: 'Google Gemini Flash' },
-  { id: 'anthropic/claude-sonnet-5', label: 'Claude Sonnet 5' },
-  { id: 'openai/gpt-5.5', label: 'ChatGPT 5.5' },
-  { id: 'moonshotai/kimi-k2', label: 'Kimi AI' },
-  { id: 'deepseek/deepseek-chat-v3.1', label: 'DeepSeek Chat' },
-  { id: 'qwen/qwen3-235b-a22b-2507', label: 'Qwen 3' },
+  { id: 'google/gemini-3.8-flash', label: 'Google Gemini Flash' },
+  { id: 'anthropic/claude-sonnet-5.5', label: 'Claude Sonnet 5.5' },
+  { id: 'openai/gpt-6.1-sol', label: 'ChatGPT 6.1' },
+  { id: 'moonshotai/kimi-k3', label: 'Kimi AI' },
+  { id: 'deepseek/deepseek-v4.1-flash', label: 'DeepSeek V4.1' },
+  { id: 'qwen/qwen3.8-flash', label: 'Qwen 3.8' },
 ] as const;
+
+/**
+ * Models this app used to offer, and the one that replaced each. The choice is
+ * saved in the user's profile, so without this a saved "Claude Sonnet 5" would
+ * match no option: the picker would show "Automatic" while the stored id still
+ * steered requests. Read through `resolveSettings`. The edge function keeps the
+ * same mapping for app builds already installed on phones.
+ */
+export const RETIRED_MODEL_IDS: Readonly<Record<string, string>> = {
+  'google/gemini-2.5-flash': 'google/gemini-3.8-flash',
+  'anthropic/claude-sonnet-5': 'anthropic/claude-sonnet-5.5',
+  'openai/gpt-5.5': 'openai/gpt-6.1-sol',
+  'moonshotai/kimi-k2': 'moonshotai/kimi-k3',
+  'deepseek/deepseek-chat-v3.1': 'deepseek/deepseek-v4.1-flash',
+  'qwen/qwen3-235b-a22b-2507': 'qwen/qwen3.8-flash',
+};
 
 /** Resume text is clamped to this many characters before it is sent to AI. */
 export const MAX_AI_INPUT_CHARS = 60_000;
