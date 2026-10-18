@@ -54,7 +54,7 @@ export function NotificationsBell() {
   const onDismiss = (id: string) => { dismiss(id); setTick((t) => t + 1); };
 
   return (
-    <div className="bell-wrap fx-tools" ref={wrapRef}>
+    <div className="bell-wrap fx-tools" ref={wrapRef} data-tour="shell-notifications">
       <button
         type="button"
         onClick={toggle}

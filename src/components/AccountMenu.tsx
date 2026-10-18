@@ -19,7 +19,7 @@ export interface AccountMenuItem {
 
 const ITEM_CLASS = 'px-4 py-2.5 text-[13px] text-left hover:bg-hairline-2';
 
-export function AccountMenu({ name, items }: { name: string; items: AccountMenuItem[] }) {
+export function AccountMenu({ name, items, tour }: { name: string; items: AccountMenuItem[]; /** Product-tour anchor (`data-tour`). */ tour?: string }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -91,7 +91,7 @@ export function AccountMenu({ name, items }: { name: string; items: AccountMenuI
   };
 
   return (
-    <div ref={rootRef} className="hidden md:block relative">
+    <div ref={rootRef} className="hidden md:block relative" data-tour={tour}>
       <button
         ref={triggerRef}
         aria-haspopup="menu"

@@ -34,6 +34,7 @@ export function CommandPaletteTrigger({ onOpen }: { onOpen: () => void }) {
       aria-label="Search tools, guides and actions"
       aria-keyshortcuts={mac ? 'Meta+K' : 'Control+K'}
       aria-haspopup="dialog"
+      data-tour="shell-search"
       className="hidden min-[360px]:flex items-center gap-2 rounded-full border border-hairline px-2.5 sm:px-3 py-1.5 min-h-6 text-ink-3 hover:text-ink hover:border-hairline-2 transition-colors"
     >
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">

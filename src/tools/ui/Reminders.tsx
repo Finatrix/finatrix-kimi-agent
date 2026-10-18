@@ -218,7 +218,7 @@ export function ReminderPrompt() {
   if (native || prefs.enabled !== null || !supported) return message ? <p className="note" role="alert">{message}</p> : null;
 
   return (
-    <aside className="card fx-reminder-prompt" aria-label="Daily reminders">
+    <aside className="card fx-reminder-prompt" aria-label="Daily reminders" data-tour="dashboard-reminders">
       <div>
         <b>Want a little nudge through the day?</b>
         <p className="note">

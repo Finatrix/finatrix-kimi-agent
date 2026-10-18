@@ -179,7 +179,7 @@ export function AiLauncher() {
 
   return (
     <>
-      <div className="fx-ai-dock">
+      <div className="fx-ai-dock" data-tour="shell-ai">
         {/* Slots for the Wallet pill and the add button — see ui/dockSlots.ts. */}
         <div className="fx-dock-slot is-wallet" ref={walletSlot} />
         <div className="fx-dock-slot" ref={addSlot} />
@@ -189,6 +189,7 @@ export function AiLauncher() {
             ref={showRef}
             type="button"
             className="fx-ai-fab is-collapsed"
+            data-tour="ai-launcher"
             onClick={() => toggle(false)}
             aria-expanded={false}
             aria-label="Show FinatriX AI"
@@ -197,7 +198,7 @@ export function AiLauncher() {
             <AiSparkle />
           </button>
         ) : (
-          <div key="expanded" className="fx-ai-fab">
+          <div key="expanded" className="fx-ai-fab" data-tour="ai-launcher">
             <button
               ref={askRef}
               type="button"

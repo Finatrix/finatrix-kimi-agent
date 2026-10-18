@@ -128,7 +128,7 @@ export default function ToolEducation({ toolId }: { toolId: ToolId }) {
     // 375px it was 3,500–6,500px of every tool page — more than the tool —
     // and it is reference, not the answer. Search engines and the crawlable
     // HTML still get every word: the region is hidden, not removed.
-    <div className="mx-auto mt-10 w-full max-w-[820px] border-t border-hairline px-4 pb-10 pt-8 sm:px-0">
+    <div className="mx-auto mt-10 w-full max-w-[820px] border-t border-hairline px-4 pb-10 pt-8 sm:px-0" data-tour="tool-education">
       <h2
         id="about-this-tool"
         className="text-[20px] font-semibold tracking-[-0.02em] text-ink"

@@ -127,7 +127,7 @@ export default function LifeMapPage() {
           setForm(next);
           setJSON('fx_lifemap', resolveAmounts(next));
         }} />
-        <MarketNote market={market} />
+        <MarketNote market={market} tour="lifemap-market" />
       </div>
     );
   }
@@ -185,7 +185,7 @@ export default function LifeMapPage() {
  */
 function LifeMapIntro({ seed }: { seed: LifeMapSeed }) {
   return (
-    <div className="card" style={{ maxWidth: 720, margin: '0 auto 16px' }}>
+    <div className="card" style={{ maxWidth: 720, margin: '0 auto 16px' }} data-tour="lifemap-intro">
       {/* Four facts in one line, with the full explanation one tap away — the
           paragraphs used to stand between the reader and the form. */}
       <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Before you start</div>
@@ -267,7 +267,7 @@ function SetupForm({ form, goals, seed, setField, setGoals, onLaunch, sym, month
       <div className="note" style={{ marginBottom: 22 }}>Your inputs are private — kept on your device as a guest, or saved to your account when signed in.</div>
       {/* The fastest way through the form, so it is the first thing in it
           rather than a collapsed line. */}
-      <div className="well fx-lm-prefill">
+      <div className="well fx-lm-prefill" data-tour="lifemap-prefill">
         <div>
           <b>Use what you already entered</b>
           <p className="note">Replace available income, spending, savings, investment and debt fields with your latest saved Budget, Expenses, Net Worth and InvestMatch figures. Fields without a source stay as entered. Review partial-month spending before continuing.</p>
@@ -275,7 +275,7 @@ function SetupForm({ form, goals, seed, setField, setGoals, onLaunch, sym, month
         <button type="button" className="btn btn-sm" onClick={onRefresh}>Use latest saved figures</button>
       </div>
       <h2 className="fx-lm-step">1 · You</h2>
-      <div className="grid2">
+      <div className="grid2" data-tour="lifemap-you">
         {N('lm-name', 'Your name', { type: 'text', placeholder: 'e.g. Nitya Prakash' })}
         {N('lm-age', 'Current age', { type: 'number', min: 16, max: 45, inputMode: 'numeric' })}
         {M('lm-income', `Monthly income (${sym})`)}
@@ -286,7 +286,7 @@ function SetupForm({ form, goals, seed, setField, setGoals, onLaunch, sym, month
         <Icon name="zap" size={14} style={{ display: 'inline', verticalAlign: 'text-bottom', color: 'var(--gold)' }} /> Include all loan EMIs in{' '}
         <b style={{ color: 'var(--ink)' }}>monthly expenses</b>. Savings and investments are entered separately below — don't double-count.
       </div>
-      <div className="grid2">
+      <div className="grid2" data-tour="lifemap-money">
         {M('lm-savings', `Total savings — bank + FD + cash (${sym})`)}
         {M('lm-emergency', `Of which, emergency fund (${sym})`)}
         {M('lm-invest', `Total investments so far (${sym})`)}
@@ -315,7 +315,7 @@ function SetupForm({ form, goals, seed, setField, setGoals, onLaunch, sym, month
       <h2 className="fx-lm-step">3 · Goals</h2>
       <div className="fg" style={{ marginBottom: 6 }}>
         <label className="fl">Your top financial goals (pick any)</label>
-        <div className="lm-goals-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginTop: 4 }}>
+        <div className="lm-goals-grid" data-tour="lifemap-goals" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginTop: 4 }}>
           {LM_GOALS.map((g) => {
             const on = goals.has(g.k);
             return (
@@ -332,7 +332,7 @@ function SetupForm({ form, goals, seed, setField, setGoals, onLaunch, sym, month
       {issues.length > 0 && <div className="tip tip-info" role="status" style={{ marginTop: 16 }}><b>Check these inputs before simulating</b><ul>{issues.map((issue) => <li key={issue}>{issue}</li>)}</ul></div>}
       {Number(values['lm-expenses']) >= Number(values['lm-income']) && <p className="note">Expenses meet or exceed income. The model has no positive monthly surplus to grow.</p>}
       {form['lm-sip-yn'] === 'yes' && Number(values['lm-sip']) > Math.max(0, Number(values['lm-income']) - Number(values['lm-expenses'])) && <p className="note">Your monthly investment exceeds income minus expenses. Check whether you have counted it twice or are drawing on existing savings.</p>}
-      <button className="btn" style={{ marginTop: 22 }} disabled={issues.length > 0} onClick={onLaunch}>
+      <button className="btn" style={{ marginTop: 22 }} disabled={issues.length > 0} onClick={onLaunch} data-tour="lifemap-launch">
         Launch my LifeMap →
       </button>
     </div>
@@ -390,7 +390,7 @@ function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, mark
           <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-.015em' }}>Welcome, {p.name.split(' ')[0]}</div>
           <div className="note">Your financial simulation — age {p.age} to 60</div>
         </div>
-        <button className="btn btn-ghost btn-sm" onClick={onEdit} style={{ flexShrink: 0 }}>← Edit profile</button>
+        <button className="btn btn-ghost btn-sm" onClick={onEdit} style={{ flexShrink: 0 }} data-tour="lifemap-edit">← Edit profile</button>
       </div>
 
       {/* Which figures are yours and which are modelled. The net-worth tile is
@@ -398,7 +398,7 @@ function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, mark
           it is the balance you entered, and at every later age it is a
           projection. Labelling it is the difference between a simulation and a
           promise. */}
-      <div id="lm-kpi" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 16 }}>
+      <div id="lm-kpi" data-tour="lifemap-kpis" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 16 }}>
         <Kpi
           v={cfmt(currentAge > p.age ? sNW : p.savings + p.invest - p.debtTotal)}
           l={currentAge > p.age ? `Projected net worth at ${currentAge}` : 'Net worth today'}
@@ -412,7 +412,7 @@ function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, mark
 
       <LifeMapSmartAssist profile={p} decisions={dec} applied={applied} age={currentAge} money={cfmt} onToggle={onToggle} onReset={onResetDecisions} onAge={onAge} />
 
-      <div className="card" style={{ marginBottom: 16 }}>
+      <div className="card" style={{ marginBottom: 16 }} data-tour="lifemap-time">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <div style={{ fontSize: 15, fontWeight: 700 }}>⏳ Travel through time</div>
           <div style={{ background: 'var(--gold)', color: '#0A0A0A', borderRadius: 980, padding: '5px 16px', fontSize: 14, fontWeight: 600 }}>Age {currentAge}</div>
@@ -439,7 +439,7 @@ function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, mark
       </div>
 
       <div className="lm-chart-row" style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 16, marginBottom: 16 }}>
-        <div className="card">
+        <div className="card" data-tour="lifemap-chart">
           {/* `flexWrap` because the heading now carries the "modelled, not
               forecast" qualifier: without it, title + legend exceed a 360px
               card and the whole page scrolls sideways. The qualifier stays —
@@ -453,7 +453,7 @@ function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, mark
           </div>
           <WealthChart profile={p} dec={dec} applied={applied} cfmt={cfmt} code={code} />
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }} data-tour="lifemap-health">
           <div className="card" style={{ textAlign: 'center', padding: '22px 16px' }}>
             <div style={{ position: 'relative', width: 100, height: 100, margin: '0 auto 12px' }}>
               <svg aria-hidden="true" width="100" height="100" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
@@ -483,7 +483,7 @@ function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, mark
       </div>
 
       <div className="lm-dec-uni-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-        <div>
+        <div data-tour="lifemap-decisions">
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Life decisions</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
             {LM_CATS.map((c) => {
@@ -516,7 +516,7 @@ function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, mark
             })}
           </div>
         </div>
-        <div>
+        <div data-tour="lifemap-universe">
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Parallel universe</div>
           <div className="card">
             <div className="note" style={{ marginBottom: 6 }}>At age <b style={{ color: 'var(--ink)' }}>{compareAt}</b>, the gap between smart &amp; impulsive you:</div>
@@ -532,6 +532,7 @@ function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, mark
 
       <ResultExplainer
         toolId="lifemap"
+        tour="lifemap-explainer"
         market={market}
         inputs={inputs}
         assumptions={assumptions}

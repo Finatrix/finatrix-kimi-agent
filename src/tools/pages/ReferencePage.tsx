@@ -42,11 +42,11 @@ function money(amount: number, currency: string): string {
   }
 }
 
-function Sources({ ids }: { ids: readonly string[] }) {
+function Sources({ ids, tour }: { ids: readonly string[]; tour?: string }) {
   const sources: readonly ReferenceSource[] = sourcesByIds(ids);
   if (sources.length === 0) return null;
   return (
-    <ul className="fx-ref-sources">
+    <ul className="fx-ref-sources" data-tour={tour}>
       {sources.map((s) => (
         <li key={s.id}>
           <a href={s.url} target="_blank" rel="noopener noreferrer" className="fx-method-link">
@@ -58,9 +58,9 @@ function Sources({ ids }: { ids: readonly string[] }) {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, tour, children }: { title: string; tour?: string; children: React.ReactNode }) {
   return (
-    <section className="card fx-refpage-section" aria-labelledby={`ref-${title.replace(/\W+/g, '-').toLowerCase()}`}>
+    <section className="card fx-refpage-section" aria-labelledby={`ref-${title.replace(/\W+/g, '-').toLowerCase()}`} data-tour={tour}>
       <h2 id={`ref-${title.replace(/\W+/g, '-').toLowerCase()}`} className="fx-refpage-h2">
         {title}
       </h2>
@@ -71,7 +71,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 /** "Available in the tools" / "Reference data only", with what that means. */
 function MarketStatus({ market }: { market: ReferenceMarket }) {
-  return <div className="fx-refpage-status" data-available={IN_PRODUCT.has(market)}>
+  return <div className="fx-refpage-status" data-available={IN_PRODUCT.has(market)} data-tour="reference-status">
     <span className="fx-refpage-status-tag">Available in the tools</span>
     <p className="note">Select {MARKET_NAMES[market]} in <Link to="/tools/settings" className="fx-method-link">Settings</Link>.
       {' '}Australia, Singapore and Mainland China use your entered net rates in ParkSmart and dated official summaries in PeerCompare.
@@ -85,7 +85,7 @@ function DepositSection({ market }: { market: ReferenceMarket }) {
   const freshness = evaluateFreshness(record);
 
   return (
-    <Section title="Deposit protection">
+    <Section title="Deposit protection" tour="reference-deposit">
       <div className="fx-refpage-headline">
         <span className="fx-refpage-authority">{record.authority}</span>
         <span className="fx-refpage-figure">
@@ -132,7 +132,7 @@ function DepositSection({ market }: { market: ReferenceMarket }) {
       </dl>
 
       <p className="note fx-refpage-fine">{record.applicability}</p>
-      <Sources ids={record.sourceIds} />
+      <Sources ids={record.sourceIds} tour="reference-sources" />
     </Section>
   );
 }
@@ -143,7 +143,7 @@ function InflationSection({ market }: { market: ReferenceMarket }) {
   const freshness = evaluateFreshness(cpi);
 
   return (
-    <Section title="Published inflation">
+    <Section title="Published inflation" tour="reference-inflation">
       <div className="fx-refpage-headline">
         <span className="fx-refpage-authority">{cpi.measure}</span>
         <span className="fx-refpage-figure">{cpi.observedYoY}%</span>
@@ -179,7 +179,7 @@ function TaxSection({ market }: { market: ReferenceMarket }) {
   const payroll = taxPolicyFor(market, 'PAYROLL_AND_SOCIAL');
 
   return (
-    <Section title="Income tax">
+    <Section title="Income tax" tour="reference-tax">
       <p className="note">
         FinatriX does not work out a tax liability in any market, and is not becoming
         tax-preparation software. {totalTax.why} Where a tool needs a tax figure it asks you for
@@ -245,7 +245,7 @@ function RetirementSection({ market }: { market: ReferenceMarket }) {
   if (!record) return null;
 
   return (
-    <Section title="Retirement">
+    <Section title="Retirement" tour="reference-retirement">
       <p className="note">
         <b>{record.schemes.join(' · ')}</b>
       </p>
@@ -268,7 +268,7 @@ function PeerSection({ market }: { market: ReferenceMarket }) {
   if (datasets.length === 0) return null;
 
   return (
-    <Section title="Peer statistics">
+    <Section title="Peer statistics" tour="reference-peer">
       <p className="note">
         PeerCompare uses published summaries for Australia, Singapore and Mainland China, and existing modeled grids for the other four markets. None of
         the published surveys below has been cleared to produce a percentile — a median tells you
@@ -299,7 +299,7 @@ function GatesSection({ market }: { market: ReferenceMarket }) {
   if (gates.length === 0) return null;
 
   return (
-    <Section title="What is deliberately switched off">
+    <Section title="What is deliberately switched off" tour="reference-gates">
       <p className="note">
         Each of these is a feature FinatriX could plausibly offer and does not, because the evidence
         does not support it yet. Written down so an empty space reads as a decision rather than an
@@ -344,7 +344,7 @@ export default function ReferencePage() {
         Researched across {REFERENCE_MARKETS.length} markets as at {verifiedLabel(REFERENCE_AS_OF)}.
       </PageHead>
 
-      <div className="card fx-refpage-picker">
+      <div className="card fx-refpage-picker" data-tour="reference-picker">
         <label htmlFor="ref-market" className="fx-refpage-label">
           Market
         </label>
@@ -381,7 +381,7 @@ export default function ReferencePage() {
       <MarketStatus market={selected} />
 
       <ReferenceFinder market={selected} />
-      <div className="card">
+      <div className="card" data-tour="reference-topic">
         <label className="fl" htmlFor="reference-topic">Focus on a topic</label>
         <select className="fs" id="reference-topic" value={topic} onChange={event => setTopic(event.target.value)}>
           <option value="all">All reference topics</option><option value="deposit">Deposit protection</option><option value="inflation">Published inflation</option><option value="tax">Income tax</option><option value="retirement">Retirement</option><option value="peer">Peer statistics</option><option value="gates">Evidence gaps</option>
@@ -394,7 +394,7 @@ export default function ReferencePage() {
       {(topic === 'all' || topic === 'peer') && <PeerSection market={selected} />}
       {(topic === 'all' || topic === 'gates') && <GatesSection market={selected} />}
 
-      <p className="note fx-refpage-fine">
+      <p className="note fx-refpage-fine" data-tour="reference-checks">
         {DISCLAIMERS.FOOTER} Every figure here was extracted from the source linked beside it on{' '}
         {verifiedLabel(REFERENCE_AS_OF)} and is maintained by hand — check the authority before
         acting on any of it.{' '}

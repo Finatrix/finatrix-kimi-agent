@@ -11,14 +11,16 @@ import { Disclosure } from './Disclosure';
  * the controls are one press away. Assists that ARE the screen's purpose
  * (record review, data readiness) leave it off.
  */
-export function SmartAssist({ title, description, collapsible, children }: {
+export function SmartAssist({ title, description, collapsible, tour, children }: {
   title: string;
   description?: string;
   collapsible?: { showLabel: string; hideLabel: string };
+  /** Product-tour anchor (`data-tour`), e.g. "dashboard-navigator". */
+  tour?: string;
   children: ReactNode;
 }) {
   const id = useId();
-  return <section className="card fx-smart-assist" aria-labelledby={id}>
+  return <section className="card fx-smart-assist" aria-labelledby={id} data-tour={tour}>
     <h2 id={id} className="fx-smart-title">{title}</h2>
     {description && <p className="note fx-smart-description">{description}</p>}
     {collapsible

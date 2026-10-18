@@ -35,13 +35,15 @@ export interface PanelCardProps {
   children: ReactNode;
   /** Extra classes on the card, for callers with their own layout hooks. */
   className?: string;
+  /** Product-tour anchor (`data-tour`), e.g. "expenses-score". */
+  tour?: string;
 }
 
 export function PanelCard({
-  title, subtitle, on, onToggle, badge, children, className,
+  title, subtitle, on, onToggle, badge, children, className, tour,
 }: PanelCardProps) {
   return (
-    <div className={`card fx-panelcard${on ? '' : ' is-off'}${className ? ` ${className}` : ''}`}>
+    <div className={`card fx-panelcard${on ? '' : ' is-off'}${className ? ` ${className}` : ''}`} data-tour={tour}>
       <style>{PANEL_CARD_STYLES}</style>
       <div className="fx-panelcard-hd">
         <div className="fx-panelcard-titles">

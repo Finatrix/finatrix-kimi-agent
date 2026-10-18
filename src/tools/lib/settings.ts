@@ -10,8 +10,15 @@ import { downloadBlob } from './exporters';
 import { clearNotificationState } from './notifications';
 import { store } from './storage';
 
-/** Non-synced local keys that still belong to the user and should be reset. */
-const LOCAL_ONLY_KEYS = ['fx_last_backup_export', 'fx_activity', 'fx_last_tool', 'fx_notif_read', 'fx_notif_dismissed', 'fx_notif_seen_at', 'fx_dash_layout', 'fx_exp_catsort', 'fx_onboarding_done', 'fx_walkthrough_seen'];
+/**
+ * Non-synced local keys that still belong to the user and should be reset.
+ *
+ * The product tour's three (`fx_tour_progress`, `fx_tour_optout`,
+ * `fx_tour_offer`, see src/tour/progress.ts) are here rather than in
+ * SYNC_KEYS on purpose: what one device has been shown says nothing about
+ * another, and a synced key would need its own merge rule in syncMerge.ts.
+ */
+export const LOCAL_ONLY_KEYS = ['fx_last_backup_export', 'fx_activity', 'fx_last_tool', 'fx_notif_read', 'fx_notif_dismissed', 'fx_notif_seen_at', 'fx_dash_layout', 'fx_exp_catsort', 'fx_onboarding_done', 'fx_walkthrough_seen', 'fx_tour_progress', 'fx_tour_optout', 'fx_tour_offer'];
 
 /** Human labels for the tool data keys (for the storage summary). */
 const KEY_LABEL: Record<string, string> = {

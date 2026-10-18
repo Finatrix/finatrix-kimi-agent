@@ -16,7 +16,12 @@ import { useCurrency } from '../CurrencyContext';
  * live in India needs a visible way out, and one sentence into Settings beats
  * discovering the setting by accident three screens away.
  */
-export function MarketNote({ market, className }: { market: MarketPack; className?: string }) {
+export function MarketNote({ market, className, tour }: {
+  market: MarketPack;
+  className?: string;
+  /** Product-tour anchor (`data-tour`), e.g. "lifemap-market". */
+  tour?: string;
+}) {
   const [year, month] = market.asOf.split('-');
   const reviewed = new Date(Number(year), Number(month) - 1, 1).toLocaleDateString('en', {
     month: 'long',
@@ -32,6 +37,7 @@ export function MarketNote({ market, className }: { market: MarketPack; classNam
     <aside
       className={`fx-market-note${className ? ` ${className}` : ''}`}
       aria-label="Where these figures come from"
+      data-tour={tour}
     >
       <div className="fx-market-note-head">
         <span aria-hidden="true">{market.flag}</span>{' '}
@@ -75,7 +81,7 @@ export function MarketCurrencyNotice() {
   const currency = useCurrency();
   if (currency.code === market.currency) return null;
   return (
-    <aside className="fx-market-mismatch" aria-label="Market and currency differ">
+    <aside className="fx-market-mismatch" aria-label="Market and currency differ" data-tour="market-mismatch">
       <p>
         <b>Rules are for {market.name}; your amounts are in {currency.code}.</b>{' '}
         Allowances, limits and presets are quoted in {market.currency} and are not converted.

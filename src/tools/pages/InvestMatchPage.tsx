@@ -126,7 +126,7 @@ function InvestMatchTool() {
       <div className="fx-page">
         <Head market={market} />
         <InvestResult ans={ans} market={market} money={cfmt} onReset={reset} />
-        <MarketNote market={market} />
+        <MarketNote market={market} tour="investmatch-sources" />
         <ToolFoot>Projections assume historical averages repeat, which is not guaranteed</ToolFoot>
       </div>
     );
@@ -135,19 +135,19 @@ function InvestMatchTool() {
   return (
     <div className="fx-page">
       <Head market={market} />
-      {step === 0 && !reviewing && reusable && <aside className="card" aria-label="Saved InvestMatch answers">
+      {step === 0 && !reviewing && reusable && <aside className="card" aria-label="Saved InvestMatch answers" data-tour="investmatch-saved">
         <h2 style={{ fontSize: 17, marginTop: 0 }}>Pick up your last illustration</h2>
         <p className="note">Saved in InvestMatch for {market.name}, {code}{saved.savedAt && Number.isFinite(Date.parse(saved.savedAt)) ? ` on ${new Date(saved.savedAt).toLocaleDateString()}` : ''}. Review these figures before reusing them.</p>
         <button className="btn btn-ghost" onClick={() => { setAns({ ...saved.a! }); setReviewing(true); }}>Review saved answers</button>
       </aside>}
-      {reviewing ? <div className="card">
+      {reviewing ? <div className="card" data-tour="investmatch-outcome">
         <h2 style={{ fontSize: 18 }}>Review your answers</h2>
         <dl className="fx-method-rows">{IM_Q.map((question) => <div key={question.k}><dt>{questionLabel(question, sym)}</dt><dd>{question.type === 'opt' ? question.opts.find((o) => o.v === ans[question.k as keyof ImAnswers])?.l : String(ans[question.k as keyof ImAnswers])}</dd></div>)}</dl>
         <p className="note">Your income, investment amount and commitments may have changed since you saved this illustration.</p>
         <button className="btn" onClick={build}>Use these answers</button>
         <button className="btn btn-ghost" onClick={() => { setReviewing(false); setNumDraft(String(ans.age)); }}>Edit answers</button>
       </div> : <>
-      <div>
+      <div data-tour="investmatch-questions">
         <div className="steps">
           {IM_Q.map((_, i) => (
             <div key={i} className={`sd ${i <= step ? 'on' : ''}`} />
@@ -173,7 +173,7 @@ function InvestMatchTool() {
             })}
           </div>
         )}
-        <div className="card">
+        <div className="card" data-tour="investmatch-outcome">
           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink3)', marginBottom: 8 }}>
             Question {step + 1} of {IM_Q.length}
           </div>
@@ -241,7 +241,7 @@ function InvestMatchTool() {
           )}
         </div>
         {error && <p id="im-error" role="alert">{error}</p>}
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 10 }} data-tour="investmatch-build">
           {step > 0 && <button className="btn btn-ghost" style={{ flex: 1 }} onClick={goPrev}>Back</button>}
           {step < IM_Q.length - 1 ? (
             <button className="btn" style={{ flex: 2 }} onClick={goNext}>Next</button>
@@ -253,7 +253,7 @@ function InvestMatchTool() {
         </div>
       </div>
       </>}
-      <MarketNote market={market} />
+      <MarketNote market={market} tour="investmatch-sources" />
       <ToolFoot>Projections assume historical averages repeat, which is not guaranteed</ToolFoot>
     </div>
   );
@@ -267,7 +267,7 @@ function Head({ market }: { market: MarketPack }) {
       {market.name}, with the horizon-aware risk control most tools skip. It explains a shape —
       it never names a product or tells you what to buy.
     </PageHead>
-    <RegionBar />
+    <RegionBar tour="investmatch-region" />
     </>
   );
 }
@@ -296,13 +296,13 @@ function InvestResult({ ans, market, money, onReset }: {
 
   return (
     <div>
-      <div className="result-hero-anim" style={{ textAlign: 'center', margin: '8px 0 22px' }}>
+      <div className="result-hero-anim" style={{ textAlign: 'center', margin: '8px 0 22px' }} data-tour="investmatch-result">
         <div style={{ fontSize: 13, color: 'var(--ink2)' }}>An illustrative {IM_RL[r.effRisk]} allocation could reach</div>
         <div className="big-num" style={{ color: 'var(--green)' }}>{money(r.fv)}</div>
         <div className="note">in {r.years} years at ~{Math.round(r.rate * 100)}% p.a. · worth {money(r.realFv)} in today's money</div>
       </div>
 
-      <div className="card">
+      <div className="card" data-tour="investmatch-outcome">
         <div className="grid3" style={{ textAlign: 'center' }}>
           <div><div style={{ fontSize: 19, fontWeight: 700, color: 'var(--blue)' }}>{money(r.invested)}</div><div className="note">You invest</div></div>
           <div><div style={{ fontSize: 19, fontWeight: 700, color: 'var(--green)' }}>{money(r.gains)}</div><div className="note">You gain</div></div>
@@ -312,7 +312,7 @@ function InvestResult({ ans, market, money, onReset }: {
 
       <InvestScenarioAssist ans={ans} market={market} money={money} />
 
-      <div className="card">
+      <div className="card" data-tour="investmatch-allocation">
         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Illustrative allocation</div>
         <div className="seg-bar">
           {r.alloc.map((a) => <div key={a.n} className="seg" style={{ width: `${a.p}%`, background: a.c }} />)}
@@ -328,13 +328,13 @@ function InvestResult({ ans, market, money, onReset }: {
       </div>
 
       {r.insights.length > 0 && (
-        <div className="card">
+        <div className="card" data-tour="investmatch-insights">
           <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>What stands out</div>
           {r.insights.map((i, idx) => <div className="tip tip-info" key={idx}>{i}</div>)}
         </div>
       )}
 
-      <div className="card" style={{ background: 'var(--gold-bg)' }}>
+      <div className="card" style={{ background: 'var(--gold-bg)' }} data-tour="investmatch-summary">
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Summary</div>
         <div className="note" style={{ lineHeight: 2 }}>
           {market.invest.monthlyTerm}: <b style={{ color: 'var(--ink)' }}>{money(ans.monthly)}</b> · Risk:{' '}
@@ -346,6 +346,7 @@ function InvestResult({ ans, market, money, onReset }: {
 
       <ResultExplainer
         toolId="investmatch"
+        tour="investmatch-explainer"
         market={market}
         inputs={inputs}
         assumptions={assumptions}
@@ -367,7 +368,7 @@ function InvestResult({ ans, market, money, onReset }: {
         }
       />
 
-      <button className="btn" onClick={onReset}>Recalculate</button>
+      <button className="btn" onClick={onReset} data-tour="investmatch-recalc">Recalculate</button>
     </div>
   );
 }
@@ -378,7 +379,7 @@ function InvestScenarioAssist({ ans, market, money }: { ans: ImAnswers; market: 
   const result = computeInvestMatch(preview, market.invest);
   const baseline = computeInvestMatch(ans, market.invest);
   const emergency = ans.goal === 'emergency';
-  return <section className="card" aria-labelledby="im-smart-title">
+  return <section className="card" aria-labelledby="im-smart-title" data-tour="investmatch-scenarios">
     <h2 id="im-smart-title" style={{ fontSize: 18, marginTop: 0 }}>Explore what changes the outcome</h2>
     <p className="note">These scenarios reuse this calculator and the same market assumptions. Each changes one input; your saved answers stay as entered. Returns are illustrative, before fees and taxes.</p>
     {/* A what-if explorer under the answer, so one press away rather than in

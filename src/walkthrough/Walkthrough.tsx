@@ -9,7 +9,8 @@ import { useOptionalCurrency } from '../tools/CurrencyContext';
 import { exampleFor, money, type WalkthroughExample } from './examples';
 import { markWalkthroughSeen } from './gating';
 import { SceneClock, usePageVisible, useReducedMotion } from './motion';
-import { ART_H, ART_W, type OrbControl, type OrbCue } from './geometry';
+import type { OrbControl } from './geometry';
+import { useOrbControl } from './orb';
 import { SCENES, type SceneDef } from './scenes';
 import './walkthrough.css';
 
@@ -63,7 +64,6 @@ export default function Walkthrough({ mode, onClose, onSetup }: Props) {
   const trackRef = useRef<HTMLDivElement>(null);
   const dotRef = useRef<HTMLDivElement>(null);
   const primaryRef = useRef<HTMLButtonElement>(null);
-  const orbScale = useRef(0);
   const swipe = useRef<{ x: number; y: number; id: number } | null>(null);
 
   const currency = useOptionalCurrency();
@@ -88,45 +88,8 @@ export default function Walkthrough({ mode, onClose, onSetup }: Props) {
     return () => window.clearTimeout(t);
   }, [leaving]);
 
-  /* ── The orb ── */
-  const orb = useMemo<OrbControl>(() => {
-    const place = (x: number, y: number, riding: boolean) => {
-      const track = trackRef.current;
-      if (!track) return;
-      track.classList.toggle('is-riding', riding);
-      track.style.transform = `translate3d(${(x / ART_W) * 100}%, ${(y / ART_H) * 100}%, 0)`;
-    };
-    return {
-      move: (cue: OrbCue) => {
-        place(cue.x, cue.y, false);
-        const dot = dotRef.current;
-        const from = orbScale.current;
-        const to = cue.s;
-        if (!dot || from === to) return;
-        orbScale.current = to;
-        dot.style.transform = `scale(${to})`;
-        if (reduced || typeof dot.animate !== 'function') return;
-        // Squash and stretch: wider and flatter mid-flight, overshoot on landing.
-        const mid = (from + to) / 2;
-        dot.animate(
-          [
-            { transform: `scale(${from})` },
-            { transform: `scale(${mid * 1.14}, ${mid * 0.88})`, offset: 0.42 },
-            { transform: `scale(${to * 1.06})`, offset: 0.78 },
-            { transform: `scale(${to})` },
-          ],
-          { duration: 860, easing: 'cubic-bezier(.3,.7,.2,1)' },
-        );
-      },
-      ride: (x: number, y: number, s: number) => {
-        place(x, y, true);
-        const dot = dotRef.current;
-        if (!dot) return;
-        orbScale.current = s;
-        dot.style.transform = `scale(${s})`;
-      },
-    };
-  }, [reduced]);
+  /* ── The orb (shared with the product tour's chapter intros) ── */
+  const orb = useOrbControl(trackRef, dotRef, reduced);
 
   /* ── Navigation ── */
   const last = SCENES.length - 1;

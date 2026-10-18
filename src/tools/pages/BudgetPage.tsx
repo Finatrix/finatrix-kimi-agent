@@ -455,7 +455,7 @@ export default function BudgetPage() {
       <div role="status" aria-live="polite" className="fx-sr-only">{notice}</div>
 
       <div className="bb-monthbar">
-        <div className="fx-seg" role="group" aria-label="Budget period">
+        <div className="fx-seg" role="group" aria-label="Budget period" data-tour="budget-period">
           <button type="button" className={month === cur ? 'on' : ''} aria-pressed={month === cur}
             onClick={() => switchMonth(cur)}>This month</button>
           <button type="button" className={month === nextM ? 'on' : ''} aria-pressed={month === nextM}
@@ -474,6 +474,7 @@ export default function BudgetPage() {
         )}
         <ExportMenu
           source="budget"
+          tour="budget-export"
           label="Export budget"
           onCsv={() => exportBudgetCsv(buildExport())}
           onXlsx={() => exportBudgetXlsx(buildExport())}
@@ -496,7 +497,7 @@ export default function BudgetPage() {
         </p>
       )}
 
-      <div style={{ marginBottom: 14 }}>
+      <div style={{ marginBottom: 14 }} data-tour="budget-months">
         <MonthNav
           activeMonth={month}
           months={months}
@@ -514,7 +515,7 @@ export default function BudgetPage() {
           they stay in view while categories are edited. Display only — the
           same `computeBudget` result the totals card below reads. */}
       {!pendingStart && (
-        <div className="bb-sticky" role="group" aria-label="Budget summary">
+        <div className="bb-sticky" role="group" aria-label="Budget summary" data-tour="budget-summary">
           <span>Income <b>{cfmt(r.income)}</b></span>
           <span>Allocated <b>{cfmt(r.spent)}</b></span>
           <span className={r.pos ? undefined : 'is-over'}>{r.pos ? 'Left' : 'Over by'} <b>{cfmt(Math.abs(r.free))}</b></span>
@@ -553,7 +554,7 @@ export default function BudgetPage() {
             onArchive={toggleIncomeArchived}
           />
 
-          <div className="card">
+          <div className="card" data-tour="budget-split">
             <div className="bb-cardhd">
               <div className="bb-cardtitle">Your budget split</div>
               <span className="pill pill-mute">Recommended: 50 / 30 / 20</span>
@@ -651,6 +652,7 @@ export default function BudgetPage() {
 
           <div
             className="card result-hero-anim"
+            data-tour="budget-verdict"
             style={{ background: r.pos ? 'rgba(29,125,70,.05)' : 'rgba(215,0,21,.04)' }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -671,6 +673,7 @@ export default function BudgetPage() {
           </div>
 
           <ScoreCard
+            tour="budget-score"
             title="Plan score"
             caption={`How well this budget for ${monthLabel(month)} is built`}
             result={planScore}
@@ -681,7 +684,7 @@ export default function BudgetPage() {
           />
 
           {r.tips.length > 0 && (
-            <div className="card">
+            <div className="card" data-tour="budget-insights">
               <div className="bb-cardtitle" style={{ marginBottom: 12 }}>Insights</div>
               {r.tips.map((t, i) => (
                 <div className={`tip tip-${t[0]}`} key={i}>
@@ -692,6 +695,7 @@ export default function BudgetPage() {
             </div>
           )}
           <ResultExplainer
+            tour="budget-explainer"
             toolId="budget"
             inputs={[
               { label: 'Month', value: monthLabel(month) },
@@ -764,7 +768,7 @@ function StartMonthCard({
   ];
 
   return (
-    <div className="card">
+    <div className="card" data-tour="budget-start">
       <div className="bb-cardtitle is-section" style={{ marginBottom: 4 }}>Plan {monthLabel(month)}</div>
       <p className="note" style={{ marginBottom: 14 }}>
         Nothing is budgeted for this month yet. Choose how to start — your other months stay exactly as they are.
@@ -826,13 +830,13 @@ function IncomeCard({
   const foldedCount = sources.filter(folded).length;
 
   return (
-    <div className="card">
+    <div className="card" data-tour="budget-income">
       <div className="bb-cardhd">
         <div>
           <div className="bb-cardtitle">Monthly income</div>
           <div className="note">Add every source you receive — salary, rent, dividends, anything.</div>
         </div>
-        <button type="button" className="btn btn-ghost btn-sm" aria-pressed={manage} onClick={onToggleManage}>
+        <button type="button" className="btn btn-ghost btn-sm" aria-pressed={manage} onClick={onToggleManage} data-tour="budget-organise">
           {manage ? 'Done' : 'Organise'}
         </button>
       </div>
@@ -957,7 +961,7 @@ function CategoryCard({
   const barColor = TONE_FILL[tone];
 
   return (
-    <div className="card">
+    <div className="card" data-tour={catKey === 'needs' ? 'budget-categories' : undefined}>
       <div className="bb-cardhd">
         <div className="bb-cardtitle is-section" style={{ color }}>{label}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

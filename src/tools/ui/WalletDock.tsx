@@ -109,6 +109,7 @@ export function WalletDock({ items, cats, budgetStore, month }: WalletDockProps)
             ref={openerRef}
             type="button"
             className={`fx-wallet-fab is-${tone}`}
+            data-tour="wallet-dock"
             onClick={() => setOpen(true)}
             aria-haspopup="dialog"
             aria-expanded={open}

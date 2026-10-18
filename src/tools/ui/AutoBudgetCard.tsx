@@ -79,7 +79,7 @@ export function AutoBudgetCard({
   };
 
   return (
-    <div className="card">
+    <div className="card" data-tour="budget-autobudget">
       <style>{AUTO_STYLES}</style>
       <div className="fx-auto-hd">
         <div>

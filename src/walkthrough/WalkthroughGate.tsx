@@ -2,6 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { currentClientHints, passesFirstRunPrecheck, safeRead, shouldAutoShowWalkthrough } from './gating';
 import { WALKTHROUGH_REPLAY_EVENT } from './replay';
+import { tourRequestFromState } from '../tour/launch';
 import type { WalkthroughMode } from './Walkthrough';
 
 /**
@@ -18,12 +19,15 @@ import type { WalkthroughMode } from './Walkthrough';
 const Walkthrough = lazy(() => import('./Walkthrough'));
 
 export default function WalkthroughGate() {
-  const { pathname } = useLocation();
+  const { pathname, state } = useLocation();
   const navigate = useNavigate();
   const [mode, setMode] = useState<WalkthroughMode | null>(null);
   // The path the shell was entered on. Only that first landing counts: moving
   // to the dashboard later in the session is not a first run.
   const [entryPath] = useState(pathname);
+  // Arrived asking for the product tour (the landing page's "Full tutorial"):
+  // the tour opens instead, and the two are never stacked.
+  const [tourRequested] = useState(() => tourRequestFromState(state) != null);
 
   useEffect(() => {
     const input = {
@@ -32,7 +36,7 @@ export default function WalkthroughGate() {
       testRun: import.meta.env.MODE === 'test',
       read: safeRead,
     };
-    if (!passesFirstRunPrecheck(input)) return;
+    if (tourRequested || !passesFirstRunPrecheck(input)) return;
     let cancelled = false;
     import('../tools/lib/settings')
       .then(({ hasAnyData }) => {
@@ -42,7 +46,7 @@ export default function WalkthroughGate() {
       })
       .catch(() => { /* offline chunk fetch — skip the intro rather than block */ });
     return () => { cancelled = true; };
-  }, [entryPath]);
+  }, [entryPath, tourRequested]);
 
   useEffect(() => {
     const onReplay = () => setMode('replay');

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, type CSSProperties } from 'react';
-import { easeInOutCubic, easeOutExpo, type SceneClock } from './motion';
+import { easeInOutCubic } from './motion';
+import { arc, d, socketed, useCountUp } from './artKit';
 import { ART_H, ART_W, DONUT, GOAL, SHIELD, type ArtProps } from './geometry';
 import { useFitSvgText } from './fit';
 
@@ -17,44 +18,6 @@ import { useFitSvgText } from './fit';
  * Choreography lives in walkthrough.css as keyframes keyed off `--d` (delay,
  * ms). Only numbers and typing are driven from here, on the scene's clock.
  */
-
-const d = (ms: number): CSSProperties => ({ ['--d' as string]: ms } as CSSProperties);
-
-/* ── Helpers ────────────────────────────────────────────────────────── */
-
-function polar(cx: number, cy: number, r: number, deg: number): [number, number] {
-  const rad = (deg * Math.PI) / 180;
-  return [cx + r * Math.sin(rad), cy - r * Math.cos(rad)];
-}
-
-function arc(cx: number, cy: number, r: number, a0: number, a1: number): string {
-  const [x0, y0] = polar(cx, cy, r, a0);
-  const [x1, y1] = polar(cx, cy, r, a1);
-  return `M${x0.toFixed(2)} ${y0.toFixed(2)} A${r} ${r} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
-}
-
-/**
- * A rounded rectangle with a circular socket cut through it (even-odd fill).
- * Surfaces the orb has to show through — the scene layer paints above it —
- * get one of these, so the orb reads as sitting IN the field or card.
- */
-function socketed(x: number, y: number, w: number, h: number, r: number, cx: number, cy: number, cr: number): string {
-  return `M${x + r} ${y}H${x + w - r}A${r} ${r} 0 0 1 ${x + w} ${y + r}V${y + h - r}A${r} ${r} 0 0 1 ${x + w - r} ${y + h}`
-    + `H${x + r}A${r} ${r} 0 0 1 ${x} ${y + h - r}V${y + r}A${r} ${r} 0 0 1 ${x + r} ${y}Z`
-    + `M${cx - cr} ${cy}a${cr} ${cr} 0 1 0 ${cr * 2} 0a${cr} ${cr} 0 1 0 ${-cr * 2} 0Z`;
-}
-
-/** Count a text node up from zero on the scene clock. */
-function useCountUp(clock: SceneClock, at: number, dur: number, to: number, fmt: (n: number) => string) {
-  const ref = useRef<SVGTextElement>(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    if (!clock.instant) el.textContent = fmt(0);
-    clock.tween(at, dur, (p) => { el.textContent = fmt(to * p); }, easeOutExpo);
-  }, [clock, at, dur, to, fmt]);
-  return ref;
-}
 
 /* ── Scene 1 · the month ─────────────────────────────────────────────── */
 

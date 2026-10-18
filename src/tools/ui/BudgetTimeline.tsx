@@ -66,7 +66,7 @@ export function BudgetTimeline({ items, month, budgetOf, cfmt, code, theme, now,
   const anomalies = timeline.points.filter((p) => p.isAnomaly);
 
   return (
-    <div className="card">
+    <div className="card" data-tour="expenses-timeline">
       <style>{TIMELINE_STYLES}</style>
 
       <div className="bb-cardhd">

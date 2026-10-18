@@ -935,6 +935,38 @@ body.fx-has-add-fab .fx-tools .wrap { padding-bottom: calc(18px + var(--ctl-h-lg
    so the page keeps the breathing room that row used to give it. */
 html.fx-native .fx-tools .wrap { padding-top: 14px; }
 
+/* The breadcrumb row (ToolsLayout). Breadcrumb and Back are website chrome,
+   but the row also carries "Tour this page", which the apps need — so on
+   native it stays, minus the top padding the rule above already provides. */
+.fx-tools .fx-crumbrow { padding-top: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
+.fx-tools .fx-crumbrow > nav { min-width: 0; }
+.fx-tools .fx-crumbrow-end { display: flex; align-items: center; gap: 6px; margin-left: auto; flex: 0 0 auto; }
+.fx-tools .fx-crumbrow-back { display: inline-flex; }
+html.fx-native .fx-tools .fx-crumbrow { padding-top: 0; }
+
+/* "Tour this page" (tour/TourPageButton.tsx). A 44px target around a pill
+   that matches the Back button beside it; static, because the shell renders
+   it on every page — the tour itself is a lazy chunk. */
+.fx-tools .fx-tourbtn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 44px; min-width: 44px; padding: 0; margin: -6px 0;
+  border: 0; background: none; cursor: pointer; font: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+.fx-tools .fx-tourbtn-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px 6px 9px; border-radius: 980px;
+  border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent);
+  background: var(--gold-bg); color: var(--ink);
+  font-size: 12.5px; font-weight: 600; line-height: 1; white-space: nowrap;
+  transition: border-color var(--ctl-trans), background-color var(--ctl-trans);
+}
+.fx-tools .fx-tourbtn-pill svg { color: var(--accent-text); flex: 0 0 auto; }
+.fx-tools .fx-tourbtn:hover .fx-tourbtn-pill { border-color: var(--gold); }
+.fx-tools .fx-tourbtn:focus-visible { outline: none; }
+.fx-tools .fx-tourbtn:focus-visible .fx-tourbtn-pill { outline: 2px solid var(--ink); outline-offset: 2px; }
+.fx-tools .fx-tourbtn:active .fx-tourbtn-pill { transform: scale(0.97); }
+
 /* ---- Sources strip (ui/MarketNote.tsx) ----
    One per tool page; the shell's own review-date line stands down when this is
    present, so the review date is stated once. */

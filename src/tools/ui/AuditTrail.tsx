@@ -99,7 +99,7 @@ export default function AuditTrail({
 
   if (entries.length === 0) {
     return (
-      <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }}>
+      <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }} data-tour="expenses-history">
         <Icon name="clock" size={40} style={{ color: 'var(--ink3)', marginBottom: 12 }} />
         <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>No changes recorded yet</div>
         <p className="note" style={{ maxWidth: 360, margin: '0 auto' }}>
@@ -112,7 +112,7 @@ export default function AuditTrail({
   }
 
   return (
-    <div className="card">
+    <div className="card" data-tour="expenses-history">
       <style>{AUDIT_STYLES}</style>
 
       <div className="au-head">

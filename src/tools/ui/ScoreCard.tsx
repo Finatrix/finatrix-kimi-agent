@@ -36,6 +36,8 @@ export interface ScoreCardProps {
    * of them here would put the same words on screen twice.
    */
   bare?: boolean;
+  /** Product-tour anchor (`data-tour`), e.g. "budget-score". */
+  tour?: string;
 }
 
 /** The grade pill, so a `PanelCard` can show it as its badge. */
@@ -58,13 +60,13 @@ export function ScoreBadge({ result }: { result: ScoreResult }) {
   );
 }
 
-export function ScoreCard({ title, caption, result, focus, bare = false }: ScoreCardProps) {
+export function ScoreCard({ title, caption, result, focus, bare = false, tour }: ScoreCardProps) {
   const [open, setOpen] = useState(false);
   const detailId = `${useId()}-score-detail`;
   const color = GRADE_COLOR[result.grade];
 
   return (
-    <div className={bare ? 'fx-score' : 'card fx-score'}>
+    <div className={bare ? 'fx-score' : 'card fx-score'} data-tour={tour}>
       <style>{SCORE_STYLES}</style>
       <div className="fx-score-top">
         <Dial score={result.score} color={color} insufficient={result.insufficient} />

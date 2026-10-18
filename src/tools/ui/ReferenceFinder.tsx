@@ -8,7 +8,7 @@ export function ReferenceFinder({ market }: { market: ReferenceMarket }) {
   const sources = SOURCES.filter(source => source.market === market).map(source => ({ source, freshness: evaluateFreshness({ ...source, quality: 'VERIFIED_CURRENT' }) }));
   const due = sources.filter(row => row.freshness.showsWarning);
   const visible = sources.filter(({ source, freshness }) => (!dueOnly || freshness.showsWarning) && `${source.title} ${source.authority} ${source.topic} ${source.verificationScope}`.toLowerCase().includes(search.trim().toLowerCase()));
-  return <SmartAssist title="Find and check a source" description="Review dates are checked automatically on your device. This does not fetch new rates or re-verify the authority’s current rules.">
+  return <SmartAssist tour="reference-finder" title="Find and check a source" description="Review dates are checked automatically on your device. This does not fetch new rates or re-verify the authority’s current rules.">
     <p className="note">{sources.length} recorded sources · {due.length} due for review</p>
     <details>
       <summary className="fx-smart-summary">Search official sources and review dates</summary>

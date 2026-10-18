@@ -274,11 +274,16 @@ export function ResultExplainer({
   assumptions,
   market,
   subject,
-}: MethodologyProps & { meaning: ReactNode }) {
+  tour,
+}: MethodologyProps & {
+  meaning: ReactNode;
+  /** Product-tour anchor (`data-tour`), e.g. "budget-explainer". */
+  tour?: string;
+}) {
   const outcome = outcomeFor(toolId);
 
   return (
-    <section className="fx-outcome" aria-labelledby={`fx-outcome-${toolId}`}>
+    <section className="fx-outcome" aria-labelledby={`fx-outcome-${toolId}`} data-tour={tour}>
       <h2 id={`fx-outcome-${toolId}`} className="fx-outcome-title">
         What this means
       </h2>

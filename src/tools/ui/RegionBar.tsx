@@ -22,7 +22,10 @@ import { hasAnyData } from '../lib/settings';
  * market's own currency, and the mismatch notice still says so if the two are
  * split on purpose.
  */
-export function RegionBar() {
+export function RegionBar({ tour }: {
+  /** Product-tour anchor (`data-tour`), e.g. "parksmart-region". */
+  tour?: string;
+} = {}) {
   const { id, market, setMarket, detected } = useMarket();
   const { code, setCode } = useCurrency();
   const uid = useId();
@@ -47,7 +50,7 @@ export function RegionBar() {
   };
 
   return (
-    <section className="fx-region" aria-label="Country and currency">
+    <section className="fx-region" aria-label="Country and currency" data-tour={tour}>
       <div className="fx-region-row">
         <div className="fx-region-field">
           <label className="fl" htmlFor={`${uid}-country`}>Your country</label>

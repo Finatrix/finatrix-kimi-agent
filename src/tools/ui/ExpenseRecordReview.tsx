@@ -13,7 +13,7 @@ export function ExpenseRecordReview({ items, validKeys, onEdit, cfmt }: { items:
   // Nothing to review is not a card's worth of news: the panel led the page
   // with "No review hints in 0 records" before the first payment was typed.
   if (findings.length === 0) return null;
-  return <SmartAssist title="Smart record review" description="Checks the selected month for matching entries, dates, amounts and category gaps. These are review hints; your records stay under your control.">
+  return <SmartAssist tour="expenses-review" title="Smart record review" description="Checks the selected month for matching entries, dates, amounts and category gaps. These are review hints; your records stay under your control.">
     <details>
       <summary className="fx-smart-summary">{findings.length ? `${findings.length} review hints across ${items.length} records` : `No review hints in ${items.length} records`} · inspect</summary>
       <label className="fl" htmlFor="expense-review-filter">Review type</label>

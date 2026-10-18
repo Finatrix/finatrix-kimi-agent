@@ -97,7 +97,7 @@ export function QuickAddBar({ cats, learned, cfmt, now, onAdd, fallbackCategory,
   };
 
   return (
-    <div className="fx-qa">
+    <div className="fx-qa" data-tour="expenses-quickadd">
       <style>{QUICK_ADD_STYLES}</style>
       <label className="fl" htmlFor="fx-qa-input">
         Quick add

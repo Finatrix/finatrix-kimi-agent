@@ -39,6 +39,8 @@ import { isNativeApp } from '../native/platform';
 import { showCareersEntry } from '../lib/careersEntry';
 import { useReminderSync } from './lib/useReminderSync';
 import WalkthroughGate from '../walkthrough/WalkthroughGate';
+import TourGate from '../tour/TourGate';
+import { TourPageButton } from '../tour/TourPageButton';
 import './tools.css';
 
 // Lazy on purpose: the palette carries the whole command registry (including
@@ -73,7 +75,7 @@ function useActiveTool(): string {
  * so at equal specificity a class defined there beats `.hidden`. The drawer
  * carries its own copy below that breakpoint — see the note at the call site.
  */
-function CurrencySelect({ className }: { className?: string } = {}) {
+function CurrencySelect({ className, tour }: { className?: string; tour?: string } = {}) {
   const { code, setCode } = useCurrency();
   return (
     <select
@@ -82,6 +84,7 @@ function CurrencySelect({ className }: { className?: string } = {}) {
       onChange={(e) => setCode(e.target.value)}
       aria-label="Display currency"
       title="Display currency"
+      data-tour={tour}
       style={{
         flex: '0 0 auto',
         fontSize: 12,
@@ -111,13 +114,14 @@ function CurrencySelect({ className }: { className?: string } = {}) {
  * only the currency, so "UK rules, rupee amounts" was invisible until a tool's
  * figures stopped making sense.
  */
-function MarketChip({ className, onNavigate }: { className?: string; onNavigate?: () => void }) {
+function MarketChip({ className, onNavigate, tour }: { className?: string; onNavigate?: () => void; tour?: string }) {
   const { market } = useMarket();
   return (
     <Link
       to="/tools/settings"
       onClick={onNavigate}
       className={className}
+      data-tour={tour}
       aria-label={`Rules: ${market.name}. Change market`}
       title={`Rules: ${market.name}`}
       style={{
@@ -147,7 +151,7 @@ function MarketChip({ className, onNavigate }: { className?: string; onNavigate?
  */
 function ToolTabs() {
   return (
-    <div className="fx-toolbar">
+    <div className="fx-toolbar" data-tour="shell-nav">
       <NavPills variant="app" hideBelow="md" />
     </div>
   );
@@ -196,7 +200,7 @@ function MobileTabBar({ activeTool, onMore, moreActive, drawerOpen }: { activeTo
     }),
   ];
   return (
-    <nav className="fx-mobnav md:hidden" aria-label="Primary">
+    <nav className="fx-mobnav md:hidden" aria-label="Primary" data-tour="shell-nav">
       {items.map((it) => {
         const active = activeTool === it.key;
         return (
@@ -474,6 +478,7 @@ export default function ToolsLayout() {
                 aria-haspopup="dialog"
                 aria-expanded={drawerOpen}
                 aria-controls={DRAWER_ID}
+                data-tour="shell-menu"
                 className="md:hidden -ml-1 p-2 text-ink hover:text-accent-text transition-colors"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
@@ -504,15 +509,16 @@ export default function ToolsLayout() {
                   controls and a sign-in button: measured, it pushed the
                   document 97px wider than the viewport. The drawer below has
                   the same control, so nothing is lost. */}
-              <MarketChip className="fx-cur-desktop" />
-              <CurrencySelect className="fx-cur-desktop" />
-              <ThemeToggle />
+              <MarketChip className="fx-cur-desktop" tour="shell-market" />
+              <CurrencySelect className="fx-cur-desktop" tour="shell-currency" />
+              <ThemeToggle tour="shell-theme" />
               {user ? (
                 <>
-                  <span className={`hidden sm:inline font-mono text-[10px] uppercase tracking-[0.06em] ${syncColor[sync]}`}>
+                  <span className={`hidden sm:inline font-mono text-[10px] uppercase tracking-[0.06em] ${syncColor[sync]}`} data-tour="shell-sync">
                     {syncLabel[sync]}
                   </span>
                   <AccountMenu
+                    tour="shell-account"
                     name={firstName}
                     items={[
                       { label: 'Profile', to: '/profile' },
@@ -526,11 +532,12 @@ export default function ToolsLayout() {
                 </>
               ) : (
                 <>
-                  <span className="hidden sm:inline font-mono text-[10px] uppercase tracking-[0.06em] text-ink-3">
+                  <span className="hidden sm:inline font-mono text-[10px] uppercase tracking-[0.06em] text-ink-3" data-tour="shell-sync">
                     {configured ? 'Not signed in' : 'Local only'}
                   </span>
                   <Link
                     to="/login"
+                    data-tour="shell-account"
                     className="font-mono text-[10px] sm:text-[11px] uppercase tracking-[0.08em] text-[#0A0A0A] bg-[#D4AF37] hover:bg-[#F1C40F] px-3 py-1.5 rounded-full transition-colors whitespace-nowrap"
                   >
                     Sign in
@@ -548,10 +555,16 @@ export default function ToolsLayout() {
           {/* Tool content */}
           <div className="wrap">
             {/* Orientation left, escape hatch right — Back only renders below
-                the top level, so it never appears as a dead control. */}
-            <div data-web-only style={{ paddingTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                the top level, so it never appears as a dead control. The row
+                itself shows in the apps too, for the one control they need
+                from it: "Tour this page" (the breadcrumb and Back are
+                website chrome; the system BACK replaces them there). */}
+            <div className="fx-crumbrow">
               <Breadcrumb parent={{ label: 'Money tools', to: '/tools' }} current={activeTool === 'dashboard' ? 'Dashboard' : activeTool === 'reports' ? 'Reports' : activeTool === 'calendar' ? 'Calendar' : activeTool === 'settings' ? 'Settings' : (TOOLS.find((t) => t.id === activeTool)?.name ?? 'Tools')} />
-              <BackButton />
+              <div className="fx-crumbrow-end">
+                {ready && <TourPageButton />}
+                <span data-web-only className="fx-crumbrow-back"><BackButton /></span>
+              </div>
             </div>
             {ready ? <Outlet /> : seedFailed ? (
               <section role="alert" className="card" style={{ marginTop: 24, padding: 24 }}>
@@ -678,6 +691,12 @@ export default function ToolsLayout() {
               signed-in user's synced records count as "not new"; the scenes
               themselves are a lazy chunk fetched only when shown. */}
           {ready && <WalkthroughGate />}
+
+          {/* The product tour: the "Tour this page" button above, Settings and
+              the command palette open it; it also offers itself, politely,
+              once the first-run intro is behind someone. Everything but this
+              gate is a lazy chunk fetched on first use. */}
+          {ready && <TourGate />}
 
           {/* The palette mounts only while open, so its chunk (and the command
               registry inside it) is never fetched by someone who never uses it. */}

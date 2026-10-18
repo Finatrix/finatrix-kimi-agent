@@ -8,7 +8,7 @@ import { useTheme } from '../context/ThemeContext';
  * role="switch" + aria-checked so assistive tech reports on/off state. Motion
  * is neutralised under prefers-reduced-motion by the global safety net.
  */
-export default function ThemeToggle({ className = '' }: { className?: string }) {
+export default function ThemeToggle({ className = '', tour }: { className?: string; /** Product-tour anchor (`data-tour`). */ tour?: string }) {
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === 'dark';
   const next = isDark ? 'light' : 'dark';
@@ -21,6 +21,7 @@ export default function ThemeToggle({ className = '' }: { className?: string }) 
       aria-checked={isDark}
       aria-label={`Switch to ${next} theme`}
       title={`Switch to ${next} theme`}
+      data-tour={tour}
       className={
         'group relative inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden ' +
         'rounded-full border border-hairline bg-[var(--tile-bg)] text-ink-2 ' +

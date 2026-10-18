@@ -164,7 +164,7 @@ export default function TransactionList({
   };
 
   return (
-    <div className="card" ref={rootRef}>
+    <div className="card" ref={rootRef} data-tour="expenses-list">
       <style>{TX_STYLES}</style>
 
       {/* An honest error state: private browsing (or a full quota) means edits
@@ -189,7 +189,7 @@ export default function TransactionList({
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {items.length > 0 && (
-            <button type="button" className="btn btn-ghost btn-sm" style={{ width: 'auto' }}
+            <button type="button" className="btn btn-ghost btn-sm" style={{ width: 'auto' }} data-tour="expenses-select"
               onClick={() => (selectMode ? exitSelect() : setSelectMode(true))}>
               {selectMode ? 'Done' : 'Select'}
             </button>
@@ -202,7 +202,7 @@ export default function TransactionList({
 
       {/* Search + sort + filter toggle */}
       {items.length > 0 && (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }} data-tour="expenses-search">
           <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
             <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink3)', pointerEvents: 'none' }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>

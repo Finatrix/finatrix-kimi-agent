@@ -23,7 +23,7 @@ export function DashboardGuide({ hasData, done = [] }: { hasData: boolean; /** W
     next.delete('help');
     setParams(next, { replace: true });
   }, [params, setParams, ai]);
-  return <details className="fx-planning fx-plan-guide" open={!hasData || undefined}>
+  return <details className="fx-planning fx-plan-guide" open={!hasData || undefined} data-tour="dashboard-guide">
     <summary>Getting started · three useful first steps{done.length > 0 && <span className="fx-plan-progress"> · {doneCount} of 3 done</span>}</summary>
     <ol>
       <li className={done[0] ? 'is-done' : undefined}><Link to="/welcome">1. Set up your month</Link>{done[0] && <span className="fx-plan-done"> · Done</span>}<p>Choose your market and add your take-home income. You can skip any step.</p></li>
@@ -81,7 +81,7 @@ function PlanningWorkspace({ currency }: { currency: string }) {
 
   return <div className="fx-planning">
     <div className="fx-planning-grid">
-      <section className="fx-planning-surface" id="monthly-review" aria-labelledby="review-title">
+      <section className="fx-planning-surface" id="monthly-review" aria-labelledby="review-title" data-tour="dashboard-review">
         <div className="fx-planning-head">
           <div><h2 id="review-title">Monthly financial review</h2><p>Look back at what you recorded, then choose one thing to change.</p></div>
           <label>Review month<select className="fs" value={month} onChange={e => { setMonth(e.target.value); setStatus(''); }}>
@@ -110,7 +110,7 @@ function PlanningWorkspace({ currency }: { currency: string }) {
         {reviewed?.reviewedAt && <p className="fx-plan-muted">Last reviewed {new Date(reviewed.reviewedAt).toLocaleDateString()}. Figures update when your records change.</p>}
       </section>
 
-      <section className="fx-planning-surface" id="recurring-payments" aria-labelledby="recurring-title">
+      <section className="fx-planning-surface" id="recurring-payments" aria-labelledby="recurring-title" data-tour="dashboard-recurring">
         <h2 id="recurring-title">Recurring payments</h2>
         <p>Possible monthly payments from your recorded history. Confirm the ones you recognise; dismiss coincidental repeats.</p>
         {data.recurring.length > 0 && <dl className="fx-plan-stats"><div><dt>Estimated monthly total · includes unconfirmed</dt><dd>{cfmt(recurringTotal)}</dd></div></dl>}
@@ -138,7 +138,7 @@ function PlanningWorkspace({ currency }: { currency: string }) {
       </section>
     </div>
 
-    <section className="fx-planning-surface" id="emergency-fund" aria-labelledby="emergency-title" style={{ marginTop: 32 }}>
+    <section className="fx-planning-surface" id="emergency-fund" aria-labelledby="emergency-title" style={{ marginTop: 32 }} data-tour="dashboard-emergency">
       <div className="fx-planning-grid">
         <div><h2 id="emergency-title">Your emergency fund</h2><p>Plan for an interruption to income using the bills you would still need to pay. Keep this separate from savings committed to another goal.</p>
           <div className="fx-plan-fields">

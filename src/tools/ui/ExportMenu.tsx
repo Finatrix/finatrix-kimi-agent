@@ -23,6 +23,7 @@ export function ExportMenu({
    * it just cannot attribute it.
    */
   source = 'unknown',
+  tour,
 }: {
   onCsv: ExportAction;
   onXlsx: ExportAction;
@@ -35,6 +36,8 @@ export function ExportMenu({
   onJson?: ExportAction;
   label?: string;
   source?: string;
+  /** Product-tour anchor (`data-tour`), e.g. "budget-export". */
+  tour?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -109,7 +112,7 @@ export function ExportMenu({
   };
 
   return (
-    <div ref={wrapRef} style={{ position: 'relative', display: 'inline-block' }}>
+    <div ref={wrapRef} style={{ position: 'relative', display: 'inline-block' }} data-tour={tour}>
       <button
         ref={triggerRef}
         type="button"

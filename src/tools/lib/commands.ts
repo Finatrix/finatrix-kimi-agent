@@ -53,6 +53,8 @@ export type CommandEffect =
   | { kind: 'currency'; code: string }
   /** Open the Expense Tracker with its quick-add line seeded and focused. */
   | { kind: 'logSpend'; text: string }
+  /** Open the product tour's "Full tutorial" hub (src/tour). */
+  | { kind: 'tour' }
   | { kind: 'signOut' };
 
 export interface Command {
@@ -199,6 +201,18 @@ export function buildCommands(ctx: CommandContext): Command[] {
     keywords: ['add expense', 'new transaction', 'record', 'spent', 'quick add'],
     promoted: ctx.surface === 'money',
   });
+  // The tour lives in the money workspace's shell; Careers has none to open.
+  if (ctx.surface === 'money') {
+    list.push({
+      id: 'action:tour',
+      title: 'Full tutorial',
+      subtitle: 'A guided tour of every tool, on the real pages',
+      group: 'Actions',
+      icon: 'compass',
+      effect: { kind: 'tour' },
+      keywords: ['tour', 'tutorial', 'help', 'guide', 'walkthrough', 'how to', 'onboarding', 'show me around', 'learn the app'],
+    });
+  }
   const nextTheme = ctx.theme === 'dark' ? 'light' : 'dark';
   list.push({
     id: 'action:theme',

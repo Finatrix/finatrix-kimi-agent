@@ -52,6 +52,7 @@ export function AskAiButton({
       aria-haspopup="dialog"
       aria-label={name}
       title={name}
+      data-tour="ai-ask"
     >
       <Icon name="sparkle" size={size === 'md' ? 14 : 13} />
       {!iconOnly && <span>{text}</span>}

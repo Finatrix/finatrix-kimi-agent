@@ -158,7 +158,7 @@ export default function DashboardPage() {
 
   const modules: Record<DashSectionId, ReactNode> = {
     recommended: (snap.recommendations.length > 0 || snap.recentActivity.length > 0) ? (
-      <div className="fx-dash-2col">
+      <div className="fx-dash-2col" data-tour="dashboard-recommended">
         {snap.recommendations.length > 0 && (
           <section className="card" style={{ padding: '20px 22px', marginBottom: 0 }} aria-labelledby="fx-rec-title">
             <div className="panel-eyebrow" id="fx-rec-title" style={{ marginBottom: 14 }}>Recommended next</div>
@@ -194,7 +194,7 @@ export default function DashboardPage() {
       </div>
     ) : null,
     milestones: snap.hasAnyData ? (
-      <section className="card" style={{ padding: '20px 24px' }} aria-labelledby="fx-ach-title">
+      <section className="card" style={{ padding: '20px 24px' }} aria-labelledby="fx-ach-title" data-tour="dashboard-milestones">
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
           <div className="panel-eyebrow" id="fx-ach-title">Milestones</div>
           <span style={{ fontSize: 12, color: 'var(--ink3)', fontVariantNumeric: 'tabular-nums' }}>
@@ -219,7 +219,7 @@ export default function DashboardPage() {
       </section>
     ) : null,
     insights: snap.insights.length > 0 ? (
-      <section className="card" style={{ padding: '20px 24px' }} aria-labelledby="fx-insights-title">
+      <section className="card" style={{ padding: '20px 24px' }} aria-labelledby="fx-insights-title" data-tour="dashboard-insights">
         <div className="panel-eyebrow" id="fx-insights-title" style={{ marginBottom: 12 }}>Personalised insights</div>
         {snap.insights.map((ins, i) => (
           <div key={i} className={`fx-dash-insight is-${ins.tone}`}>
@@ -230,7 +230,7 @@ export default function DashboardPage() {
       </section>
     ) : null,
     upcoming: upcoming.length > 0 ? (
-      <section className="card" style={{ padding: '20px 24px' }} aria-labelledby="fx-upcoming-title">
+      <section className="card" style={{ padding: '20px 24px' }} aria-labelledby="fx-upcoming-title" data-tour="dashboard-upcoming">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <div className="panel-eyebrow" id="fx-upcoming-title">Upcoming · next 30 days</div>
           <Link to="/tools/calendar" style={{ fontSize: 12, color: 'var(--accent-text)', textDecoration: 'none', fontWeight: 600 }}>Open calendar →</Link>
@@ -255,7 +255,7 @@ export default function DashboardPage() {
       <DashStyles />
 
       {/* ── Hero: score + greeting + KPIs ── */}
-      <section className="fx-dash-hero card" aria-labelledby="fx-dash-title">
+      <section className="fx-dash-hero card" aria-labelledby="fx-dash-title" data-tour="dashboard-hero">
         <div className="fx-dash-hero-main">
           <span className="sr-only">
             {snap.healthScore == null
@@ -272,7 +272,7 @@ export default function DashboardPage() {
                 ? `${greeting()}. Start with your income and spending. Your dashboard will take shape as you add your records.`
                 : 'Your recorded income, spending and plans in one place. Review the figures, then choose your next step.'}
             </p>
-            <details className="fx-method">
+            <details className="fx-method" data-tour="dashboard-score">
               <summary>{snap.healthScore == null ? 'About the educational score' : `Educational score: ${snap.healthScore}/100 · how it works`}</summary>
               <p>
                 Your score is the average of the areas you've set up — savings rate (Budget),
@@ -284,7 +284,7 @@ export default function DashboardPage() {
         </div>
 
         {snap.hasAnyData ? (
-          <div className="fx-kpi-grid" role="group" aria-label="Key figures">
+          <div className="fx-kpi-grid" role="group" aria-label="Key figures" data-tour="dashboard-kpis">
             <StatCell label="Budgeted income" value={snap.income != null ? cfmt(snap.income) : '—'} />
             <StatCell label="Planned savings rate" value={snap.savingsRatePct != null ? `${snap.savingsRatePct}%` : '—'} sub={snap.savingsRatePct != null ? 'Based on your budget allocation' : undefined} />
             <StatCell label="Recorded spending" value={snap.monthlySpend != null ? cfmt(snap.monthlySpend) : '—'} />
@@ -295,7 +295,7 @@ export default function DashboardPage() {
             />
           </div>
         ) : (
-          <div className="fx-kpi-empty">
+          <div className="fx-kpi-empty" data-tour="dashboard-kpis">
             <Link to="/welcome" className="btn" style={{ textDecoration: 'none' }}>
               Set up your month
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
@@ -327,13 +327,13 @@ export default function DashboardPage() {
         <a href="#emergency-fund">Emergency fund</a>
         <Link to="/tools/goals">Compare goal scenarios</Link>
       </nav>}
-      <details className="card fx-dash-library">
+      <details className="card fx-dash-library" data-tour="dashboard-journey">
         <summary>Explore your finance tools · {snap.activeCount} in use</summary>
         <Journey pillars={snap.pillars} nextId={nextId} />
       </details>
 
       {/* ── Connected metric cards ── */}
-      {snap.hasAnyData && <div className="fx-dash-grid">
+      {snap.hasAnyData && <div className="fx-dash-grid" data-tour="dashboard-cards">
         {/* Cashflow */}
         {snap.income != null ? (
           <CardShell eyebrow="Income less spending" href="/tools/budget" cta="Budget">
@@ -476,6 +476,7 @@ export default function DashboardPage() {
             type="button"
             onClick={() => setCustomise((o) => !o)}
             aria-expanded={customise}
+            data-tour="dashboard-customise"
             className="fx-card-cta"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, color: 'var(--ink2)' }}
           >
@@ -520,7 +521,7 @@ export default function DashboardPage() {
 
       {/* ── Reports cross-link (only when there's something to export) ── */}
       {snap.hasAnyData && (
-        <Link to="/tools/reports" className="fx-dash-careers">
+        <Link to="/tools/reports" className="fx-dash-careers" data-tour="dashboard-reports">
           <span className="fx-dash-careers-ic" aria-hidden="true">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5a2 2 0 0 1 2-2h9l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" /><path d="M14 3v6h6M8 13h8M8 17h5" /></svg>
           </span>
@@ -546,7 +547,7 @@ export default function DashboardPage() {
       )}
 
       {/* ── Trust footer ── */}
-      <div className="fx-dash-trust">
+      <div className="fx-dash-trust" data-tour="dashboard-trust">
         <span>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5" /><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" /></svg>
           Computed privately on your device

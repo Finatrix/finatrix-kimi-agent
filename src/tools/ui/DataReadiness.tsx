@@ -34,7 +34,7 @@ export function DataReadiness() {
       notify('The data check could not be exported. Please try again.', 'error');
     }
   };
-  return <SmartAssist title="Automatic data checks" description="A live check of saved formats, missing monthly records and carried-forward account balances. Financial correctness still depends on the inputs you provide.">
+  return <SmartAssist tour="settings-checks" title="Automatic data checks" description="A live check of saved formats, missing monthly records and carried-forward account balances. Financial correctness still depends on the inputs you provide.">
     <p className="note" role="status">{review.length} tools need a data review. {store.hasUnpersistedChanges ? 'Some changes are stored only for this session because device storage could not save them. Export a backup before closing.' : store.persistent ? 'Device storage is available.' : 'Some records may only be available in this session. Export a backup before closing.'}</p>
     <p className="note">{usableBackupDate ? `Backup download last requested on this device: ${backupDate.toLocaleString()}. Confirm the file exists in your downloads.` : 'No backup download has been recorded on this device. Use Export backup below to keep a copy.'}</p>
     <label className="fx-smart-check"><input type="checkbox" checked={onlyReview} onChange={e => setOnlyReview(e.target.checked)} />Only show tools needing review</label>

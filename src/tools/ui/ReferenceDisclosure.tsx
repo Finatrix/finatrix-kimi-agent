@@ -135,9 +135,12 @@ export function DepositProtectionNote({
   market,
   amount,
   amountCurrency,
+  tour,
 }: {
   market: ReferenceMarket;
   amount: number;
+  /** Product-tour anchor (`data-tour`), e.g. "parksmart-protection". */
+  tour?: string;
   /**
    * The currency the reader's amounts are displayed in.
    *
@@ -159,7 +162,7 @@ export function DepositProtectionNote({
           : 'within';
 
   return (
-    <aside className="card fx-protect" data-state={state} aria-label="Deposit protection">
+    <aside className="card fx-protect" data-state={state} aria-label="Deposit protection" data-tour={tour}>
       <div className="fx-protect-head">
         <span className="fx-protect-title">Deposit protection</span>
         {!unverified && comparison.kind !== 'no-record' && (

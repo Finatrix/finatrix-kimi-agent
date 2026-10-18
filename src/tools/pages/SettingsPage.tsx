@@ -17,10 +17,11 @@ import { store } from '../lib/storage';
 import { useAuth } from '../../context/AuthContext';
 import { rateApp, rateUrl, shareApp } from '../../lib/shareApp';
 import { replayWalkthrough } from '../../walkthrough/replay';
+import { openTourHub } from '../../tour/launch';
 
-function Section({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
+function Section({ title, desc, tour, children }: { title: string; desc?: string; /** Product-tour anchor (`data-tour`). */ tour?: string; children: React.ReactNode }) {
   return (
-    <section className="card" style={{ marginBottom: 14 }}>
+    <section className="card" style={{ marginBottom: 14 }} data-tour={tour}>
       <div style={{ fontSize: 14, fontWeight: 700, marginBottom: desc ? 2 : 12 }}>{title}</div>
       {desc && <p className="note" style={{ marginBottom: 14 }}>{desc}</p>}
       {children}
@@ -68,12 +69,12 @@ export default function SettingsPage() {
 
       <DataReadiness />
 
-      <Section title="Reminders" desc={`A thought in the morning, a nudge at lunchtime, and a reminder in the evening to add your spending, plus a weekly look at the month and bills the day before they fall due.${isNativeApp() ? '' : ' Each is yours to switch off.'}`}>
+      <Section tour="settings-reminders" title="Reminders" desc={`A thought in the morning, a nudge at lunchtime, and a reminder in the evening to add your spending, plus a weekly look at the month and bills the day before they fall due.${isNativeApp() ? '' : ' Each is yours to switch off.'}`}>
         <RemindersCard />
       </Section>
 
       {/* Appearance */}
-      <Section title="Appearance" desc="System follows your device's light or dark setting, and changes with it. Pick Light or Dark to keep one.">
+      <Section tour="settings-appearance" title="Appearance" desc="System follows your device's light or dark setting, and changes with it. Pick Light or Dark to keep one.">
         <div role="radiogroup" aria-label="Theme" style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
           <button
             type="button"
@@ -103,6 +104,7 @@ export default function SettingsPage() {
 
       {/* Market — the setting that changes what the tools actually compute. */}
       <Section
+        tour="settings-market"
         title="Your market"
         desc="Choose the local references and labels used by the tools. Australia, Singapore and Mainland China use entered cash rates and published peer summaries. Display currency is a separate setting."
       >
@@ -171,7 +173,7 @@ export default function SettingsPage() {
       </Section>
 
       {/* Currency */}
-      <Section title="Display currency" desc="Applied across every tool, report and export. Set it independently of your market — you might live in one country and think in another currency.">
+      <Section tour="settings-currency" title="Display currency" desc="Applied across every tool, report and export. Set it independently of your market — you might live in one country and think in another currency.">
         <label htmlFor="fx-set-cur" className="fl">Currency</label>
         <select
           id="fx-set-cur"
@@ -188,7 +190,7 @@ export default function SettingsPage() {
 
       {/* Data & privacy */}
       <PrivacyControls />
-      <Section title="Your finance records" desc="Export a backup of your finance records, including review notes and emergency-fund plans. Backups contain personal information; store them somewhere private.">
+      <Section tour="settings-records" title="Your finance records" desc="Export a backup of your finance records, including review notes and emergency-fund plans. Backups contain personal information; store them somewhere private.">
         {anyData ? (
           <ul style={{ listStyle: 'none', margin: '0 0 14px', padding: 0 }}>
             {areas.filter((a) => a.present).map((a) => (
@@ -203,7 +205,7 @@ export default function SettingsPage() {
           <p className="note" style={{ marginBottom: 14 }}>No saved data yet. As you use the tools, your data will appear here.</p>
         )}
 
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }} data-tour="settings-backup">
           <button type="button" className="btn btn-sm" onClick={onBackup} disabled={!anyData} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
             <Icon name="arrow-up" size={15} />Export backup (JSON)
           </button>
@@ -212,7 +214,7 @@ export default function SettingsPage() {
           </Link>
         </div>
 
-        <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--hair2)' }}>
+        <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--hair2)' }} data-tour="settings-clear">
           {!confirmReset ? (
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirmReset(true)} disabled={!anyData} style={{ color: 'var(--red)', borderColor: 'color-mix(in srgb, var(--red) 40%, transparent)' }}>
               Clear finance data…
@@ -230,8 +232,33 @@ export default function SettingsPage() {
         </div>
       </Section>
 
+      {/* Learn the app: the full tutorial (every tool's guided tour) and the
+          short first-run intro. Both are lazy and import-free from here. */}
+      <Section tour="settings-learn" title="Learn FinatriX" desc="Short guided tours of every tool, with progress saved on this device so you can stop and pick up later. The intro is the welcome you saw on your first visit.">
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+          <button
+            type="button"
+            className="btn btn-sm"
+            style={{ flex: '1 1 160px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+            onClick={openTourHub}
+            data-tour="settings-tutorial"
+          >
+            <Icon name="compass" size={15} />Full tutorial
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            style={{ flex: '1 1 160px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+            onClick={replayWalkthrough}
+            data-tour="settings-replay"
+          >
+            <Icon name="sparkle" size={15} />Replay intro
+          </button>
+        </div>
+      </Section>
+
       {/* Spread the word */}
-      <Section title="Share & rate" desc="FinatriX has no ads, so word of mouth is how it grows. A rating helps other people find it.">
+      <Section tour="settings-share" title="Share & rate" desc="FinatriX has no ads, so word of mouth is how it grows. A rating helps other people find it.">
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
           <button
             type="button"
@@ -245,20 +272,13 @@ export default function SettingsPage() {
           >
             <Icon name="share" size={15} />Share FinatriX
           </button>
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            style={{ flex: '1 1 160px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-            onClick={replayWalkthrough}
-          >
-            <Icon name="sparkle" size={15} />Replay intro
-          </button>
           {rateUrl() && (
             <button
               type="button"
               className="btn btn-ghost btn-sm"
               style={{ flex: '1 1 160px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
               onClick={rateApp}
+              data-tour="settings-rate"
             >
               <Icon name="star" size={15} />Rate FinatriX
             </button>
@@ -267,7 +287,7 @@ export default function SettingsPage() {
       </Section>
 
       {/* About */}
-      <Section title="About & trust">
+      <Section tour="settings-about" title="About & trust">
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
           <Icon name="lock" size={18} style={{ color: 'var(--gold)', flexShrink: 0, marginTop: 1 }} />
           <div style={{ fontSize: 12.5, color: 'var(--ink2)', lineHeight: 1.6 }}>

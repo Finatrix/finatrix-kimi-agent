@@ -97,26 +97,26 @@ function ParkSmartTool() {
       <PageHead marketNotice chip="ParkSmart" chipColor="var(--teal)" chipBg="rgba(12,128,121,.09)" icon="bank" title="Idle money shouldn't idle.">
         {enteredRates ? `Compare two cash options in ${market.name} using rates you enter after taxes and fees. No bank rate or tax exemption is assumed.` : <>Compare what idle cash actually earns after tax across {park.options.length} parking options in {market.name} — tuned to your duration, your tax rate and current rules.</>}
       </PageHead>
-      <RegionBar />
+      <RegionBar tour="parksmart-region" />
 
       {!result ? (
-        <div className="card">
-          {saved.market === market.id && saved.currency === code && Number.isFinite(Number(saved['ps-amount'])) && Number(saved['ps-amount']) >= park.minAmount && Number(saved['ps-amount']) <= 1e12 && <div className="well" style={{ marginBottom: 18 }}>
+        <div className="card" data-tour="parksmart-outcome">
+          {saved.market === market.id && saved.currency === code && Number.isFinite(Number(saved['ps-amount'])) && Number(saved['ps-amount']) >= park.minAmount && Number(saved['ps-amount']) <= 1e12 && <div className="well" style={{ marginBottom: 18 }} data-tour="parksmart-saved">
             <p className="note">Your saved ParkSmart amount for {market.name}, {code}: {cfmt(Number(saved['ps-amount']))}. Rates must be checked again.</p>
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setAmount(saved['ps-amount']!); if (saved['ps-duration'] && Object.hasOwn(PS_M, saved['ps-duration'])) setDur(saved['ps-duration']); }}>Use saved amount and duration</button>
           </div>}
-          <div className="fg">
+          <div className="fg" data-tour="parksmart-amount">
             <label className="fl" htmlFor="ps-amount">Amount to park ({sym})</label>
             <AmountInput id="ps-amount" sym={sym} placeholder="" value={amount}
               onChange={(v) => { setAmount(v); persist({ 'ps-amount': plainAmount(v) }); }} />
           </div>
           <label className="fl">Quick select</label>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }} data-tour="parksmart-quick">
             {park.quickAmounts.map((v) => (
               <button key={v} className="btn btn-ghost btn-sm" onClick={() => { setAmount(String(v)); persist({ 'ps-amount': String(v) }); }}>{cfmtSh(v, code)}</button>
             ))}
           </div>
-          <div className="grid2">
+          <div className="grid2" data-tour="parksmart-terms">
             <div className="fg">
               <label className="fl" htmlFor="ps-duration">Parking duration</label>
               <select className="fs" id="ps-duration" value={dur} onChange={(e) => { setDur(e.target.value); persist({ 'ps-duration': e.target.value }); }}>
@@ -137,7 +137,7 @@ function ParkSmartTool() {
               <p className="note" style={{ marginTop: 6 }}>{park.taxNote}</p>
             </div>
           </div>
-          {enteredRates && <div className="grid2">
+          {enteredRates && <div className="grid2" data-tour="parksmart-rates">
             {quoteRates.map((value, i) => <fieldset key={i} className="fg" style={{ border: '1px solid var(--hair2)', borderRadius: 12, padding: 16, minWidth: 0 }}>
               <legend>Your option {i + 1}</legend>
               <label className="fl" htmlFor={`ps-name-${i}`}>Option {i + 1} name (optional)</label>
@@ -154,12 +154,12 @@ function ParkSmartTool() {
               </select>
             </fieldset>)}
           </div>}
-          <label style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 48, marginBottom: 12 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 48, marginBottom: 12 }} data-tour="parksmart-liquid">
             <input type="checkbox" checked={liquidOnly} onChange={(e) => setLiquidOnly(e.target.checked)} />
             Only compare options marked liquid / accessible
           </label>
           <p className="note">Liquid does not always mean instant. Check settlement times, withdrawal limits and provider terms before relying on an option for emergencies.</p>
-          <button className="btn" onClick={submit}>
+          <button className="btn" onClick={submit} data-tour="parksmart-compare">
             Compare the options
           </button>
         </div>
@@ -179,7 +179,7 @@ function ParkSmartTool() {
         />
       )}
 
-      <MarketNote market={market} />
+      <MarketNote market={market} tour="parksmart-sources" />
     </div>
   );
 }
@@ -194,7 +194,7 @@ function ParkScenarioAssist({ result, pack, liquidOnly, amount, dur, rate, money
   const other = result.ranked.find((o) => o.n === alternative);
   const accessible = result.ranked.find((o) => o.liquid);
   const best = result.best!;
-  return <section className="card" aria-labelledby="ps-smart-title">
+  return <section className="card" aria-labelledby="ps-smart-title" data-tour="parksmart-tradeoffs">
     <h2 id="ps-smart-title" style={{ fontSize: 18, marginTop: 0 }}>Make the trade-offs visible</h2>
     <p className="note">{liquidOnly ? 'Only options marked liquid / accessible are included.' : 'Both liquid and restricted-access options are included.'} This ranking compares modeled earnings; it does not assess provider safety or suitability.</p>
     {/* The explorer is a second tool under the answer; the ranking below is
@@ -255,13 +255,13 @@ function ParkResultView({ result, pack, liquidOnly, amount, dur, rate, market, m
 
   return (
     <div>
-      <div className="card result-hero-anim" style={{ background: 'linear-gradient(135deg,rgba(20,184,166,.16),var(--card-solid) 62%)' }}>
+      <div className="card result-hero-anim" style={{ background: 'linear-gradient(135deg,rgba(20,184,166,.16),var(--card-solid) 62%)' }} data-tour="parksmart-result">
         <span className="pill" style={{ background: 'rgba(12,128,121,.12)', color: 'var(--teal)' }}>{enteredRates ? 'Highest modeled earnings from your inputs' : 'Highest post-tax return'}</span>
         <div style={{ fontSize: 23, fontWeight: 700, letterSpacing: '-.015em', marginTop: 10 }}>
           <Icon name={best.ic} size={18} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> {best.n}
         </div>
         <div className="note" style={{ marginTop: 4 }}>{best.d}</div>
-        <div className="grid3" style={{ textAlign: 'center', marginTop: 18 }}>
+        <div className="grid3" style={{ textAlign: 'center', marginTop: 18 }} data-tour="parksmart-outcome">
           <div><div style={{ fontSize: 19, fontWeight: 700, color: 'var(--green)' }}>{money(best.net)}</div><div className="note">Post-tax earnings</div></div>
           <div><div style={{ fontSize: 19, fontWeight: 700, color: 'var(--teal)' }}>{best.effRate.toFixed(2)}%</div><div className="note">Effective rate</div></div>
           <div><div style={{ fontSize: 19, fontWeight: 700, color: 'var(--gold)' }}>{best.risk}</div><div className="note">Risk</div></div>
@@ -271,7 +271,7 @@ function ParkResultView({ result, pack, liquidOnly, amount, dur, rate, market, m
       <ParkScenarioAssist result={result} pack={pack} liquidOnly={liquidOnly} amount={amount} dur={dur} rate={rate} money={money} enteredRates={enteredRates} />
 
       {split && (
-        <div className="card" style={{ background: 'rgba(12,128,121,.05)' }}>
+        <div className="card" style={{ background: 'rgba(12,128,121,.05)' }} data-tour="parksmart-split">
           <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--teal)', marginBottom: 8 }}>One way to split it</div>
           <div className="note" style={{ lineHeight: 1.8 }}>
             {split.bestName} locks your money up. Splitting it — <b style={{ color: 'var(--ink)' }}>{money(split.core)}</b> in {split.bestName}{' '}
@@ -289,7 +289,7 @@ function ParkResultView({ result, pack, liquidOnly, amount, dur, rate, market, m
       {/* One scannable list instead of a tall card per option: the earnings
           differ by small amounts, so they have to be readable against each
           other. The description opens on demand. Same figures as before. */}
-      <div className="card result-card-anim fx-park-list">
+      <div className="card result-card-anim fx-park-list" data-tour="parksmart-ranking">
         {ranked.map((o, i) => (
           <details key={o.n} className={`fx-park-row${i === 0 ? ' is-top' : ''}`}>
             <summary>
@@ -315,7 +315,7 @@ function ParkResultView({ result, pack, liquidOnly, amount, dur, rate, market, m
         <div className="note" style={{ marginTop: 10 }}>Select an option to read what it is and how it is protected.</div>
       </div>
 
-      <div className="card" style={{ background: 'var(--gold-bg)' }}>
+      <div className="card" style={{ background: 'var(--gold-bg)' }} data-tour="parksmart-keep">
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Keep in mind</div>
         <div className="note">{keepInMind}</div>
       </div>
@@ -325,10 +325,11 @@ function ParkResultView({ result, pack, liquidOnly, amount, dur, rate, market, m
           it is part of the answer, not background to it. Reads from the
           reference registry, so the figure carries its own effective date and
           a market with no verified scheme says so instead of showing a number. */}
-      <DepositProtectionNote market={market.id} amount={amount} amountCurrency={currency} />
+      <DepositProtectionNote market={market.id} amount={amount} amountCurrency={currency} tour="parksmart-protection" />
 
       <ResultExplainer
         toolId="parksmart"
+        tour="parksmart-explainer"
         market={market}
         subject={{ amount, currency }}
         inputs={inputs}
@@ -349,7 +350,7 @@ function ParkResultView({ result, pack, liquidOnly, amount, dur, rate, market, m
         }
       />
 
-      <button className="btn" onClick={onReset}>Try a different amount</button>
+      <button className="btn" onClick={onReset} data-tour="parksmart-reset">Try a different amount</button>
     </div>
   );
 }

@@ -790,7 +790,7 @@ export default function ExpensePage() {
           breakpoints in tools.css. */}
       {tab !== 'history' && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
-          <div style={{ flex: '1 1 240px', minWidth: 0 }}>
+          <div style={{ flex: '1 1 240px', minWidth: 0 }} data-tour="expenses-months">
             {/* The next arrow used to stop at the current month, so a spend you
                 had already scheduled for next month was unreachable: you could
                 date a transaction forward, but there was no way to navigate to
@@ -816,7 +816,7 @@ export default function ExpensePage() {
             display: 'flex', alignItems: 'center', gap: 10,
             marginLeft: 'auto', flexWrap: 'wrap', justifyContent: 'flex-end',
             minWidth: 0,
-          }}>
+          }} data-tour="expenses-io">
             {/* Import sits beside Export because they are the same idea in two
                 directions, and someone looking for one looks here for the other. */}
             <button
@@ -957,6 +957,7 @@ export default function ExpensePage() {
       {items.length > 0 && (
         <ResultExplainer
           toolId="expenses"
+          tour="expenses-explainer"
           inputs={[
             { label: 'Month', value: monthLabel(selMonth) },
             { label: 'Entries recorded', value: String(r.txCount) },
@@ -1099,7 +1100,7 @@ function OverviewTab({
               fallbackCategory={defaultCatKey}
               seed={quickSeed ?? undefined}
             />
-            <button type="button" className="btn" onClick={openAdd}>
+            <button type="button" className="btn" onClick={openAdd} data-tour="expenses-form">
               Add an expense
             </button>
             <p className="note" style={{ marginTop: 8, marginBottom: 0 }}>
@@ -1117,7 +1118,7 @@ function OverviewTab({
           and "Budget used" would both be lies there — nothing has been spent and
           no budget has been used. The figures are identical; only the words
           change, because the words are what make them true. */}
-      <div className="dash-grid" style={{ marginBottom: 12 }}>
+      <div className="dash-grid" style={{ marginBottom: 12 }} data-tour="expenses-kpis">
         <Kpi v={cfmt(r.monthlyBudget)} l="Monthly budget" />
         <Kpi
           v={cfmt(r.monthlySpent)}
@@ -1139,7 +1140,7 @@ function OverviewTab({
       </div>
 
       {/* Month pacing & cash flow */}
-      <div className="card">
+      <div className="card" data-tour="expenses-pacing">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
           <span style={{ fontSize: 14, fontWeight: 700 }}>
             {r.isCurrentMonth ? 'Pacing & cash flow' : isFutureMonth ? 'Month plan' : 'Month summary'}
@@ -1197,6 +1198,7 @@ function OverviewTab({
         subtitle={`How closely ${monthLabel(selMonth)} followed your plan`}
         on={panels.score}
         onToggle={() => onFlipPanel('score')}
+        tour="expenses-score"
         badge={panels.score ? <ScoreBadge result={score} /> : undefined}
       >
         <ScoreCard
@@ -1216,6 +1218,7 @@ function OverviewTab({
         subtitle={`Opening and closing balance for ${monthLabel(selMonth)}, reconciled against the ledger`}
         on={panels.bank}
         onToggle={() => onFlipPanel('bank')}
+        tour="expenses-bank"
       >
         <BankBalanceCard
           bare
@@ -1272,6 +1275,7 @@ function OverviewTab({
           subtitle="What this month's figures actually say, and what to do about it"
           on={panels.insights}
           onToggle={() => onFlipPanel('insights')}
+          tour="expenses-insights"
         >
           <div style={{ display: 'grid', gap: 8 }}>
             {insights.map((ins) => (
@@ -1282,7 +1286,7 @@ function OverviewTab({
       )}
 
       {/* Needs / Wants / Savings */}
-      <div className="card">
+      <div className="card" data-tour="expenses-sections">
         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>Needs · Wants · Savings</div>
         <div className="grid3 fx-tiles">
           {r.sections.map((s) => {
@@ -1444,7 +1448,7 @@ function AnalyticsTab({
   return (
     <>
       {/* Summary stats */}
-      <div className="dash-grid" style={{ marginBottom: 14 }}>
+      <div className="dash-grid" style={{ marginBottom: 14 }} data-tour="expenses-analytics">
         <Kpi v={cfmt(summary.avgPerMonth)} l="Avg per month" />
         <Kpi v={cfmt(summary.avgPerTransaction)} l="Avg per transaction" />
         <Kpi v={String(summary.txCountAllTime)} l="Total transactions" />
@@ -1495,7 +1499,7 @@ function AnalyticsTab({
 
       {/* Daily spending heatmap. The month follows the page's month picker, so
           current, previous and any custom month all render here. */}
-      <div className="card">
+      <div className="card" data-tour="expenses-heatmap">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 2 }}>
           <span style={{ fontSize: 14, fontWeight: 700 }}>Daily spending — {monthLabel(selMonth)}</span>
           <AskAiButton focus={{ kind: 'heatmap' }} />
@@ -1598,7 +1602,7 @@ function MonthForecastCard({ forecast: f, spendableBudget, cfmt }: {
     : null;
 
   return (
-    <div className="card" style={{ marginBottom: 14 }}>
+    <div className="card" style={{ marginBottom: 14 }} data-tour="expenses-forecast">
       <style>{FORECAST_STYLES}</style>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
         <Icon name="trending" size={16} style={{ color: f.overBudget ? 'var(--red)' : 'var(--gold)' }} />
@@ -1685,7 +1689,7 @@ function AnalyticsPreview({ logged, onStart }: { logged: number; onStart: () => 
   ];
 
   return (
-    <div className="card fx-apv">
+    <div className="card fx-apv" data-tour="expenses-analytics">
       <style>{ANALYTICS_PREVIEW_STYLES}</style>
 
       <div className="fx-apv-head">
@@ -1787,7 +1791,7 @@ function RecurringTab({
 
   if (patterns.length === 0 && recurringItems.length === 0) {
     return (
-      <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }}>
+      <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }} data-tour="expenses-recurring">
         <Icon name="refresh" size={40} style={{ color: 'var(--ink3)', marginBottom: 12 }} />
         <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>No recurring expenses detected</div>
         <p className="note" style={{ maxWidth: 340, margin: '0 auto' }}>
@@ -1800,7 +1804,7 @@ function RecurringTab({
   return (
     <>
       {/* Summary */}
-      <div className="dash-grid" style={{ marginBottom: 14 }}>
+      <div className="dash-grid" style={{ marginBottom: 14 }} data-tour="expenses-recurring">
         <Kpi v={cfmt(totalMonthly)} l="Est. monthly recurring" color="var(--orange)" />
         <Kpi v={String(patterns.length)} l="Recurring patterns" />
         <Kpi v={cfmt(totalMonthly * 12)} l="Est. annual recurring" />
@@ -2024,7 +2028,7 @@ function CommitmentsCard({
   const short = free != null && free < 0;
 
   return (
-    <div className="card">
+    <div className="card" data-tour="expenses-commitments">
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
         <span style={{ fontSize: 14, fontWeight: 700 }}>Still to come this month</span>
         <span className="note" style={{ fontSize: 12 }}>
@@ -2101,7 +2105,7 @@ function WarningsCard({
 }) {
   const over = warnings.filter((w) => w.tone === 'over').length;
   return (
-    <div className="card fx-warn-card">
+    <div className="card fx-warn-card" data-tour="expenses-warnings">
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
         <Icon name="warn" size={16} style={{ color: over > 0 ? 'var(--red)' : 'var(--orange)' }} />
         <div style={{ fontSize: 14, fontWeight: 700 }}>Budget warnings</div>
@@ -2260,7 +2264,7 @@ function CategoryBudgetsCard({
   let lastSection: string | null | undefined;
 
   return (
-    <div className="card">
+    <div className="card" data-tour="expenses-catbudgets">
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
         <div style={{ fontSize: 14, fontWeight: 700 }}>Category budgets</div>
         {shown.length > 1 && (

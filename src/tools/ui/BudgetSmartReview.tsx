@@ -28,7 +28,7 @@ export function BudgetSmartReview({ month, input, cats, items, cfmt, onApply, on
   };
 
   return (
-    <section className="card" aria-label="Smart budget review">
+    <section className="card" aria-label="Smart budget review" data-tour="budget-review">
       <h2 style={{ fontSize: 17, margin: '0 0 6px' }}>Smart budget review</h2>
       <p className="note">Checks {monthLabel(month)} against your saved transactions. Changes are previewed using the same budget calculator.</p>
       <p style={{ fontSize: 13 }}>

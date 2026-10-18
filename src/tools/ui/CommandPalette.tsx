@@ -15,6 +15,7 @@ import {
   type Command, type CommandGroup,
 } from '../lib/commands';
 import { useInertOutside } from '../../hooks/useInertOutside';
+import { openTourHub } from '../../tour/launch';
 
 /**
  * ⌘K — one keyboard-first way to reach anything in the money workspace.
@@ -144,6 +145,9 @@ export default function CommandPalette({
         case 'currency':
           currency?.setCode(effect.code);
           toast?.notify(`Now showing amounts in ${effect.code}`, 'ok');
+          break;
+        case 'tour':
+          openTourHub();
           break;
         case 'signOut':
           void signOut();

@@ -20,7 +20,7 @@ export function WorkspaceNavigator() {
   const last = records.find(tool => tool.id === store.get('fx_last_tool', ''));
   const attention = records.filter(tool => tool.status === 'review').length;
   const visible = records.filter(tool => (scope === 'all' || tool.status === scope) && `${tool.name} ${tool.detail}`.toLowerCase().includes(query.trim().toLowerCase()));
-  return <SmartAssist title="Your next useful step" description="Automatically checks which tools have saved inputs and which monthly records may need attention. This is a data checklist, not a financial score.">
+  return <SmartAssist tour="dashboard-navigator" title="Your next useful step" description="Automatically checks which tools have saved inputs and which monthly records may need attention. This is a data checklist, not a financial score.">
     <div className="fx-smart-actions">
       {last && <Link className="btn btn-sm" to={last.href}>Continue {last.name}</Link>}
       <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setScope('review'); setQuery(''); setOpen(true); }}>Review {attention} data gaps</button>
