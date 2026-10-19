@@ -42,7 +42,8 @@ describe('first-run walkthrough', () => {
     renderShell('/tools/dashboard');
     const d = await dialog();
     expect(d).toHaveAttribute('aria-modal', 'true');
-    expect(localStorage.getItem(WALKTHROUGH_SEEN_KEY)).toBe('1');
+    // Written in an effect right after mount; a slow runner can look first.
+    await waitFor(() => expect(localStorage.getItem(WALKTHROUGH_SEEN_KEY)).toBe('1'));
     expect(screen.getByRole('button', { name: 'Skip intro' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'Your month, in one clear picture.' })).toBeInTheDocument();
     // Illustrations are decorative; the meaning is in the text.
