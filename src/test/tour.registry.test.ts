@@ -52,8 +52,12 @@ describe('tour registry', () => {
       for (const s of c.steps) {
         if (s.route) expect(/^\/tools\/[a-z]+$/.test(s.route), `${c.id}.${s.id}: step route`).toBe(true);
       }
-      expect(chapterForPath(c.route)?.id).toBe(c.id);
-      expect(chapterForPath(`${c.route}/`)?.id).toBe(c.id);
+      // A floating chapter starts on a page another chapter tours; that page's
+      // own chapter must still be the one "Tour this page" finds.
+      const owner = c.floating ? CHAPTERS.find((o) => !o.floating && o.route === c.route) : c;
+      expect(owner, `${c.id}: floating chapter starts on a page with no chapter`).toBeDefined();
+      expect(chapterForPath(c.route)?.id).toBe(owner!.id);
+      expect(chapterForPath(`${c.route}/`)?.id).toBe(owner!.id);
     }
   });
 

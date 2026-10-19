@@ -24,6 +24,9 @@ const EXAMPLE = {
 } as const;
 const pick = (code: string) => (code === 'INR' ? EXAMPLE.INR : EXAMPLE.GENERIC);
 
+/** The dashboard's “Help me get started in chat” button. */
+const SETUP_CHAT = '[data-tour="ai-setup-chat"]';
+
 /* ── Intro illustration: a question, an answer, and the check ───────── */
 
 const QUESTION = 'Where did my month go?';
@@ -195,6 +198,7 @@ const ai: TourChapter = {
   title: 'FinatriX AI',
   // The assistant floats over every tools page; the dashboard is its home.
   route: '/tools/dashboard',
+  floating: true,
   tagline: 'Ask about your own month, with every amount checked.',
   minutes: 3,
   icon: 'sparkle',
@@ -241,19 +245,6 @@ const ai: TourChapter = {
       body: 'Ask how compounding works, or avalanche versus snowball for paying off debt. Answers are educational, not advice; the decision stays yours.',
     },
     {
-      id: 'ask-figure',
-      target: '[data-tour="ai-ask"]',
-      route: '/tools/budget',
-      title: 'Ask about any figure',
-      body: 'A ✨ button beside a figure opens FinatriX AI already pointed at it, with questions worth asking about that figure.',
-    },
-    {
-      id: 'setup',
-      title: 'Setup help, no account needed',
-      body: 'Written answers to how-do-I questions, like importing a statement, are answered on your device and send nothing anywhere.',
-      output: SetupPicture,
-    },
-    {
       id: 'sign-in',
       title: 'Sign in for answers about you',
       body: 'Without an account the panel offers setup help. Sign in to ask about your own budget and spending.',
@@ -272,6 +263,29 @@ const ai: TourChapter = {
       body: 'Report flags an answer as wrong or harmful, Clear deletes the conversation saved on this device, and Esc closes the panel.',
     },
     {
+      id: 'setup',
+      target: SETUP_CHAT,
+      title: 'Setup help, no account needed',
+      body: 'This opens FinatriX AI, where Setup help answers how-do-I questions, like importing a statement. Those answers come from your device and send nothing.',
+      // Coming back from another page, the dashboard may not have mounted
+      // yet when this runs, so wait for the button before opening its
+      // (collapsed) Getting started section.
+      before: async ({ reveal }) => {
+        for (let i = 0; i < 25 && !document.querySelector(SETUP_CHAT); i += 1) {
+          await new Promise((r) => setTimeout(r, 60));
+        }
+        reveal(SETUP_CHAT);
+      },
+      output: SetupPicture,
+    },
+    {
+      id: 'ask-figure',
+      target: '[data-tour="ai-ask"]',
+      route: '/tools/budget',
+      title: 'Ask about any figure',
+      body: 'A ✨ button beside a figure opens FinatriX AI already pointed at it, with questions worth asking about that figure.',
+    },
+    {
       id: 'permission',
       target: '[data-tour="settings-ai-consent"]',
       route: '/tools/settings',
@@ -280,6 +294,10 @@ const ai: TourChapter = {
     },
     {
       id: 'good',
+      // Pointed at a real control on purpose: a step with no target that
+      // changes route ends the tour (resuming here would do exactly that).
+      target: '[data-tour="settings-ai-consent"]',
+      route: '/tools/settings',
       title: 'What good looks like',
       body: 'A short answer built from your own records, with every amount traced and any estimate named. This is an example, not your data.',
       output: GoodAnswer,

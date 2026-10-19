@@ -38,8 +38,8 @@ export function PublishedPeerComparison({ market }: { market: MarketPack }) {
     <PageHead chip="PeerCompare" chipColor="var(--purple)" chipBg="rgba(110,59,212,.09)" icon="peer" title="Put a published figure in context.">
       Explore official statistics for {market.name}. Compare the same population, period and definition; a national median is not a financial target.
     </PageHead>
-    <RegionBar />
-    <div className="card">
+    <RegionBar tour="peercompare-region" />
+    <div className="card" data-tour="peercompare-reference">
       <label className="fl" htmlFor="pc-summary">Published reference</label>
       <select className="fs" id="pc-summary" value={selected} onChange={(e) => { setSelected(e.target.value); setAmount(''); setConfirmed(false); setDefinitionChecked(false); setPeriodChecked(false); setParts(['', '']); setSecond(''); setResult(null); setError(''); }}>
         {summaries.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
@@ -55,7 +55,7 @@ export function PublishedPeerComparison({ market }: { market: MarketPack }) {
       <p className="note"><a className="fx-method-link" href={row.sourceUrl} target="_blank" rel="noopener noreferrer">{row.sourceLabel}</a> · {row.locator}</p>
       <p className="note">{row.attribution} <a className="fx-method-link" href={row.licenceUrl} target="_blank" rel="noopener noreferrer">Reuse terms</a></p>
     </div>
-    <form className="card" onSubmit={(e) => {
+    <form className="card" data-tour="peercompare-outcome" onSubmit={(e) => {
       e.preventDefault();
       const plain = plainAmount(amount);
       const value = Number(plain);
@@ -68,7 +68,7 @@ export function PublishedPeerComparison({ market }: { market: MarketPack }) {
       <AmountInput id="pc-reference-amount" sym={sym} placeholder="" value={amount}
         describedBy="pc-reference-help" onChange={(v) => { setAmount(v); setResult(null); }} />
       <p id="pc-reference-help" className="note">Use a figure for {row.period} with the definition above. No currency conversion or inflation adjustment is applied. You can read the reference without entering anything.</p>
-      <button type="button" className="btn btn-ghost btn-sm" aria-expanded={builderOpen} aria-controls="pc-figure-builder" onClick={() => setBuilderOpen(!builderOpen)}>Build my matching figure from parts</button>
+      <button type="button" className="btn btn-ghost btn-sm" data-tour="peercompare-builder" aria-expanded={builderOpen} aria-controls="pc-figure-builder" onClick={() => setBuilderOpen(!builderOpen)}>Build my matching figure from parts</button>
       {builderOpen && <div id="pc-figure-builder" className="well" style={{ marginTop: 16 }}>
         <h2 style={{ fontSize: 16 }}>Add the parts you have checked</h2>
         <p className="note">Enter non-overlapping components in {row.currency}, {row.unit}, on the {row.period} basis. For net worth, enter liabilities as negative amounts. For income, follow every inclusion and exclusion in the published definition. No missing component is inferred.</p>
@@ -82,21 +82,21 @@ export function PublishedPeerComparison({ market }: { market: MarketPack }) {
       </div>}
       <h2 style={{ fontSize: 17 }}>Check that like is being compared with like</h2>
       <p className="note">{[confirmed, definitionChecked, periodChecked].filter(Boolean).length} of 3 matching checks complete. If any check is uncertain, use the published figure as context without generating a personal comparison.</p>
-      <label className="fx-peer-check" style={{ display: 'flex', alignItems: 'center', gap: 12, minHeight: 48, margin: '14px 0' }}>
+      <label className="fx-peer-check" style={{ display: 'flex', alignItems: 'center', gap: 12, minHeight: 48, margin: '14px 0' }} data-tour="peercompare-checks">
         <input type="checkbox" checked={confirmed} onChange={(e) => { setConfirmed(e.target.checked); setResult(null); }} />
         My figure matches the reference population and household or person basis.
       </label>
       <label className="fx-peer-check" style={{ display: 'flex', alignItems: 'center', gap: 12, minHeight: 48, margin: '14px 0' }}><input type="checkbox" checked={definitionChecked} onChange={(e) => { setDefinitionChecked(e.target.checked); setResult(null); }} />My figure follows the stated income or net-worth definition.</label>
       <label className="fx-peer-check" style={{ display: 'flex', alignItems: 'center', gap: 12, minHeight: 48, margin: '14px 0' }}><input type="checkbox" checked={periodChecked} onChange={(e) => { setPeriodChecked(e.target.checked); setResult(null); }} />My figure uses {row.currency}, {row.unit}, and the {row.period} price and reporting period.</label>
       {error && <p role="alert">{error}</p>}
-      <button className="btn" type="submit">Compare matching figures</button>
+      <button className="btn" type="submit" data-tour="peercompare-match">Compare matching figures</button>
       {result !== null && <div role="status" style={{ marginTop: 20 }}>
         <h2 style={{ fontSize: 18 }}>Your figure and the published median</h2>
         <p>{money(result)} compared with {money(row.value)}. Your entered figure is {result > row.value ? 'above' : result < row.value ? 'below' : 'equal to'} this dated median.</p>
         <p>The absolute difference is {money(Math.abs(result - row.value))}. This is a difference between figures, not a savings shortfall or a target.</p>
         <p className="note">This gives no percentile, age ranking or financial-health score. Differences do not establish how much you need or ought to have.</p>
       </div>}
-      {result !== null && <section className="well" style={{ marginTop: 18 }} aria-labelledby="pc-second-title">
+      {result !== null && <section className="well" style={{ marginTop: 18 }} aria-labelledby="pc-second-title" data-tour="peercompare-second">
         <h2 id="pc-second-title" style={{ fontSize: 17 }}>Compare a second matching figure</h2>
         <p className="note">Enter another figure using the same checked definition, population and period. This is a separate illustration; it does not replace your first entry.</p>
         <label className="fl" htmlFor="pc-second">Second matching figure ({row.currency})</label>
@@ -104,9 +104,9 @@ export function PublishedPeerComparison({ market }: { market: MarketPack }) {
         <div aria-live="polite">{secondNumber !== null ? <p>{money(secondNumber)} is {money(Math.abs(secondNumber - row.value))} {secondNumber >= row.value ? 'above' : 'below'} the published median, and {money(Math.abs(secondNumber - result))} {secondNumber >= result ? 'higher' : 'lower'} than your first figure.</p> : <p className="note">Enter a complete, finite figure to compare. Blank is not zero.</p>}</div>
       </section>}
     </form>
-    <aside className="card" aria-label="A useful next step"><h2 style={{ fontSize: 17 }}>Make it useful for your own plan</h2><p className="note">{row.unit.includes('week') || row.unit.includes('month') || row.unit.includes('year') ? 'A historical household income reference cannot determine your monthly budget. Use your current income, expenses and commitments to plan what is affordable today.' : 'A national wealth median cannot tell you what you need. Track your own assets and debts over time, keeping household and personal totals distinct.'}</p><Link className="btn btn-ghost btn-sm" to={row.unit.includes('week') || row.unit.includes('month') || row.unit.includes('year') ? '/tools/budget' : '/tools/networth'}>{row.unit.includes('week') || row.unit.includes('month') || row.unit.includes('year') ? 'Plan with my current budget' : 'Track my own net worth'}</Link></aside>
-    <Methodology toolId="peercompare" market={market} />
-    <MarketNote market={market} />
+    <aside className="card" aria-label="A useful next step" data-tour="peercompare-next"><h2 style={{ fontSize: 17 }}>Make it useful for your own plan</h2><p className="note">{row.unit.includes('week') || row.unit.includes('month') || row.unit.includes('year') ? 'A historical household income reference cannot determine your monthly budget. Use your current income, expenses and commitments to plan what is affordable today.' : 'A national wealth median cannot tell you what you need. Track your own assets and debts over time, keeping household and personal totals distinct.'}</p><Link className="btn btn-ghost btn-sm" to={row.unit.includes('week') || row.unit.includes('month') || row.unit.includes('year') ? '/tools/budget' : '/tools/networth'}>{row.unit.includes('week') || row.unit.includes('month') || row.unit.includes('year') ? 'Plan with my current budget' : 'Track my own net worth'}</Link></aside>
+    <Methodology toolId="peercompare" market={market} tour="peercompare-method" />
+    <MarketNote market={market} tour="peercompare-sources" />
     <ToolFoot>Published references, not targets</ToolFoot>
   </div>;
 }

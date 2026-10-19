@@ -164,19 +164,6 @@ export function ExpensesArt({ clock, orb, fmt, code }: IntroArtProps) {
 
 /* ── Outputs ────────────────────────────────────────────────────────── */
 
-/** What the page's keyboard shortcuts are. Not figures, so nothing to pick. */
-function ShortcutsCard() {
-  return (
-    <dl className="tour-out-rows">
-      <div><dt>Log the quick-add line</dt><dd>Enter</dd></div>
-      <div><dt>Save the full form</dt><dd>Ctrl or ⌘ + Enter</dd></div>
-      <div><dt>Close the form</dt><dd>Esc</dd></div>
-      <div><dt>Undo a delete</dt><dd>Ctrl or ⌘ + Z</dd></div>
-      <div><dt>Move between views</dt><dd>Arrow keys</dd></div>
-    </dl>
-  );
-}
-
 function ExpensesGood({ fmt, code }: OutputProps) {
   const ex = pick(code);
   return (
@@ -189,7 +176,7 @@ function ExpensesGood({ fmt, code }: OutputProps) {
       <div className="tour-out-bar" aria-hidden="true">
         <span style={{ width: '52%', background: 'var(--orange)', ['--d' as string]: 100 } as CSSProperties} />
       </div>
-      <span className="tour-out-chip">About half spent, half the month gone · top: {ex.top}</span>
+      <span className="tour-out-chip">On pace · most spent on {ex.top}</span>
     </div>
   );
 }
@@ -396,8 +383,7 @@ const expenses: TourChapter = {
     {
       id: 'shortcuts',
       title: 'Keyboard shortcuts',
-      body: 'Everything on this page works from a keyboard. These save the most time.',
-      output: ShortcutsCard,
+      body: 'Enter logs the quick-add line, Ctrl or ⌘ Enter saves the full form and Esc closes it. Ctrl or ⌘ Z undoes a delete, and the arrow keys move between the four views.',
       needs: ['wide'],
     },
     {

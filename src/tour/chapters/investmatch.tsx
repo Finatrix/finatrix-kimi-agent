@@ -153,7 +153,7 @@ const investmatch: TourChapter = {
   intro: {
     eyebrow: 'Shape an allocation',
     headline: 'An allocation, illustrated.',
-    body: 'Six short questions, then an illustrative split of a monthly amount, with the horizon checked first. It shows a shape, never a product.',
+    body: 'Six short questions, then an illustrative split of a monthly amount, with the horizon checked first.',
     Art: InvestMatchArt,
     orb: [
       { at: 0, x: ANSWER_ORB.x, y: ANSWER_ORB.y, s: 0.34 },

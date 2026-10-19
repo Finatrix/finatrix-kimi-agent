@@ -128,7 +128,11 @@ export function Methodology({
   market,
   summary = 'How this is calculated',
   subject,
-}: MethodologyProps) {
+  tour,
+}: MethodologyProps & {
+  /** Product-tour anchor (`data-tour`), for a drawer shown on its own. */
+  tour?: string;
+}) {
   const guide = guideForMarket(toolId, market);
   /**
    * Limitations that come from the reference DATA rather than from the method.
@@ -154,7 +158,7 @@ export function Methodology({
   );
 
   return (
-    <details className="fx-method fx-method-card fx-method-full" onToggle={onToggle}>
+    <details className="fx-method fx-method-card fx-method-full" onToggle={onToggle} data-tour={tour}>
       <summary>{summary}</summary>
 
       {/* Plain `div`s with real headings rather than labelled `<section>`s: a

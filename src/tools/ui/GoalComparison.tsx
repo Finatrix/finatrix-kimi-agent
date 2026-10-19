@@ -23,7 +23,7 @@ export default function GoalComparison({ baseline, market, money }: { baseline: 
     && savedN !== '' && Number.isFinite(Number(savedN)) && Number(savedN) >= 0 && Number(savedN) <= 1e12;
   const alternative = valid ? computeGoalPlanner({ name: baseline.name, targetToday: Number(targetN), years: Number(years), existing: Number(savedN), inflate: baseline.inflate }, market.goals.inflation, market.goals.paths) : null;
   const budget = availableN !== '' && Number.isFinite(Number(availableN)) && Number(availableN) >= 0 ? Number(availableN) : null;
-  return <section className="fx-planning fx-planning-surface" aria-labelledby="goal-compare-title">
+  return <section className="fx-planning fx-planning-surface" aria-labelledby="goal-compare-title" data-tour="goals-compare">
     <h2 id="goal-compare-title">Compare the trade-offs</h2>
     <p>Try a different target, deadline or starting balance. Both scenarios use the same inflation and return assumptions as your plan. Your saved goal stays as it is.</p>
     {/* A second calculator under the result: one press away rather than

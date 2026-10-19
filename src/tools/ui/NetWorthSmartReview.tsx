@@ -13,7 +13,7 @@ export function NetWorthSmartReview({ accounts, month, options, cfmt, onCommit }
   const [notice, setNotice] = useState('');
   const next = review.reviewQueue[0];
   const focus = (id: string) => document.getElementById(`nw-bal-${id}`)?.focus();
-  return <section className="card" aria-label="Smart balance review" style={{ marginBottom: 14 }}>
+  return <section className="card" aria-label="Smart balance review" style={{ marginBottom: 14 }} data-tour="networth-review">
     <h2 style={{ fontSize: 17, margin: '0 0 6px' }}>Smart balance review</h2>
     <p className="note">{review.confirmed} of {review.recorded} balances recorded for {monthLabel(month)}. Older balances are reviewed first; their age does not tell us whether they changed.</p>
     {next ? <>

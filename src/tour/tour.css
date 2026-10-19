@@ -52,6 +52,9 @@
 /* ── Spotlight ───────────────────────────────────────────────────────── */
 
 .fx-tools.tour-spot {
+  /* The tools shell paints --bg on every .fx-tools; this layer must be see-through
+     or the spotlight "hole" shows a blank surface instead of the real control. */
+  background: none;
   position: fixed;
   inset: 0;
   z-index: 940;

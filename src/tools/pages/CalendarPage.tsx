@@ -91,12 +91,12 @@ export default function CalendarPage() {
 
   return (
     <div className="fx-page">
-      <PageHead chip="Calendar" chipColor="var(--gold)" chipBg="rgba(212,175,55,.1)" icon="clock" title="Your money month, at a glance.">
+      <PageHead chip="Calendar" chipColor="var(--gold)" chipBg="rgba(212,175,55,.1)" icon="clock" title="Your money month, at a glance." tour="calendar-head">
         Upcoming recurring bills, your investing SIP and goal dates — all projected from what you've
         already tracked. Nothing here is invented; events only appear when your data supports them.
       </PageHead>
 
-      <div style={{ marginBottom: 14 }}>
+      <div style={{ marginBottom: 14 }} data-tour="calendar-months">
         <MonthNav activeMonth={selMonth} months={months} onSwitch={(month) => { setSelMonth(month); setSelectedDay(null); }} pastNote="Viewing another month" pastColor="var(--gold)" allowFuture />
         {/* The arrows and month pills above cover the usual case; the free
             month field is the third way to do the same thing, so it waits
@@ -110,7 +110,7 @@ export default function CalendarPage() {
       </div>
 
       {/* Legend + month total */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 12 }} data-tour="calendar-legend">
         {(Object.keys(TYPE_LABEL) as FinEventType[]).map((t) => (
           <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink2)' }}>
             <span aria-hidden="true" style={{ width: 9, height: 9, borderRadius: '50%', background: TYPE_ACCENT[t] }} />
@@ -125,7 +125,7 @@ export default function CalendarPage() {
       </div>
 
       {/* Month grid */}
-      <div className="card" style={{ marginBottom: 14 }}>
+      <div className="card" style={{ marginBottom: 14 }} data-tour="calendar-grid">
         <div role="group" aria-label={`${monthLabel(selMonth)} calendar`} className="fx-cal-grid">
           {WEEKDAYS.map((w) => (
             <div key={w} aria-hidden="true" className="fx-cal-dow">{w}</div>
@@ -154,26 +154,26 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      <SmartAssist title="Plan around your busiest money days" description="Events are planning estimates from your saved tools. Confirm actual due dates with your provider; no payments or reminders are sent automatically.">
+      <SmartAssist title="Plan around your busiest money days" tour="calendar-assist" description="Events are planning estimates from your saved tools. Confirm actual due dates with your provider; no payments or reminders are sent automatically.">
         <div className="grid2">
           <div><p className="note">Remaining projected outflows in this month</p><b>{cfmt(calendarOutflows(upcoming))}</b><p className="note">Bills and investment contributions; goal targets are excluded.</p></div>
           <div><p className="note">Largest projected outflow day</p><b>{busiest ? `${busiest[0]} · ${cfmt(busiest[1])}` : 'No outflows to compare'}</b>{busiest && <div><button className="btn btn-ghost btn-sm" type="button" onClick={() => { setSelectedDay(Number(busiest[0].slice(8))); setType('all'); setQuery(''); setUpcomingOnly(false); }}>Show this day</button></div>}</div>
         </div>
-        {events.some((event) => event.type === 'invest') && <div style={{ marginTop: 16 }}>
+        {events.some((event) => event.type === 'invest') && <div style={{ marginTop: 16 }} data-tour="calendar-investday">
           <label className="fl" htmlFor="calendar-invest-day">Preferred monthly investing day</label>
           <select id="calendar-invest-day" className="fs" value={savedDay} onChange={(event) => setJSON('fx_investmatch', { ...getJSON('fx_investmatch', {}), calendarDay: Number(event.target.value) })}>
             {Array.from({ length: 31 }, (_, i) => <option value={i + 1} key={i + 1}>{i + 1}</option>)}
           </select>
           <p className="note">Day 1 is a planning default until you choose a day. Days 29–31 move to the last day of shorter months. This changes the calendar only.</p>
         </div>}
-        <div className="grid2" style={{ marginTop: 16 }}>
+        <div className="grid2" style={{ marginTop: 16 }} data-tour="calendar-filters">
           <div><label className="fl" htmlFor="calendar-type">Event type</label><select id="calendar-type" className="fs" value={type} onChange={(e) => setType(e.target.value as FinEventType | 'all')}><option value="all">All events</option>{(Object.keys(TYPE_LABEL) as FinEventType[]).map((key) => <option value={key} key={key}>{TYPE_LABEL[key]}</option>)}</select></div>
           <div><label className="fl" htmlFor="calendar-search">Find an event</label><input id="calendar-search" type="search" className="fi" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search title or source" /></div>
         </div>
         <label className="fx-checkrow" style={{ margin: '12px 0' }}><input className="fx-check" type="checkbox" checked={upcomingOnly} onChange={(e) => setUpcomingOnly(e.target.checked)} />Today and later only</label>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {(selectedDay !== null || type !== 'all' || query || upcomingOnly) && <button className="btn btn-ghost btn-sm" type="button" onClick={() => { setSelectedDay(null); setType('all'); setQuery(''); setUpcomingOnly(false); }}>Clear filters{selectedDay !== null ? ` · day ${selectedDay}` : ''}</button>}
-          <button className="btn btn-ghost btn-sm" type="button" disabled={!filteredEvents.length} onClick={async () => {
+          <button className="btn btn-ghost btn-sm" type="button" disabled={!filteredEvents.length} data-tour="calendar-export" onClick={async () => {
             try {
               await downloadBlob(`finatrix-calendar-${selMonth}.ics`, new Blob([calendarIcs(filteredEvents, new Date(), code)], { type: 'text/calendar;charset=utf-8' }));
             } catch {
@@ -186,7 +186,7 @@ export default function CalendarPage() {
 
       {/* Event list (accessible primary representation) */}
       {events.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }}>
+        <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }} data-tour="calendar-empty">
           <Icon name="clock" size={40} style={{ color: 'var(--ink3)', marginBottom: 12 }} />
           <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Nothing scheduled yet</div>
           <p className="note" style={{ maxWidth: 360, margin: '0 auto 16px' }}>
@@ -199,9 +199,9 @@ export default function CalendarPage() {
           </div>
         </div>
       ) : filteredEvents.length === 0 ? (
-        <div className="card"><b>No events match these filters</b><p className="note">Choose another day or clear the filters to see the full month.</p><button className="btn btn-ghost btn-sm" onClick={() => { setSelectedDay(null); setType('all'); setQuery(''); setUpcomingOnly(false); }}>Show all events</button></div>
+        <div className="card" data-tour="calendar-events"><b>No events match these filters</b><p className="note">Choose another day or clear the filters to see the full month.</p><button className="btn btn-ghost btn-sm" onClick={() => { setSelectedDay(null); setType('all'); setQuery(''); setUpcomingOnly(false); }}>Show all events</button></div>
       ) : (
-        <div className="card">
+        <div className="card" data-tour="calendar-events">
           <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{monthLabel(selMonth)} — {filteredEvents.length} event{filteredEvents.length === 1 ? '' : 's'}</div>
           <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
             {filteredEvents.map((e) => (
@@ -246,7 +246,7 @@ export default function CalendarPage() {
         @media (max-width: 480px) { .fx-cal-cell { min-height: 40px; } }
       `}</style>
 
-      <MethodologyNote summary="How these events are derived">
+      <MethodologyNote summary="How these events are derived" tour="calendar-method">
         Recurring bills are detected from expenses you've logged in the same category and merchant across
         multiple months — the date shown is taken from your last real payment. The investing SIP and goal
         maturity come from your saved InvestMatch and Goal plans. The investing date is your chosen planning day (day 1 by default), not a verified debit date. Goal dates require a plan saved with a start date. If a signal isn't backed by your own data,

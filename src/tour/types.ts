@@ -125,6 +125,13 @@ export interface TourChapter {
   title: string;
   /** Where the chapter runs: a route inside the tools shell. */
   route: string;
+  /**
+   * A chapter about something on every page (the AI panel, the shell's
+   * controls) rather than one page. Its `route` is only where it starts, it may
+   * share that route with the page's own chapter, and "Tour this page" never
+   * picks it.
+   */
+  floating?: boolean;
   /** One short line for the hub card. */
   tagline: string;
   /** Honest estimate, whole minutes. */

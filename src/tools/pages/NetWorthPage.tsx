@@ -200,6 +200,7 @@ export default function NetWorthPage() {
         chipBg="rgba(212,175,55,.12)"
         icon="trending"
         title="What you own, minus what you owe."
+        tour="networth-head"
       >
         The one number that answers whether any of the rest is working. Record what you hold and
         what you owe, update it when it changes, and watch the line — nothing here is projected,
@@ -207,7 +208,7 @@ export default function NetWorthPage() {
       </PageHead>
 
       {hasAccounts && (
-        <div style={{ marginBottom: 14 }}>
+        <div style={{ marginBottom: 14 }} data-tour="networth-months">
           <MonthNav
             activeMonth={selMonth}
             months={months}
@@ -224,7 +225,7 @@ export default function NetWorthPage() {
         <EmptyState onStart={() => { setAdding(true); requestAnimationFrame(() => nameRef.current?.focus()); }} />
       ) : (
         <>
-          <div className="nw-kpis">
+          <div className="nw-kpis" data-tour="networth-kpis">
             <Kpi
               label="Net worth"
               value={cfmt(snapshot.net)}
@@ -252,7 +253,7 @@ export default function NetWorthPage() {
           {series.length > 1 && <Trend series={series} cfmtSh={cfmtSh} cfmt={cfmt} />}
 
           {stale.length > 0 && (
-            <p className="nw-stale" role="note">
+            <p className="nw-stale" role="note" data-tour="networth-stale">
               <Icon name="warn" size={15} aria-hidden="true" />
               <span>
                 {stale.length === 1
@@ -266,7 +267,7 @@ export default function NetWorthPage() {
             </p>
           )}
 
-          <div className="nw-sheet">
+          <div className="nw-sheet" data-tour="networth-sheet">
             <Side
               title="Assets"
               subtitle="What you own"
@@ -307,12 +308,12 @@ export default function NetWorthPage() {
 
           <div className="nw-actions">
             {!adding && (
-              <button type="button" className="btn btn-sm" onClick={() => { setAdding(true); requestAnimationFrame(() => nameRef.current?.focus()); }}>
+              <button type="button" className="btn btn-sm" onClick={() => { setAdding(true); requestAnimationFrame(() => nameRef.current?.focus()); }} data-tour="networth-add">
                 <Icon name="plus" size={15} style={{ marginRight: 6 }} aria-hidden="true" />
                 Add an account
               </button>
             )}
-            <button type="button" className="btn btn-ghost btn-sm" onClick={exportCsv}>Export CSV</button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={exportCsv} data-tour="networth-export">Export CSV</button>
           </div>
         </>
       )}
@@ -335,6 +336,7 @@ export default function NetWorthPage() {
       {hasAccounts && (
         <ResultExplainer
           toolId="networth"
+          tour="networth-explainer"
           inputs={[
             { label: 'Month', value: monthLabel(selMonth) },
             { label: 'Accounts recorded', value: String(accounts.length) },
@@ -388,7 +390,7 @@ function Kpi({ label, value, accent, foot, tone = 'flat' }: {
 
 function EmptyState({ onStart }: { onStart: () => void }) {
   return (
-    <div className="card nw-empty">
+    <div className="card nw-empty" data-tour="networth-empty">
       <Icon name="trending" size={28} aria-hidden="true" />
       <h2>Start with what you can see today</h2>
       <p>
@@ -396,13 +398,13 @@ function EmptyState({ onStart }: { onStart: () => void }) {
         fund, the loan outstanding on your last statement. The line only becomes useful once there
         are two months on it, so the sooner the first one exists, the better.
       </p>
-      <button type="button" className="btn btn-sm" onClick={onStart}>
+      <button type="button" className="btn btn-sm" onClick={onStart} data-tour="networth-add">
         <Icon name="plus" size={15} style={{ marginRight: 6 }} aria-hidden="true" />
         Add your first account
       </button>
       {/* A picture of the result, so the first entry has a visible point. It is
           a drawing, not data, and says so. */}
-      <figure className="nw-empty-example">
+      <figure className="nw-empty-example" data-tour="networth-example">
         <figcaption>Example only · the line you get after a few months of entries</figcaption>
         <svg viewBox="0 0 300 64" width="100%" aria-hidden="true" focusable="false">
           <line x1="4" y1="60" x2="296" y2="60" stroke="var(--hair)" strokeWidth="1" />
@@ -452,7 +454,7 @@ function Trend({ series, cfmt, cfmtSh }: {
   const summary = `Net worth from ${monthLabel(first.month)} to ${monthLabel(last.month)}: ${cfmt(first.net)} to ${cfmt(last.net)}.`;
 
   return (
-    <div className="card nw-trend">
+    <div className="card nw-trend" data-tour="networth-trend">
       <div className="nw-trend-head">
         <h2>Trend</h2>
         <span>{series.length} months</span>
@@ -626,7 +628,7 @@ function Row({ row, month, sym, displayCode, labels, blank = false, onBalance, o
   const fieldId = `nw-bal-${account.id}`;
 
   return (
-    <li className="nw-row">
+    <li className="nw-row" data-tour="networth-row">
       <span className="nw-row-icon" aria-hidden="true">
         <Icon name={categoryFor(account.category)?.ic ?? 'other'} size={16} />
       </span>
@@ -690,7 +692,7 @@ function AddForm({ draft, setDraft, error, nameRef, sym, month, displayCode, lab
 }) {
   const categories = categoriesFor(draft.kind);
   return (
-    <form className="card nw-add" onSubmit={onSubmit} noValidate>
+    <form className="card nw-add" onSubmit={onSubmit} noValidate data-tour="networth-add-form">
       <h2>Add an account</h2>
       <div className="grid2">
         <div className="fg">

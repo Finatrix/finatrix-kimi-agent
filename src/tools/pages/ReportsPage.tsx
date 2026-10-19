@@ -54,18 +54,19 @@ export default function ReportsPage() {
 
   return (
     <div className="fx-page">
-      <PageHead chip="Reports" chipColor="var(--gold)" chipBg="rgba(212,175,55,.1)" icon="layers" title="Your finances, ready to share.">
+      <PageHead chip="Reports" chipColor="var(--gold)" chipBg="rgba(212,175,55,.1)" icon="layers" title="Your finances, ready to share." tour="reports-head">
         Export your saved budget and expense records to CSV, Excel or PDF.
         Reports use the same calculations as their source tools and the exact month you select.
       </PageHead>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: 200 }}>
+        <div style={{ flex: 1, minWidth: 200 }} data-tour="reports-months">
           <MonthNav activeMonth={selMonth} months={months} onSwitch={setSelMonth} pastNote="Viewing past month" pastColor="var(--gold)" />
         </div>
         {selectedCount > 0 && (
           <ExportMenu
             source="reports-all"
+            tour="reports-export-all"
             label={`Export selected (${selectedCount})`}
             onCsv={doExportAll('csv')}
             onXlsx={doExportAll('xlsx')}
@@ -76,7 +77,7 @@ export default function ReportsPage() {
 
       {/* The same facts as before, as a checklist rather than a paragraph:
           status first, one line per finding, then what each format is for. */}
-      <section className="card fx-report-prep" aria-label="Smart report preparation">
+      <section className="card fx-report-prep" aria-label="Smart report preparation" data-tour="reports-prep">
         <div className="fx-report-prep-head">
           <h2>Smart report preparation</h2>
           <span className={`pill ${availableCount === 2 ? 'pill-ok' : 'pill-mute'}`}>{availableCount} of 2 reports ready for {monthLabel(selMonth)}</span>
@@ -89,7 +90,7 @@ export default function ReportsPage() {
             ? review.checks.map((check) => <li key={check.message} className="is-warn">{check.message}{' '}<Link to={check.href}>Review source</Link></li>)
             : <li className={anyAvailable ? 'is-ok' : 'is-none'}>{anyAvailable ? 'No issues found in the available saved amounts, dates and budget split. Completeness still depends on what you entered.' : 'Save a budget or transactions for this month to prepare a report.'}</li>}
         </ul>
-        <div className="fx-format-grid" aria-label="What each format is for">
+        <div className="fx-format-grid" aria-label="What each format is for" data-tour="reports-formats">
           <div><b>PDF</b><span>A readable summary</span></div>
           <div><b>Excel</b><span>For analysis</span></div>
           <div><b>CSV</b><span>For another tool</span></div>
@@ -98,7 +99,7 @@ export default function ReportsPage() {
       </section>
 
       {!anyAvailable ? (
-        <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }}>
+        <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }} data-tour="reports-empty">
           <Icon name="layers" size={40} style={{ color: 'var(--ink3)', marginBottom: 12 }} />
           <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>No reports yet</div>
           <p className="note" style={{ maxWidth: 360, margin: '0 auto 16px' }}>
@@ -110,7 +111,7 @@ export default function ReportsPage() {
           </div>
         </div>
       ) : (
-        <div style={{ display: 'grid', gap: 12 }}>
+        <div style={{ display: 'grid', gap: 12 }} data-tour="reports-list">
           {reports.map((r) => (
             <div key={r.id} className="card" style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
               <div
@@ -142,6 +143,7 @@ export default function ReportsPage() {
                   </label>
                   <ExportMenu
                     source="reports-single"
+                    tour="reports-export"
                     label="Export"
                     onCsv={doExport(r.id, 'csv', r.title)}
                     onXlsx={doExport(r.id, 'xlsx', r.title)}
@@ -157,14 +159,14 @@ export default function ReportsPage() {
         </div>
       )}
 
-      <MethodologyNote summary="How these reports are generated">
+      <MethodologyNote summary="How these reports are generated" tour="reports-method">
         Reports are built from your saved tool state using the exact same calculators the tools use —
         <b> computeBudget</b> for budgets and <b>computeDashboard</b> for expenses — so every figure matches
         its source tool. A budget from another month is never substituted. Generation happens entirely
         on your device.
       </MethodologyNote>
 
-      <div className="card" style={{ marginTop: 4, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+      <div className="card" style={{ marginTop: 4, display: 'flex', gap: 12, alignItems: 'flex-start' }} data-tour="reports-privacy">
         <Icon name="shield" size={18} style={{ color: 'var(--gold)', flexShrink: 0, marginTop: 1 }} />
         <div style={{ fontSize: 12.5, color: 'var(--ink2)', lineHeight: 1.6 }}>
           Reports are generated on your device from data you entered. They contain only your own information and are

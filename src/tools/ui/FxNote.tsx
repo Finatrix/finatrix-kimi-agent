@@ -33,6 +33,7 @@ export function FxNote({ displayCode, currencies }: { displayCode: string; curre
     <aside
       className="card"
       aria-label="How currencies were converted"
+      data-tour="networth-fx"
       style={{ borderColor: stale ? 'color-mix(in srgb, var(--gold) 45%, transparent)' : undefined }}
     >
       <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>

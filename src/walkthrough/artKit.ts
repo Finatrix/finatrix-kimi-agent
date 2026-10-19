@@ -38,11 +38,15 @@ export function socketed(x: number, y: number, w: number, h: number, r: number, 
 /** Count a text node up from zero on the scene clock. */
 export function useCountUp(clock: SceneClock, at: number, dur: number, to: number, fmt: (n: number) => string) {
   const ref = useRef<SVGTextElement>(null);
+  // Callers often pass an inline formatter; keep the latest in a ref so a new
+  // function identity each render doesn't restart (and freeze) the count.
+  const fmtRef = useRef(fmt);
+  useEffect(() => { fmtRef.current = fmt; });
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    if (!clock.instant) el.textContent = fmt(0);
-    clock.tween(at, dur, (p) => { el.textContent = fmt(to * p); }, easeOutExpo);
-  }, [clock, at, dur, to, fmt]);
+    if (!clock.instant) el.textContent = fmtRef.current(0);
+    clock.tween(at, dur, (p) => { el.textContent = fmtRef.current(to * p); }, easeOutExpo);
+  }, [clock, at, dur, to]);
   return ref;
 }

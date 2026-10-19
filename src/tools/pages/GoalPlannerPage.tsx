@@ -87,9 +87,9 @@ export default function GoalPlannerPage() {
       </PageHead>
 
       {!result ? (
-        <div className="card">
+        <div className="card" data-tour="goals-outcome">
           <label className="fl">Quick pick a goal</label>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 9, marginBottom: 18 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 9, marginBottom: 18 }} data-tour="goals-plan">
             {goals.presets.map((p) => (
               <button
                 key={p[0]}
@@ -104,15 +104,15 @@ export default function GoalPlannerPage() {
               </button>
             ))}
           </div>
-          <div className="fg">
+          <div className="fg" data-tour="goals-name">
             <label className="fl" htmlFor="gp-name">Goal name</label>
             <input className="fi" type="text" id="gp-name" placeholder="e.g. Dream house, World tour" maxLength={40} value={f.name} onChange={(e) => set({ name: e.target.value })} />
           </div>
-          <div className="fg">
+          <div className="fg" data-tour="goals-target">
             <label className="fl" htmlFor="gp-target">Target amount in today's money ({sym})</label>
             <AmountInput id="gp-target" sym={sym} placeholder="" value={f.target} onChange={(v) => set({ target: v })} />
           </div>
-          <div className="grid2">
+          <div className="grid2" data-tour="goals-timing">
             <div className="fg">
               <label className="fl" htmlFor="gp-years">Years to reach</label>
               <input className="fi" type="number" step="1" id="gp-years" value={f.years} min={1} max={40} inputMode="numeric" onChange={(e) => set({ years: e.target.value })} />
@@ -122,12 +122,12 @@ export default function GoalPlannerPage() {
               <AmountInput id="gp-existing" sym={sym} placeholder="" value={f.existing} onChange={(v) => set({ existing: v })} />
             </div>
           </div>
-          <label className="fx-checkrow" style={{ fontSize: 14, color: 'var(--ink2)', marginBottom: 18 }}>
+          <label className="fx-checkrow" style={{ fontSize: 14, color: 'var(--ink2)', marginBottom: 18 }} data-tour="goals-inflation">
             <input type="checkbox" className="fx-check" id="gp-inflate" checked={f.inflate} onChange={(e) => set({ inflate: e.target.checked })} />
             Adjust target for {Math.round(goals.inflation * 100)}% inflation — otherwise the figure is in today&rsquo;s money, not the money you will need
           </label>
-          <button className="btn" onClick={submit}>Show me the path</button>
-          <p className="note">This starts a plan from today. Calendar will place its target date the selected number of years from today; generating a new plan resets that starting date.</p>
+          <button className="btn" onClick={submit} data-tour="goals-submit">Show me the path</button>
+          <p className="note" data-tour="goals-calendar">This starts a plan from today. Calendar will place its target date the selected number of years from today; generating a new plan resets that starting date.</p>
         </div>
       ) : (
         <GoalResultView result={result} market={market} money={cfmt} onReset={() => setResult(null)} onUseYears={(years) => {
@@ -137,7 +137,7 @@ export default function GoalPlannerPage() {
         }} />
       )}
 
-      <MarketNote market={market} />
+      <MarketNote market={market} tour="goals-sources" />
       <ToolFoot>Return rates are illustrative assumptions from historical averages, not guarantees</ToolFoot>
     </div>
   );
@@ -170,7 +170,7 @@ function GoalResultView({ result, market, money, onReset, onUseYears }: {
 
   return (
     <div>
-      <div className="result-hero-anim" style={{ textAlign: 'center', margin: '8px 0 24px' }}>
+      <div className="result-hero-anim" style={{ textAlign: 'center', margin: '8px 0 24px' }} data-tour="goals-plan">
         <div style={{ fontSize: 38, marginBottom: 6 }}>🎯</div>
         <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-.015em' }}>{name}</div>
         <div style={{ fontSize: 15, color: 'var(--ink2)', marginTop: 4 }}>
@@ -184,7 +184,7 @@ function GoalResultView({ result, market, money, onReset, onUseYears }: {
           difference is shown on one line before the detail of each. Display
           only: every figure is the one its card below already shows. */}
       {results.length > 1 && (
-        <section className="card fx-path-compare" aria-label="Return paths compared">
+        <section className="card fx-path-compare" aria-label="Return paths compared" data-tour="goals-outcome">
           <div className="fx-path-compare-title">{market.invest.monthlyTerm} needed, by return path</div>
           <div className="fx-path-compare-grid" style={{ gridTemplateColumns: `repeat(${results.length}, minmax(0, 1fr))` }}>
             {results.map((p) => (
@@ -201,11 +201,11 @@ function GoalResultView({ result, market, money, onReset, onUseYears }: {
         </section>
       )}
 
-      {results.map((p) => <PathCard key={p.n} p={p} money={money} monthlyTerm={market.invest.monthlyTerm} />)}
+      {results.map((p, i) => <PathCard key={p.n} p={p} money={money} monthlyTerm={market.invest.monthlyTerm} tour={i === 0 ? 'goals-path' : undefined} />)}
 
       <GoalSmartAssist result={result} market={market} money={money} onUseYears={onUseYears} />
       <GoalComparison key={`${result.targetToday}-${result.years}-${result.existing}`} baseline={result} market={market} money={money} />
-      <div className="card" style={{ background: 'var(--gold-bg)' }}>
+      <div className="card" style={{ background: 'var(--gold-bg)' }} data-tour="goals-caveats">
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Before you choose a contribution</div>
         <div className="note">
           The step-up option assumes you increase contributions by 10% every year; your income may not
@@ -217,6 +217,7 @@ function GoalResultView({ result, market, money, onReset, onUseYears }: {
 
       <ResultExplainer
         toolId="goals"
+        tour="goals-explainer"
         market={market}
         inputs={inputs}
         assumptions={assumptions}
@@ -235,16 +236,18 @@ function GoalResultView({ result, market, money, onReset, onUseYears }: {
         }
       />
 
-      <button className="btn" onClick={onReset}>Plan another goal</button>
+      <button className="btn" onClick={onReset} data-tour="goals-reset">Plan another goal</button>
     </div>
   );
 }
 
-function PathCard({ p, money, monthlyTerm }: {
+function PathCard({ p, money, monthlyTerm, tour }: {
   p: GoalPathResult; money: (n: number) => string; monthlyTerm: string;
+  /** Product-tour anchor (`data-tour`), on the first card only. */
+  tour?: string;
 }) {
   return (
-    <div className="card result-card-anim" style={{ borderLeft: `4px solid ${p.c}` }}>
+    <div className="card result-card-anim" style={{ borderLeft: `4px solid ${p.c}` }} data-tour={tour}>
       <div style={{ fontSize: 17, fontWeight: 700, color: p.c }}>{p.n}</div>
       <div className="note" style={{ margin: '3px 0 14px' }}>{p.d} · assumes ~{Math.round(p.rate * 100)}% a year, not guaranteed</div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', padding: '14px 0', borderTop: '1px solid var(--hair2)' }}>

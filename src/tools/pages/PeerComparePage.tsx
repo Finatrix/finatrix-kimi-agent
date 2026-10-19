@@ -93,21 +93,21 @@ function LegacyPeerComparePage() {
         Illustrative benchmarks for {cityEntries.length} locations across {market.name}, using an
         age-band and location model. These estimates provide context, not a population ranking or a target.
       </PageHead>
-      <RegionBar />
+      <RegionBar tour="peercompare-region" />
 
-      {code !== market.currency ? <aside className="card" aria-label="Match the benchmark currency">
+      {code !== market.currency ? <aside className="card" aria-label="Match the benchmark currency" data-tour="peercompare-currency">
         <h2 style={{ fontSize: 18, marginTop: 0 }}>Use {market.currency} for this comparison</h2>
         <p>The {market.name} model references are in {market.currency}. Your current display currency is {code}; comparing these amounts would mix different units.</p>
         <p className="note">Switch to {market.currency}, then enter or review every monetary figure in that currency. Switching does not convert your amounts. Restate any figures held in another currency before comparing.</p>
         <button type="button" className="btn" onClick={() => { setResult(null); setF(defaultsFor(market)); setError(''); setCode(market.currency); }}>Switch to {market.currency}</button>
         {/* Shows what the tool asks for, so the switch is not a leap in the dark. */}
         <p className="note" style={{ marginTop: 16, marginBottom: 0 }}>After switching you enter:</p>
-        <div className="fx-pc-preview">
+        <div className="fx-pc-preview" data-tour="peercompare-outcome">
           {['Your age', 'Location', 'Monthly income', 'Total savings', 'Total investments', 'Total debt', 'Savings rate', 'Monthly expenses'].map((label) => <span key={label}>{label}</span>)}
         </div>
       </aside> : !result ? (
-        <div className="card">
-          {saved.market === market.id && saved.currency === code && <div className="well" style={{ marginBottom: 18 }}>
+        <div className="card" data-tour="peercompare-outcome">
+          {saved.market === market.id && saved.currency === code && <div className="well" style={{ marginBottom: 18 }} data-tour="peercompare-saved">
             <p className="note">Saved PeerCompare inputs for {market.name}, {code}. Review them before comparing; they may be out of date.</p>
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => {
               const next = { ...f };
@@ -115,7 +115,7 @@ function LegacyPeerComparePage() {
               setF(next); setError('');
             }}>Review saved figures</button>
           </div>}
-          <div className="grid2">
+          <div className="grid2" data-tour="peercompare-profile">
             <Field label="Your age" id="pc-age"><input className="fi" type="number" step="any" id="pc-age" value={f.age} min={18} max={70} inputMode="numeric" onChange={(e) => set('age', e.target.value)} /></Field>
             <Field label={peer.cityLabel} id="pc-city">
               <select className="fs" id="pc-city" value={f.city in peer.cities ? f.city : peer.fallbackCity} onChange={(e) => set('city', e.target.value)}>
@@ -123,7 +123,7 @@ function LegacyPeerComparePage() {
               </select>
             </Field>
           </div>
-          <Field label={`Monthly income (${sym})`} id="pc-income"><AmountInput id="pc-income" sym={sym} placeholder="" value={f.income} onChange={(v) => set('income', v)} /></Field>
+          <Field label={`Monthly income (${sym})`} id="pc-income" tour="peercompare-figures"><AmountInput id="pc-income" sym={sym} placeholder="" value={f.income} onChange={(v) => set('income', v)} /></Field>
           <div className="grid2">
             <Field label={`Total savings (${sym})`} id="pc-savings"><AmountInput id="pc-savings" sym={sym} placeholder="" value={f.savings} onChange={(v) => set('savings', v)} /></Field>
             <Field label={`Total investments (${sym})`} id="pc-invest"><AmountInput id="pc-invest" sym={sym} placeholder="" value={f.invest} onChange={(v) => set('invest', v)} /></Field>
@@ -133,14 +133,14 @@ function LegacyPeerComparePage() {
             <Field label="Monthly savings rate (%)" id="pc-rate"><PercentField id="pc-rate" value={f.rate} onChange={(v) => set('rate', v)} /></Field>
           </div>
           <Field label={`Monthly expenses (${sym})`} id="pc-expenses"><AmountInput id="pc-expenses" sym={sym} placeholder="" value={f.expenses} onChange={(v) => set('expenses', v)} /></Field>
-          {cashFlow && <aside className="well" aria-label="Cash-flow cross-check" style={{ marginBottom: 18 }}>
+          {cashFlow && <aside className="well" aria-label="Cash-flow cross-check" style={{ marginBottom: 18 }} data-tour="peercompare-check">
             <b>Automatic consistency check</b>
             <p className="note">Income minus expenses leaves {cfmt(cashFlow.surplus)} a month. Your entered savings rate implies {cfmt(cashFlow.impliedSavings)} a month.</p>
             {cashFlow.exceedsSurplus && <p className="tip tip-warn">The savings rate implies more savings than the entered monthly surplus. Check whether expenses already include transfers to savings, or whether a figure needs updating.</p>}
             {cashFlow.surplus >= 0 && <><button type="button" className="btn btn-ghost btn-sm" onClick={() => set('rate', ((cashFlow.surplus / input.income) * 100).toFixed(1))}>Use the income-minus-expenses rate</button><p className="note">Use this only if expenses include all spending and exclude savings transfers. Irregular bills can change the actual rate.</p></>}
           </aside>}
           {error && <p role="alert">{error}</p>}
-          <button className="btn" onClick={submit}>
+          <button className="btn" onClick={submit} data-tour="peercompare-compare">
             Show the comparison
           </button>
         </div>
@@ -148,15 +148,15 @@ function LegacyPeerComparePage() {
         <PeerResultView result={result} input={input} market={market} money={cfmt} onReset={() => setResult(null)} />
       )}
 
-      <MarketNote market={market} />
+      <MarketNote market={market} tour="peercompare-sources" />
       <ToolFoot>Benchmarks are reference points, not targets</ToolFoot>
     </div>
   );
 }
 
-function Field({ label, id, children }: { label: string; id: string; children: React.ReactNode }) {
+function Field({ label, id, tour, children }: { label: string; id: string; tour?: string; children: React.ReactNode }) {
   return (
-    <div className="fg">
+    <div className="fg" data-tour={tour}>
       <label className="fl" htmlFor={id}>{label}</label>
       {children}
     </div>
@@ -184,8 +184,8 @@ function PeerResultView({ result, input, market, money, onReset }: {
 
   return (
     <div>
-      <div className="card result-hero-anim" style={{ textAlign: 'center', padding: '34px 24px' }}>
-        <div style={{ position: 'relative', width: 140, height: 140, margin: '0 auto 14px' }}>
+      <div className="card result-hero-anim" style={{ textAlign: 'center', padding: '34px 24px' }} data-tour="peercompare-result">
+        <div style={{ position: 'relative', width: 140, height: 140, margin: '0 auto 14px' }} data-tour="peercompare-outcome">
           <svg aria-hidden="true" width="140" height="140" style={{ transform: 'rotate(-90deg)' }}>
             <circle cx="70" cy="70" r="56" fill="none" stroke="var(--hair2)" strokeWidth="9" />
             <circle cx="70" cy="70" r="56" fill="none" stroke="var(--purple)" strokeWidth="9" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={off} style={{ transition: 'stroke-dashoffset 1s ease' }} />
@@ -203,7 +203,7 @@ function PeerResultView({ result, input, market, money, onReset }: {
       {/* The basis in one line, the full description one press away: the hero
           above already says this is a model score and not a percentile, which
           is the part a reader must not miss. */}
-      <aside className="card" aria-label="What you are being compared with" style={{ padding: '16px 20px' }}>
+      <aside className="card" aria-label="What you are being compared with" style={{ padding: '16px 20px' }} data-tour="peercompare-basis">
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>What you are being compared with</div>
         <p className="note" style={{ margin: '0 0 4px' }}>A FinatriX illustrative benchmark model for {market.name}, age {bracket}, {city.l}.</p>
         <Disclosure variant="inline" showLabel="Show the comparison basis" hideLabel="Hide the comparison basis">
@@ -226,9 +226,9 @@ function PeerResultView({ result, input, market, money, onReset }: {
       <PeerScenarioAssist input={input} market={market} result={result} money={money} />
 
       <div style={{ fontSize: 15, fontWeight: 700, margin: '20px 4px 12px' }}>Metric by metric</div>
-      {metrics.map((m) => <MetricCard key={m.k} m={m} cityLabel={city.l} money={money} />)}
+      {metrics.map((m, i) => <MetricCard key={m.k} m={m} cityLabel={city.l} money={money} tour={i === 0 ? 'peercompare-metrics' : undefined} />)}
 
-      <div className="card">
+      <div className="card" data-tour="peercompare-stats">
         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>Additional stats</div>
         <div className="grid2" style={{ textAlign: 'center' }}>
           <StatBox v={input.expenses === 0 ? 'Not defined' : String(eMonths)} l="Emergency months" color={input.expenses === 0 ? 'var(--ink2)' : eMonths >= 6 ? 'var(--green)' : eMonths >= 3 ? 'var(--gold)' : 'var(--red)'} />
@@ -245,6 +245,7 @@ function PeerResultView({ result, input, market, money, onReset }: {
       </div>
       <ResultExplainer
         toolId="peercompare"
+        tour="peercompare-explainer"
         market={market}
         inputs={inputs}
         assumptions={assumptions}
@@ -260,17 +261,17 @@ function PeerResultView({ result, input, market, money, onReset }: {
         }
       />
 
-      <button className="btn" onClick={onReset}>Compare again</button>
+      <button className="btn" onClick={onReset} data-tour="peercompare-reset">Compare again</button>
     </div>
   );
 }
 
-function MetricCard({ m, cityLabel, money }: { m: Metric; cityLabel: string; money: (n: number) => string }) {
+function MetricCard({ m, cityLabel, money, tour }: { m: Metric; cityLabel: string; money: (n: number) => string; tour?: string }) {
   const dy = m.money ? money(m.yours) : m.yours + (m.suf || '');
   const da = m.money ? money(m.avg) : m.avg + (m.suf || '');
   const comparison = m.yours > m.avg ? 'Above reference' : m.yours < m.avg ? 'Below reference' : 'Matches reference';
   return (
-    <div className="card" style={{ padding: '18px 20px' }}>
+    <div className="card" style={{ padding: '18px 20px' }} data-tour={tour}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 9 }}>
         <div style={{ fontSize: 14, fontWeight: 600 }}>
           {m.i ? m.i : m.ic ? <Icon name={m.ic as never} size={14} style={{ verticalAlign: '-2px' }} /> : null} {m.l}
@@ -309,7 +310,7 @@ function PeerScenarioAssist({ input, market, result, money }: { input: PeerInput
   const nextTool = input.expenses > input.income ? { path: 'budget', text: 'Review the monthly shortfall', reason: 'Your entered spending exceeds income. Understanding that gap is more useful than improving a comparison score.' }
     : input.expenses > 0 && result.eMonths < 3 ? { path: 'goals', text: 'Plan a cash buffer', reason: `Your savings cover ${result.eMonths} months of entered expenses. Set a buffer goal based on your own commitments.` }
       : { path: 'networth', text: 'Review my full net worth', reason: 'This comparison uses only the assets and debts entered here. Check property, pensions and any missing liabilities before drawing conclusions.' };
-  return <section className="card" aria-labelledby="pc-smart-title">
+  return <section className="card" aria-labelledby="pc-smart-title" data-tour="peercompare-explore">
     <h2 id="pc-smart-title" style={{ fontSize: 18, marginTop: 0 }}>Understand the comparison</h2>
     <p className="note">Explore how the existing model changes with location. It does not predict relocation costs, salary changes or a measured population percentile.</p>
     <Disclosure variant="inline" showLabel="Show the location explorer" hideLabel="Hide the location explorer">

@@ -141,7 +141,7 @@ const parksmart: TourChapter = {
   intro: {
     eyebrow: 'Park idle cash',
     headline: 'Idle money shouldn’t idle.',
-    body: 'Enter an amount and how long it can sit. Every option is ranked by what it keeps after tax, with what you can reach quickly marked clearly.',
+    body: 'Enter an amount and how long it can sit. Every option is ranked by what it keeps after tax.',
     Art: ParkSmartArt,
     orb: [
       { at: 0, x: FIELD_SOCKET.x, y: FIELD_SOCKET.y, s: 0.62 },

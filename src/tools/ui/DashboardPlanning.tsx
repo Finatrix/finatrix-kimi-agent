@@ -31,7 +31,7 @@ export function DashboardGuide({ hasData, done = [] }: { hasData: boolean; /** W
       <li className={done[2] ? 'is-done' : undefined}><Link to="/tools/goals">3. Plan something that matters</Link>{done[2] && <span className="fx-plan-done"> · Done</span>}<p>Compare a target with a longer deadline before committing to a monthly amount.</p></li>
     </ol>
     <div className="fx-plan-actions" style={{ marginTop: 18 }}>
-      <button type="button" className="btn btn-ghost btn-sm" disabled={!ai?.enabled} onClick={() => ai?.open()}>Help me get started in chat</button>
+      <button type="button" className="btn btn-ghost btn-sm" disabled={!ai?.enabled} onClick={() => ai?.open()} data-tour="ai-setup-chat">Help me get started in chat</button>
       <span className="fx-plan-muted">Setup help works without an account.</span>
     </div>
   </details>;

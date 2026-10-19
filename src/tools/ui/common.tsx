@@ -12,6 +12,7 @@ export function PageHead({
   children,
   chipPadTop,
   marketNotice = false,
+  tour,
 }: {
   chip: string;
   chipColor: string;
@@ -22,9 +23,11 @@ export function PageHead({
   chipPadTop?: number;
   /** Tools that read the market's rules: flag a market/currency mismatch under the head. */
   marketNotice?: boolean;
+  /** Product-tour anchor (`data-tour`), e.g. "networth-head". */
+  tour?: string;
 }) {
   return (
-    <div className="page-head" style={chipPadTop ? { paddingTop: chipPadTop } : undefined}>
+    <div className="page-head" style={chipPadTop ? { paddingTop: chipPadTop } : undefined} data-tour={tour}>
       <span className="tool-chip" style={{ background: chipBg, color: chipColor }}>
         <Icon name={icon} size={14} style={{ marginRight: 5 }} />
         {chip}
@@ -49,12 +52,15 @@ export function ToolFoot({ children }: { children: ReactNode }) {
 export function MethodologyNote({
   summary = 'How this is calculated',
   children,
+  tour,
 }: {
   summary?: string;
   children: ReactNode;
+  /** Product-tour anchor (`data-tour`), e.g. "calendar-method". */
+  tour?: string;
 }) {
   return (
-    <details className="fx-method fx-method-card">
+    <details className="fx-method fx-method-card" data-tour={tour}>
       <summary>{summary}</summary>
       <p>{children}</p>
     </details>
