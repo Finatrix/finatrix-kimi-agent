@@ -24,6 +24,7 @@ import { CareersProvider } from './context/CareersContext';
 import { CareersGate } from './components/states';
 import { CareersPaywallGate } from './components/CareersPaywallGate';
 import { useRole } from './hooks/useRole';
+import { useCareersAccess } from '../lib/careersAccess';
 import ThemeToggle from '../components/ThemeToggle';
 import { CommandPaletteTrigger } from '../components/CommandPaletteTrigger';
 import { useCommandPalette } from '../hooks/useCommandPalette';
@@ -57,6 +58,7 @@ function sectionName(id: string): string {
 export default function CareersLayout() {
   const { user, signOut, configured } = useAuth();
   const { isAdmin } = useRole();
+  const { beta } = useCareersAccess();
   const [drawerOpen, setDrawerOpen] = useMobileDrawer();
   const { open: paletteOpen, openPalette, closePalette } = useCommandPalette();
   const active = useActiveCareersTab();
@@ -102,6 +104,14 @@ export default function CareersLayout() {
                 FinatriX <span className="text-accent-text">Careers</span>
               </span>
             </Link>
+            {beta && (
+              <span
+                className="font-mono text-[9px] uppercase tracking-[0.12em] text-accent-text border border-current rounded-full px-1.5 py-0.5 select-none"
+                title="Early access for invited accounts. Free while in beta."
+              >
+                Beta
+              </span>
+            )}
           </div>
 
           <div className="relative flex items-center gap-2.5 sm:gap-4">

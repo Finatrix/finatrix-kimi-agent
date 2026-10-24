@@ -99,6 +99,8 @@ export interface CommandContext {
    * the other half of the product" is exactly what a command bar is for.
    */
   surface: 'money' | 'careers';
+  /** Careers is open to this account (`useCareersAccess`). Defaults to the public launch switch. */
+  careersOpen?: boolean;
 }
 
 const TOOL_ICON: Record<string, IconName> = {
@@ -254,7 +256,8 @@ export function buildCommands(ctx: CommandContext): Command[] {
   }
 
   // ── Careers ──────────────────────────────────────────────────────────────
-  for (const section of CAREERS_AVAILABLE ? CAREERS_SECTIONS : []) {
+  const careersOpen = ctx.careersOpen ?? CAREERS_AVAILABLE;
+  for (const section of careersOpen ? CAREERS_SECTIONS : []) {
     list.push({
       id: `careers:${section.id}`,
       title: section.name,
@@ -269,7 +272,7 @@ export function buildCommands(ctx: CommandContext): Command[] {
 
   // The website announces the launch; an installed app offers nothing it
   // cannot open (see `showCareersEntry`).
-  if (!CAREERS_AVAILABLE && showCareersEntry()) list.push({
+  if (!careersOpen && showCareersEntry()) list.push({
     id: 'careers:coming-soon', promoted: ctx.surface === 'careers', title: CAREERS_LAUNCH_MESSAGE,
     subtitle: 'Explore the launch information', group: 'Careers', icon: 'lock',
     effect: { kind: 'navigate', to: '/careers' },

@@ -1,8 +1,9 @@
-import { CAREERS_AVAILABLE, CAREERS_LAUNCH_YEAR } from '../shared/careersAvailability';
+import { CAREERS_LAUNCH_YEAR } from '../shared/careersAvailability';
 import { Link, useLocation } from 'react-router';
 import { TOOLS } from '../lib/tools';
 import { CAREERS_ROUTES } from '../careers/constants';
 import { showCareersEntry } from '../lib/careersEntry';
+import { useCareersAccess } from '../lib/careersAccess';
 
 /**
  * The one row of navigation pills the whole site uses.
@@ -67,6 +68,7 @@ const GOLD = '#D4AF37';
 
 export function NavPills({ variant, label = 'Tools', hideBelow, className }: NavPillsProps) {
   const { pathname } = useLocation();
+  const careersAccess = useCareersAccess();
 
   // The SHORT form everywhere. The full names ("Reverse Goal Planner") pushed
   // the in-app bar onto a second line at every realistic desktop width, which
@@ -88,8 +90,8 @@ export function NavPills({ variant, label = 'Tools', hideBelow, className }: Nav
   const careers: Pill[] = showCareersEntry()
     ? [{
         key: 'careers',
-        to: variant === 'app' && CAREERS_AVAILABLE ? CAREERS_ROUTES.dashboard : '/careers',
-        label: CAREERS_AVAILABLE ? 'Careers' : `Careers · ${CAREERS_LAUNCH_YEAR}`,
+        to: variant === 'app' && careersAccess.open ? CAREERS_ROUTES.dashboard : '/careers',
+        label: !careersAccess.open ? `Careers · ${CAREERS_LAUNCH_YEAR}` : careersAccess.beta ? 'Careers · Beta' : 'Careers',
         color: GOLD,
       }]
     : [];
