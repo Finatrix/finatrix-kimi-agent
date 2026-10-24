@@ -13,6 +13,8 @@ import { isCareersMarket, type CareersMarket } from '../_shared/careers-engine/m
 import type { EmployerEntry, FetchContext, Job } from '../_shared/careers-engine/types.ts';
 import { toISODate } from '../_shared/careers-engine/util/text.ts';
 import { applyLivenessVerdicts, ingestJobs, type PostingDetails } from '../_shared/careers-engine/verification/ingest.ts';
+import { computeListingKey } from '../_shared/careers-engine/verification/listingKey.ts';
+import { postingKey } from '../_shared/careers-engine/verification/urlKey.ts';
 import { SupabasePostingStore, type Db } from './store.ts';
 
 export interface SourceRow {
@@ -96,17 +98,26 @@ export interface ScanBatchOptions {
   batchSize?: number;
   /** Stop starting new employers after this many ms. Default 110 s, under the edge wall-clock limit. */
   budgetMs?: number;
-  maxJobsPerEmployer?: number;
+  /** Stop starting new employers once this many jobs have been fetched in the run. Default 600. */
+  jobBudget?: number;
+  /** In-market postings ingested per employer per run. Default 800. */
+  maxPostingsPerEmployer?: number;
   now?: () => Date;
   clock?: () => number;
 }
 
 /**
- * Postings kept per employer per run. Ingest costs a few PostgREST round trips per posting, so this keeps
- * one large multinational board inside the edge wall clock. A capped scan is reported as truncated, which
- * also means it never expires anything.
+ * The edge runtime allows about 2 s of CPU per call, and parsing a board costs CPU in proportion to its size.
+ * A run therefore takes small employers together but stops after one large board; the schedule runs often
+ * enough that the registry still cycles in hours (see 20261024000400_careers_scan_every_10_minutes.sql).
  */
-const DEFAULT_MAX_JOBS_PER_EMPLOYER = 400;
+const DEFAULT_JOB_BUDGET = 600;
+
+/** A capped scan is reported as truncated, which also means it expires nothing. */
+const DEFAULT_MAX_POSTINGS_PER_EMPLOYER = 800;
+
+/** A run still open after this long was stopped by the runtime; the next run closes it with a note. */
+const STALE_RUN_MS = 10 * 60_000;
 
 function check<T>(what: string, result: { data: T | null; error: { message: string } | null }): T | null {
   if (result.error) throw new Error(`${what}: ${result.error.message}`);
@@ -127,8 +138,21 @@ export async function runScanBatch(options: ScanBatchOptions): Promise<ScanBatch
   const now = options.now ?? (() => new Date());
   const clock = options.clock ?? Date.now;
   const budgetMs = options.budgetMs ?? 110_000;
+  const jobBudget = options.jobBudget ?? DEFAULT_JOB_BUDGET;
+  const maxPostings = options.maxPostingsPerEmployer ?? DEFAULT_MAX_POSTINGS_PER_EMPLOYER;
   const registry = options.registry ?? createRegistry();
   const t0 = clock();
+  let fetchedInRun = 0;
+
+  await bestEffort(
+    ctx,
+    'close stopped runs',
+    db
+      .from('scan_runs')
+      .update({ finished_at: now().toISOString(), notes: 'did not finish: stopped by the edge runtime' })
+      .is('finished_at', null)
+      .lt('started_at', new Date(now().getTime() - STALE_RUN_MS).toISOString()),
+  );
 
   const sources =
     (check(
@@ -152,7 +176,7 @@ export async function runScanBatch(options: ScanBatchOptions): Promise<ScanBatch
   const base = new SupabasePostingStore(db);
 
   for (const source of sources) {
-    if (clock() - t0 > budgetMs) {
+    if (clock() - t0 > budgetMs || fetchedInRun >= jobBudget) {
       summary.deferred++;
       continue;
     }
@@ -175,16 +199,12 @@ export async function runScanBatch(options: ScanBatchOptions): Promise<ScanBatch
       row.error = 'source has no supported market';
     } else {
       try {
-        const scan = await scanEmployers([mapped.entry], {
-          registry,
-          ctx,
-          concurrency: 1,
-          maxJobsPerEmployer: options.maxJobsPerEmployer ?? DEFAULT_MAX_JOBS_PER_EMPLOYER,
-        });
+        const scan = await scanEmployers([mapped.entry], { registry, ctx, concurrency: 1 });
         const result = scan.employers[0]!;
         detail = result;
         row.status = result.status;
         row.fetched = result.fetched;
+        fetchedInRun += result.fetched;
         if (result.error) row.error = result.error;
 
         // Read each job through the market layer once; the reading both filters and is what ingest stores.
@@ -193,14 +213,24 @@ export async function runScanBatch(options: ScanBatchOptions): Promise<ScanBatch
           const d = describePosting(job, mapped.markets);
           if (d) details.set(job, d);
         }
-        const inMarket = [...details.keys()];
+        let inMarket = [...details.keys()];
         row.inMarket = inMarket.length;
+        if (inMarket.length > maxPostings) {
+          inMarket = inMarket.slice(0, maxPostings);
+          row.status = 'truncated';
+          detail = { ...detail, truncation: { reason: 'cap', transient: false } };
+        }
+
+        // One unit of work per employer: look every key up at once, ingest in memory, then write in bulk.
         const store = base.forSource(source.id);
-        const ingest = await ingestJobs(store, inMarket, { today, describe: (job) => details.get(job) ?? null });
+        await store.prefetch(inMarket.map((job) => ({ listingKey: computeListingKey(job.listingIdentity), postingKey: postingKey(job.url) })));
+        const ingest = await ingestJobs(store, inMarket, { today, describe: (job) => details.get(job) ?? null, crossListings: false });
+        await store.flush();
         row.added = ingest.results.filter((r) => r.disposition !== 'seen' && r.disposition !== 'reactivated').length;
         summary.jobsKept += ingest.results.length;
 
-        if (result.status === 'ok' && !result.truncation) {
+        // Only after the flush: the database must already know which postings this scan saw.
+        if (row.status === 'ok' && !detail.truncation) {
           const unseen = await store.unseenSince(todayISO);
           if (unseen.length > 0) {
             const tally = await applyLivenessVerdicts(
@@ -208,6 +238,7 @@ export async function runScanBatch(options: ScanBatchOptions): Promise<ScanBatch
               unseen.map((id) => ({ id, result: 'expired' as const, reason: 'absent from a complete board scan' })),
               today,
             );
+            await store.flush();
             row.expired = tally.expired;
           }
         }
