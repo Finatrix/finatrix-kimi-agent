@@ -1,4 +1,4 @@
-// Composition helpers. Build the six native providers from injected config, and
+// Composition helpers. Build the native providers from injected config, and
 // build the durable stores from a Supabase client. index.ts wires these to the
 // four legacy providers and constructs the ProviderManager. Keeping this pure
 // (config injected, no Deno.env access) means the whole assembly is testable.
@@ -10,6 +10,8 @@ import { WorkdayProvider } from './WorkdayProvider.ts';
 import { GoogleJobsProvider } from './GoogleJobsProvider.ts';
 import { GlassdoorProvider } from './GlassdoorProvider.ts';
 import { JobPostingFeedProvider } from './JobPostingFeedProvider.ts';
+import { USAJobsProvider } from './USAJobsProvider.ts';
+import { ReedProvider } from './ReedProvider.ts';
 import { TieredCache } from './ProviderCache.ts';
 import {
   SupabaseCacheStore, SupabaseHealthStore, SupabaseMetricsStore, SupabaseQuotaStore, type DbClient,
@@ -26,7 +28,9 @@ const GLASSDOOR_ENABLED = false;
 
 /**
  * The native providers, in priority order (Active Jobs DB → … → Job Posting
- * Feed). A provider with no usable key is still constructed but its
+ * Feed). USAJOBS and Reed are the official national boards for the US and UK:
+ * their supports() answers only for that country, so elsewhere they are
+ * 'skipped' and never called. A provider with no usable key is still constructed but its
  * buildSearchRequest returns null, so the manager records it as inactive rather
  * than calling it — exactly the "not-configured" behaviour the client expects.
  * Glassdoor is filtered out entirely (see GLASSDOOR_ENABLED) rather than left
@@ -36,8 +40,10 @@ export function buildNativeProviders(cfg: ProviderRuntimeConfig): JobProvider[] 
   return [
     new ActiveJobsProvider(cfg),      // priority 100
     new LinkedInProvider(cfg),        // 90
+    new USAJobsProvider(cfg),         // 85 — US only
     new WorkdayProvider(cfg),         // 80
     new GoogleJobsProvider(cfg),      // 70
+    new ReedProvider(cfg),            // 65 — UK only
     ...(GLASSDOOR_ENABLED ? [new GlassdoorProvider(cfg)] : []),  // 60 — disabled for launch
     new JobPostingFeedProvider(cfg),  // 50
   ];
@@ -68,6 +74,7 @@ export function buildStores(db: DbClient): Stores {
 export const PROVIDER_SECRET_NAMES = [
   'RAPIDAPI_KEY', 'ACTIVE_JOBS_KEY', 'LINKEDIN_JOBS_KEY', 'JOB_POSTING_FEED_KEY',
   'GOOGLE_JOBS_KEY', 'GLASSDOOR_KEY', 'WORKDAY_KEY', 'WORKDAY_HOST',
+  'USAJOBS_API_KEY', 'USAJOBS_EMAIL', 'REED_API_KEY',
 ] as const;
 
 /** Read the provider secret set from a raw env map (composition root only). */
@@ -99,7 +106,7 @@ export interface EnvReport {
   unconfiguredProviders: string[];
 }
 
-const VENDOR_HINT = /(rapid ?api|active ?jobs|linkedin|job ?posting|google ?jobs|glassdoor|workday|adzuna|jooble|jsearch)/i;
+const VENDOR_HINT = /(rapid ?api|active ?jobs|linkedin|job ?posting|google ?jobs|glassdoor|workday|adzuna|jooble|jsearch|usa ?jobs|reed)/i;
 
 /**
  * Validate the environment at startup and report what the system will actually
