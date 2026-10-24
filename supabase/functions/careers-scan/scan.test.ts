@@ -9,6 +9,8 @@ type Row = Record<string, unknown>;
 
 class FakeDb implements Db {
   readonly tables = new Map<string, Row[]>();
+  /** Every request made, by table, so tests can pin how many round trips a scan costs. */
+  readonly requests: string[] = [];
   private seq = 0;
   /** Unique columns per table, as the migration declares them. */
   readonly unique: Record<string, string[]> = { career_postings: ['posting_key', 'listing_key'], career_sources: ['careers_url'] };
@@ -21,6 +23,7 @@ class FakeDb implements Db {
     return `00000000-0000-0000-0000-${String(++this.seq).padStart(12, '0')}`;
   }
   from(table: string): Query {
+    this.requests.push(table);
     return new FakeQuery(this, table);
   }
 }
@@ -29,6 +32,7 @@ class FakeQuery implements Query {
   private op: 'select' | 'insert' | 'upsert' | 'update' = 'select';
   private payload: unknown;
   private ignoreDuplicates = false;
+  private onConflict?: string;
   private returning = false;
   private filters: Array<(r: Row) => boolean> = [];
   private sort?: { column: string; ascending: boolean; nullsFirst: boolean };
@@ -39,9 +43,11 @@ class FakeQuery implements Query {
 
   select(): Query { if (this.op !== 'select') this.returning = true; return this; }
   insert(rows: unknown): Query { this.op = 'insert'; this.payload = rows; return this; }
-  upsert(rows: unknown, options?: { ignoreDuplicates?: boolean }): Query {
-    this.op = 'upsert'; this.payload = rows; this.ignoreDuplicates = Boolean(options?.ignoreDuplicates); return this;
+  upsert(rows: unknown, options?: { onConflict?: string; ignoreDuplicates?: boolean }): Query {
+    this.op = 'upsert'; this.payload = rows; this.ignoreDuplicates = Boolean(options?.ignoreDuplicates); this.onConflict = options?.onConflict; return this;
   }
+  in(c: string, vs: readonly unknown[]): Query { this.filters.push((r) => vs.includes(r[c])); return this; }
+  is(c: string, v: null): Query { this.filters.push((r) => (r[c] ?? null) === v); return this; }
   update(patch: unknown): Query { this.op = 'update'; this.payload = patch; return this; }
   eq(c: string, v: unknown): Query { this.filters.push((r) => r[c] === v); return this; }
   neq(c: string, v: unknown): Query { this.filters.push((r) => r[c] !== v); return this; }
@@ -62,11 +68,15 @@ class FakeQuery implements Query {
     if (this.op === 'insert' || this.op === 'upsert') {
       const out: Row[] = [];
       for (const input of [this.payload].flat() as Row[]) {
-        const clash = (this.db.unique[this.table] ?? []).find((col) => input[col] != null && rows.some((r) => r[col] === input[col]));
-        if (clash) {
-          if (this.op === 'upsert' && this.ignoreDuplicates && clash === 'posting_key') continue;
-          return { data: null, error: { message: `duplicate ${clash}`, code: '23505' } };
+        const target = this.op === 'upsert' && this.onConflict ? rows.find((r) => r[this.onConflict!] === input[this.onConflict!]) : undefined;
+        if (target) {
+          if (this.ignoreDuplicates) continue;
+          Object.assign(target, input);
+          out.push({ ...target });
+          continue;
         }
+        const clash = (this.db.unique[this.table] ?? []).find((col) => input[col] != null && rows.some((r) => r[col] === input[col]));
+        if (clash) return { data: null, error: { message: `duplicate ${clash}`, code: '23505' } };
         const row = { id: this.db.nextId(), ...input };
         rows.push(row);
         out.push({ ...row });
@@ -235,8 +245,60 @@ describe('runScanBatch', () => {
     const db = new FakeDb();
     seed(db);
     const jobs = Array.from({ length: 5 }, (_, i) => job(i, 'Sydney NSW'));
-    const summary = await runScanBatch({ db, ctx, registry: createRegistry({ extra: [boardProvider({ jobs })] }), now: () => day1, maxJobsPerEmployer: 3 });
-    expect(summary.employers[0]).toMatchObject({ status: 'truncated', inMarket: 3, expired: 0 });
+    const summary = await runScanBatch({ db, ctx, registry: createRegistry({ extra: [boardProvider({ jobs })] }), now: () => day1, maxPostingsPerEmployer: 3 });
+    expect(summary.employers[0]).toMatchObject({ status: 'truncated', inMarket: 5, added: 3, expired: 0 });
+    expect(db.rows('scan_run_employers')[0]).toMatchObject({ status: 'truncated', truncation_reason: 'cap' });
+  });
+
+  it('ingests a 300-posting board in a bounded number of round trips', async () => {
+    const db = new FakeDb();
+    seed(db);
+    const jobs = Array.from({ length: 300 }, (_, i) => job(i, i % 2 ? 'Sydney NSW' : 'Auckland', { listingIdentity: { ats_provider: 'fakeboard', board_slug: 'acme', posting_id: String(i) } }));
+    const registry = createRegistry({ extra: [boardProvider({ jobs })] });
+    await runScanBatch({ db, ctx, registry, now: () => day1 });
+    const first = db.requests.filter((t) => t === 'career_postings' || t === 'posting_events').length;
+    expect(db.rows('career_postings')).toHaveLength(300);
+    expect(db.rows('posting_events')).toHaveLength(300);
+    // Was ~4 per posting (≈1,200). Now: chunked lookups, a few bulk writes, history.
+    expect(first).toBeLessThan(25);
+
+    // A second complete scan of the same board updates in bulk and expires nothing it saw.
+    db.requests.length = 0;
+    const again = await runScanBatch({ db, ctx, registry, now: () => day2 });
+    expect(again.employers[0]).toMatchObject({ status: 'ok', added: 0, expired: 0 });
+    expect(db.rows('career_postings').every((p) => p.last_seen === '2026-10-21' && p.status === 'active')).toBe(true);
+    expect(db.requests.filter((t) => t === 'career_postings' || t === 'posting_events').length).toBeLessThan(25);
+  });
+
+  it('never reads every recent fingerprint: the scanner turns cross-listing off', async () => {
+    const db = new FakeDb();
+    seed(db);
+    for (let i = 0; i < 50; i++) db.rows('career_postings').push({ id: `old${i}`, posting_key: `old${i}`, fingerprint: 'f', first_seen: '2026-10-19', last_seen: '2026-10-19', status: 'active', company_key: 'other', company: 'Other', title: 'T', url: 'https://x', location: '' });
+    const before = db.requests.length;
+    await runScanBatch({ db, ctx, registry: createRegistry({ extra: [boardProvider({ jobs: [job(1, 'Sydney NSW')] })] }), now: () => day1 });
+    expect(db.requests.length - before).toBeLessThan(15);
+  });
+
+  it('stops starting employers once the run has fetched its job budget', async () => {
+    const db = new FakeDb();
+    seed(db);
+    seed(db, { id: 'src-2', name: 'Later', careers_url: 'https://jobs.example.com/later', last_scanned_at: '2026-01-01T00:00:00Z' });
+    const jobs = Array.from({ length: 30 }, (_, i) => job(i, 'Sydney NSW'));
+    const summary = await runScanBatch({ db, ctx, registry: createRegistry({ extra: [boardProvider({ jobs })] }), now: () => day1, jobBudget: 20 });
+    expect(summary.employers.map((e) => e.name)).toEqual(['Acme']);
+    expect(summary.deferred).toBe(1);
+  });
+
+  it('closes a run the edge runtime stopped, and leaves a running one alone', async () => {
+    const db = new FakeDb();
+    seed(db);
+    db.rows('scan_runs').push({ id: 'dead', started_at: '2026-10-20T02:00:00.000Z', finished_at: null });
+    db.rows('scan_runs').push({ id: 'live', started_at: '2026-10-20T02:58:00.000Z', finished_at: null });
+    await runScanBatch({ db, ctx, registry: createRegistry({ extra: [boardProvider({ jobs: [] })] }), now: () => day1 });
+    const runs = Object.fromEntries(db.rows('scan_runs').map((r) => [r.id, r]));
+    expect(runs.dead).toMatchObject({ notes: 'did not finish: stopped by the edge runtime' });
+    expect(runs.dead!.finished_at).toBeTruthy();
+    expect(runs.live!.finished_at).toBeNull();
   });
 
   it('defers employers once the time budget is spent', async () => {
@@ -270,13 +332,39 @@ describe('SupabasePostingStore', () => {
     expect(await store.findByKeys({ listingKey: null, postingKey: 'nope' })).toBeNull();
   });
 
-  it('returns the existing row when another scan inserted the same posting first', async () => {
+  it('queues writes until flush, and drops what another scan inserted first', async () => {
     const db = new FakeDb();
     const store = new SupabasePostingStore(db);
     const first = await store.insert(record);
-    const again = await store.insert({ ...record, title: 'Changed' });
-    expect(again.id).toBe(first.id);
+    expect((await store.insert({ ...record, title: 'Changed' })).id).toBe(first.id);
+    await store.recordEvent({ postingId: first.id, type: 'added', at: '2026-10-20' });
+    expect(db.rows('career_postings')).toHaveLength(0);
+    await store.flush();
+    expect(db.rows('career_postings').map((r) => r.id)).toEqual([first.id]);
+
+    // A second scan that never looked the key up queues the same posting under a new id.
+    const racer = new SupabasePostingStore(db);
+    const duplicate = await racer.insert(record);
+    await racer.recordEvent({ postingId: duplicate.id, type: 'added', at: '2026-10-20' });
+    await racer.flush();
     expect(db.rows('career_postings')).toHaveLength(1);
+    expect(db.rows('posting_events').map((e) => e.posting_id)).toEqual([first.id]);
+  });
+
+  it('updates known postings with full rows in one bulk upsert', async () => {
+    const db = new FakeDb();
+    db.rows('career_postings').push({ id: 'a', ...toRow(record) }, { id: 'b', ...toRow({ ...record, postingKey: 'p2', listingKey: null }) });
+    const store = new SupabasePostingStore(db, 'src-1');
+    await store.prefetch([{ listingKey: record.listingKey, postingKey: record.postingKey }, { listingKey: null, postingKey: 'p2' }]);
+    await store.update('a', { lastSeen: '2026-10-21', status: 'active' });
+    await store.update('b', { lastSeen: '2026-10-21', status: 'active' });
+    db.requests.length = 0;
+    await store.flush();
+    expect(db.requests).toEqual(['career_postings']);
+    expect(db.rows('career_postings').map((r) => [r.id, r.last_seen, r.source_id, r.company])).toEqual([
+      ['a', '2026-10-21', 'src-1', 'Acme'],
+      ['b', '2026-10-21', 'src-1', 'Acme'],
+    ]);
   });
 
   it('reads past the 1,000-row page size and keeps its caches current', async () => {

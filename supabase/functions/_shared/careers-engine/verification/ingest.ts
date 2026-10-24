@@ -131,6 +131,11 @@ export interface IngestOptions {
   aggregatorDomains?: string[];
   /** Market-layer reading of a job, stored with its posting (see PostingDetails). */
   describe?: (job: Job) => PostingDetails | null;
+  /**
+   * Compare each new posting's text with every recent fingerprint (default true). Callers that do not use
+   * `crossListings` should turn this off: it reads all recent fingerprints and compares pairwise.
+   */
+  crossListings?: boolean;
 }
 
 export interface IngestOutput {
@@ -224,7 +229,7 @@ export async function ingestJobs(store: PostingStore, jobs: Job[], options: Inge
     await store.recordEvent({ postingId: record.id, type: disposition === 'new' ? 'added' : disposition, at: todayISO, ...(repostOf ? { detail: repostOf } : {}) });
 
     let crossListings: IngestResult['crossListings'] = [];
-    if (fingerprint) {
+    if (fingerprint && options.crossListings !== false) {
       const history = (await store.recentFingerprints(crossSince))
         .filter((r) => r.id !== record.id)
         .map((r) => ({ id: r.id, company: r.company, url: r.url, fingerprint: r.fingerprint, dateStr: r.firstSeen }));
