@@ -7,12 +7,12 @@
  * posting it no longer lists is marked expired. A partial or failed scan expires nothing; the search RPC
  * stops showing a posting that has not been seen for 14 days either way.
  */
-import { describePosting, marketsForJob } from '../_shared/careers-engine/describe.ts';
+import { describePosting } from '../_shared/careers-engine/describe.ts';
 import { createRegistry, scanEmployers, type EmployerStatus, type ProviderRegistry } from '../_shared/careers-engine/discovery/index.ts';
 import { isCareersMarket, type CareersMarket } from '../_shared/careers-engine/markets/index.ts';
-import type { EmployerEntry, FetchContext } from '../_shared/careers-engine/types.ts';
+import type { EmployerEntry, FetchContext, Job } from '../_shared/careers-engine/types.ts';
 import { toISODate } from '../_shared/careers-engine/util/text.ts';
-import { applyLivenessVerdicts, ingestJobs } from '../_shared/careers-engine/verification/ingest.ts';
+import { applyLivenessVerdicts, ingestJobs, type PostingDetails } from '../_shared/careers-engine/verification/ingest.ts';
 import { SupabasePostingStore, type Db } from './store.ts';
 
 export interface SourceRow {
@@ -101,9 +101,25 @@ export interface ScanBatchOptions {
   clock?: () => number;
 }
 
+/**
+ * Postings kept per employer per run. Ingest costs a few PostgREST round trips per posting, so this keeps
+ * one large multinational board inside the edge wall clock. A capped scan is reported as truncated, which
+ * also means it never expires anything.
+ */
+const DEFAULT_MAX_JOBS_PER_EMPLOYER = 400;
+
 function check<T>(what: string, result: { data: T | null; error: { message: string } | null }): T | null {
   if (result.error) throw new Error(`${what}: ${result.error.message}`);
   return result.data;
+}
+
+async function bestEffort(ctx: FetchContext, what: string, query: PromiseLike<{ error: { message: string } | null }>): Promise<void> {
+  try {
+    const { error } = await query;
+    if (error) ctx.log.warn(`careers-scan: ${what} failed: ${error.message}`);
+  } catch (err) {
+    ctx.log.warn(`careers-scan: ${what} failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }
 
 export async function runScanBatch(options: ScanBatchOptions): Promise<ScanBatchSummary> {
@@ -151,6 +167,10 @@ export async function runScanBatch(options: ScanBatchOptions): Promise<ScanBatch
       durationMs: 0,
     };
 
+    // Claim the employer before the slow part. If the edge runtime kills this call mid-ingest, the next run
+    // moves on to the next employer instead of retrying this one first, forever.
+    await bestEffort(ctx, 'claim employer', db.from('career_sources').update({ last_scanned_at: now().toISOString(), last_status: 'running' }).eq('id', source.id));
+
     if (!mapped) {
       row.error = 'source has no supported market';
     } else {
@@ -159,7 +179,7 @@ export async function runScanBatch(options: ScanBatchOptions): Promise<ScanBatch
           registry,
           ctx,
           concurrency: 1,
-          ...(options.maxJobsPerEmployer ? { maxJobsPerEmployer: options.maxJobsPerEmployer } : {}),
+          maxJobsPerEmployer: options.maxJobsPerEmployer ?? DEFAULT_MAX_JOBS_PER_EMPLOYER,
         });
         const result = scan.employers[0]!;
         detail = result;
@@ -167,10 +187,16 @@ export async function runScanBatch(options: ScanBatchOptions): Promise<ScanBatch
         row.fetched = result.fetched;
         if (result.error) row.error = result.error;
 
-        const inMarket = scan.jobs.filter((job) => marketsForJob(job.location, mapped.markets).length > 0);
+        // Read each job through the market layer once; the reading both filters and is what ingest stores.
+        const details = new Map<Job, PostingDetails>();
+        for (const job of scan.jobs) {
+          const d = describePosting(job, mapped.markets);
+          if (d) details.set(job, d);
+        }
+        const inMarket = [...details.keys()];
         row.inMarket = inMarket.length;
         const store = base.forSource(source.id);
-        const ingest = await ingestJobs(store, inMarket, { today, describe: (job) => describePosting(job, mapped.markets) });
+        const ingest = await ingestJobs(store, inMarket, { today, describe: (job) => details.get(job) ?? null });
         row.added = ingest.results.filter((r) => r.disposition !== 'seen' && r.disposition !== 'reactivated').length;
         summary.jobsKept += ingest.results.length;
 
@@ -192,10 +218,12 @@ export async function runScanBatch(options: ScanBatchOptions): Promise<ScanBatch
       }
     }
 
+    // History is best-effort: a failed write is logged and the batch carries on to the next employer.
     if (runId) {
-      check(
+      await bestEffort(
+        ctx,
         'record employer result',
-        await db.from('scan_run_employers').insert({
+        db.from('scan_run_employers').insert({
           run_id: runId,
           source_id: source.id,
           employer: source.name,
@@ -213,9 +241,10 @@ export async function runScanBatch(options: ScanBatchOptions): Promise<ScanBatch
         }),
       );
     }
-    check(
+    await bestEffort(
+      ctx,
       'mark employer scanned',
-      await db.from('career_sources').update({ last_scanned_at: now().toISOString(), last_status: row.status }).eq('id', source.id),
+      db.from('career_sources').update({ last_scanned_at: now().toISOString(), last_status: row.status }).eq('id', source.id),
     );
     summary.employers.push(row);
   }

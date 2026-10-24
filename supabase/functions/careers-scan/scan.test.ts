@@ -211,6 +211,34 @@ describe('runScanBatch', () => {
     expect(db.rows('career_sources').map((s) => s.last_status)).toEqual(['ok', 'error']);
   });
 
+  it('carries on when a history write fails, and claims each employer before scanning it', async () => {
+    const db = new FakeDb();
+    seed(db);
+    seed(db, { id: 'src-2', name: 'Other', careers_url: 'https://jobs.example.com/other', last_scanned_at: '2026-01-01T00:00:00Z' });
+    const from = db.from.bind(db);
+    db.from = (table: string) => (table === 'scan_run_employers' ? { ...from(table), insert: () => Promise.resolve({ data: null, error: { message: 'boom' } }) as unknown as Query } as Query : from(table));
+    const claims: string[] = [];
+    const provider: Provider = {
+      id: 'fakeboard',
+      detect: () => null,
+      fetch: async () => {
+        claims.push(db.rows('career_sources').map((s) => s.last_status).join(','));
+        return { jobs: [] };
+      },
+    };
+    const summary = await runScanBatch({ db, ctx, registry: createRegistry({ extra: [provider] }), now: () => day1 });
+    expect(summary.employers.map((e) => e.status)).toEqual(['ok', 'ok']);
+    expect(claims).toEqual(['running,', 'ok,running']);
+  });
+
+  it('caps a runaway board and then expires nothing', async () => {
+    const db = new FakeDb();
+    seed(db);
+    const jobs = Array.from({ length: 5 }, (_, i) => job(i, 'Sydney NSW'));
+    const summary = await runScanBatch({ db, ctx, registry: createRegistry({ extra: [boardProvider({ jobs })] }), now: () => day1, maxJobsPerEmployer: 3 });
+    expect(summary.employers[0]).toMatchObject({ status: 'truncated', inMarket: 3, expired: 0 });
+  });
+
   it('defers employers once the time budget is spent', async () => {
     const db = new FakeDb();
     seed(db);
