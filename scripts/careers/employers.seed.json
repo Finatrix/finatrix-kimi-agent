@@ -1,0 +1,1369 @@
+[
+  {
+    "name": "Databricks",
+    "provider": "greenhouse",
+    "careers_url": "https://job-boards.greenhouse.io/databricks",
+    "markets": [
+      "us",
+      "gb",
+      "in",
+      "au"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 483,
+      "gb": 49,
+      "in": 89,
+      "au": 21
+    }
+  },
+  {
+    "name": "Mercury",
+    "provider": "greenhouse",
+    "careers_url": "https://job-boards.greenhouse.io/mercury",
+    "markets": [
+      "us"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 77
+    }
+  },
+  {
+    "name": "Vercel",
+    "provider": "greenhouse",
+    "careers_url": "https://job-boards.greenhouse.io/vercel",
+    "markets": [
+      "us",
+      "gb"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 76,
+      "gb": 13
+    }
+  },
+  {
+    "name": "Carta",
+    "provider": "greenhouse",
+    "careers_url": "https://job-boards.greenhouse.io/carta",
+    "markets": [
+      "us",
+      "gb"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 38,
+      "gb": 20
+    }
+  },
+  {
+    "name": "Lightning AI",
+    "provider": "greenhouse",
+    "careers_url": "https://job-boards.greenhouse.io/lightningai",
+    "markets": [
+      "us",
+      "gb"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 43,
+      "gb": 10
+    }
+  },
+  {
+    "name": "OpenTable",
+    "provider": "greenhouse",
+    "careers_url": "https://job-boards.greenhouse.io/opentable",
+    "markets": [
+      "us",
+      "gb",
+      "au"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 25,
+      "gb": 35,
+      "au": 3
+    }
+  },
+  {
+    "name": "Palantir",
+    "provider": "lever",
+    "careers_url": "https://jobs.lever.co/palantir",
+    "markets": [
+      "us",
+      "gb"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 243,
+      "gb": 45
+    }
+  },
+  {
+    "name": "Pattern",
+    "provider": "lever",
+    "careers_url": "https://jobs.lever.co/pattern",
+    "markets": [
+      "us",
+      "gb",
+      "au"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 73,
+      "gb": 6,
+      "au": 4
+    }
+  },
+  {
+    "name": "EliseAI",
+    "provider": "ashby",
+    "careers_url": "https://jobs.ashbyhq.com/EliseAI",
+    "markets": [
+      "us"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 116
+    }
+  },
+  {
+    "name": "Handshake",
+    "provider": "ashby",
+    "careers_url": "https://jobs.ashbyhq.com/handshake",
+    "markets": [
+      "us",
+      "in"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 65,
+      "in": 16
+    }
+  },
+  {
+    "name": "Cognition",
+    "provider": "ashby",
+    "careers_url": "https://jobs.ashbyhq.com/cognition",
+    "markets": [
+      "us",
+      "gb",
+      "au"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 58,
+      "gb": 11,
+      "au": 5
+    }
+  },
+  {
+    "name": "SentiLink",
+    "provider": "ashby",
+    "careers_url": "https://jobs.ashbyhq.com/sentilink",
+    "markets": [
+      "us"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 42
+    }
+  },
+  {
+    "name": "LinkedIn",
+    "provider": "smartrecruiters",
+    "careers_url": "https://careers.smartrecruiters.com/LinkedIn3",
+    "markets": [
+      "us",
+      "in"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 111,
+      "in": 44
+    }
+  },
+  {
+    "name": "Capital One",
+    "provider": "workday",
+    "careers_url": "https://capitalone.wd12.myworkdayjobs.com/Capital_One",
+    "markets": [
+      "us",
+      "gb",
+      "in"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 1813,
+      "gb": 80,
+      "in": 15
+    }
+  },
+  {
+    "name": "Walmart",
+    "provider": "workday",
+    "careers_url": "https://walmart.wd504.myworkdayjobs.com/WalmartExternal",
+    "markets": [
+      "us",
+      "in"
+    ],
+    "options": {
+      "workday": {
+        "marketOnly": true
+      }
+    },
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 2000,
+      "in": 195
+    }
+  },
+  {
+    "name": "Johnson & Johnson",
+    "provider": "workday",
+    "careers_url": "https://jj.wd5.myworkdayjobs.com/JJ",
+    "markets": [
+      "us",
+      "gb",
+      "in",
+      "au"
+    ],
+    "options": {
+      "workday": {
+        "marketOnly": true
+      }
+    },
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 707,
+      "gb": 66,
+      "in": 95,
+      "au": 9
+    }
+  },
+  {
+    "name": "TD Bank",
+    "provider": "workday",
+    "careers_url": "https://td.wd3.myworkdayjobs.com/TD_Bank_Careers",
+    "markets": [
+      "us",
+      "gb"
+    ],
+    "options": {
+      "workday": {
+        "marketOnly": true
+      }
+    },
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 701,
+      "gb": 25
+    }
+  },
+  {
+    "name": "Nationwide Mutual Insurance",
+    "provider": "workday",
+    "careers_url": "https://nationwide.wd1.myworkdayjobs.com/Nationwide_Career",
+    "markets": [
+      "us"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 152
+    }
+  },
+  {
+    "name": "Oracle",
+    "provider": "oracle",
+    "careers_url": "https://eeho.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/jobsearch/jobs",
+    "markets": [
+      "us",
+      "in"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 1996,
+      "in": 99
+    }
+  },
+  {
+    "name": "Hilton",
+    "provider": "oracle",
+    "careers_url": "https://efet.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1009/jobs",
+    "markets": [
+      "us",
+      "gb",
+      "in"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 1386,
+      "gb": 293,
+      "in": 415
+    }
+  },
+  {
+    "name": "Monzo",
+    "provider": "greenhouse",
+    "careers_url": "https://job-boards.greenhouse.io/monzo",
+    "markets": [
+      "gb"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "gb": 57
+    }
+  },
+  {
+    "name": "Deliveroo",
+    "provider": "greenhouse",
+    "careers_url": "https://job-boards.greenhouse.io/deliveroo",
+    "markets": [
+      "gb"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "gb": 131
+    }
+  },
+  {
+    "name": "Octopus Energy Group",
+    "provider": "lever",
+    "careers_url": "https://jobs.lever.co/octoenergy",
+    "markets": [
+      "us",
+      "gb"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 3,
+      "gb": 83
+    }
+  },
+  {
+    "name": "WPP Media",
+    "provider": "greenhouse",
+    "careers_url": "https://job-boards.greenhouse.io/wppmedia",
+    "markets": [
+      "us",
+      "gb",
+      "in",
+      "au"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 59,
+      "gb": 184,
+      "in": 55,
+      "au": 31
+    }
+  },
+  {
+    "name": "LSEG",
+    "provider": "workday",
+    "careers_url": "https://lseg.wd3.myworkdayjobs.com/Careers",
+    "markets": [
+      "us",
+      "gb",
+      "in",
+      "au"
+    ],
+    "options": {
+      "workday": {
+        "marketOnly": true
+      }
+    },
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 99,
+      "gb": 133,
+      "in": 202,
+      "au": 3
+    }
+  },
+  {
+    "name": "Lloyds Banking Group",
+    "provider": "workday",
+    "careers_url": "https://lbg.wd3.myworkdayjobs.com/LBG_Careers",
+    "markets": [
+      "gb"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "gb": 58
+    }
+  },
+  {
+    "name": "Lloyd's of London",
+    "provider": "workday",
+    "careers_url": "https://lloyds.wd3.myworkdayjobs.com/Lloyds-of-London",
+    "markets": [
+      "gb"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "gb": 15
+    }
+  },
+  {
+    "name": "Nationwide Building Society",
+    "provider": "oracle",
+    "careers_url": "https://dnn.fa.em2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/Nationwide/jobs",
+    "markets": [
+      "gb"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "gb": 247
+    }
+  },
+  {
+    "name": "NewDay",
+    "provider": "workday",
+    "careers_url": "https://newday.wd3.myworkdayjobs.com/NewDay",
+    "markets": [
+      "gb"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "gb": 11
+    }
+  },
+  {
+    "name": "Thought Machine",
+    "provider": "ashby",
+    "careers_url": "https://jobs.ashbyhq.com/thought-machine",
+    "markets": [
+      "gb"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "gb": 15
+    }
+  },
+  {
+    "name": "Synthesia",
+    "provider": "ashby",
+    "careers_url": "https://jobs.ashbyhq.com/synthesia",
+    "markets": [
+      "us",
+      "gb"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 11,
+      "gb": 25
+    }
+  },
+  {
+    "name": "Checkout.com",
+    "provider": "ashby",
+    "careers_url": "https://jobs.ashbyhq.com/checkout.com",
+    "markets": [
+      "us",
+      "gb",
+      "au"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 20,
+      "gb": 75,
+      "au": 5
+    }
+  },
+  {
+    "name": "capital.com",
+    "provider": "lever",
+    "careers_url": "https://jobs.lever.co/capital",
+    "markets": [
+      "gb",
+      "au"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "gb": 16,
+      "au": 3
+    }
+  },
+  {
+    "name": "Farfetch",
+    "provider": "lever",
+    "careers_url": "https://jobs.lever.co/farfetch",
+    "markets": [
+      "gb"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "gb": 14
+    }
+  },
+  {
+    "name": "GoCardless",
+    "provider": "greenhouse",
+    "careers_url": "https://job-boards.greenhouse.io/gocardless",
+    "markets": [
+      "gb"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "gb": 6
+    }
+  },
+  {
+    "name": "LondonEnergy",
+    "provider": "workable",
+    "careers_url": "https://apply.workable.com/london-energy-1/",
+    "markets": [
+      "gb"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "gb": 10
+    }
+  },
+  {
+    "name": "EngageTech",
+    "provider": "workable",
+    "careers_url": "https://apply.workable.com/engagetechuk/",
+    "markets": [
+      "gb"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "gb": 12
+    }
+  },
+  {
+    "name": "Framestore",
+    "provider": "recruitee",
+    "careers_url": "https://framestore.recruitee.com/",
+    "markets": [
+      "us",
+      "gb",
+      "in",
+      "au"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 10,
+      "gb": 13,
+      "in": 6,
+      "au": 3
+    }
+  },
+  {
+    "name": "Affidea UK",
+    "provider": "recruitee",
+    "careers_url": "https://affideauk1.recruitee.com/",
+    "markets": [
+      "gb"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "gb": 15
+    }
+  },
+  {
+    "name": "Avant Arte",
+    "provider": "recruitee",
+    "careers_url": "https://avantarte.recruitee.com/",
+    "markets": [
+      "gb"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "gb": 7
+    }
+  },
+  {
+    "name": "Razorpay",
+    "provider": "greenhouse",
+    "careers_url": "https://job-boards.greenhouse.io/razorpaysoftwareprivatelimited",
+    "markets": [
+      "in"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "in": 21
+    }
+  },
+  {
+    "name": "Meesho",
+    "provider": "lever",
+    "careers_url": "https://jobs.lever.co/meesho",
+    "markets": [
+      "in"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "in": 58
+    }
+  },
+  {
+    "name": "Groww",
+    "provider": "greenhouse",
+    "careers_url": "https://job-boards.greenhouse.io/groww",
+    "markets": [
+      "in"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "in": 10
+    }
+  },
+  {
+    "name": "PhonePe",
+    "provider": "smartrecruiters",
+    "careers_url": "https://careers.smartrecruiters.com/PHONEPELIMITED",
+    "markets": [
+      "in"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "in": 118
+    }
+  },
+  {
+    "name": "Hevo Data",
+    "provider": "lever",
+    "careers_url": "https://jobs.lever.co/hevodata",
+    "markets": [
+      "in"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "in": 51
+    }
+  },
+  {
+    "name": "Fam",
+    "provider": "lever",
+    "careers_url": "https://jobs.lever.co/fampay",
+    "markets": [
+      "in"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "in": 18
+    }
+  },
+  {
+    "name": "Emergent Labs",
+    "provider": "greenhouse",
+    "careers_url": "https://job-boards.greenhouse.io/emergentlabsinc",
+    "markets": [
+      "us",
+      "in"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 5,
+      "in": 43
+    }
+  },
+  {
+    "name": "Paytm",
+    "provider": "lever",
+    "careers_url": "https://jobs.lever.co/paytm",
+    "markets": [
+      "in"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "in": 187
+    }
+  },
+  {
+    "name": "CRED",
+    "provider": "lever",
+    "careers_url": "https://jobs.lever.co/cred",
+    "markets": [
+      "in"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "in": 8
+    }
+  },
+  {
+    "name": "JioStar",
+    "provider": "workday",
+    "careers_url": "https://jiostar.wd102.myworkdayjobs.com/JioStar",
+    "markets": [
+      "in"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "in": 239
+    }
+  },
+  {
+    "name": "Kotak Mahindra Bank",
+    "provider": "oracle",
+    "careers_url": "https://hcbt.fa.em2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001/jobs",
+    "markets": [
+      "in"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "in": 11793
+    }
+  },
+  {
+    "name": "Quess Corp",
+    "provider": "oracle",
+    "careers_url": "https://fa-eumz-saasfaprod1.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/jobs",
+    "markets": [
+      "in"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "in": 2482
+    }
+  },
+  {
+    "name": "eClerx",
+    "provider": "oracle",
+    "careers_url": "https://fa-ewji-saasfaprod1.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/jobs",
+    "markets": [
+      "us",
+      "in"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 31,
+      "in": 294
+    }
+  },
+  {
+    "name": "Freshworks",
+    "provider": "smartrecruiters",
+    "careers_url": "https://careers.smartrecruiters.com/freshworks",
+    "markets": [
+      "us",
+      "gb",
+      "in"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 66,
+      "gb": 16,
+      "in": 34
+    }
+  },
+  {
+    "name": "Postman",
+    "provider": "workday",
+    "careers_url": "https://postman.wd108.myworkdayjobs.com/careers",
+    "markets": [
+      "us",
+      "in"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 16,
+      "in": 9
+    }
+  },
+  {
+    "name": "Brillio",
+    "provider": "lever",
+    "careers_url": "https://jobs.lever.co/brillio-2",
+    "markets": [
+      "us",
+      "gb",
+      "in"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 44,
+      "gb": 4,
+      "in": 155
+    }
+  },
+  {
+    "name": "Acceldata",
+    "provider": "lever",
+    "careers_url": "https://jobs.lever.co/acceldata",
+    "markets": [
+      "us",
+      "in"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 13,
+      "in": 14
+    }
+  },
+  {
+    "name": "Quantiphi",
+    "provider": "workday",
+    "careers_url": "https://quantiphi.wd1.myworkdayjobs.com/Careers_at_Quantiphi",
+    "markets": [
+      "us",
+      "in"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 32,
+      "in": 42
+    }
+  },
+  {
+    "name": "Commonwealth Bank",
+    "provider": "workday",
+    "careers_url": "https://cba.wd3.myworkdayjobs.com/CommBank_Careers",
+    "markets": [
+      "in",
+      "au"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "in": 65,
+      "au": 129
+    }
+  },
+  {
+    "name": "Telstra",
+    "provider": "workday",
+    "careers_url": "https://telstra.wd3.myworkdayjobs.com/Telstra_Careers",
+    "markets": [
+      "in",
+      "au"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "in": 4,
+      "au": 192
+    }
+  },
+  {
+    "name": "Bunnings",
+    "provider": "workday",
+    "careers_url": "https://bunnings.wd3.myworkdayjobs.com/Careers",
+    "markets": [
+      "au",
+      "nz"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "au": 172,
+      "nz": 14
+    }
+  },
+  {
+    "name": "University of Sydney",
+    "provider": "workday",
+    "careers_url": "https://usyd.wd105.myworkdayjobs.com/USYD_EXTERNAL_CAREER_SITE",
+    "markets": [
+      "au"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "au": 92
+    }
+  },
+  {
+    "name": "University of Melbourne",
+    "provider": "workday",
+    "careers_url": "https://unimelb.wd105.myworkdayjobs.com/UoM_External_Career",
+    "markets": [
+      "au"
+    ],
+    "options": {
+      "workday": {
+        "marketOnly": false
+      }
+    },
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "au": 26
+    }
+  },
+  {
+    "name": "Westpac Group",
+    "provider": "oracle",
+    "careers_url": "https://ebuu.fa.ap1.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX/jobs",
+    "markets": [
+      "au"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "au": 133
+    }
+  },
+  {
+    "name": "Downer",
+    "provider": "oracle",
+    "careers_url": "https://fa-exfs-saasfaprod1.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CareersAtDowner/jobs",
+    "markets": [
+      "au",
+      "nz"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "au": 403,
+      "nz": 130
+    }
+  },
+  {
+    "name": "AMP",
+    "provider": "oracle",
+    "careers_url": "https://fa-esow-saasfaprod1.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/jobs",
+    "markets": [
+      "au"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "au": 23
+    }
+  },
+  {
+    "name": "The Lottery Corporation",
+    "provider": "oracle",
+    "careers_url": "https://fa-exnj-saasfaprod1.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/TLC-Careers/jobs",
+    "markets": [
+      "au"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "au": 11
+    }
+  },
+  {
+    "name": "Findex",
+    "provider": "oracle",
+    "careers_url": "https://egvc.fa.ap1.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001/jobs",
+    "markets": [
+      "au",
+      "nz"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "au": 54,
+      "nz": 21
+    }
+  },
+  {
+    "name": "Flight Centre",
+    "provider": "pageup",
+    "careers_url": "https://careers.pageuppeople.com/889/cw/en/listing/",
+    "markets": [
+      "au",
+      "nz"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "au": 178,
+      "nz": 8
+    }
+  },
+  {
+    "name": "Peter Alexander",
+    "provider": "pageup",
+    "careers_url": "https://careers.pageuppeople.com/470/pa/en/listing/",
+    "markets": [
+      "au",
+      "nz"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "au": 58,
+      "nz": 11
+    }
+  },
+  {
+    "name": "Adelaide University",
+    "provider": "pageup",
+    "careers_url": "https://careers.pageuppeople.com/1220/cw/en/listing/",
+    "markets": [
+      "au"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "au": 20
+    }
+  },
+  {
+    "name": "Canva",
+    "provider": "smartrecruiters",
+    "careers_url": "https://careers.smartrecruiters.com/Canva",
+    "markets": [
+      "us",
+      "gb",
+      "au"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 14,
+      "gb": 7,
+      "au": 26
+    }
+  },
+  {
+    "name": "Sydney Airport",
+    "provider": "smartrecruiters",
+    "careers_url": "https://careers.smartrecruiters.com/SydneyAirport1",
+    "markets": [
+      "au"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "au": 10
+    }
+  },
+  {
+    "name": "Culture Amp",
+    "provider": "greenhouse",
+    "careers_url": "https://job-boards.greenhouse.io/cultureamp",
+    "markets": [
+      "us",
+      "gb",
+      "au"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 11,
+      "gb": 4,
+      "au": 13
+    }
+  },
+  {
+    "name": "MYOB",
+    "provider": "lever",
+    "careers_url": "https://jobs.lever.co/myob-2",
+    "markets": [
+      "au"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "au": 21
+    }
+  },
+  {
+    "name": "Megaport",
+    "provider": "lever",
+    "careers_url": "https://jobs.lever.co/megaport",
+    "markets": [
+      "us",
+      "gb",
+      "au"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 8,
+      "gb": 4,
+      "au": 17
+    }
+  },
+  {
+    "name": "Heidi Health",
+    "provider": "ashby",
+    "careers_url": "https://jobs.ashbyhq.com/heidihealth.com.au",
+    "markets": [
+      "us",
+      "gb",
+      "au"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 19,
+      "gb": 37,
+      "au": 27
+    }
+  },
+  {
+    "name": "Sitemate",
+    "provider": "ashby",
+    "careers_url": "https://jobs.ashbyhq.com/sitemate",
+    "markets": [
+      "au"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "au": 8
+    }
+  },
+  {
+    "name": "Rocket Lab",
+    "provider": "greenhouse",
+    "careers_url": "https://job-boards.greenhouse.io/rocketlab",
+    "markets": [
+      "us",
+      "nz"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 459,
+      "nz": 98
+    }
+  },
+  {
+    "name": "Halter",
+    "provider": "ashby",
+    "careers_url": "https://jobs.ashbyhq.com/halter",
+    "markets": [
+      "us",
+      "au",
+      "nz"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 75,
+      "au": 36,
+      "nz": 124
+    }
+  },
+  {
+    "name": "Xero",
+    "provider": "ashby",
+    "careers_url": "https://jobs.ashbyhq.com/xero",
+    "markets": [
+      "us",
+      "gb",
+      "au",
+      "nz"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "us": 17,
+      "gb": 42,
+      "au": 47,
+      "nz": 20
+    }
+  },
+  {
+    "name": "Deloitte New Zealand",
+    "provider": "smartrecruiters",
+    "careers_url": "https://careers.smartrecruiters.com/DeloitteNZ",
+    "markets": [
+      "nz"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "nz": 94
+    }
+  },
+  {
+    "name": "Hato Hone St John",
+    "provider": "smartrecruiters",
+    "careers_url": "https://careers.smartrecruiters.com/HatoHoneStJohn",
+    "markets": [
+      "nz"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "nz": 85
+    }
+  },
+  {
+    "name": "University of Auckland",
+    "provider": "smartrecruiters",
+    "careers_url": "https://careers.smartrecruiters.com/TheUniversityOfAuckland",
+    "markets": [
+      "nz"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "nz": 43
+    }
+  },
+  {
+    "name": "KPMG New Zealand",
+    "provider": "lever",
+    "careers_url": "https://jobs.lever.co/kpmgnz",
+    "markets": [
+      "nz"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "nz": 33
+    }
+  },
+  {
+    "name": "Air New Zealand",
+    "provider": "smartrecruiters",
+    "careers_url": "https://careers.smartrecruiters.com/airnewzealand",
+    "markets": [
+      "nz"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "nz": 24
+    }
+  },
+  {
+    "name": "Contact Energy",
+    "provider": "smartrecruiters",
+    "careers_url": "https://careers.smartrecruiters.com/ContactEnergy",
+    "markets": [
+      "nz"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "nz": 14
+    }
+  },
+  {
+    "name": "Foodstuffs North Island",
+    "provider": "lever",
+    "careers_url": "https://jobs.lever.co/foodstuffs",
+    "markets": [
+      "nz"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "nz": 12
+    }
+  },
+  {
+    "name": "Victoria University of Wellington",
+    "provider": "oracle",
+    "careers_url": "https://ejye.fa.ap1.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/jobs",
+    "markets": [
+      "nz"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "nz": 24
+    }
+  },
+  {
+    "name": "University of Waikato",
+    "provider": "oracle",
+    "careers_url": "https://elhs.fa.ap1.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX/jobs",
+    "markets": [
+      "nz"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "nz": 26
+    }
+  },
+  {
+    "name": "ACC New Zealand",
+    "provider": "oracle",
+    "careers_url": "https://fa-ernw-saasfaprod1.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_2001/jobs",
+    "markets": [
+      "nz"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "nz": 36
+    }
+  },
+  {
+    "name": "Whakarongorau Aotearoa",
+    "provider": "smartrecruiters",
+    "careers_url": "https://careers.smartrecruiters.com/WhakarongorauAotearoa1",
+    "markets": [
+      "nz"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "nz": 14
+    }
+  },
+  {
+    "name": "Arvida",
+    "provider": "smartrecruiters",
+    "careers_url": "https://careers.smartrecruiters.com/Arvida",
+    "markets": [
+      "nz"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "nz": 45
+    }
+  },
+  {
+    "name": "Waste Management NZ",
+    "provider": "smartrecruiters",
+    "careers_url": "https://careers.smartrecruiters.com/WasteManagement8",
+    "markets": [
+      "nz"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "nz": 35
+    }
+  },
+  {
+    "name": "Abano Healthcare",
+    "provider": "smartrecruiters",
+    "careers_url": "https://careers.smartrecruiters.com/AbanoHealthcare",
+    "markets": [
+      "au",
+      "nz"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "au": 85,
+      "nz": 85
+    }
+  },
+  {
+    "name": "NZ Transport Agency Waka Kotahi",
+    "provider": "workday",
+    "careers_url": "https://nztagovtnz.wd3.myworkdayjobs.com/nztagovtnz",
+    "markets": [
+      "nz"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "nz": 22
+    }
+  },
+  {
+    "name": "Smith & Smith (Belron New Zealand)",
+    "provider": "workday",
+    "careers_url": "https://belron.wd3.myworkdayjobs.com/Belron_New_Zealand_Careers",
+    "markets": [
+      "nz"
+    ],
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "nz": 22
+    }
+  },
+  {
+    "name": "EROAD",
+    "provider": "workday",
+    "careers_url": "https://eroadgroup.wd3.myworkdayjobs.com/EROAD",
+    "markets": [
+      "au",
+      "nz"
+    ],
+    "options": {
+      "workday": {
+        "marketOnly": true
+      }
+    },
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "au": 3,
+      "nz": 19
+    }
+  },
+  {
+    "name": "Fisher & Paykel Appliances",
+    "provider": "workday",
+    "careers_url": "https://haier.wd3.myworkdayjobs.com/FPA_External_Career_Site",
+    "markets": [
+      "au",
+      "nz"
+    ],
+    "options": {
+      "workday": {
+        "marketOnly": true
+      }
+    },
+    "verified_at": "2026-10-24",
+    "jobs_in_market": {
+      "au": 14,
+      "nz": 16
+    }
+  }
+]
