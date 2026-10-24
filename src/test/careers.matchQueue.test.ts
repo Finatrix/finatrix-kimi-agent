@@ -26,6 +26,7 @@ function job(overall: number | null, extra: { matched?: string[]; missing?: stri
       scores: {} as never,
       matchedSkills: extra.matched ?? [],
       missingTerms: extra.missing ?? [],
+      addableTerms: [],
     },
     relevance: 50,
     locationVerdict: {} as ScoredJob['locationVerdict'],

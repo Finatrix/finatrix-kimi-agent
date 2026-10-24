@@ -8,6 +8,8 @@
  *  3. Processing-pipeline state shared by the upload flow and the UI.
  */
 
+import type { CareersMarket, DeclaredRights } from '../markets';
+
 // ─────────────────────────── AI: parsed resume ───────────────────────────
 
 export interface PersonalInfo {
@@ -163,6 +165,8 @@ export interface CareersSettings {
   preferredLocations?: string[];
   preferredDepartments?: string[];
   preferredAts?: string[];
+  /** Work rights the user declares per market. Never inferred; compared with what a posting states. */
+  declaredRights?: Partial<Record<CareersMarket, DeclaredRights>>;
 }
 
 export interface CareerProfileRow {

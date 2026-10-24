@@ -23,8 +23,10 @@ import { useAuth } from '../../context/AuthContext';
 import { track as trackEvent } from '../../lib/analytics';
 import { useToast } from '../../tools/ui/Toast';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
+import { CountryOptions } from '../components/CountryOptions';
 import { EmptyState, ErrorCard, PageLoading, SkeletonCards } from '../components/states';
 import { ScoreRing } from '../components/ScoreRing';
+import { WorkRightsChip } from '../components/WorkRightsChip';
 import { CAREERS_ROUTES } from '../constants';
 import { useCareers } from '../context/CareersContext';
 import { buildDeck, gapsOf, progressOf, strengthsOf, type QueueVerdict } from '../queue/deck';
@@ -61,7 +63,7 @@ const VERDICT_COPY: Record<QueueVerdict, string> = {
 
 export default function MatchQueuePage() {
   const { user } = useAuth();
-  const { loading, error, profile, resumes, refresh } = useCareers();
+  const { loading, error, profile, resumes, refresh, settings } = useCareers();
   const { notify } = useToast();
 
   const versions = useMemo(() => completeVersions(resumes), [resumes]);
@@ -266,12 +268,7 @@ export default function MatchQueuePage() {
             className="fs" aria-label="Country" value={params.country}
             onChange={(e) => setParams((p) => ({ ...p, country: e.target.value }))}
           >
-            <option value="in">India</option>
-            <option value="gb">United Kingdom</option>
-            <option value="us">United States</option>
-            <option value="au">Australia</option>
-            <option value="sg">Singapore</option>
-            <option value="ae">UAE</option>
+            <CountryOptions />
           </select>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -342,6 +339,7 @@ export default function MatchQueuePage() {
                   </span>
                 )}
                 {card.job.posted_at && <span>Posted {formatDate(card.job.posted_at)}</span>}
+                <WorkRightsChip job={card.job} declared={settings.declaredRights} />
               </div>
             </div>
             <div style={{ textAlign: 'center', flexShrink: 0 }}>

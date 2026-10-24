@@ -25,6 +25,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { rateLimited } from '../_shared/ratelimit.ts';
 import { corsHeaders } from '../_shared/origins.ts';
+import { MARKETS, isCareersMarket } from '../_shared/careers-engine/markets/index.ts';
 // ── Multi-provider architecture (providers/*). The manager owns the entire
 //    search flow; nothing provider-specific lives in this composition root. ──
 import { LegacyProvider } from './providers/LegacyProvider.ts';
@@ -183,7 +184,7 @@ function iso(v: unknown): string | null {
 }
 
 const COUNTRY_LABELS: Record<string, string> = {
-  in: 'India', gb: 'United Kingdom', us: 'United States', au: 'Australia',
+  in: 'India', gb: 'United Kingdom', us: 'United States', au: 'Australia', nz: 'New Zealand',
   sg: 'Singapore', ae: 'United Arab Emirates', ca: 'Canada', de: 'Germany',
 };
 
@@ -261,7 +262,8 @@ const adzuna: Provider = {
         description: str(j.description, 20_000),
         salary_min: num(j.salary_min),
         salary_max: num(j.salary_max),
-        currency: country === 'in' ? 'INR' : '',
+        // Adzuna quotes salaries in the searched country's own currency.
+        currency: isCareersMarket(country) ? MARKETS[country].currency : '',
         location: str(loc?.display_name, 200),
         country: country.toUpperCase(),
         work_mode: '',

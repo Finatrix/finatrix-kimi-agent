@@ -11,10 +11,9 @@
  * stops the product lying about that, but it cannot conjure links that the
  * providers never sent.
  *
- * The registry is the supply-side fix. Its sync engine pulls postings directly
- * from verified employers' Workday / Lever / Ashby / Greenhouse /
- * SmartRecruiters boards, so `source_url` IS the canonical posting — clicking
- * Apply lands on the company's own application form. `search/dedupe` already
+ * The registry is the supply-side fix. Its postings are read directly off
+ * verified employers' own boards (see SUPPLY below), so `url` IS the canonical
+ * posting — clicking Apply lands on the company's own application form. `search/dedupe` already
  * prefers direct-employer URLs, so when the same role also arrives via an
  * aggregator, the registry copy is the one that survives.
  *
@@ -34,46 +33,57 @@
  * ────────────────────────────────────────────────────────────────────────────
  * DEGRADATION
  * ────────────────────────────────────────────────────────────────────────────
- * Fails closed, always. Until migrations 0007–0009 are applied to the Supabase
- * project the `search_registry_jobs` RPC does not exist, and PostgREST answers
- * 404 — which must look like "this provider returned nothing", never like a
- * broken search. The status is reported as `not-configured` so the search
- * quality strip counts it honestly rather than claiming a source that isn't
- * there.
+ * Fails closed, always. Until migration 20261024000100_careers_engine.sql is
+ * applied to the Supabase project the `search_career_postings` RPC does not
+ * exist, and PostgREST answers 404 — which must look like "this provider
+ * returned nothing", never like a broken search. The status is reported as
+ * `not-configured` so the search quality strip counts it honestly rather than
+ * claiming a source that isn't there.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * SUPPLY
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Postings come from the in-repo careers engine: the `careers-scan` edge
+ * function reads each registered employer's own Workday, Oracle, PageUp,
+ * Greenhouse, Lever, Ashby, SmartRecruiters, Workable or Recruitee board on a
+ * schedule and keeps the postings that sit in the employer's markets (US, UK,
+ * India, Australia, New Zealand). It replaced the external registry repo's
+ * `search_registry_jobs`, which was never activated.
  */
 
 import { supabase } from '../../lib/supabase';
+import { CAREERS_MARKETS, annualEquivalent, type RightsRequirement } from '../markets';
 import type { JobSearchParams, NormalizedJob } from '../types/jobs';
 import type { SearchOutcome } from './jobsService';
 
 export const REGISTRY_SOURCE = 'finatrix-registry';
 
-/** Shape returned by the `search_registry_jobs` RPC (migration 0008). */
+/** Shape returned by the `search_career_postings` RPC (migration 20261024000100). */
 interface RegistryRow {
   job_id: string;
   title: string;
-  company_id: string;
-  company_name: string;
-  company_website: string | null;
-  industry: string | null;
-  location_raw: string | null;
+  company: string;
+  location: string;
   city: string | null;
-  state: string | null;
-  country: string | null;
+  region: string | null;
+  countries: string[];
   workplace_type: string | null;
   employment_type: string | null;
   salary_min: string | number | null;
   salary_max: string | number | null;
   salary_currency: string | null;
-  source: string;
-  source_url: string;
+  salary_period: string | null;
+  work_rights: { requirement: RightsRequirement; all: RightsRequirement[]; clearance?: string } | null;
+  summary: string;
+  source: string | null;
+  url: string;
   posted_at: string | null;
   first_seen: string;
   relevance: number;
 }
 
-/** The registry currently covers these markets; anything else is skipped. */
-const SUPPORTED_COUNTRIES = new Set(['AU', 'IN']);
+/** The engine covers these markets; anything else is skipped. */
+const SUPPORTED_COUNTRIES = new Set<string>(CAREERS_MARKETS.map((m) => m.iso));
 
 const num = (v: string | number | null): number | null => {
   if (v == null) return null;
@@ -84,52 +94,55 @@ const num = (v: string | number | null): number | null => {
 /**
  * Map one registry row into the app's provider contract.
  *
- * `description` is intentionally synthesised rather than left blank: the
- * registry stores structured fields, not posting bodies, and the whole
+ * `description` always leads with facts the scanner verified (title, company,
+ * place, work mode) and then the posting's own opening text: the whole
  * downstream pipeline (classification, keyword extraction, quick match) reads
- * `title + description`. An empty description would make every registry job
+ * `title + description`, and an empty description would make a job
  * unclassifiable — which, under the recalibrated scorer, correctly scores 0
- * and would hide exactly the jobs we most want surfaced. The line below is
- * assembled only from fields the registry actually verified; nothing is
- * invented.
+ * and would hide exactly the jobs we most want surfaced. Nothing is invented.
+ *
+ * Salaries are passed on as annual figures only when the posting quotes a
+ * yearly, monthly or weekly amount; hourly and daily rates stay unknown here
+ * because annualising them would need an hours assumption.
  */
-function toNormalizedJob(r: RegistryRow): NormalizedJob {
-  const locationBits = [r.location_raw, r.city, r.state].filter(Boolean);
-  const location = r.location_raw || [r.city, r.state].filter(Boolean).join(', ');
+export function toNormalizedJob(r: RegistryRow, searchedCountry = ''): NormalizedJob {
+  const place = [r.city, r.region].filter(Boolean).join(', ');
   const facts = [
     r.title,
-    r.company_name,
-    r.industry ? `${r.industry} sector` : '',
-    locationBits.length ? locationBits.join(' · ') : '',
+    r.company,
+    r.location || place,
     r.workplace_type ? `${r.workplace_type} role` : '',
-    r.employment_type ? `${r.employment_type} position` : '',
+    r.employment_type ? `${r.employment_type.replace(/_/g, ' ')} position` : '',
   ].filter(Boolean);
+  const countries = r.countries ?? [];
+  const country = countries.includes(searchedCountry) ? searchedCountry : (countries[0] ?? '');
 
   return {
     source: REGISTRY_SOURCE,
     // Shown to the user as the sourcing chip. The employer's own name is the
     // truthful answer to "where did this come from" — the posting was read off
     // that company's careers system, not off a job board.
-    via: r.company_name,
+    via: r.company,
     external_id: r.job_id,
-    company: r.company_name,
+    company: r.company,
     title: r.title,
-    description: facts.join('\n'),
-    salary_min: num(r.salary_min),
-    salary_max: num(r.salary_max),
+    description: [...facts, r.summary].filter(Boolean).join('\n'),
+    salary_min: annualEquivalent(num(r.salary_min), r.salary_period),
+    salary_max: annualEquivalent(num(r.salary_max), r.salary_period),
     currency: r.salary_currency ?? '',
-    location,
-    country: r.country ?? '',
-    // The registry's vocabulary already matches the app's ('remote' | 'hybrid'
-    // | 'onsite'); null means the employer did not state it, which must stay
-    // unknown rather than being guessed as onsite.
+    location: r.location || place,
+    country,
+    // The engine's vocabulary already matches the app's ('remote' | 'hybrid');
+    // null means the employer did not state it, which must stay unknown rather
+    // than being guessed as onsite.
     work_mode: r.workplace_type ?? '',
     employment_type: r.employment_type ?? '',
     // The whole point: the employer's own canonical posting.
-    apply_url: r.source_url,
+    apply_url: r.url,
     posted_at: r.posted_at,
     closes_at: null,
-    industry: r.industry ?? '',
+    industry: '',
+    work_rights: r.work_rights ?? null,
   };
 }
 
@@ -143,6 +156,9 @@ export async function searchRegistryJobs(
   limit = 25
 ): Promise<NormalizedJob[] | null> {
   const country = (params.country || '').toUpperCase();
+  // A market the engine does not cover has no direct-employer postings; asking
+  // without a country would return every market's jobs into this search.
+  if (country && !SUPPORTED_COUNTRIES.has(country)) return [];
 
   // Resolved here rather than only at the call site: a transport-level failure
   // (offline, DNS, CORS) rejects instead of returning an `error`, and every
@@ -151,14 +167,13 @@ export async function searchRegistryJobs(
   let data: unknown;
   let error: { code?: string; message: string } | null;
   try {
-    ({ data, error } = await supabase.rpc('search_registry_jobs', {
+    ({ data, error } = await supabase.rpc('search_career_postings', {
       p_query: params.query?.trim() || null,
-      p_country: SUPPORTED_COUNTRIES.has(country) ? country : null,
+      p_country: country || null,
       p_city: params.location?.trim() || null,
       // Only ever narrows: `false` would exclude remote roles, which is not what
       // "no work-mode filter" means.
       p_remote: params.workMode === 'remote' || params.remoteOnly ? true : null,
-      p_industry: params.industry?.trim() || null,
       p_limit: Math.min(limit, 100),
       p_offset: Math.max(0, params.page) * limit,
     }));
@@ -178,8 +193,8 @@ export async function searchRegistryJobs(
   }
 
   return ((data ?? []) as RegistryRow[])
-    .filter((r) => r.source_url && r.title)
-    .map(toNormalizedJob);
+    .filter((r) => r.url && r.title)
+    .map((r) => toNormalizedJob(r, country));
 }
 
 /**

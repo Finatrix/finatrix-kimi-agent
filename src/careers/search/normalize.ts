@@ -6,6 +6,7 @@
  * hybrid), canonical employment type, seniority and Indian salary parsing.
  */
 
+import { MARKETS, parseSalary, toCareersMarket } from '../markets';
 import type { NormalizedJob } from '../types/jobs';
 import { parseIndianSalary } from './locations';
 import { classifyJob, containsTerm, type ClassifiedJob } from './taxonomy';
@@ -69,17 +70,29 @@ export function inferSeniority(title: string): Seniority {
 export function enrichJob(job: NormalizedJob): EnrichedJob {
   const classification = classifyJob(job.title, job.description, job.industry);
   const { mode, flexible } = inferWorkMode(job);
-  let { salary_min, salary_max } = job;
+  let { salary_min, salary_max, currency } = job;
   // Indian postings often bury "12 LPA" in the description instead of fields.
   if (!salary_min && !salary_max && containsTerm(job.description.slice(0, 3000), 'lpa')) {
     const parsed = parseIndianSalary(job.description.slice(0, 3000));
     salary_min = parsed.min;
     salary_max = parsed.max;
   }
+  // Other markets bury "£45,000 - £55,000 per annum" the same way. Only a figure in the market's own currency
+  // with an exact annual equivalent is used; hourly and daily rates stay unknown.
+  const market = toCareersMarket(job.country);
+  if (!salary_min && !salary_max && market && market !== 'in') {
+    const parsed = parseSalary(job.description.slice(0, 3000), market);
+    if (parsed && parsed.currency === MARKETS[market].currency && parsed.annualMin !== null) {
+      salary_min = parsed.annualMin;
+      salary_max = parsed.annualMax;
+      currency = currency || parsed.currency;
+    }
+  }
   return {
     ...job,
     salary_min,
     salary_max,
+    currency,
     classification,
     workMode: mode,
     flexibleWorkMode: flexible,

@@ -182,9 +182,20 @@ describe('edge CORS: no function rebuilds its own allowlist', () => {
 
   // Webhooks (careers-billing-webhook) are called server-to-server by the
   // provider (Stripe) — no browser Origin header, no preflight, so CORS is
-  // not applicable and there is no allowlist to drift. Everything else is a
+  // not applicable and there is no allowlist to drift. careers-scan is the
+  // same: only pg_cron calls it, through pg_net. Everything else is a
   // browser-facing endpoint and must go through the shared origins module.
-  const browserFacing = allEntries.filter((d) => !d.name.endsWith('-webhook'));
+  const SERVER_TO_SERVER = new Set(['careers-scan']);
+  const browserFacing = allEntries.filter((d) => !d.name.endsWith('-webhook') && !SERVER_TO_SERVER.has(d.name));
+
+  it.each(allEntries.filter((d) => SERVER_TO_SERVER.has(d.name)))(
+    '$name: answers no browser (no CORS headers) and checks its shared secret',
+    ({ entry }) => {
+      const src = readFileSync(entry, 'utf8');
+      expect(src).not.toMatch(/Access-Control-Allow/i);
+      expect(src).toContain('isAuthorized(');
+    },
+  );
 
   it.each(browserFacing)('$name: reads the shared origins module', ({ entry }) => {
     const src = readFileSync(entry, 'utf8');

@@ -181,6 +181,7 @@ describe('environment validation', () => {
       RAPIDAPI_KEY: 'k', ACTIVE_JOBS_KEY: 'k', LINKEDIN_JOBS_KEY: 'k',
       JOB_POSTING_FEED_KEY: 'k', GOOGLE_JOBS_KEY: 'k', GLASSDOOR_KEY: 'k',
       WORKDAY_KEY: 'k', WORKDAY_HOST: 'wd.example.com',
+      USAJOBS_API_KEY: 'k', USAJOBS_EMAIL: 'ops@example.com', REED_API_KEY: 'k',
       ADZUNA_APP_ID: 'a', ADZUNA_APP_KEY: 'b', JOOBLE_KEY: 'c',
     });
     expect(r.suspectedMisnamed).toEqual([]);
