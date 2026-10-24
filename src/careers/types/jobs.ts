@@ -5,6 +5,7 @@
  * row shapes mirror supabase/careers_phase2_schema.sql.
  */
 
+import type { RightsRequirement } from '../markets';
 import type { CareerDNA } from './index';
 
 // ─────────────────────────── search ───────────────────────────
@@ -81,6 +82,8 @@ export interface NormalizedJob {
   remote_probability?: number;
   /** Safe https company logo, or null. */
   company_logo?: string | null;
+  /** Work-rights wording the posting states (market layer), or null when it says nothing. */
+  work_rights?: { requirement: RightsRequirement; all: RightsRequirement[]; clearance?: string } | null;
 }
 
 // ─────────────────────────── job rows ───────────────────────────

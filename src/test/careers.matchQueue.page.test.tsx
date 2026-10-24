@@ -88,6 +88,7 @@ function scored(id: string, title: string, company: string, overall: number, ext
       scores: {} as never,
       matchedSkills: extra.matched ?? [],
       missingTerms: extra.missing ?? [],
+      addableTerms: [],
     },
     relevance: 50,
     locationVerdict: {} as ScoredJob['locationVerdict'],

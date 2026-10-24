@@ -103,13 +103,29 @@ export const CITIES: CityDef[] = [
     city: 'indore', country: 'in', state: 'madhya pradesh',
     aliases: ['vijay nagar indore'],
   },
-  // A few non-India metros so other countries keep working.
+  // The major metros of the other Careers markets (US, UK, Australia, New Zealand).
   { city: 'london', country: 'gb', state: 'england', aliases: ['canary wharf', 'city of london', 'greater london'] },
   { city: 'manchester', country: 'gb', state: 'england', aliases: ['greater manchester'] },
+  { city: 'edinburgh', country: 'gb', state: 'scotland', aliases: [] },
+  { city: 'glasgow', country: 'gb', state: 'scotland', aliases: [] },
+  { city: 'leeds', country: 'gb', state: 'england', aliases: [] },
+  { city: 'bristol', country: 'gb', state: 'england', aliases: [] },
   { city: 'new york', country: 'us', state: 'new york', aliases: ['nyc', 'manhattan', 'brooklyn'] },
   { city: 'san francisco', country: 'us', state: 'california', aliases: ['sf', 'bay area', 'south san francisco'] },
+  { city: 'los angeles', country: 'us', state: 'california', aliases: [] },
+  { city: 'chicago', country: 'us', state: 'illinois', aliases: [] },
+  { city: 'boston', country: 'us', state: 'massachusetts', aliases: [] },
+  { city: 'seattle', country: 'us', state: 'washington', aliases: ['redmond', 'bellevue'] },
+  { city: 'austin', country: 'us', state: 'texas', aliases: [] },
   { city: 'sydney', country: 'au', state: 'new south wales', aliases: ['parramatta', 'north sydney'] },
   { city: 'melbourne', country: 'au', state: 'victoria', aliases: ['docklands', 'southbank'] },
+  { city: 'brisbane', country: 'au', state: 'queensland', aliases: ['fortitude valley'] },
+  { city: 'perth', country: 'au', state: 'western australia', aliases: ['west perth', 'osborne park'] },
+  { city: 'adelaide', country: 'au', state: 'south australia', aliases: [] },
+  { city: 'canberra', country: 'au', state: 'australian capital territory', aliases: [] },
+  { city: 'auckland', country: 'nz', state: 'auckland', aliases: ['north shore', 'manukau', 'takapuna'] },
+  { city: 'wellington', country: 'nz', state: 'wellington', aliases: ['lower hutt', 'upper hutt', 'porirua'] },
+  { city: 'christchurch', country: 'nz', state: 'canterbury', aliases: [] },
   { city: 'singapore', country: 'sg', state: '', aliases: ['raffles place', 'changi', 'jurong'] },
   { city: 'dubai', country: 'ae', state: 'dubai', aliases: ['difc', 'business bay', 'jlt', 'dubai internet city'] },
   { city: 'abu dhabi', country: 'ae', state: 'abu dhabi', aliases: ['adgm'] },
@@ -120,6 +136,7 @@ export const COUNTRY_NAMES: Record<string, string[]> = {
   gb: ['united kingdom', 'uk', 'great britain', 'england', 'scotland', 'wales', 'northern ireland'],
   us: ['united states', 'usa', 'us', 'america', 'united states of america'],
   au: ['australia'],
+  nz: ['new zealand', 'aotearoa', 'nz'],
   sg: ['singapore'],
   ae: ['united arab emirates', 'uae', 'dubai', 'abu dhabi', 'sharjah'],
   ca: ['canada'],
@@ -204,28 +221,5 @@ export function locationVerdict(
 
 // ─────────────────────────── India salary formats ───────────────────────────
 
-/**
- * Parse Indian salary shorthand out of free text: "12 LPA", "8-12 lakhs",
- * "₹15,00,000", "1.2 Cr", "CTC 10L". Returns yearly INR or null.
- */
-export function parseIndianSalary(text: string): { min: number | null; max: number | null } {
-  const m = /(?:₹\s*)?([\d,.]+)\s*(?:-|to|–)\s*([\d,.]+)\s*(lpa|lakhs?|l\b|cr|crores?)/i.exec(text);
-  const single = /(?:₹\s*)?([\d,.]+)\s*(lpa|lakhs?|l\b|cr|crores?)/i.exec(text);
-  const unitMult = (u: string) => (/^cr/i.test(u) ? 10_000_000 : 100_000);
-  const parse = (s: string) => {
-    const n = Number(s.replace(/,/g, ''));
-    return Number.isFinite(n) && n > 0 ? n : null;
-  };
-  if (m) {
-    const mult = unitMult(m[3]);
-    const lo = parse(m[1]);
-    const hi = parse(m[2]);
-    return { min: lo ? lo * mult : null, max: hi ? hi * mult : null };
-  }
-  if (single) {
-    const v = parse(single[1]);
-    const mult = unitMult(single[2]);
-    return { min: v ? v * mult : null, max: v ? v * mult : null };
-  }
-  return { min: null, max: null };
-}
+// Lives in the shared market layer (markets/in.ts) so the scanner and the app parse "12 LPA" identically.
+export { parseIndianSalary } from '../markets';

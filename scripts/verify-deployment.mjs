@@ -84,6 +84,7 @@ const FUNCTIONS = [
   'analytics-collect',
   'account-delete',
   'apple-token',
+  'careers-scan',
 ];
 
 const results = [];

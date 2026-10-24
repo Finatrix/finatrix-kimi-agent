@@ -69,6 +69,11 @@ export interface QuickMatch {
   matchedSkills: string[];
   /** Top job-demanded terms absent from the resume. */
   missingTerms: string[];
+  /**
+   * The subset of `missingTerms` the user can defend: they appear in the skills listed on their profile or in
+   * their Career DNA strengths, just not in the resume. Adding these is honest; the rest are genuine gaps.
+   */
+  addableTerms: string[];
 }
 
 export interface QuickMatchInput {
@@ -187,6 +192,14 @@ export function quickMatchJob(job: EnrichedJob, input: QuickMatchInput): QuickMa
     else missingTerms.push(term);
   }
   const keywordsV = jobTerms.length ? measured((kwHits / jobTerms.length) * 100) : unmeasured();
+  // Evidence outside the resume. It never changes the score: it only says which gaps are safe to close.
+  const evidenceDna = input.careerDna ?? input.profile?.career_dna ?? null;
+  const evidence = [
+    ...(input.profile?.primary_skills ?? []),
+    ...(input.profile?.secondary_skills ?? []),
+    ...(evidenceDna?.strengths ?? []),
+  ].join('\n').toLowerCase();
+  const addableTerms = evidence ? missingTerms.filter((term) => containsTerm(evidence, term)) : [];
 
   // ── Location: measurable when the candidate stated a preference, or when
   // the job is remote (which fits any preference). locationScore's own
@@ -254,5 +267,6 @@ export function quickMatchJob(job: EnrichedJob, input: QuickMatchInput): QuickMa
     },
     matchedSkills: matchedSkills.slice(0, 10),
     missingTerms: missingTerms.slice(0, 6),
+    addableTerms: addableTerms.slice(0, 6),
   };
 }

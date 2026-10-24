@@ -10,6 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
 import { EmptyState, ErrorCard, PageLoading } from '../components/states';
+import { DeclaredRightsCard } from '../components/DeclaredRightsCard';
 import { EMPLOYMENT_TYPES, INDUSTRY_OPTIONS } from '../constants';
 import { useCareers } from '../context/CareersContext';
 import { updateProfileFields, updateProfileMeta } from '../services/careerProfile';
@@ -207,6 +208,7 @@ export default function CareerProfilePage() {
           </div>
 
           <div>
+            {user && <DeclaredRightsCard userId={user.id} profile={profile} onSaved={setProfile} />}
             <div className="card">
               <div className="panel-eyebrow">Career DNA</div>
               {dna ? (

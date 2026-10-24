@@ -1,10 +1,10 @@
 /**
  * Company Registry provider — the supply-side fix for the apply-URL problem.
  *
- * Registry jobs are read off each employer's own ATS, so `source_url` is a
- * real application form rather than an aggregator redirect. These tests pin
- * the two things that matter: the mapping preserves that canonical URL, and
- * the provider FAILS CLOSED — until migrations 0007–0009 are applied the RPC
+ * Registry jobs are read off each employer's own ATS, so `url` is a real
+ * application form rather than an aggregator redirect. These tests pin the two
+ * things that matter: the mapping preserves that canonical URL, and the
+ * provider FAILS CLOSED — until migration 20261024000100 is applied the RPC
  * does not exist, and a missing registry must look like "no results from this
  * source", never like a broken search.
  */
@@ -28,19 +28,19 @@ const params = (over: Partial<JobSearchParams> = {}): JobSearchParams => ({
   ...over,
 });
 
-/** A row shaped like the real snapshot the registry ships. */
+/** A row shaped like `search_career_postings` returns it. */
 function row(over: Record<string, unknown> = {}) {
   return {
     job_id: 'a1', title: '.Net Engineer — Clearing Risk Platform',
-    company_id: 'c1', company_name: 'ASX Limited', company_website: 'https://asx.com.au',
-    industry: 'Financial Services', location_raw: 'Sydney Office',
-    city: 'Sydney', state: 'NSW', country: 'AU',
-    workplace_type: 'onsite', employment_type: 'fulltime',
-    salary_min: null, salary_max: null, salary_currency: null,
+    company: 'ASX Limited', location: 'Sydney Office',
+    city: 'Sydney', region: 'NSW', countries: ['AU'],
+    workplace_type: 'hybrid', employment_type: 'permanent',
+    salary_min: null, salary_max: null, salary_currency: null, salary_period: null,
+    work_rights: null,
+    summary: 'Build the clearing risk platform for Australian financial markets.',
     source: 'workday',
-    source_url:
-      'https://asx.wd105.myworkdayjobs.com/ASX_Careers/job/Sydney-Office/Net-Engineer_JR101584',
-    posted_at: null, first_seen: '2026-08-01T00:00:00Z', relevance: 0.8,
+    url: 'https://asx.wd105.myworkdayjobs.com/ASX_Careers/job/Sydney-Office/Net-Engineer_JR101584',
+    posted_at: null, first_seen: '2026-08-01', relevance: 0.8,
     ...over,
   };
 }
@@ -57,7 +57,7 @@ describe('searchRegistryJobs', () => {
     const jobs = await searchRegistryJobs(params());
 
     expect(jobs).toHaveLength(1);
-    expect(jobs![0].apply_url).toBe(row().source_url);
+    expect(jobs![0].apply_url).toBe(row().url);
     // The whole reason this provider exists.
     expect(isDirectEmployerUrl(jobs![0].apply_url)).toBe(true);
   });
@@ -71,8 +71,21 @@ describe('searchRegistryJobs', () => {
     expect(job.via).toBe('ASX Limited');
     expect(job.location).toBe('Sydney Office');
     expect(job.country).toBe('AU');
-    expect(job.work_mode).toBe('onsite');
-    expect(job.industry).toBe('Financial Services');
+    expect(job.work_mode).toBe('hybrid');
+    expect(job.employment_type).toBe('permanent');
+    expect(job.work_rights).toBeNull();
+  });
+
+  it('reports the searched market for a posting listed in several', async () => {
+    rpc.mockResolvedValue({ data: [row({ countries: ['AU', 'NZ'] })], error: null });
+    expect((await searchRegistryJobs(params({ country: 'nz' })))![0].country).toBe('NZ');
+    expect((await searchRegistryJobs(params({ country: '' })))![0].country).toBe('AU');
+  });
+
+  it('carries the work rights the posting states', async () => {
+    const rights = { requirement: 'citizen_only', all: ['citizen_only'] };
+    rpc.mockResolvedValue({ data: [row({ work_rights: rights })], error: null });
+    expect((await searchRegistryJobs(params()))![0].work_rights).toEqual(rights);
   });
 
   it('gives every job enough text to be classified', async () => {
@@ -83,7 +96,7 @@ describe('searchRegistryJobs', () => {
 
     expect(job.description.length).toBeGreaterThan(20);
     expect(job.description).toContain('ASX Limited');
-    expect(job.description).toContain('Financial Services');
+    expect(job.description).toContain('clearing risk platform');
   });
 
   it('leaves an unstated work mode unknown rather than guessing', async () => {
@@ -94,7 +107,7 @@ describe('searchRegistryJobs', () => {
 
   it('coerces numeric salary strings and tolerates nulls', async () => {
     rpc.mockResolvedValue({
-      data: [row({ salary_min: '120000', salary_max: null, salary_currency: 'AUD' })],
+      data: [row({ salary_min: '120000', salary_max: null, salary_currency: 'AUD', salary_period: 'year' })],
       error: null,
     });
     const [job] = (await searchRegistryJobs(params()))!;
@@ -103,24 +116,40 @@ describe('searchRegistryJobs', () => {
     expect(job.currency).toBe('AUD');
   });
 
+  it('annualises monthly pay exactly, and never guesses a year from an hourly rate', async () => {
+    rpc.mockResolvedValue({
+      data: [
+        row({ salary_min: 5000, salary_max: 6000, salary_currency: 'GBP', salary_period: 'month' }),
+        row({ job_id: 'b', salary_min: 60, salary_max: 70, salary_currency: 'AUD', salary_period: 'hour' }),
+      ],
+      error: null,
+    });
+    const [monthly, hourly] = (await searchRegistryJobs(params()))!;
+    expect([monthly.salary_min, monthly.salary_max]).toEqual([60000, 72000]);
+    expect([hourly.salary_min, hourly.salary_max]).toEqual([null, null]);
+  });
+
   it('drops rows with no URL or no title rather than rendering a dead card', async () => {
     rpc.mockResolvedValue({
-      data: [row(), row({ job_id: 'b', source_url: '' }), row({ job_id: 'c', title: '' })],
+      data: [row(), row({ job_id: 'b', url: '' }), row({ job_id: 'c', title: '' })],
       error: null,
     });
     expect(await searchRegistryJobs(params())).toHaveLength(1);
   });
 
-  it('passes only supported countries through, and never narrows to non-remote', async () => {
+  it('asks only for markets the engine covers, and never narrows to non-remote', async () => {
     rpc.mockResolvedValue({ data: [], error: null });
 
     await searchRegistryJobs(params({ country: 'in' }));
     expect(rpc.mock.calls[0][1]).toMatchObject({ p_country: 'IN', p_remote: null });
 
-    await searchRegistryJobs(params({ country: 'gb' }));
-    // Registry covers AU/IN only — an unsupported country must not filter to
-    // an empty set, it must simply not constrain.
-    expect(rpc.mock.calls[1][1]).toMatchObject({ p_country: null });
+    await searchRegistryJobs(params({ country: 'nz' }));
+    expect(rpc.mock.calls[1][1]).toMatchObject({ p_country: 'NZ' });
+
+    // The engine has no Singapore employers: nothing to ask for, and asking
+    // without a country would pour every other market's jobs into the search.
+    expect(await searchRegistryJobs(params({ country: 'sg' }))).toEqual([]);
+    expect(rpc).toHaveBeenCalledTimes(2);
 
     await searchRegistryJobs(params({ workMode: 'remote' }));
     expect(rpc.mock.calls[2][1]).toMatchObject({ p_remote: true });

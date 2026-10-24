@@ -16,10 +16,12 @@ import { useToast } from '../../tools/ui/Toast';
 import { PageHead, ToolFoot } from '../../tools/ui/common';
 import { Tabs } from '../../tools/ui/Tabs';
 import { MoneyField } from '../../tools/ui/MoneyField';
+import { CountryOptions } from '../components/CountryOptions';
 import { CoverLetterModal } from '../components/CoverLetterModal';
 import { JobIntelView } from '../components/JobIntelView';
 import { MatchPanel } from '../components/MatchPanel';
 import { EmptyState, ErrorCard, ModalShell, SkeletonCards, PageLoading } from '../components/states';
+import { WorkRightsChip } from '../components/WorkRightsChip';
 import { ScoreRing } from '../components/ScoreRing';
 import { CAREERS_ROUTES, INDUSTRY_OPTIONS } from '../constants';
 import { useCareers } from '../context/CareersContext';
@@ -891,12 +893,7 @@ export default function JobsPage() {
                 <div className="grid3" style={{ marginBottom: 10 }}>
                   <select className="fs" aria-label="Country" value={params.country}
                     onChange={(e) => setParams((p) => ({ ...p, country: e.target.value }))}>
-                    <option value="in">India</option>
-                    <option value="gb">United Kingdom</option>
-                    <option value="us">United States</option>
-                    <option value="au">Australia</option>
-                    <option value="sg">Singapore</option>
-                    <option value="ae">UAE</option>
+                    <CountryOptions />
                   </select>
                   <select className="fs" aria-label="Work mode" value={params.workMode}
                     onChange={(e) => setParams((p) => ({ ...p, workMode: e.target.value as JobSearchParams['workMode'] }))}>
@@ -1057,6 +1054,7 @@ export default function JobsPage() {
                         <span>{[job.salary_min, job.salary_max].filter(Boolean).map((n) => n!.toLocaleString()).join(' – ')} {job.currency}</span>
                       )}
                       {job.posted_at && <span>Posted {formatDate(job.posted_at)}</span>}
+                      <WorkRightsChip job={job} declared={settings.declaredRights} />
                       {/* Sourcing, stated plainly. A posting read off the
                           employer's own ATS is the canonical one and says so;
                           an aggregated listing names the aggregator instead of
@@ -1102,9 +1100,14 @@ export default function JobsPage() {
                         Why this job: {s.why.slice(0, 2).join(' · ')}
                       </div>
                     )}
-                    {s.match && s.match.missingTerms.length > 0 && (
+                    {s.match && s.match.addableTerms.length > 0 && (
                       <div className="note" style={{ marginTop: 2 }}>
-                        Missing from your resume: {s.match.missingTerms.slice(0, 4).join(', ')}
+                        On your profile but not your resume: {s.match.addableTerms.slice(0, 4).join(', ')}
+                      </div>
+                    )}
+                    {s.match && s.match.missingTerms.length > s.match.addableTerms.length && (
+                      <div className="note" style={{ marginTop: 2 }}>
+                        Missing from your experience: {s.match.missingTerms.filter((t) => !s.match!.addableTerms.includes(t)).slice(0, 4).join(', ')}
                       </div>
                     )}
                   </div>
