@@ -229,6 +229,11 @@ export class SupabasePostingStore implements PostingStore {
     }
   }
 
+  /** True when a posting with these keys is stored (as far as prefetch has seen) or queued. */
+  has({ listingKey, postingKey }: { listingKey: string | null; postingKey: string }): boolean {
+    return (listingKey !== null && this.byListingKey.has(listingKey)) || this.byPostingKey.has(postingKey);
+  }
+
   async findByKeys({ listingKey, postingKey }: { listingKey: string | null; postingKey: string }): Promise<PostingRecord | null> {
     // Listing identity is the stronger key, so it is tried first (as the original `order by` did).
     const known = (listingKey ? this.byListingKey.get(listingKey) : undefined) ?? this.byPostingKey.get(postingKey);

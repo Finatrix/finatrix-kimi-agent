@@ -10,7 +10,7 @@
 import type { EmployerEntry, FetchContext, FetchResult, Job, Provider, Truncation } from '../../types.ts';
 import { decodeEntities, htmlToText } from '../../util/html.ts';
 import { isRefusedRedirectError } from '../../util/http.ts';
-import { positiveInt, probeCap } from './_util.ts';
+import { pastDeadline, positiveInt, probeCap } from './_util.ts';
 
 const VENDOR_HOST = 'careers.pageuppeople.com';
 const PAGE_SIZE = 100;
@@ -162,10 +162,11 @@ export const pageUpProvider: Provider = {
     const pagesToFetch = probe !== null ? Math.min(maxPages, probe) : maxPages;
     const jobs: Job[] = [];
     const seen = new Set<string>();
-    let stop: 'cap' | 'complete' | 'fetch-error' | 'unrecognised-page' = 'cap';
+    let stop: 'cap' | 'complete' | 'fetch-error' | 'unrecognised-page' | 'budget' = 'cap';
     let detail: string | undefined;
 
     for (let page = 1; page <= pagesToFetch; page++) {
+      if (page > 1 && pastDeadline(ctx)) { stop = 'budget'; detail = `time budget reached at page ${page}`; break; }
       if (page > 1) await ctx.sleep(INTER_PAGE_DELAY_MS);
       let html: string;
       try {
@@ -208,6 +209,7 @@ export const pageUpProvider: Provider = {
     if (stop === 'cap' && probe === null) truncation = { reason: 'cap', transient: false, detail: `max_pages=${maxPages}` };
     else if (stop === 'fetch-error') truncation = { reason: 'fetch-error', transient: true, detail };
     else if (stop === 'unrecognised-page') truncation = { reason: 'unrecognised-page', transient: false, detail };
+    else if (stop === 'budget') truncation = { reason: 'budget', transient: false, detail };
     return truncation ? { jobs, truncation } : { jobs };
   },
 };

@@ -16,7 +16,7 @@ import type { EmployerEntry, FetchContext, FetchResult, Job, LocationHints, Prov
 import { DEFAULT_USER_AGENT } from '../../util/http.ts';
 import { parseLocation } from '../../markets/index.ts';
 import type { CareersMarket } from '../../markets/types.ts';
-import { arr, obj, str } from './_util.ts';
+import { arr, obj, pastDeadline, str } from './_util.ts';
 
 type StopReason = 'complete' | 'early-stop' | 'no-date-skip' | 'fetch-error' | 'cap';
 
@@ -401,6 +401,9 @@ export const workdayProvider: Provider = {
     const pageBudget = maxPages * SPLIT_PAGE_BUDGET_FACTOR;
     let pagesSpent = 0;
     let budgetExhausted = false;
+    // Past ctx.deadline: start no further page, slice or detail request, and report the board as cut short.
+    let timedOut = false;
+    const outOfTime = () => (timedOut ||= pastDeadline(ctx));
 
     const isClamped = (total: number | null, facets: unknown, applied: readonly string[]): boolean => {
       if (ctxCap !== Infinity) return false;
@@ -432,6 +435,7 @@ export const workdayProvider: Provider = {
       let page = 1;
       if (stopReason === 'complete') {
         for (; page < pagesToFetch; page++) {
+          if (outOfTime()) break;
           if (pagesSpent >= pageBudget) { budgetExhausted = true; break; }
           await ctx.sleep(INTER_PAGE_DELAY_MS);
           pagesSpent++;
@@ -475,6 +479,7 @@ export const workdayProvider: Provider = {
         let stop: StopReason = 'complete';
         let incomplete = false;
         for (const value of plan.values) {
+          if (outOfTime()) break;
           if (pagesSpent >= pageBudget) { budgetExhausted = true; break; }
           if (merged.size > 0 || total > 0) await ctx.sleep(INTER_PAGE_DELAY_MS);
           let slice: QueryResult;
@@ -544,6 +549,7 @@ export const workdayProvider: Provider = {
           if (trueTotal - chosenCoverage > spread) { splitIncomplete = true; splitStructural = true; }
         }
         for (const value of facet.values) {
+          if (outOfTime()) break;
           if (slicesSpent >= MAX_SPLIT_SLICES || pagesSpent >= pageBudget) { splitIncomplete = true; splitStructural = true; break; }
           slicesSpent++;
           await ctx.sleep(INTER_PAGE_DELAY_MS);
@@ -579,7 +585,7 @@ export const workdayProvider: Provider = {
       const pending = placeholders.filter((j) => j.url.startsWith(`${ep.jobBase}/`));
       let requests = 0;
       for (const job of pending) {
-        if (requests >= MAX_DETAIL_REQUESTS) break;
+        if (requests >= MAX_DETAIL_REQUESTS || outOfTime()) break;
         if (requests > 0) await ctx.sleep(INTER_PAGE_DELAY_MS);
         requests++;
         let detail: unknown;
@@ -597,11 +603,11 @@ export const workdayProvider: Provider = {
     }
 
     let truncation: Truncation | undefined;
-    if (splitIncomplete || budgetExhausted) {
+    if (splitIncomplete || budgetExhausted || timedOut) {
       truncation = {
-        reason: budgetExhausted ? 'budget' : 'split-incomplete',
-        transient: !(splitStructural || budgetExhausted),
-        detail: `${jobs.length} jobs recovered`,
+        reason: budgetExhausted || timedOut ? 'budget' : 'split-incomplete',
+        transient: !(splitStructural || budgetExhausted || timedOut),
+        detail: `${timedOut ? 'time budget reached; ' : ''}${jobs.length} jobs recovered`,
       };
     } else if (root.stopReason === 'fetch-error') {
       truncation = { reason: 'fetch-error', transient: true };

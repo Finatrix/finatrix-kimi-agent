@@ -102,19 +102,28 @@ export interface ScanBatchOptions {
   jobBudget?: number;
   /** In-market postings ingested per employer per run. Default 800. */
   maxPostingsPerEmployer?: number;
+  /** New postings added per run, across employers. Default 250. */
+  newPostingBudget?: number;
   now?: () => Date;
   clock?: () => number;
 }
 
 /**
  * The edge runtime allows about 2 s of CPU per call, and parsing a board costs CPU in proportion to its size.
- * A run therefore takes small employers together but stops after one large board; the schedule runs often
+ * A run therefore takes small employers together but stops after one large board (see also the new-posting budget); the schedule runs often
  * enough that the registry still cycles in hours (see 20261024000400_careers_scan_every_10_minutes.sql).
  */
 const DEFAULT_JOB_BUDGET = 600;
 
 /** A capped scan is reported as truncated, which also means it expires nothing. */
 const DEFAULT_MAX_POSTINGS_PER_EMPLOYER = 800;
+
+/**
+ * A new posting costs far more CPU than one already stored (its description is fingerprinted, and it is written in
+ * full), so a large board's first scan would not fit in one call. Each run adds at most this many; the rest are
+ * still new on the board's next scan, which therefore carries on where this one stopped.
+ */
+const DEFAULT_NEW_POSTING_BUDGET = 250;
 
 /** A run still open after this long was stopped by the runtime; the next run closes it with a note. */
 const STALE_RUN_MS = 10 * 60_000;
@@ -140,9 +149,11 @@ export async function runScanBatch(options: ScanBatchOptions): Promise<ScanBatch
   const budgetMs = options.budgetMs ?? 110_000;
   const jobBudget = options.jobBudget ?? DEFAULT_JOB_BUDGET;
   const maxPostings = options.maxPostingsPerEmployer ?? DEFAULT_MAX_POSTINGS_PER_EMPLOYER;
+  const newBudget = options.newPostingBudget ?? DEFAULT_NEW_POSTING_BUDGET;
   const registry = options.registry ?? createRegistry();
   const t0 = clock();
   let fetchedInRun = 0;
+  let addedInRun = 0;
 
   await bestEffort(
     ctx,
@@ -176,7 +187,7 @@ export async function runScanBatch(options: ScanBatchOptions): Promise<ScanBatch
   const base = new SupabasePostingStore(db);
 
   for (const source of sources) {
-    if (clock() - t0 > budgetMs || fetchedInRun >= jobBudget) {
+    if (clock() - t0 > budgetMs || fetchedInRun >= jobBudget || addedInRun >= newBudget) {
       summary.deferred++;
       continue;
     }
@@ -199,7 +210,9 @@ export async function runScanBatch(options: ScanBatchOptions): Promise<ScanBatch
       row.error = 'source has no supported market';
     } else {
       try {
-        const scan = await scanEmployers([mapped.entry], { registry, ctx, concurrency: 1 });
+        // A slow board stops paging when the run's time is up and keeps what it has, rather than outlive the call.
+        const deadline = Date.now() + Math.max(0, budgetMs - (clock() - t0));
+        const scan = await scanEmployers([mapped.entry], { registry, ctx: { ...ctx, deadline }, concurrency: 1 });
         const result = scan.employers[0]!;
         detail = result;
         row.status = result.status;
@@ -223,10 +236,25 @@ export async function runScanBatch(options: ScanBatchOptions): Promise<ScanBatch
 
         // One unit of work per employer: look every key up at once, ingest in memory, then write in bulk.
         const store = base.forSource(source.id);
-        await store.prefetch(inMarket.map((job) => ({ listingKey: computeListingKey(job.listingIdentity), postingKey: postingKey(job.url) })));
-        const ingest = await ingestJobs(store, inMarket, { today, describe: (job) => details.get(job) ?? null, crossListings: false });
+        const keys = inMarket.map((job) => ({ listingKey: computeListingKey(job.listingIdentity), postingKey: postingKey(job.url) }));
+        await store.prefetch(keys);
+        let allowance = newBudget - addedInRun;
+        const batch: Job[] = [];
+        inMarket.forEach((job, i) => {
+          if (store.has(keys[i]!)) batch.push(job);
+          else if (allowance > 0) {
+            allowance--;
+            batch.push(job);
+          }
+        });
+        if (batch.length < inMarket.length) {
+          row.status = 'truncated';
+          detail = { ...detail, truncation: detail.truncation ?? { reason: 'budget', transient: true } };
+        }
+        const ingest = await ingestJobs(store, batch, { today, describe: (job) => details.get(job) ?? null, crossListings: false });
         await store.flush();
         row.added = ingest.results.filter((r) => r.disposition !== 'seen' && r.disposition !== 'reactivated').length;
+        addedInRun += row.added;
         summary.jobsKept += ingest.results.length;
 
         // Only after the flush: the database must already know which postings this scan saw.

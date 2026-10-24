@@ -19,6 +19,11 @@ export function probeCap(ctx: FetchContext): number | null {
     : null;
 }
 
+/** True once the caller's deadline has passed: start no further request for this board. */
+export function pastDeadline(ctx: FetchContext): boolean {
+  return typeof ctx.deadline === 'number' && Date.now() >= ctx.deadline;
+}
+
 export function str(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
