@@ -250,12 +250,48 @@ describe('runScanBatch', () => {
     expect(db.rows('scan_run_employers')[0]).toMatchObject({ status: 'truncated', truncation_reason: 'cap' });
   });
 
+  it('adds a large board over several runs, each carrying on where the last stopped', async () => {
+    const db = new FakeDb();
+    seed(db);
+    const jobs = Array.from({ length: 7 }, (_, i) => job(i, 'Sydney NSW'));
+    const registry = createRegistry({ extra: [boardProvider({ jobs })] });
+    const run = (day: string) => runScanBatch({ db, ctx, registry, now: () => new Date(`${day}T03:00:00Z`), newPostingBudget: 3 });
+
+    expect((await run('2026-10-20')).employers[0]).toMatchObject({ status: 'truncated', inMarket: 7, added: 3, expired: 0 });
+    expect(db.rows('scan_run_employers')[0]).toMatchObject({ truncation_reason: 'budget', truncation_transient: true });
+    expect((await run('2026-10-21')).employers[0]).toMatchObject({ status: 'truncated', added: 3, expired: 0 });
+    expect((await run('2026-10-22')).employers[0]).toMatchObject({ status: 'ok', added: 1, expired: 0 });
+    expect(db.rows('career_postings').map((p) => p.title).sort()).toEqual(jobs.map((j) => j.title).sort());
+    expect(db.rows('career_postings').every((p) => p.status === 'active' && p.last_seen === '2026-10-22')).toBe(true);
+  });
+
+  it('defers the next employer once the run has added its new-posting budget', async () => {
+    const db = new FakeDb();
+    seed(db);
+    seed(db, { id: 'src-2', name: 'Later', careers_url: 'https://jobs.example.com/later', last_scanned_at: '2026-01-01T00:00:00Z' });
+    const jobs = Array.from({ length: 4 }, (_, i) => job(i, 'Sydney NSW'));
+    const summary = await runScanBatch({ db, ctx, registry: createRegistry({ extra: [boardProvider({ jobs })] }), now: () => day1, newPostingBudget: 4 });
+    expect(summary.employers.map((e) => [e.name, e.added])).toEqual([['Acme', 4]]);
+    expect(summary.deferred).toBe(1);
+  });
+
+  it("gives each board a deadline inside the run's time budget", async () => {
+    const db = new FakeDb();
+    seed(db);
+    const deadlines: Array<number | undefined> = [];
+    const provider: Provider = { id: 'fakeboard', detect: () => null, fetch: async (_entry, c) => (deadlines.push(c.deadline), { jobs: [] }) };
+    const before = Date.now();
+    await runScanBatch({ db, ctx, registry: createRegistry({ extra: [provider] }), now: () => day1, budgetMs: 30_000 });
+    expect(deadlines[0]).toBeGreaterThanOrEqual(before);
+    expect(deadlines[0]).toBeLessThanOrEqual(Date.now() + 30_000);
+  });
+
   it('ingests a 300-posting board in a bounded number of round trips', async () => {
     const db = new FakeDb();
     seed(db);
     const jobs = Array.from({ length: 300 }, (_, i) => job(i, i % 2 ? 'Sydney NSW' : 'Auckland', { listingIdentity: { ats_provider: 'fakeboard', board_slug: 'acme', posting_id: String(i) } }));
     const registry = createRegistry({ extra: [boardProvider({ jobs })] });
-    await runScanBatch({ db, ctx, registry, now: () => day1 });
+    await runScanBatch({ db, ctx, registry, now: () => day1, newPostingBudget: 300 });
     const first = db.requests.filter((t) => t === 'career_postings' || t === 'posting_events').length;
     expect(db.rows('career_postings')).toHaveLength(300);
     expect(db.rows('posting_events')).toHaveLength(300);

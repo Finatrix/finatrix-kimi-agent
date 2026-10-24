@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import type { Job } from '../types.ts';
+import { sha1Into } from '../util/sha1.ts';
 import {
   aggregatorPostingId,
   applyLivenessVerdicts,
@@ -25,6 +26,7 @@ import {
   similarity,
   titleIdentityKey,
 } from './index.ts';
+import { normalizeJdText } from './fingerprint.ts';
 
 const JD = (extra = '') =>
   `Financial Crime Analyst. You will review customer files, perform KYC and customer due diligence, screen names against sanctions lists, document findings clearly and escalate suspicious matters to the AML/CTF compliance officer. You will work with the onboarding team to keep turnaround times short while meeting every regulatory obligation under the AML/CTF Act and AUSTRAC guidance. The team values accuracy, curiosity and clear written communication. ${extra}`;
@@ -62,6 +64,46 @@ describe('fingerprints and cross-listings', () => {
     const other = 'Barista. Pour coffee, steam milk, keep the counter clean and greet every customer with a smile. Opening shifts start at five in the morning and finish at two. Weekend work is required and training is provided on the job. You will also help with stocktake, ordering and closing the register at the end of each shift without fail.';
     expect(similarity(fingerprintText(JD()), fingerprintText(other))).toBeLessThan(0.8);
     expect(hammingDistance('00', '0')).toBeNull();
+  });
+  it('matches the original createHash SimHash bit for bit, so stored fingerprints stay comparable', () => {
+    // The career-ops algorithm as first ported: one node:crypto SHA-1 per word trigram, ±1 votes per bit.
+    const reference = (text: string): string => {
+      const normalized = normalizeJdText(text);
+      if (normalized.length < 200) return '';
+      const tokens = normalized.split(' ');
+      if (tokens.length < 3) return '';
+      const weights = new Array<number>(64).fill(0);
+      for (let i = 0; i <= tokens.length - 3; i++) {
+        const digest = createHash('sha1').update(`${tokens[i]} ${tokens[i + 1]} ${tokens[i + 2]}`).digest();
+        for (let bit = 0; bit < 64; bit++) weights[bit]! += (digest[bit >> 3]! >> (7 - (bit & 7))) & 1 ? 1 : -1;
+      }
+      let hash = 0n;
+      for (let bit = 0; bit < 64; bit++) if (weights[bit]! > 0) hash |= 1n << BigInt(63 - bit);
+      return hash.toString(16).padStart(16, '0');
+    };
+    const texts = [
+      JD(),
+      JD('Supercalifragilisticexpialidociousness-and-antidisestablishmentarianism-are-very-long-words indeed.'),
+      `Ingénieur conformité à Zürich, São Paulo ou Kraków. ${JD()}`,
+      `金融犯罪アナリスト 東京 本社 勤務 ${JD()} 🚀 rocket 🚀 launch`,
+      'word '.repeat(60),
+      'short text',
+      'a b',
+      // An even number of trigrams where a bit can tie: a tie leaves the bit clear in both versions.
+      Array.from({ length: 52 }, (_, i) => `token${i}`).join(' '),
+    ];
+    for (const text of texts) expect(fingerprintText(text)).toBe(reference(text));
+  });
+  it('hashes any byte range exactly as node:crypto does, across block boundaries', () => {
+    const out = new Int32Array(5);
+    const hex = () => [...out].map((w) => (w >>> 0).toString(16).padStart(8, '0')).join('');
+    const enc = new TextEncoder();
+    for (let len = 0; len <= 130; len++) {
+      const text = 'é'.repeat(len % 3) + 'x'.repeat(len);
+      const bytes = enc.encode(`pad ${text} pad`);
+      sha1Into(bytes, 4, bytes.length - 4, out);
+      expect(hex()).toBe(createHash('sha1').update(text).digest('hex'));
+    }
   });
   it('flags the same text under a different company, not the same company', () => {
     const fp = fingerprintText(JD());

@@ -7,7 +7,7 @@ import type { EmployerEntry, FetchContext, FetchResult, Job, Provider } from '..
 import { DEFAULT_USER_AGENT } from '../../util/http.ts';
 import { decodeEntities } from '../../util/html.ts';
 import { assertHostAllowed } from '../../util/safeUrl.ts';
-import { arr, obj, str, toEpochMs } from './_util.ts';
+import { arr, obj, pastDeadline, str, toEpochMs } from './_util.ts';
 
 export const ORACLE_HOST_RE = /^[a-z0-9-]+\.fa\.(?:[a-z0-9-]+\.)?(?:ocs\.)?oraclecloud(?:[1-9][0-9]?)?\.com$/i;
 const PAGE_SIZE = 200;
@@ -113,7 +113,9 @@ export const oracleCloudProvider: Provider = {
     const jobs: Job[] = [];
     let total: number | null = null;
     let finished = false;
+    let timedOut = false;
     for (let page = 0; page < maxPages; page++) {
+      if (page > 0 && pastDeadline(ctx)) { timedOut = true; break; }
       const offset = page * PAGE_SIZE;
       const apiUrl = buildApiUrl(site, offset, PAGE_SIZE);
       assertHostAllowed('oraclecloud', apiUrl, ORACLE_HOST_RE);
@@ -132,8 +134,10 @@ export const oracleCloudProvider: Provider = {
         if (offset + PAGE_SIZE >= total) { finished = true; break; }
       } else if (listLen < PAGE_SIZE) { finished = true; break; }
     }
-    return finished
-      ? { jobs }
-      : { jobs, truncation: { reason: 'cap', transient: false, detail: `max_pages=${maxPages}${total !== null ? `, ${jobs.length} of ${total}` : ''}` } };
+    const seen = `${jobs.length}${total !== null ? ` of ${total}` : ''}`;
+    if (finished) return { jobs };
+    return timedOut
+      ? { jobs, truncation: { reason: 'budget', transient: false, detail: `time budget reached; ${seen} jobs` } }
+      : { jobs, truncation: { reason: 'cap', transient: false, detail: `max_pages=${maxPages}${total !== null ? `, ${seen}` : ''}` } };
   },
 };

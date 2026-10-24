@@ -2,7 +2,7 @@
  * 64-bit SimHash of job-description text, used to spot the same ad under a different company
  * (recruitment agencies, boards). Derived from career-ops fingerprint-core.mjs (MIT, see NOTICE).
  */
-import { createHash } from 'node:crypto';
+import { sha1Into } from '../util/sha1.ts';
 import { normalizeCompanyName, normalizeTextKey } from '../util/text.ts';
 
 export const FINGERPRINT_MIN_TEXT = 200;
@@ -20,22 +20,36 @@ export function normalizeJdText(text: unknown): string {
     .trim();
 }
 
-/** 16 hex chars, or '' when the text is too short to fingerprint reliably. */
+const encoder = new TextEncoder();
+const digest = new Int32Array(5);
+
+/**
+ * 16 hex chars, or '' when the text is too short to fingerprint reliably.
+ *
+ * SimHash over word trigrams, each hashed with SHA-1; a bit is set where most trigram hashes set it. The normalised
+ * text is single-spaced, so each trigram is one contiguous run of its UTF-8 bytes: the text is encoded once and the
+ * runs are hashed in place, instead of building and hashing a string per trigram (most of a board scan's CPU).
+ */
 export function fingerprintText(text: unknown): string {
   const normalized = normalizeJdText(text);
   if (normalized.length < FINGERPRINT_MIN_TEXT) return '';
-  const tokens = normalized.split(' ');
-  if (tokens.length < 3) return '';
-  const weights = new Array<number>(64).fill(0);
-  for (let i = 0; i <= tokens.length - 3; i++) {
-    const digest = createHash('sha1').update(`${tokens[i]} ${tokens[i + 1]} ${tokens[i + 2]}`).digest();
-    for (let bit = 0; bit < 64; bit++) {
-      const byte = digest[bit >> 3]!;
-      weights[bit]! += (byte >> (7 - (bit & 7))) & 1 ? 1 : -1;
+  const bytes = encoder.encode(normalized);
+  const wordStarts = [0];
+  for (let i = 0; i < bytes.length; i++) if (bytes[i] === 0x20) wordStarts.push(i + 1);
+  if (wordStarts.length < 3) return '';
+  const trigrams = wordStarts.length - 2;
+  const ones = new Int32Array(64);
+  for (let i = 0; i < trigrams; i++) {
+    const end = i + 3 < wordStarts.length ? wordStarts[i + 3]! - 1 : bytes.length;
+    sha1Into(bytes, wordStarts[i]!, end, digest);
+    const hi = digest[0]!, lo = digest[1]!;
+    for (let bit = 0; bit < 32; bit++) {
+      ones[bit]! += (hi >>> (31 - bit)) & 1;
+      ones[bit + 32]! += (lo >>> (31 - bit)) & 1;
     }
   }
   let hash = 0n;
-  for (let bit = 0; bit < 64; bit++) if (weights[bit]! > 0) hash |= 1n << BigInt(63 - bit);
+  for (let bit = 0; bit < 64; bit++) if (ones[bit]! * 2 > trigrams) hash |= 1n << BigInt(63 - bit);
   return hash.toString(16).padStart(16, '0');
 }
 

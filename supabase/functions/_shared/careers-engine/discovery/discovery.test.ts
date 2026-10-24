@@ -276,6 +276,34 @@ describe('Workday', () => {
     expect(ctx.calls).toHaveLength(1);
   });
 
+  it('stops paging at the deadline, keeps what it read and reports the scan as cut short', async () => {
+    const handler = (_url: string, init?: RequestOptions) => {
+      const { offset } = JSON.parse(init!.body!) as { offset: number };
+      return { total: 100, jobPostings: Array.from({ length: 20 }, (_, i) => posting(offset + i)), facets: [] };
+    };
+    const late = mockCtx(handler, { deadline: Date.now() - 1 });
+    const cut = await workdayProvider.fetch(entry, late);
+    expect(late.calls).toHaveLength(1);
+    expect(cut.jobs).toHaveLength(20);
+    expect(cut.truncation).toEqual({ reason: 'budget', transient: false, detail: 'time budget reached; 20 jobs recovered' });
+
+    const inTime = mockCtx(handler, { deadline: Date.now() + 60_000 });
+    const full = await workdayProvider.fetch(entry, inTime);
+    expect(full.jobs).toHaveLength(100);
+    expect(full.truncation).toBeUndefined();
+  });
+
+  it('makes no "N Locations" detail request past the deadline, and says so', async () => {
+    const ctx = mockCtx(
+      (url) => (url.endsWith('/jobs') ? { total: 1, jobPostings: [posting(1, { locationsText: '2 Locations' })], facets: [] } : { jobPostingInfo: { location: 'Sydney, NSW' } }),
+      { deadline: Date.now() - 1 },
+    );
+    const out = await workdayProvider.fetch(entry, ctx);
+    expect(ctx.calls).toHaveLength(1);
+    expect(out.jobs[0]!.location).toBe('2 Locations');
+    expect(out.truncation).toMatchObject({ reason: 'budget', transient: false });
+  });
+
   it('refuses a tenant it cannot derive', async () => {
     await expect(workdayProvider.fetch({ name: 'x', careers_url: 'https://example.com' }, mockCtx(() => ({})))).rejects.toThrow(/cannot derive/);
   });
@@ -395,6 +423,14 @@ describe('Oracle Recruiting Cloud', () => {
     expect(truncation).toBeUndefined();
     expect(jobs[0]).toMatchObject({ title: 'Compliance Officer', location: 'Melbourne, VIC · Hybrid', externalId: '4021', url: 'https://ekbl.fa.ap1.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_5001/job/4021', description: 'Support & assure' });
   });
+  it('stops after the first page once the deadline has passed', async () => {
+    const requisitions = Array.from({ length: 200 }, (_, i) => ({ Id: String(i), Title: `Role ${i}`, PrimaryLocation: 'Melbourne, VIC' }));
+    const ctx = mockCtx(() => ({ items: [{ TotalJobsCount: 450, requisitionList: requisitions }] }), { deadline: Date.now() - 1 });
+    const { jobs, truncation } = await oracleCloudProvider.fetch(entry, ctx);
+    expect(ctx.calls).toHaveLength(1);
+    expect(jobs).toHaveLength(200);
+    expect(truncation).toEqual({ reason: 'budget', transient: false, detail: 'time budget reached; 200 of 450 jobs' });
+  });
   it('rejects a non-Oracle host', () => {
     expect(resolveSite({ name: 'x', careers_url: 'https://evil.example/hcmUI/CandidateExperience/en/sites/CX_1/jobs' })).toBeNull();
   });
@@ -420,6 +456,14 @@ describe('PageUp', () => {
     expect(jobs).toHaveLength(1);
     expect(truncation).toBeUndefined();
     await expect(pageUpProvider.fetch(entry, mockCtx(() => '<html>blocked</html>'))).rejects.toThrow(/not zero postings/);
+  });
+  it('stops after the first page once the deadline has passed', async () => {
+    const entry: EmployerEntry = { name: 'Uni', careers_url: 'https://careers.pageuppeople.com/123/cw/en-us/listing/' };
+    const ctx = mockCtx(() => page([link(1)], true), { deadline: Date.now() - 1 });
+    const { jobs, truncation } = await pageUpProvider.fetch(entry, ctx);
+    expect(ctx.calls).toHaveLength(1);
+    expect(jobs).toHaveLength(1);
+    expect(truncation).toEqual({ reason: 'budget', transient: false, detail: 'time budget reached at page 2' });
   });
 });
 

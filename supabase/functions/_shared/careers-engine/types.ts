@@ -133,6 +133,11 @@ export interface FetchContext {
   locationHints?: LocationHints;
   /** Cheap title predicate so providers can skip detail fetches for unwanted titles. */
   titleWanted?: (title: string) => boolean;
+  /**
+   * Epoch ms after which a paging provider starts no further request and returns what it has, truncated with
+   * reason 'budget'. The first request is always made, so every call makes progress.
+   */
+  deadline?: number;
 }
 
 export interface Provider {
