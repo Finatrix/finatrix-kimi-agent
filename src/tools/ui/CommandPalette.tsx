@@ -4,6 +4,7 @@ import {
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
+import { useCareersAccess } from '../../lib/careersAccess';
 import { useTheme } from '../../context/ThemeContext';
 import { useOptionalCurrency } from '../CurrencyContext';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
@@ -86,9 +87,10 @@ export default function CommandPalette({
 
   useBodyScrollLock(true);
 
+  const { open: careersOpen } = useCareersAccess();
   const commands = useMemo(
-    () => buildCommands({ signedIn: !!user, currency: currency?.code ?? null, theme, surface }),
-    [user, currency?.code, theme, surface],
+    () => buildCommands({ signedIn: !!user, currency: currency?.code ?? null, theme, surface, careersOpen }),
+    [user, currency?.code, theme, surface, careersOpen],
   );
 
   const results = useMemo(() => {

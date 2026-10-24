@@ -13,7 +13,7 @@ import {
   DASH_SECTIONS, getDashPrefs, toggleSection, moveSection, resetDashPrefs,
   type DashPrefs, type DashSectionId,
 } from '../lib/dashboardPrefs';
-import { CAREERS_AVAILABLE } from '../../shared/careersAvailability';
+import { useCareersAccess } from '../../lib/careersAccess';
 
 /* ─────────────────────────── motion helpers ─────────────────────────── */
 function timeAgo(ts: number): string {
@@ -128,6 +128,7 @@ function greeting(): string {
 
 export default function DashboardPage() {
   const { cfmt, cfmtSh } = useCurrency();
+  const careers = useCareersAccess();
   // Re-read whenever the tab regains focus so returning from a tool reflects new data.
   const [tick, setTick] = useState(0);
   useEffect(() => {
@@ -534,9 +535,10 @@ export default function DashboardPage() {
       {/* The signed-in dashboard links into the WORKSPACE. `/careers` is now the
           public landing page — the right destination from the marketing site,
           the wrong one from inside the app. */}
-      {/* Only while Careers is open: until then this promised features ("track
-          your resume, ATS score") behind a link that lands on "coming in 2027". */}
-      {CAREERS_AVAILABLE && (
+      {/* Only while Careers is open to this account: otherwise this promised
+          features ("track your resume, ATS score") behind a link that lands on
+          "coming in 2027". */}
+      {careers.open && (
         <Link to="/careers/dashboard" className="fx-dash-careers">
           <span className="fx-dash-careers-ic" aria-hidden="true">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 12h18" /></svg>
