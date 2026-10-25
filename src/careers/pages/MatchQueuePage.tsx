@@ -307,7 +307,13 @@ export default function MatchQueuePage() {
       {/* The card */}
       {!building && card && (
         <JobCard
+          // A new instance per job, so a "Why this match" left open on one card
+          // does not carry over to the next.
+          key={`${card.job.source}-${card.job.external_id}`}
           headingLevel="h2"
+          // The primary Apply records the decision and opens the posting; a
+          // second, untracked "Apply" link would skip the record.
+          hideLink
           job={card.job}
           declaredRights={settings.declaredRights}
           score={score}
@@ -326,6 +332,13 @@ export default function MatchQueuePage() {
               <button className="cx-btn cx-btn-quiet cx-btn-sm" disabled={acting} onClick={() => void decide('skipped')}>
                 Skip
               </button>
+              {safeHttpUrl(card.job.apply_url) && (
+                <a className="cx-btn cx-btn-quiet cx-btn-sm" href={safeHttpUrl(card.job.apply_url)!} target="_blank" rel="noopener noreferrer">
+                  View posting
+                  <CxIcon name="external" size={14} />
+                  <span className="sr-only"> (opens in a new tab)</span>
+                </a>
+              )}
             </>
           }
         >
