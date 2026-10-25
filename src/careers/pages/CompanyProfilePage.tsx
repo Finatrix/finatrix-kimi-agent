@@ -11,7 +11,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
-import { PageHead, ToolFoot } from '../../tools/ui/common';
+import { ToolFoot } from '../../tools/ui/common';
+import { PageHeader } from '../ui/primitives';
 import { EmptyState, ErrorCard, PageLoading } from '../components/states';
 import { CAREERS_ROUTES } from '../constants';
 import { getCompanyById, relatedCompanies } from '../services/companyIntelligence';
@@ -134,9 +135,7 @@ export default function CompanyProfilePage() {
 
   return (
     <div className="fx-page">
-      <PageHead chip="Company Intelligence" chipColor="#D4AF37" chipBg="rgba(212,175,55,.12)" icon="bank" title={c.name}>
-        {[c.industry, c.sector].filter(Boolean).join(' · ') || 'Structured company intelligence'}
-      </PageHead>
+      <PageHeader title={c.name} description={[c.industry, c.sector].filter(Boolean).join(', ') || undefined} />
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
         <button className="btn btn-sm" onClick={() => void toggleSave()} aria-pressed={saved}>

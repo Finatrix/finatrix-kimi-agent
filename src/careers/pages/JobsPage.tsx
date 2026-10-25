@@ -815,16 +815,7 @@ export default function JobsPage() {
           )}
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Kept out of the 7-item tab bar (see CAREERS_NAV) — Job Search is
-              where the intent to review roles already lives, so this is the
-              door to the queue. */}
-          <Link
-            to={CAREERS_ROUTES.queue}
-            className="btn btn-ghost btn-sm"
-            style={{ width: 'auto', textDecoration: 'none' }}
-          >
-            Review one at a time →
-          </Link>
+          {/* Reviewing roles one at a time is the Jobs area's second tab. */}
           <Tabs
             variant="nav"
             label="Jobs view"

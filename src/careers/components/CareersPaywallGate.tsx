@@ -47,7 +47,10 @@ export function CareersPaywallGate({ children }: { children: ReactNode }) {
   // The one exemption: the Stripe return trip. Checkout's success_url points
   // here with a `checkout=` param — BillingPage owns confirming payment and
   // redirecting on into Careers once the webhook has actually landed.
-  const isBillingReturn = location.pathname === '/careers/billing' && location.search.includes('checkout=');
+  // (`/careers/billing` now redirects to the Plan tab of Settings, query kept.)
+  const isBillingReturn =
+    (location.pathname === '/careers/billing' || location.pathname === '/careers/settings') &&
+    location.search.includes('checkout=');
 
   useEffect(() => {
     let cancelled = false;

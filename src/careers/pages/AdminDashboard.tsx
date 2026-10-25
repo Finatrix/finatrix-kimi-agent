@@ -45,7 +45,7 @@ import type { FeatureFlagRow } from '../types/jobs';
 import { toCareersError, type CareersError } from '../utils/errors';
 import { formatDate, formatDateTime, scoreColor } from '../utils/format';
 
-type Tab = 'overview' | 'subscriptions' | 'ai-usage' | 'providers' | 'flags' | 'organizations' | 'announcements' | 'tickets' | 'audit' | 'not-connected';
+type Tab = 'overview' | 'subscriptions' | 'ai-usage' | 'providers' | 'flags' | 'organizations' | 'announcements' | 'tickets' | 'audit';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview', label: 'Overview' },
@@ -57,7 +57,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'announcements', label: 'Announcements' },
   { id: 'tickets', label: 'Support Tickets' },
   { id: 'audit', label: 'Audit Log' },
-  { id: 'not-connected', label: 'Payments / Errors / System Health' },
 ];
 
 export default function AdminDashboard() {
@@ -430,17 +429,6 @@ export default function AdminDashboard() {
             </div>
           ))}
           {!auditRows.length && <EmptyState icon="check" title="No audit events yet" />}
-        </div>
-      )}
-
-      {tab === 'not-connected' && (
-        <div className="card">
-          <EmptyState icon="warn" title="Not yet connected">
-            Users list needs the Supabase service-role admin API (not safe to call from the browser).
-            Payments need Stripe/Razorpay keys. Errors need a Sentry DSN. Storage/Search/Resume analytics
-            and System Health need additional instrumentation. All of these are scaffolded in the
-            architecture (see the Phase 4 docs) but intentionally not faked here.
-          </EmptyState>
         </div>
       )}
 
