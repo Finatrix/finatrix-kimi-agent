@@ -302,6 +302,19 @@ function authErrorMessage(
   return garbled ? fallback : msg;
 }
 
+/**
+ * GoTrue re-announces the same session on every tab refocus and token refresh,
+ * each time with a fresh `user` object. Handing that straight to React gave
+ * every `[user]` effect in the app a new dependency, so returning to the tab
+ * reloaded each page's data and reset what was on screen (a typed search,
+ * open results). Keep the previous object while nothing in it has changed;
+ * a real change, such as a new app_metadata flag, still comes through.
+ */
+function keepSameUser(prev: User | null, next: User | null): User | null {
+  if (!prev || !next || prev.id !== next.id) return next;
+  return JSON.stringify(prev) === JSON.stringify(next) ? prev : next;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -350,7 +363,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       subscribed.current = true;
       const { data: sub } = supabase.auth.onAuthStateChange((event, newSession) => {
         setSession(newSession);
-        setUser(newSession?.user ?? null);
+        setUser((prev) => keepSameUser(prev, newSession?.user ?? null));
         rememberSession(!!newSession);
 
         // The one event that carries information `session` does not. GoTrue
@@ -454,7 +467,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const { data } = await supabase.auth.getSession();
           if (!mounted.current) return;
           setSession(data.session);
-          setUser(data.session?.user ?? null);
+          setUser((prev) => keepSameUser(prev, data.session?.user ?? null));
           rememberSession(!!data.session);
         } catch {
           // Reaching here means the auth stack could not be loaded or queried

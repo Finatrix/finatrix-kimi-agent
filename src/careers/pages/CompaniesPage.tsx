@@ -9,8 +9,9 @@ import { Link } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { CAREERS_ROUTES } from '../constants';
 import { useToast } from '../../tools/ui/Toast';
-import { PageHead, ToolFoot } from '../../tools/ui/common';
-import { ConfirmDialog, EmptyState, ErrorCard, ModalShell, PageLoading } from '../components/states';
+import { ConfirmDialog, ErrorCard, ModalShell, PageLoading } from '../components/states';
+import { Empty } from '../ui/primitives';
+import '../ui/forms.css';
 import { useCareers } from '../context/CareersContext';
 import {
   deleteCompany,
@@ -143,88 +144,76 @@ export default function CompaniesPage() {
   if (loading) return <PageLoading />;
 
   return (
-    <div className="fx-page">
-      <PageHead
-        chip="Company Intelligence"
-        chipColor="#D4AF37"
-        chipBg="rgba(212,175,55,.12)"
-        icon="bank"
-        title="Know who you're applying to"
-      >
-        Build your own intelligence base on target companies — culture, growth,
-        recruiters — and compare them side by side before you commit.
-      </PageHead>
-
+    <div className="cxf-stack">
       {(ctxError || loadError) && <ErrorCard error={(ctxError ?? loadError)!} onRetry={() => { void refresh(); void load(); }} />}
 
-      <div className="lib-toolbar">
-        <input className="fi" type="search" placeholder="Search companies…" aria-label="Search companies" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <button className="btn btn-sm" style={{ width: 'auto' }} onClick={() => { setForm({ ...EMPTY_FORM }); setEditOpen(true); }}>+ Add company</button>
-        <Link className="btn btn-ghost btn-sm" style={{ width: 'auto', textDecoration: 'none' }} to={CAREERS_ROUTES.intelligence}>
-          Search intelligence base ↗
-        </Link>
+      <div className="cxf-toolbar" style={{ marginBottom: 0 }}>
+        <input className="fi cxf-grow" type="search" placeholder="Search your companies" aria-label="Search companies" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <Link className="cx-btn" to={CAREERS_ROUTES.intelligence}>Browse the company directory</Link>
         {compareIds.length >= 2 && (
-          <button className="btn btn-ghost btn-sm" onClick={() => setCompareOpen(true)}>Compare ({compareIds.length})</button>
+          <button type="button" className="cx-btn" onClick={() => setCompareOpen(true)}>Compare ({compareIds.length})</button>
         )}
-        <span style={{ flex: 1 }} />
-        <button className="btn btn-ghost btn-sm" onClick={async () => {
+        <button type="button" className="cx-btn cx-btn-quiet" onClick={async () => {
           try { await exportCsv(companiesTable(visible)); }
           catch (error) { notify(toCareersError(error).message, 'error'); }
-        }}>CSV</button>
-        <button className="btn btn-ghost btn-sm" onClick={() => void exportExcel(contactsTable(contacts)).then((saved) => { if (saved) notify('Contacts exported.', 'ok'); }, (e) => notify(toCareersError(e).message, 'error'))}>
-          Contacts Excel
+        }}>Export CSV</button>
+        <button type="button" className="cx-btn cx-btn-quiet" onClick={() => void exportExcel(contactsTable(contacts)).then((saved) => { if (saved) notify('Contacts exported.', 'ok'); }, (e) => notify(toCareersError(e).message, 'error'))}>
+          Export contacts to Excel
         </button>
+        <button type="button" className="cx-btn cx-btn-primary" onClick={() => { setForm({ ...EMPTY_FORM }); setEditOpen(true); }}>Add company</button>
       </div>
 
       {!visible.length ? (
-        <div className="card">
-          <EmptyState icon="bank" title={companies.length ? 'Nothing matches your search' : 'No companies yet'}>
-            {companies.length ? 'Try different keywords.' : 'Add the companies you are targeting — insights, recruiters and comparisons live here.'}
-          </EmptyState>
+        <div className="cx-panel">
+          <Empty title={companies.length ? 'Nothing matches your search' : 'No companies yet'}>
+            {companies.length ? 'Try different keywords.' : 'Add the companies you are targeting. Insights, recruiters and comparisons live here.'}
+          </Empty>
         </div>
       ) : (
-        <div className="lib-grid">
-          {visible.map((c) => (
-            <div className="card result-card-anim" key={c.id} style={{ marginBottom: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 16, fontWeight: 650 }}>{c.name}</div>
-                  <div className="job-meta">
-                    {c.industry && <span>{c.industry}</span>}
-                    {c.headquarters && <span>{c.headquarters}</span>}
-                    {c.company_size && <span>{c.company_size}</span>}
-                    {c.glassdoor_rating != null && <span>★ {c.glassdoor_rating} Glassdoor</span>}
-                    {c.ambitionbox_rating != null && <span>★ {c.ambitionbox_rating} AmbitionBox</span>}
+        <section className="cx-panel" aria-label="Your companies">
+          <ul className="cx-list">
+            {visible.map((c) => (
+              <li key={c.id}>
+                <div className="cx-row" style={{ alignItems: 'flex-start' }}>
+                  <input
+                    type="checkbox" style={{ width: 20, height: 20, flex: 'none', marginTop: 2 }}
+                    checked={compareIds.includes(c.id)} onChange={() => toggleCompare(c.id)} aria-label={`Compare ${c.name}`}
+                  />
+                  <div className="cx-row-main">
+                    <p className="cx-row-title">{c.name}</p>
+                    <p className="cx-row-meta">
+                      {c.industry && <span>{c.industry}</span>}
+                      {c.headquarters && <span>{c.headquarters}</span>}
+                      {c.company_size && <span>{c.company_size}</span>}
+                      {c.glassdoor_rating != null && <span className="cx-num">{c.glassdoor_rating} on Glassdoor</span>}
+                      {c.ambitionbox_rating != null && <span className="cx-num">{c.ambitionbox_rating} on AmbitionBox</span>}
+                    </p>
+                    {c.ai_summary?.overview && (
+                      <p className="cx-sub" style={{ marginTop: 6 }}>
+                        {c.ai_summary.overview.slice(0, 180)}{c.ai_summary.overview.length > 180 ? '…' : ''}
+                      </p>
+                    )}
+                  </div>
+                  <div className="cx-row-actions">
+                    <button type="button" className="cx-btn cx-btn-sm" onClick={() => setDetail(c)}>Open</button>
+                    <button
+                      type="button" className="cx-btn cx-btn-quiet cx-btn-sm" aria-label={`Edit ${c.name}`}
+                      onClick={() => {
+                        setForm({
+                          id: c.id, name: c.name, industry: c.industry, headquarters: c.headquarters,
+                          company_size: c.company_size, website: c.website, linkedin_url: c.linkedin_url,
+                          funding_stage: c.funding_stage, notes: c.notes,
+                        });
+                        setEditOpen(true);
+                      }}
+                    >Edit</button>
+                    <button type="button" className="cx-icon-btn" aria-label={`Delete ${c.name}`} onClick={() => setDeleteTarget(c)}>✕</button>
                   </div>
                 </div>
-                <label className="note" style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={compareIds.includes(c.id)} onChange={() => toggleCompare(c.id)} aria-label={`Compare ${c.name}`} />
-                  compare
-                </label>
-              </div>
-              {c.ai_summary?.overview && (
-                <p style={{ fontSize: 12.5, color: 'var(--ink2)', lineHeight: 1.55, margin: '10px 0 0' }}>
-                  {c.ai_summary.overview.slice(0, 180)}{c.ai_summary.overview.length > 180 ? '…' : ''}
-                </p>
-              )}
-              <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-                <button className="btn btn-sm" style={{ flex: 1 }} onClick={() => setDetail(c)}>Open</button>
-                <button
-                  className="icon-btn" title="Edit" aria-label={`Edit ${c.name}`}
-                  onClick={() => {
-                    setForm({
-                      id: c.id, name: c.name, industry: c.industry, headquarters: c.headquarters,
-                      company_size: c.company_size, website: c.website, linkedin_url: c.linkedin_url,
-                      funding_stage: c.funding_stage, notes: c.notes,
-                    });
-                    setEditOpen(true);
-                  }}
-                >✎</button>
-                <button className="icon-btn danger" aria-label={`Delete ${c.name}`} onClick={() => setDeleteTarget(c)}>✕</button>
-              </div>
-            </div>
-          ))}
-        </div>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {/* Add / edit modal */}
@@ -261,8 +250,8 @@ export default function CompaniesPage() {
             </div>
             <div className="job-meta" style={{ marginBottom: 14 }}>
               {detail.industry && <span>{detail.industry}</span>}
-              {detail.website && <a href={detail.website} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold)' }}>Website ↗</a>}
-              {detail.linkedin_url && <a href={detail.linkedin_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold)' }}>LinkedIn ↗</a>}
+              {detail.website && <a href={detail.website} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold)' }}>Website (opens in a new tab)</a>}
+              {detail.linkedin_url && <a href={detail.linkedin_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold)' }}>LinkedIn (opens in a new tab)</a>}
               <span>Added {formatDate(detail.created_at)}</span>
             </div>
 
@@ -297,9 +286,9 @@ export default function CompaniesPage() {
             {contacts.filter((k) => k.company_id === detail.id).map((k) => (
               <div className="act-row" key={k.id}>
                 <div style={{ flex: 1 }}>
-                  <b>{k.name}</b>{k.position ? ` · ${k.position}` : ''}
+                  <b>{k.name}</b>{k.position ? `, ${k.position}` : ''}
                   <div style={{ fontSize: 12, color: 'var(--ink3)' }}>
-                    {[k.email, k.linkedin_url].filter(Boolean).join(' · ')}
+                    {[k.email, k.linkedin_url].filter(Boolean).join(', ')}
                   </div>
                 </div>
                 <button className="icon-btn danger" aria-label={`Delete contact ${k.name}`} onClick={() => { if (user) void deleteContact(user.id, k.id).then(load); }}>✕</button>
@@ -363,10 +352,6 @@ export default function CompaniesPage() {
         }}
         onCancel={() => setDeleteTarget(null)}
       />
-
-      <ToolFoot>
-        <b>Company Intelligence</b> · your private research base — insights cached, never re-billed
-      </ToolFoot>
     </div>
   );
 }

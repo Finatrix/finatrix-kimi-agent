@@ -7,9 +7,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
-import { PageHead, ToolFoot } from '../../tools/ui/common';
 import { Tabs } from '../../tools/ui/Tabs';
-import { EmptyState, ErrorCard, PageLoading } from '../components/states';
+import { ErrorCard, PageLoading } from '../components/states';
+import { Empty } from '../ui/primitives';
+import '../ui/forms.css';
 import { useCareers } from '../context/CareersContext';
 import { listApplications } from '../services/applications';
 import { completeTask, createTask, deleteTask, dismissTask, listTasks } from '../services/tasks';
@@ -50,7 +51,7 @@ export default function TasksPage() {
 
   const appName = (id: string | null) => {
     const a = applications.find((x) => x.id === id);
-    return a ? `${a.job_title} — ${a.company_name}` : '';
+    return a ? `${a.job_title} at ${a.company_name}` : '';
   };
 
   const visible = useMemo(() => {
@@ -87,41 +88,51 @@ export default function TasksPage() {
   if (loading) return <PageLoading />;
 
   return (
-    <div className="fx-page">
-      <PageHead chip="Task Manager" chipColor="#D4AF37" chipBg="rgba(212,175,55,.12)" icon="check" title="Every action, one list">
-        Apply, follow up, prep, research, practice STAR — nothing about your job search
-        lives in a spreadsheet.
-      </PageHead>
-
+    <div className="cxf-stack">
       {(ctxError || loadError) && <ErrorCard error={(ctxError ?? loadError)!} onRetry={() => { void refresh(); void load(); }} />}
 
-      <div className="card">
-        <div className="panel-eyebrow" style={{ marginBottom: 12 }}>New task</div>
-        <div className="grid3" style={{ marginBottom: 10 }}>
-          <input className="fi" placeholder="Task title *" aria-label="Task title (required)" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
-          <select className="fs" aria-label="Task type" value={form.kind} onChange={(e) => setForm((f) => ({ ...f, kind: e.target.value as TaskKind }))}>
-            {TASK_KINDS.map((k) => <option key={k} value={k}>{k.replace('_', ' ')}</option>)}
-          </select>
-          <select className="fs" aria-label="Linked application" value={form.applicationId} onChange={(e) => setForm((f) => ({ ...f, applicationId: e.target.value }))}>
-            <option value="">No linked application</option>
-            {applications.map((a) => <option key={a.id} value={a.id}>{a.job_title} — {a.company_name}</option>)}
-          </select>
+      <section className="cx-panel" aria-labelledby="tk-new">
+        <div className="cx-panel-head"><h2 id="tk-new">New task</h2></div>
+        <div className="cxf-form cxf-form-3">
+          <div className="fg cxf-wide">
+            <label className="fl" htmlFor="tk-title">Title (required)</label>
+            <input id="tk-title" className="fi" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
+          </div>
+          <div className="fg">
+            <label className="fl" htmlFor="tk-kind">Type</label>
+            <select id="tk-kind" className="fs" value={form.kind} onChange={(e) => setForm((f) => ({ ...f, kind: e.target.value as TaskKind }))}>
+              {TASK_KINDS.map((k) => <option key={k} value={k}>{k.replace('_', ' ')}</option>)}
+            </select>
+          </div>
+          <div className="fg">
+            <label className="fl" htmlFor="tk-priority">Priority</label>
+            <select id="tk-priority" className="fs" value={form.priority} onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value as TaskPriority }))}>
+              <option value="low">Low priority</option>
+              <option value="medium">Medium priority</option>
+              <option value="high">High priority</option>
+            </select>
+          </div>
+          <div className="fg">
+            <label className="fl" htmlFor="tk-due">Due date and time</label>
+            <input id="tk-due" className="fi" type="datetime-local" value={form.dueAt} onChange={(e) => setForm((f) => ({ ...f, dueAt: e.target.value }))} />
+          </div>
+          <div className="fg cxf-wide">
+            <label className="fl" htmlFor="tk-app">Linked application</label>
+            <select id="tk-app" className="fs" value={form.applicationId} onChange={(e) => setForm((f) => ({ ...f, applicationId: e.target.value }))}>
+              <option value="">No linked application</option>
+              {applications.map((a) => <option key={a.id} value={a.id}>{a.job_title} at {a.company_name}</option>)}
+            </select>
+          </div>
         </div>
-        <div className="grid3" style={{ marginBottom: 14 }}>
-          <select className="fs" aria-label="Priority" value={form.priority} onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value as TaskPriority }))}>
-            <option value="low">Low priority</option>
-            <option value="medium">Medium priority</option>
-            <option value="high">High priority</option>
-          </select>
-          <input className="fi" type="datetime-local" aria-label="Due date and time" value={form.dueAt} onChange={(e) => setForm((f) => ({ ...f, dueAt: e.target.value }))} />
-          <button className={`btn ${adding ? 'btn-loading' : ''}`} disabled={adding} onClick={() => void add()}>Add task</button>
+        <div className="cxf-actions">
+          <button type="button" className="cx-btn cx-btn-primary" disabled={adding} onClick={() => void add()}>Add task</button>
         </div>
-      </div>
+      </section>
 
       <Tabs
         variant="nav"
         label="Task filter"
-        style={{ padding: 0, marginBottom: 10 }}
+        style={{ padding: 0 }}
         active={filter}
         onChange={setFilter}
         items={[
@@ -132,36 +143,40 @@ export default function TasksPage() {
       />
 
       {!visible.length ? (
-        <div className="card"><EmptyState icon="check" title="Nothing here">Add your first task above.</EmptyState></div>
+        <div className="cx-panel"><Empty title="Nothing here">Add your first task above.</Empty></div>
       ) : (
-        visible.map((t) => (
-          <div className="card" key={t.id} style={{ padding: 14, marginBottom: 8 }}>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-              <input
-                type="checkbox" checked={t.status === 'done'} aria-label={`Mark ${t.title} done`}
-                onChange={() => {
-                  if (!user) return;
-                  void (t.status === 'done' ? dismissTask(user.id, t.id) : completeTask(user.id, t.id)).then(load);
-                }}
-                style={{ marginTop: 3 }}
-              />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, textDecoration: t.status === 'done' ? 'line-through' : 'none' }}>{t.title}</div>
-                <div className="job-meta">
-                  <span className="badge badge-mute">{t.kind.replace('_', ' ')}</span>
-                  <span className={`badge ${t.priority === 'high' ? 'badge-red' : t.priority === 'low' ? 'badge-mute' : 'badge-blue'}`}>{t.priority}</span>
-                  {t.application_id && <span>{appName(t.application_id)}</span>}
-                  {t.due_at && <span style={overdue(t) ? { color: 'var(--red)' } : undefined}>Due {formatDate(t.due_at)}{overdue(t) ? ' · overdue' : ''}</span>}
+        <section className="cx-panel" aria-label="Tasks">
+          <ul className="cx-list">
+            {visible.map((t) => (
+              <li key={t.id}>
+                <div className="cx-row">
+                  <input
+                    type="checkbox" checked={t.status === 'done'} aria-label={`Mark ${t.title} done`}
+                    onChange={() => {
+                      if (!user) return;
+                      void (t.status === 'done' ? dismissTask(user.id, t.id) : completeTask(user.id, t.id)).then(load);
+                    }}
+                    style={{ width: 20, height: 20, flex: 'none' }}
+                  />
+                  <div className="cx-row-main">
+                    <p className="cx-row-title wrap" style={t.status === 'done' ? { textDecoration: 'line-through' } : undefined}>{t.title}</p>
+                    <p className="cx-row-meta">
+                      <span className={`cx-chip ${t.status === 'done' ? 'cx-chip-good' : ''}`}>{t.status === 'done' ? 'Done' : 'Open'}</span>
+                      <span className="cx-chip">{t.kind.replace('_', ' ')}</span>
+                      <span className={`cx-chip ${t.priority === 'high' ? 'cx-chip-bad' : ''}`}>{t.priority} priority</span>
+                      {overdue(t) && <span className="cx-chip cx-chip-bad">Overdue</span>}
+                      {t.application_id && <span>{appName(t.application_id)}</span>}
+                      {t.due_at && <span>Due {formatDate(t.due_at)}</span>}
+                    </p>
+                    {t.detail && <p className="cx-sub" style={{ marginTop: 4 }}>{t.detail}</p>}
+                  </div>
+                  <button type="button" className="cx-icon-btn" aria-label={`Delete ${t.title}`} onClick={() => { if (user) void deleteTask(user.id, t.id).then(load); }}>✕</button>
                 </div>
-                {t.detail && <p className="note" style={{ marginTop: 4 }}>{t.detail}</p>}
-              </div>
-              <button className="icon-btn danger" aria-label={`Delete ${t.title}`} onClick={() => { if (user) void deleteTask(user.id, t.id).then(load); }}>✕</button>
-            </div>
-          </div>
-        ))
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
-
-      <ToolFoot><b>Task Manager</b> · linked to your applications, feeds reminders automatically</ToolFoot>
     </div>
   );
 }

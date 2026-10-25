@@ -2,7 +2,8 @@
 
 import { useRef, useState, type DragEvent } from 'react';
 import { ACCEPT_ATTR } from '../constants';
-import { Icon } from '../../tools/ui/Icon';
+import { RsIcon } from '../areas/resume/icons';
+import '../areas/resume/resume.css';
 
 export function Dropzone({
   onFile,
@@ -27,18 +28,8 @@ export function Dropzone({
 
   return (
     <div
-      className={`dropzone ${drag ? 'drag' : ''}`}
-      role="button"
-      tabIndex={0}
-      aria-label="Upload resume — PDF, DOCX or DOC, up to 10 MB"
-      aria-disabled={disabled || undefined}
-      onClick={() => !disabled && inputRef.current?.click()}
-      onKeyDown={(e) => {
-        if (!disabled && (e.key === 'Enter' || e.key === ' ')) {
-          e.preventDefault();
-          inputRef.current?.click();
-        }
-      }}
+      className="rs-drop"
+      data-drag={drag}
       onDragOver={(e) => {
         e.preventDefault();
         if (!disabled) setDrag(true);
@@ -46,21 +37,23 @@ export function Dropzone({
       onDragLeave={() => setDrag(false)}
       onDrop={onDrop}
     >
-      <div className="dz-ic">
-        <Icon name="arrow-up" size={24} />
-      </div>
-      <div className="dz-t">Drop your resume here</div>
-      <div className="dz-d">
-        or click to browse — PDF, DOCX or DOC, up to 10 MB.
-        <br />
-        Your file is stored privately in your account.
-      </div>
+      <span className="rs-drop-icon"><RsIcon name="upload" size={28} /></span>
+      <button
+        type="button"
+        className="cx-btn"
+        disabled={disabled}
+        onClick={() => inputRef.current?.click()}
+      >
+        Drop a PDF or Word file, or choose one
+      </button>
+      <p className="rs-drop-hint">PDF, DOCX or DOC, up to 10 MB.</p>
       <input
         ref={inputRef}
         type="file"
         accept={ACCEPT_ATTR}
         hidden
         disabled={disabled}
+        aria-label="Resume file"
         onChange={(e) => {
           pick(e.target.files);
           e.target.value = '';

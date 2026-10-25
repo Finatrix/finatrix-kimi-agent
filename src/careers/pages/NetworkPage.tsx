@@ -6,8 +6,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
-import { PageHead, ToolFoot } from '../../tools/ui/common';
-import { EmptyState, ErrorCard, ModalShell, PageLoading } from '../components/states';
+import { ErrorCard, ModalShell, PageLoading } from '../components/states';
+import { Empty, Panel } from '../ui/primitives';
+import '../ui/forms.css';
 import { useCareers } from '../context/CareersContext';
 import {
   deleteNetworkContact,
@@ -89,46 +90,56 @@ export default function NetworkPage() {
   if (loading) return <PageLoading />;
 
   return (
-    <div className="fx-page">
-      <PageHead chip="Networking" chipColor="#D4AF37" chipBg="rgba(212,175,55,.12)" icon="users" title="Your professional network">
-        Mentors, hiring managers, referrals and alumni — with follow-up reminders so nobody goes cold.
-      </PageHead>
-
+    <div>
       {(ctxError || loadError) && <ErrorCard error={(ctxError ?? loadError)!} onRetry={() => { void refresh(); void load(); }} />}
 
-      {dueSoon.length > 0 && (
-        <div className="tip tip-info" style={{ marginBottom: 12 }}>
-          <b>Follow up soon</b>
-          {dueSoon.map((c) => <div key={c.id}>· {c.name} — due {formatDate(c.follow_up_at!)}</div>)}
-        </div>
-      )}
+      <Panel
+        title="Your network"
+        action={<button type="button" className="cx-btn cx-btn-sm" onClick={() => { setForm({ ...EMPTY_FORM }); setEditOpen(true); }}>Add contact</button>}
+      >
+        <p className="cx-sub" style={{ marginBottom: 14 }}>
+          Mentors, hiring managers, referrals and alumni, with follow-up dates so conversations do not lapse.
+        </p>
 
-      <div className="lib-toolbar">
-        <input className="fi" style={{ maxWidth: 320 }} placeholder="Search your network…" aria-label="Search your network…" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <button className="btn btn-sm" style={{ width: 'auto' }} onClick={() => { setForm({ ...EMPTY_FORM }); setEditOpen(true); }}>+ Add contact</button>
-      </div>
-
-      {!visible.length ? (
-        <div className="card"><EmptyState icon="users" title="No contacts yet">Add a mentor, referral or hiring manager to get started.</EmptyState></div>
-      ) : (
-        visible.map((c) => (
-          <div className="card" key={c.id} style={{ padding: 14, marginBottom: 8 }}>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <b>{c.name}</b>
-                <div className="job-meta">
-                  <span className="badge badge-blue">{c.relationship.replace('_', ' ')}</span>
-                  {c.company_name && <span>{c.company_name}</span>}
-                  {c.university && <span>{c.university}</span>}
-                  {c.follow_up_at && <span>Follow up {formatDate(c.follow_up_at)}</span>}
-                </div>
-              </div>
-              <button className="btn btn-ghost btn-sm" style={{ width: 'auto' }} onClick={() => void openDetail(c)}>Open</button>
-              <button className="icon-btn danger" aria-label={`Delete ${c.name}`} onClick={() => { if (user) void deleteNetworkContact(user.id, c.id).then(load); }}>✕</button>
-            </div>
+        {dueSoon.length > 0 && (
+          <div className="cx-notice" style={{ flexDirection: 'column', marginBottom: 14 }} role="status">
+            <strong>Follow up soon</strong>
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              {dueSoon.map((c) => <li key={c.id}>{c.name}, due {formatDate(c.follow_up_at!)}</li>)}
+            </ul>
           </div>
-        ))
-      )}
+        )}
+
+        <div className="cxf-toolbar">
+          <input className="fi cxf-grow" type="search" placeholder="Search your network" aria-label="Search your network" value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+
+        {!visible.length ? (
+          <Empty title="No contacts yet">Add a mentor, referral or hiring manager to get started.</Empty>
+        ) : (
+          <ul className="cx-list">
+            {visible.map((c) => (
+              <li key={c.id}>
+                <div className="cx-row">
+                  <div className="cx-row-main">
+                    <p className="cx-row-title">{c.name}</p>
+                    <p className="cx-row-meta">
+                      <span className="cx-chip">{c.relationship.replace('_', ' ')}</span>
+                      {c.company_name && <span>{c.company_name}</span>}
+                      {c.university && <span>{c.university}</span>}
+                      {c.follow_up_at && <span>Follow up {formatDate(c.follow_up_at)}</span>}
+                    </p>
+                  </div>
+                  <div className="cx-row-actions">
+                    <button type="button" className="cx-btn cx-btn-sm" onClick={() => void openDetail(c)}>Open</button>
+                    <button type="button" className="cx-icon-btn" aria-label={`Delete ${c.name}`} onClick={() => { if (user) void deleteNetworkContact(user.id, c.id).then(load); }}>✕</button>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
 
       {editOpen && (
         <ModalShell label="Add contact" onClose={() => setEditOpen(false)}>
@@ -154,7 +165,7 @@ export default function NetworkPage() {
       )}
 
       {detail && (
-        <ModalShell label={`Contact — ${detail.name}`} onClose={() => setDetail(null)} wide>
+        <ModalShell label={`Contact: ${detail.name}`} onClose={() => setDetail(null)} wide>
             <h3>{detail.name}</h3>
             {detail.notes && <p className="note" style={{ marginTop: 8 }}>{detail.notes}</p>}
             <div className="panel-eyebrow" style={{ marginTop: 16 }}>Log a conversation</div>
@@ -170,8 +181,6 @@ export default function NetworkPage() {
             <button className="btn btn-ghost btn-sm" style={{ marginTop: 14 }} onClick={() => setDetail(null)}>Close</button>
         </ModalShell>
       )}
-
-      <ToolFoot><b>Networking CRM</b> · every relationship, tracked</ToolFoot>
     </div>
   );
 }

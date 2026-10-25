@@ -1,148 +1,114 @@
 /**
- * UX pass — navigation reachability and dialog focus containment.
+ * Careers navigation and dialog focus containment.
  *
- * These pin the two structural fixes:
- *  1. Every routable Careers section is reachable from the navigation itself,
- *     not only from a list buried inside Settings. The seven-pill focus
- *     decision stays; the rest live behind one grouped "More" disclosure.
- *  2. A modal dialog contains Tab. Escape and initial focus were already
- *     handled; Tab walked straight out into the page behind the backdrop.
+ * Pins the six-area structure: every place in Careers is an area or a tab of
+ * one, every former page address lands on its new home with its query intact,
+ * the area tabs behave as WAI-ARIA tabs, and a modal dialog contains Tab.
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
-import { render, screen, cleanup, within, fireEvent, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router';
-import {
-  CAREERS_HIDDEN_SECTIONS,
-  CAREERS_MORE_IDS,
-  CAREERS_NAV,
-  CAREERS_SECTION_GROUPS,
-} from '../careers/constants';
-import { SectionMenu } from '../careers/components/SectionMenu';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
+import { useState } from 'react';
+import { CAREERS_HIDDEN_SECTIONS, CAREERS_NAV, CAREERS_ROUTES, careersAreaFor } from '../careers/constants';
+import { CareersRedirect } from '../careers/areas/CareersRedirect';
+import { Tabs } from '../careers/ui/primitives';
 import { ModalShell } from '../careers/components/states';
 
 afterEach(cleanup);
 
+const AREA_PATHS = new Set<string>([...CAREERS_NAV.map((n) => n.href), CAREERS_ROUTES.settings, CAREERS_ROUTES.admin, CAREERS_ROUTES.companyProfile]);
+
 describe('Careers information architecture', () => {
-  it('keeps the primary tab bar at the seven-item focus decision', () => {
-    expect(CAREERS_NAV).toHaveLength(7);
+  it('has six areas, in the order a job search runs', () => {
+    expect(CAREERS_NAV.map((n) => n.name)).toEqual(['Home', 'Resume', 'Jobs', 'Applications', 'Interviews', 'Companies']);
   });
 
-  it('surfaces every hidden section that has no stronger entry point', () => {
-    // upload         → primary action on the dashboard and Resume Library
-    // profile        → entered from the dashboard's Career DNA card
-    // admin          → RBAC-gated, rendered as its own pill for admins
-    // companyProfile → a detail route, reached from a company, never from nav
-    const ownEntryPoint = new Set(['upload', 'profile', 'admin', 'companyProfile']);
-    const expected = CAREERS_HIDDEN_SECTIONS
-      .map((s) => s.id)
-      .filter((id) => !ownEntryPoint.has(id));
-
-    expect([...CAREERS_MORE_IDS].sort()).toEqual([...expected].sort());
+  it('puts every other place inside an area, Settings or Admin', () => {
+    for (const s of CAREERS_HIDDEN_SECTIONS) {
+      expect(AREA_PATHS.has(s.href.split('?')[0]!)).toBe(true);
+    }
   });
 
-  it('lists each section exactly once across the groups', () => {
-    expect(new Set(CAREERS_MORE_IDS).size).toBe(CAREERS_MORE_IDS.length);
+  it('names no place twice', () => {
+    const names = [...CAREERS_NAV, ...CAREERS_HIDDEN_SECTIONS].map((s) => s.name);
+    expect(new Set(names).size).toBe(names.length);
   });
 
-  it('never repeats a primary tab inside the More menu', () => {
-    const primary = new Set<string>(CAREERS_NAV.map((n) => n.id));
-    for (const id of CAREERS_MORE_IDS) expect(primary.has(id)).toBe(false);
+  it('knows which area a path belongs to', () => {
+    expect(careersAreaFor('/careers/jobs').name).toBe('Jobs');
+    expect(careersAreaFor('/careers/companies/profile').id).toBe('companies');
+    expect(careersAreaFor('/careers/settings').name).toBe('Settings');
+    expect(careersAreaFor('/careers/unknown').id).toBe('dashboard');
   });
 });
 
-describe('SectionMenu', () => {
-  const renderMenu = (activeId = 'dashboard') =>
+describe('CareersRedirect', () => {
+  function Where() {
+    const { pathname, search } = useLocation();
+    return <p>at {pathname + search}</p>;
+  }
+  const go = (from: string, to: string) =>
     render(
-      <MemoryRouter>
-        <SectionMenu activeId={activeId} />
-      </MemoryRouter>
+      <MemoryRouter initialEntries={[from]}>
+        <Routes>
+          <Route path="/careers/old" element={<CareersRedirect to={to} />} />
+          <Route path="*" element={<Where />} />
+        </Routes>
+      </MemoryRouter>,
     );
-  const trigger = () => screen.getByRole('button', { name: /more/i });
 
-  it('is a collapsed disclosure until opened', () => {
-    renderMenu();
-    expect(trigger()).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByRole('menu')).toBeNull();
+  it('keeps the query the old link carried', () => {
+    go('/careers/old?checkout=success', CAREERS_ROUTES.billing);
+    expect(screen.getByText('at /careers/settings?checkout=success&tab=plan')).toBeInTheDocument();
   });
 
-  it('opens on click and exposes every section as a menu item', () => {
-    renderMenu();
-    fireEvent.click(trigger());
-
-    const menu = screen.getByRole('menu');
-    expect(trigger()).toHaveAttribute('aria-expanded', 'true');
-    for (const group of CAREERS_SECTION_GROUPS) {
-      for (const item of group.items) {
-        expect(within(menu).getByRole('menuitem', { name: item.name })).toBeInTheDocument();
-      }
-    }
+  it("lets the destination's tab win over a stale one", () => {
+    go('/careers/old?tab=nonsense&id=42', CAREERS_ROUTES.companyProfile);
+    expect(screen.getByText('at /careers/companies/profile?tab=nonsense&id=42')).toBeInTheDocument();
+    cleanup();
+    go('/careers/old?tab=nonsense', CAREERS_ROUTES.offers);
+    expect(screen.getByText('at /careers/applications?tab=offers')).toBeInTheDocument();
   });
+});
 
-  it('groups the items under labelled groups', () => {
-    renderMenu();
-    fireEvent.click(trigger());
-
-    expect(screen.getAllByRole('group')).toHaveLength(CAREERS_SECTION_GROUPS.length);
-    for (const g of CAREERS_SECTION_GROUPS) {
-      expect(screen.getByRole('group', { name: g.name })).toBeInTheDocument();
-    }
-  });
-
-  it('every menu item points at a real route', () => {
-    renderMenu();
-    fireEvent.click(trigger());
-
-    for (const group of CAREERS_SECTION_GROUPS) {
-      for (const item of group.items) {
-        expect(screen.getByRole('menuitem', { name: item.name })).toHaveAttribute('href', item.href);
-      }
-    }
-  });
-
-  it('closes on Escape and returns focus to the trigger', () => {
-    renderMenu();
-    const t = trigger();
-    fireEvent.click(t);
-    expect(screen.getByRole('menu')).toBeInTheDocument();
-
-    fireEvent.keyDown(t, { key: 'Escape' });
-    expect(screen.queryByRole('menu')).toBeNull();
-    expect(t).toHaveFocus();
-  });
-
-  it('opens with ArrowDown and lands on the first item', async () => {
-    renderMenu();
-    fireEvent.keyDown(trigger(), { key: 'ArrowDown' });
-
-    const first = CAREERS_SECTION_GROUPS[0].items[0].name;
-    await waitFor(() =>
-      expect(screen.getByRole('menuitem', { name: first })).toHaveFocus()
+describe('Area tabs', () => {
+  function Fixture() {
+    const [active, setActive] = useState<'a' | 'b' | 'c'>('a');
+    return (
+      <Tabs
+        label="Views"
+        active={active}
+        onChange={setActive}
+        items={[
+          { key: 'a', label: 'Alpha' },
+          { key: 'b', label: 'Beta', count: 3 },
+          { key: 'c', label: 'Gamma' },
+        ]}
+      />
     );
+  }
+
+  it('exposes a tablist with one selected tab in the Tab order', () => {
+    render(<Fixture />);
+    expect(screen.getByRole('tablist', { name: 'Views' })).toBeInTheDocument();
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs.map((t) => t.getAttribute('aria-selected'))).toEqual(['true', 'false', 'false']);
+    expect(tabs.map((t) => t.tabIndex)).toEqual([0, -1, -1]);
   });
 
-  it('moves between items with the arrow keys', async () => {
-    renderMenu();
-    fireEvent.keyDown(trigger(), { key: 'ArrowDown' });
-
-    const [one, two] = CAREERS_SECTION_GROUPS[0].items;
-    await waitFor(() => expect(screen.getByRole('menuitem', { name: one.name })).toHaveFocus());
-
-    fireEvent.keyDown(screen.getByRole('menu'), { key: 'ArrowDown' });
-    expect(screen.getByRole('menuitem', { name: two.name })).toHaveFocus();
-
-    fireEvent.keyDown(screen.getByRole('menu'), { key: 'ArrowUp' });
-    expect(screen.getByRole('menuitem', { name: one.name })).toHaveFocus();
-  });
-
-  it('marks the trigger and the row as current when a menu section is open', () => {
-    renderMenu('offers');
-    // The pill reads as selected so the user is not left wondering which nav
-    // item their current page belongs to.
-    expect(trigger().className).toContain('on');
-
-    fireEvent.click(trigger());
-    expect(screen.getByRole('menuitem', { name: 'Offers' })).toHaveAttribute('aria-current', 'page');
+  it('moves with the arrow keys, Home and End, wrapping at the ends', () => {
+    render(<Fixture />);
+    const list = screen.getByRole('tablist');
+    fireEvent.keyDown(list, { key: 'ArrowLeft' });
+    expect(screen.getByRole('tab', { name: 'Gamma' })).toHaveAttribute('aria-selected', 'true');
+    expect(document.activeElement).toBe(screen.getByRole('tab', { name: 'Gamma' }));
+    fireEvent.keyDown(list, { key: 'Home' });
+    expect(screen.getByRole('tab', { name: 'Alpha' })).toHaveAttribute('aria-selected', 'true');
+    fireEvent.keyDown(list, { key: 'ArrowRight' });
+    expect(screen.getByRole('tab', { name: /Beta/ })).toHaveAttribute('aria-selected', 'true');
+    fireEvent.keyDown(list, { key: 'End' });
+    expect(screen.getByRole('tab', { name: 'Gamma' })).toHaveAttribute('aria-selected', 'true');
   });
 });
 

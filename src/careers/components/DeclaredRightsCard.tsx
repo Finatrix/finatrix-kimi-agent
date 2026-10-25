@@ -4,6 +4,7 @@ import { CAREERS_MARKETS, type CareersMarket, type DeclaredRights } from '../mar
 import { updateProfileMeta } from '../services/careerProfile';
 import type { CareerProfileRow } from '../types';
 import { toCareersError } from '../utils/errors';
+import '../areas/resume/resume.css';
 
 const STATUS_VALUES: ReadonlySet<string> = new Set<DeclaredRights>(['citizen', 'permanent', 'unrestricted_visa', 'needs_sponsorship']);
 
@@ -43,13 +44,13 @@ export function DeclaredRightsCard({ userId, profile, onSaved }: { userId: strin
   };
 
   return (
-    <div className="card" style={{ marginBottom: 14 }}>
-      <fieldset style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
-        <legend className="panel-eyebrow">Work rights by country</legend>
-        <p style={{ fontSize: 13, color: 'var(--ink2)', lineHeight: 1.6, margin: '10px 0 14px' }}>
-          Job cards compare what a posting says about citizenship, residency and sponsorship with what you set here.
-          Nothing is guessed, and this is not immigration advice.
-        </p>
+    <fieldset className="rs-rights">
+      <legend>Work rights by country</legend>
+      <p className="cx-sub" style={{ marginBottom: 16 }}>
+        Job cards compare what a posting says about citizenship, residency and sponsorship with what you set here.
+        Nothing is guessed, and this is not immigration advice.
+      </p>
+      <div className="rs-form">
         {CAREERS_MARKETS.map((m) => (
           <div className="fg" key={m.id}>
             <label className="fl" htmlFor={`rights-${m.id}`}>{m.name}</label>
@@ -66,7 +67,7 @@ export function DeclaredRightsCard({ userId, profile, onSaved }: { userId: strin
             </select>
           </div>
         ))}
-      </fieldset>
-    </div>
+      </div>
+    </fieldset>
   );
 }

@@ -7,8 +7,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
-import { PageHead, ToolFoot } from '../../tools/ui/common';
-import { EmptyState, ErrorCard, PageLoading } from '../components/states';
+import { ErrorCard, PageLoading } from '../components/states';
+import { Empty } from '../ui/primitives';
+import '../ui/forms.css';
 import { useCareers } from '../context/CareersContext';
 import { listApplications } from '../services/applications';
 import {
@@ -49,7 +50,7 @@ export default function AssessmentsPage() {
 
   const appName = (id: string | null) => {
     const a = applications.find((x) => x.id === id);
-    return a ? `${a.job_title} — ${a.company_name}` : '';
+    return a ? `${a.job_title} at ${a.company_name}` : '';
   };
 
   const add = async () => {
@@ -79,65 +80,88 @@ export default function AssessmentsPage() {
   if (loading) return <PageLoading />;
 
   return (
-    <div className="fx-page">
-      <PageHead chip="Assessment Center" chipColor="#D4AF37" chipBg="rgba(212,175,55,.12)" icon="check" title="Every test, tracked">
-        Online assessments, case studies, psychometric and coding tests — deadlines, links and results in one place.
-      </PageHead>
-
+    <div className="cxf-stack">
       {(ctxError || loadError) && <ErrorCard error={(ctxError ?? loadError)!} onRetry={() => { void refresh(); void load(); }} />}
 
-      <div className="card">
-        <div className="panel-eyebrow" style={{ marginBottom: 12 }}>New assessment</div>
-        <div className="grid3" style={{ marginBottom: 10 }}>
-          <input className="fi" placeholder="Title *" aria-label="Title (required)" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
-          <select className="fs" aria-label="Assessment type" value={form.kind} onChange={(e) => setForm((f) => ({ ...f, kind: e.target.value as AssessmentKind }))}>
-            {ASSESSMENT_KINDS.map((k) => <option key={k} value={k}>{k.replace('_', ' ')}</option>)}
-          </select>
-          <select className="fs" aria-label="Linked application" value={form.applicationId} onChange={(e) => setForm((f) => ({ ...f, applicationId: e.target.value }))}>
-            <option value="">No linked application</option>
-            {applications.map((a) => <option key={a.id} value={a.id}>{a.job_title} — {a.company_name}</option>)}
-          </select>
+      <section className="cx-panel" aria-labelledby="as-new">
+        <div className="cx-panel-head"><h2 id="as-new">New assessment</h2></div>
+        <div className="cxf-form cxf-form-3">
+          <div className="fg cxf-wide">
+            <label className="fl" htmlFor="as-title">Title (required)</label>
+            <input id="as-title" className="fi" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
+          </div>
+          <div className="fg">
+            <label className="fl" htmlFor="as-kind">Type</label>
+            <select id="as-kind" className="fs" value={form.kind} onChange={(e) => setForm((f) => ({ ...f, kind: e.target.value as AssessmentKind }))}>
+              {ASSESSMENT_KINDS.map((k) => <option key={k} value={k}>{k.replace('_', ' ')}</option>)}
+            </select>
+          </div>
+          <div className="fg">
+            <label className="fl" htmlFor="as-provider">Provider, for example HackerRank</label>
+            <input id="as-provider" className="fi" value={form.provider} onChange={(e) => setForm((f) => ({ ...f, provider: e.target.value }))} />
+          </div>
+          <div className="fg">
+            <label className="fl" htmlFor="as-due">Due date and time</label>
+            <input id="as-due" className="fi" type="datetime-local" value={form.dueAt} onChange={(e) => setForm((f) => ({ ...f, dueAt: e.target.value }))} />
+          </div>
+          <div className="fg cxf-wide">
+            <label className="fl" htmlFor="as-link">Link</label>
+            <input id="as-link" className="fi" value={form.link} onChange={(e) => setForm((f) => ({ ...f, link: e.target.value }))} />
+          </div>
+          <div className="fg cxf-wide">
+            <label className="fl" htmlFor="as-app">Linked application</label>
+            <select id="as-app" className="fs" value={form.applicationId} onChange={(e) => setForm((f) => ({ ...f, applicationId: e.target.value }))}>
+              <option value="">No linked application</option>
+              {applications.map((a) => <option key={a.id} value={a.id}>{a.job_title} at {a.company_name}</option>)}
+            </select>
+          </div>
+          <div className="fg cxf-wide">
+            <label className="fl" htmlFor="as-notes">Prep notes</label>
+            <textarea id="as-notes" className="fi" style={{ minHeight: 60 }} value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
+          </div>
         </div>
-        <div className="grid3" style={{ marginBottom: 10 }}>
-          <input className="fi" placeholder="Provider (e.g. HackerRank)" aria-label="Provider (e.g. HackerRank)" value={form.provider} onChange={(e) => setForm((f) => ({ ...f, provider: e.target.value }))} />
-          <input className="fi" placeholder="Link" aria-label="Link" value={form.link} onChange={(e) => setForm((f) => ({ ...f, link: e.target.value }))} />
-          <input className="fi" type="datetime-local" aria-label="Due date and time" value={form.dueAt} onChange={(e) => setForm((f) => ({ ...f, dueAt: e.target.value }))} />
+        <div className="cxf-actions">
+          <button type="button" className="cx-btn cx-btn-primary" disabled={saving} onClick={() => void add()}>Add assessment</button>
         </div>
-        <textarea className="fi" style={{ minHeight: 60, marginBottom: 10 }} placeholder="Prep notes" aria-label="Prep notes" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
-        <button className={`btn ${saving ? 'btn-loading' : ''}`} disabled={saving} onClick={() => void add()}>Add assessment</button>
-      </div>
+      </section>
 
       {!items.length ? (
-        <div className="card"><EmptyState icon="check" title="No assessments yet" /></div>
+        <div className="cx-panel"><Empty title="No assessments yet">Add online tests, case studies and coding challenges above to track deadlines and results.</Empty></div>
       ) : (
-        items.map((a) => (
-          <div className="card" key={a.id} style={{ padding: 14, marginBottom: 8 }}>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <b>{a.title}</b>
-                <div className="job-meta">
-                  <span className="badge badge-mute">{a.kind.replace('_', ' ')}</span>
-                  {a.provider && <span>{a.provider}</span>}
-                  {a.application_id && <span>{appName(a.application_id)}</span>}
-                  {a.due_at && <span>Due {formatDate(a.due_at)}</span>}
-                  {a.result && <span className={`badge ${a.result === 'pass' ? 'badge-green' : a.result === 'fail' ? 'badge-red' : 'badge-blue'}`}>{a.result}</span>}
-                  {a.score != null && <b style={{ color: scoreColor(a.score) }}>{a.score}</b>}
+        <section className="cx-panel" aria-label="Assessments">
+          <ul className="cx-list">
+            {items.map((a) => (
+              <li key={a.id}>
+                <div className="cx-row">
+                  <div className="cx-row-main">
+                    <p className="cx-row-title wrap">{a.title}</p>
+                    <p className="cx-row-meta">
+                      <span className="cx-chip">{a.kind.replace('_', ' ')}</span>
+                      <span className={`cx-chip ${a.result === 'pass' ? 'cx-chip-good' : a.result === 'fail' ? 'cx-chip-bad' : ''}`}>
+                        {a.result ? a.result : a.completed_at ? 'Completed' : 'Not taken'}
+                      </span>
+                      {a.provider && <span>{a.provider}</span>}
+                      {a.application_id && <span>{appName(a.application_id)}</span>}
+                      {a.due_at && <span>Due {formatDate(a.due_at)}</span>}
+                      {a.score != null && <span className="cx-num" style={{ color: scoreColor(a.score) }}>Score {a.score}</span>}
+                    </p>
+                    {a.link && <a className="cx-sub" href={a.link} target="_blank" rel="noopener noreferrer">Open assessment (opens in a new tab)</a>}
+                  </div>
+                  <div className="cx-row-actions">
+                    {!a.completed_at && (
+                      <>
+                        <button type="button" className="cx-btn cx-btn-sm" onClick={() => void setResult(a, 'pass')}>Passed</button>
+                        <button type="button" className="cx-btn cx-btn-sm" onClick={() => void setResult(a, 'fail')}>Failed</button>
+                      </>
+                    )}
+                    <button type="button" className="cx-icon-btn" aria-label={`Delete ${a.title}`} onClick={() => { if (user) void deleteAssessment(user.id, a.id).then(load); }}>✕</button>
+                  </div>
                 </div>
-                {a.link && <a className="note" href={a.link} target="_blank" rel="noopener noreferrer">Open assessment ↗</a>}
-              </div>
-              {!a.completed_at && (
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button className="btn btn-ghost btn-sm" style={{ width: 'auto' }} onClick={() => void setResult(a, 'pass')}>Passed</button>
-                  <button className="btn btn-ghost btn-sm" style={{ width: 'auto' }} onClick={() => void setResult(a, 'fail')}>Failed</button>
-                </div>
-              )}
-              <button className="icon-btn danger" aria-label={`Delete ${a.title}`} onClick={() => { if (user) void deleteAssessment(user.id, a.id).then(load); }}>✕</button>
-            </div>
-          </div>
-        ))
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
-
-      <ToolFoot><b>Assessment Center</b> · results feed your application timeline automatically</ToolFoot>
     </div>
   );
 }

@@ -10,6 +10,8 @@ import { RESET_PASSWORD_PATH } from './shared/routes'
 import NativeShell from './native/NativeShell'
 import KeyboardBar from './components/KeyboardBar'
 import { canPurchaseInApp, isNativeApp } from './native/platform'
+import { CareersRedirect } from './careers/areas/CareersRedirect'
+import { CAREERS_ROUTES } from './careers/constants'
 
 // Route-level code-splitting: each page (and its heavy deps like the
 // Supabase-backed tools) loads only when its route is visited.
@@ -20,27 +22,15 @@ const ToolRoute = lazy(() => import('./tools/ToolRoute'))
 const Dashboard = lazy(() => import('./tools/pages/DashboardPage'))
 const CareersAvailability = lazy(() => import('./pages/careers/CareersAvailability'))
 const CareersLayout = lazy(() => import('./careers/CareersLayout'))
-const CareersDashboard = lazy(() => import('./careers/pages/CareersDashboard'))
-const CareersUpload = lazy(() => import('./careers/pages/CareersUpload'))
-const ResumeLibrary = lazy(() => import('./careers/pages/ResumeLibrary'))
-const JobsPage = lazy(() => import('./careers/pages/JobsPage'))
-const MatchQueuePage = lazy(() => import('./careers/pages/MatchQueuePage'))
-const ApplicationsPage = lazy(() => import('./careers/pages/ApplicationsPage'))
-const CompaniesPage = lazy(() => import('./careers/pages/CompaniesPage'))
-const CompanyIntelPage = lazy(() => import('./careers/pages/CompanyIntelPage'))
-const CompanyProfilePage = lazy(() => import('./careers/pages/CompanyProfilePage'))
-const InterviewPrepPage = lazy(() => import('./careers/pages/InterviewPrepPage'))
-const CareerCoachPage = lazy(() => import('./careers/pages/CareerCoachPage'))
-const CareerProfilePage = lazy(() => import('./careers/pages/CareerProfilePage'))
-const CareersSettings = lazy(() => import('./careers/pages/CareersSettings'))
-const TasksPage = lazy(() => import('./careers/pages/TasksPage'))
-const RecruitersPage = lazy(() => import('./careers/pages/RecruitersPage'))
-const NetworkPage = lazy(() => import('./careers/pages/NetworkPage'))
-const AssessmentsPage = lazy(() => import('./careers/pages/AssessmentsPage'))
-const OffersPage = lazy(() => import('./careers/pages/OffersPage'))
-const KnowledgeBasePage = lazy(() => import('./careers/pages/KnowledgeBasePage'))
-const BillingPage = lazy(() => import('./careers/pages/BillingPage'))
-const AdminDashboard = lazy(() => import('./careers/pages/AdminDashboard'))
+const HomeArea = lazy(() => import('./careers/areas/HomeArea').then((m) => ({ default: m.HomeArea })))
+const ResumeArea = lazy(() => import('./careers/areas/areas').then((m) => ({ default: m.ResumeArea })))
+const JobsArea = lazy(() => import('./careers/areas/areas').then((m) => ({ default: m.JobsArea })))
+const ApplicationsArea = lazy(() => import('./careers/areas/areas').then((m) => ({ default: m.ApplicationsArea })))
+const InterviewsArea = lazy(() => import('./careers/areas/areas').then((m) => ({ default: m.InterviewsArea })))
+const CompaniesArea = lazy(() => import('./careers/areas/areas').then((m) => ({ default: m.CompaniesArea })))
+const CompanyProfileArea = lazy(() => import('./careers/areas/areas').then((m) => ({ default: m.CompanyProfileArea })))
+const SettingsArea = lazy(() => import('./careers/areas/areas').then((m) => ({ default: m.SettingsArea })))
+const AdminArea = lazy(() => import('./careers/areas/areas').then((m) => ({ default: m.AdminArea })))
 const Login = lazy(() => import('./pages/Login'))
 const Signup = lazy(() => import('./pages/Signup'))
 const ResetPassword = lazy(() => import('./pages/ResetPassword'))
@@ -209,28 +199,34 @@ export default function App() {
             <Route path="/careers/compare/:rival" element={webOnly(<CareersCompare />, CAREERS_HOME)} />
 
             <Route path="/careers" element={<CareersLayout />}>
-              <Route path="dashboard" element={<CareersDashboard />} />
-              <Route path="upload" element={<CareersUpload />} />
-              <Route path="resumes" element={<ResumeLibrary />} />
-              <Route path="jobs" element={<JobsPage />} />
-              <Route path="queue" element={<MatchQueuePage />} />
-              <Route path="applications" element={<ApplicationsPage />} />
-              <Route path="tasks" element={<TasksPage />} />
-              <Route path="companies" element={<CompaniesPage />} />
-              <Route path="intelligence" element={<CompanyIntelPage />} />
-              <Route path="intelligence/company" element={<CompanyProfilePage />} />
-              <Route path="recruiters" element={<RecruitersPage />} />
-              <Route path="network" element={<NetworkPage />} />
-              <Route path="interviews" element={<InterviewPrepPage />} />
-              <Route path="assessments" element={<AssessmentsPage />} />
-              <Route path="offers" element={<OffersPage />} />
-              <Route path="knowledge" element={<KnowledgeBasePage />} />
-              <Route path="coach" element={<CareerCoachPage />} />
-              <Route path="billing" element={<BillingPage />} />
-              <Route path="admin" element={<AdminDashboard />} />
-              <Route path="profile" element={<CareerProfilePage />} />
-              <Route path="settings" element={<CareersSettings />} />
+              <Route path="dashboard" element={<HomeArea />} />
+              <Route path="resume" element={<ResumeArea />} />
+              <Route path="jobs" element={<JobsArea />} />
+              <Route path="applications" element={<ApplicationsArea />} />
+              <Route path="interviews" element={<InterviewsArea />} />
+              <Route path="companies" element={<CompaniesArea />} />
+              <Route path="companies/profile" element={<CompanyProfileArea />} />
+              <Route path="settings" element={<SettingsArea />} />
+              <Route path="admin" element={<AdminArea />} />
             </Route>
+            {/* Former pages, now tabs of an area. Kept because their URLs live
+                on in bookmarks, emails, Stripe return URLs and stored
+                notification links. Outside the layout so they redirect
+                before any sign-in gate. */}
+            <Route path="/careers/upload" element={<CareersRedirect to={CAREERS_ROUTES.upload} />} />
+            <Route path="/careers/resumes" element={<CareersRedirect to={CAREERS_ROUTES.resumes} />} />
+            <Route path="/careers/profile" element={<CareersRedirect to={CAREERS_ROUTES.profile} />} />
+            <Route path="/careers/queue" element={<CareersRedirect to={CAREERS_ROUTES.queue} />} />
+            <Route path="/careers/tasks" element={<CareersRedirect to={CAREERS_ROUTES.tasks} />} />
+            <Route path="/careers/assessments" element={<CareersRedirect to={CAREERS_ROUTES.assessments} />} />
+            <Route path="/careers/offers" element={<CareersRedirect to={CAREERS_ROUTES.offers} />} />
+            <Route path="/careers/knowledge" element={<CareersRedirect to={CAREERS_ROUTES.knowledge} />} />
+            <Route path="/careers/coach" element={<CareersRedirect to={CAREERS_ROUTES.coach} />} />
+            <Route path="/careers/intelligence" element={<CareersRedirect to={CAREERS_ROUTES.intelligence} />} />
+            <Route path="/careers/intelligence/company" element={<CareersRedirect to={CAREERS_ROUTES.companyProfile} />} />
+            <Route path="/careers/recruiters" element={<CareersRedirect to={CAREERS_ROUTES.recruiters} />} />
+            <Route path="/careers/network" element={<CareersRedirect to={CAREERS_ROUTES.network} />} />
+            <Route path="/careers/billing" element={<CareersRedirect to={CAREERS_ROUTES.billing} />} />
             <Route path="/careers/*" element={<NotFound />} />
           </Route>
           <Route path="/login" element={<Login />} />

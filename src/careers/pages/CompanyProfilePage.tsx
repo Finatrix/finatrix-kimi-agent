@@ -11,8 +11,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
-import { PageHead, ToolFoot } from '../../tools/ui/common';
-import { EmptyState, ErrorCard, PageLoading } from '../components/states';
+import { Empty, PageHeader } from '../ui/primitives';
+import { ErrorCard, PageLoading } from '../components/states';
+import '../ui/forms.css';
 import { CAREERS_ROUTES } from '../constants';
 import { getCompanyById, relatedCompanies } from '../services/companyIntelligence';
 import {
@@ -30,17 +31,17 @@ import { formatDate } from '../utils/format';
 function Field({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null;
   return (
-    <div className="stat-cell">
-      <div className="l">{label}</div>
-      <div className="v" style={{ fontSize: 14 }}>{value}</div>
+    <div>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
     </div>
   );
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="card" style={{ padding: 18, marginBottom: 12 }} aria-label={title}>
-      <div className="panel-eyebrow" style={{ marginBottom: 10 }}>{title}</div>
+    <section className="cx-panel" aria-label={title}>
+      <div className="cx-panel-head"><h2>{title}</h2></div>
       {children}
     </section>
   );
@@ -119,11 +120,11 @@ export default function CompanyProfilePage() {
   if (error) return <div className="tool-wrap"><ErrorCard error={error} onRetry={() => void load()} /></div>;
   if (!company) {
     return (
-      <div className="fx-page">
-        <EmptyState icon="bank" title="Company not found">
-          This company is not in the intelligence base.{' '}
-          <Link to={CAREERS_ROUTES.intelligence}>Back to Company Intelligence</Link>.
-        </EmptyState>
+      <div>
+        <Empty title="Company not found">
+          This company is not in the company directory.{' '}
+          <Link to={CAREERS_ROUTES.intelligence}>Back to the directory</Link>.
+        </Empty>
       </div>
     );
   }
@@ -133,31 +134,30 @@ export default function CompanyProfilePage() {
   const careerPage = c.careerPages.find((p) => p.url) ?? null;
 
   return (
-    <div className="fx-page">
-      <PageHead chip="Company Intelligence" chipColor="#D4AF37" chipBg="rgba(212,175,55,.12)" icon="bank" title={c.name}>
-        {[c.industry, c.sector].filter(Boolean).join(' · ') || 'Structured company intelligence'}
-      </PageHead>
+    <div className="cxf-stack">
+      <PageHeader title={c.name} description={[c.industry, c.sector].filter(Boolean).join(', ') || undefined} />
 
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
-        <button className="btn btn-sm" onClick={() => void toggleSave()} aria-pressed={saved}>
-          {saved ? 'Saved ✓' : 'Save company'}
+      <div className="cxf-toolbar">
+        <button type="button" className="cx-btn cx-btn-primary" onClick={() => void toggleSave()} aria-pressed={saved}>
+          {saved ? 'Saved' : 'Save company'}
         </button>
-        <button className="btn btn-ghost btn-sm" onClick={() => void toggleFavourite()} aria-pressed={favourite}>
-          {favourite ? '★ Favourite' : '☆ Favourite'}
+        <button type="button" className="cx-btn" onClick={() => void toggleFavourite()} aria-pressed={favourite}>
+          {favourite ? 'Favourited' : 'Favourite'}
         </button>
         <button
-          className="btn btn-ghost btn-sm"
+          type="button"
+          className="cx-btn"
           onClick={() => navigate(`${CAREERS_ROUTES.jobs}?q=${encodeURIComponent(c.name)}`)}
         >
-          Find live jobs ↗
+          Find live jobs
         </button>
-        {c.confidenceScore != null && <span className="badge badge-gold" style={{ alignSelf: 'center' }}>Confidence {c.confidenceScore}%</span>}
-        {c.lastVerified && <span className="badge badge-mute" style={{ alignSelf: 'center' }}>Verified {formatDate(c.lastVerified)}</span>}
-        {!c.lastVerified && c.verificationStatus && <span className="badge badge-mute" style={{ alignSelf: 'center' }}>{c.verificationStatus}</span>}
+        {c.confidenceScore != null && <span className="cx-chip cx-chip-accent cx-num">Data confidence {c.confidenceScore}%</span>}
+        {c.lastVerified && <span className="cx-chip">Verified {formatDate(c.lastVerified)}</span>}
+        {!c.lastVerified && c.verificationStatus && <span className="cx-chip">{c.verificationStatus}</span>}
       </div>
 
       <Section title="Overview">
-        <div className="dash-grid">
+        <dl className="cxf-facts">
           <Field label="Industry" value={c.industry} />
           <Field label="Sector" value={c.sector} />
           <Field label="Sub-sector" value={c.subSector} />
@@ -172,14 +172,14 @@ export default function CompanyProfilePage() {
           <Field label="Freshers friendly" value={YES_NO(c.freshersFriendly)} />
           <Field label="Experienced hiring" value={YES_NO(c.experiencedHiring)} />
           <Field label="Visa sponsorship" value={c.visaSponsorship.replace(/_/g, ' ')} />
-        </div>
+        </dl>
         {(c.officialWebsite || careerPage) && (
-          <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+          <div className="cxf-actions">
             {c.officialWebsite && (
-              <a className="btn btn-ghost btn-sm" style={{ width: 'auto', textDecoration: 'none' }} href={c.officialWebsite} target="_blank" rel="noopener noreferrer">Official website ↗</a>
+              <a className="cx-btn cx-btn-sm" href={c.officialWebsite} target="_blank" rel="noopener noreferrer">Official website (opens in a new tab)</a>
             )}
             {careerPage && (
-              <a className="btn btn-ghost btn-sm" style={{ width: 'auto', textDecoration: 'none' }} href={careerPage.url} target="_blank" rel="noopener noreferrer">Careers page ↗</a>
+              <a className="cx-btn cx-btn-sm" href={careerPage.url} target="_blank" rel="noopener noreferrer">Careers page (opens in a new tab)</a>
             )}
           </div>
         )}
@@ -187,10 +187,10 @@ export default function CompanyProfilePage() {
 
       {c.departments.length > 0 && (
         <Section title="Hiring departments">
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <div className="cxf-chips">
             {c.departments.map((d) => (
-              <Link key={d.function_id} to={`${CAREERS_ROUTES.intelligence}?facet=department&q=${encodeURIComponent(d.function_name)}`} className="badge badge-blue" style={{ textDecoration: 'none' }}>
-                {d.function_name}{d.hiring_active === 'likely' ? '' : ''}
+              <Link key={d.function_id} to={`${CAREERS_ROUTES.intelligence}?facet=department&q=${encodeURIComponent(d.function_name)}`} className="cx-chip" style={{ textDecoration: 'none', minHeight: 32 }}>
+                {d.function_name}
               </Link>
             ))}
           </div>
@@ -199,10 +199,10 @@ export default function CompanyProfilePage() {
 
       {c.locations.length > 0 && (
         <Section title="Locations">
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <div className="cxf-chips">
             {c.locations.map((l) => (
-              <span key={l.location_id} className={`badge ${l.is_headquarters ? 'badge-gold' : 'badge-mute'}`}>
-                {[l.city, l.state_region].filter(Boolean).join(', ')}{l.is_headquarters ? ' · HQ' : ''}
+              <span key={l.location_id} className={`cx-chip ${l.is_headquarters ? 'cx-chip-accent' : ''}`}>
+                {[l.city, l.state_region].filter(Boolean).join(', ')}{l.is_headquarters ? ', headquarters' : ''}
               </span>
             ))}
           </div>
@@ -216,11 +216,11 @@ export default function CompanyProfilePage() {
               {c.graduatePrograms.map((g) => (
                 <li key={g.program_id} style={{ marginBottom: 4 }}>
                   {g.program_url ? <a href={g.program_url} target="_blank" rel="noopener noreferrer">{g.program_name}</a> : g.program_name}
-                  {g.program_type && <span className="badge badge-mute" style={{ marginLeft: 6 }}>{g.program_type.replace(/_/g, ' ')}</span>}
+                  {g.program_type && <span className="cx-chip" style={{ marginLeft: 6 }}>{g.program_type.replace(/_/g, ' ')}</span>}
                 </li>
               ))}
             </ul>
-          ) : <div className="note">This company hires graduates.</div>}
+          ) : <p className="cx-sub">This company hires graduates.</p>}
         </Section>
       )}
 
@@ -231,20 +231,20 @@ export default function CompanyProfilePage() {
               {c.internships.map((i) => (
                 <li key={i.internship_id} style={{ marginBottom: 4 }}>
                   {i.internship_url ? <a href={i.internship_url} target="_blank" rel="noopener noreferrer">{i.internship_type}</a> : i.internship_type}
-                  {i.typical_season && <span className="note" style={{ marginLeft: 6 }}>{i.typical_season}</span>}
+                  {i.typical_season && <span className="cx-muted" style={{ marginLeft: 6 }}>{i.typical_season}</span>}
                 </li>
               ))}
             </ul>
-          ) : <div className="note">This company offers internships.</div>}
+          ) : <p className="cx-sub">This company offers internships.</p>}
         </Section>
       )}
 
       {c.ats.length > 0 && (
-        <Section title="Applicant Tracking System">
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <Section title="Applicant tracking system">
+          <div className="cxf-chips">
             {c.ats.map((a) => (
-              <span key={a.ats_record_id} className="badge badge-blue">
-                {a.detected_ats}{a.detection_confidence ? ` · ${a.detection_confidence} confidence` : ''}
+              <span key={a.ats_record_id} className="cx-chip">
+                {a.detected_ats}{a.detection_confidence ? `, ${a.detection_confidence} confidence` : ''}
               </span>
             ))}
           </div>
@@ -270,20 +270,20 @@ export default function CompanyProfilePage() {
               </tbody>
             </table>
           </div>
-          <div className="note" style={{ marginTop: 8 }}>Market estimates — confidence varies by row; not an offer or guarantee.</div>
+          <p className="cx-sub" style={{ marginTop: 8 }}>Market estimates. Confidence varies by row; this is not an offer or a guarantee.</p>
         </Section>
       )}
 
       {c.sources.length > 0 && (
         <Section title="Where opportunities are posted">
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <div className="cxf-chips">
             {c.sources.map((s) => (
               s.source.website_url ? (
-                <a key={s.source.source_id} className="badge badge-mute" style={{ textDecoration: 'none' }} href={s.source.website_url} target="_blank" rel="noopener noreferrer">
-                  {s.source.source_name} ↗
+                <a key={s.source.source_id} className="cx-chip" style={{ textDecoration: 'none', minHeight: 32 }} href={s.source.website_url} target="_blank" rel="noopener noreferrer">
+                  {s.source.source_name} (opens in a new tab)
                 </a>
               ) : (
-                <span key={s.source.source_id} className="badge badge-mute">{s.source.source_name}</span>
+                <span key={s.source.source_id} className="cx-chip">{s.source.source_name}</span>
               )
             ))}
           </div>
@@ -292,9 +292,9 @@ export default function CompanyProfilePage() {
 
       {related.length > 0 && (
         <Section title="Related companies">
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <div className="cxf-chips">
             {related.map((r) => (
-              <Link key={r.id} to={`${CAREERS_ROUTES.companyProfile}?id=${encodeURIComponent(r.id)}`} className="badge badge-gold" style={{ textDecoration: 'none' }}>
+              <Link key={r.id} to={`${CAREERS_ROUTES.companyProfile}?id=${encodeURIComponent(r.id)}`} className="cx-chip" style={{ textDecoration: 'none', minHeight: 32 }}>
                 {r.name}
               </Link>
             ))}
@@ -302,10 +302,10 @@ export default function CompanyProfilePage() {
         </Section>
       )}
 
-      <ToolFoot>
+      <p className="cx-sub">
         Company intelligence is structured metadata to help you research employers. It is not a source of
         live job listings and is never a guarantee of hiring. <Link to={CAREERS_ROUTES.intelligence}>Search all companies</Link>.
-      </ToolFoot>
+      </p>
     </div>
   );
 }

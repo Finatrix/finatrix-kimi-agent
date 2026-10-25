@@ -109,7 +109,7 @@ describe('Careers Pro paywall gate', () => {
   it('active paid subscriber: goes straight into Careers, never sees the paywall', async () => {
     h.subscription = { plan_id: 'professional', status: 'active' };
     renderAt('/careers/jobs');
-    expect((await screen.findAllByText('Job Search')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('Jobs')).length).toBeGreaterThan(0);
     expect(screen.queryByText('Unlock FinatriX Careers Pro')).toBeNull();
   });
 
@@ -117,7 +117,7 @@ describe('Careers Pro paywall gate', () => {
     h.isAdmin = true;
     h.subscription = { plan_id: 'free', status: 'active' };
     renderAt('/careers/jobs');
-    expect((await screen.findAllByText('Job Search')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('Jobs')).length).toBeGreaterThan(0);
     expect(screen.queryByText('Unlock FinatriX Careers Pro')).toBeNull();
   });
 

@@ -1,0 +1,37 @@
+/*
+ * Shared layout for the form-and-list pages inside the Applications,
+ * Interviews and Companies areas. Colours, radii and type come from cx.css;
+ * this file only arranges toolbars, compact forms and row actions.
+ */
+.cxf-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; }
+.cxf-toolbar > .fi, .cxf-toolbar > .fs { width: auto; min-width: 0; max-width: 100%; }
+.cxf-toolbar > .cxf-grow { flex: 1 1 220px; width: auto; }
+.cxf-spacer { flex: 1 1 0; }
+
+.cxf-form { display: grid; gap: 12px 16px; grid-template-columns: minmax(0, 1fr); }
+.cxf-form .fg { margin: 0; min-width: 0; }
+.cxf-form .cxf-wide { grid-column: 1 / -1; }
+@media (min-width: 720px) {
+  .cxf-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cxf-form-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.cxf-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; }
+
+.cx-row-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+.cx-row-side { flex: none; display: flex; align-items: center; gap: 12px; }
+@media (max-width: 639px) {
+  .cx-row { flex-wrap: wrap; }
+  .cx-row-actions { width: 100%; flex-wrap: wrap; }
+}
+.cx-row-actions .fs { width: auto; max-width: 100%; min-height: 40px; }
+.cx-row-title.wrap { white-space: normal; }
+
+.cxf-facts { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px 24px; margin: 0; }
+@media (min-width: 640px) { .cxf-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.cxf-facts dt { color: var(--ink3); font-size: 13px; }
+.cxf-facts dd { margin: 2px 0 0; color: var(--ink); font-size: 14.5px; overflow-wrap: anywhere; }
+
+.cxf-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cxf-stack > * + * { margin-top: 16px; }
+.cxf-check { display: flex; align-items: center; gap: 10px; min-height: 40px; cursor: pointer; }
+.cxf-check input { width: 18px; height: 18px; flex: none; }

@@ -8,10 +8,10 @@ const FIT_TEXT: Record<Exclude<RightsFit, 'unknown'>, string> = {
 };
 
 const FIT_CLASS: Record<RightsFit, string> = {
-  meets: 'badge-green',
-  does_not_meet: 'badge-red',
-  check: 'badge-gold',
-  unknown: 'badge-mute',
+  meets: 'cx-chip-good',
+  does_not_meet: 'cx-chip-bad',
+  check: 'cx-chip-warn',
+  unknown: '',
 };
 
 /**
@@ -31,9 +31,9 @@ export function WorkRightsChip({
   const label = rightsLabel(job.work_rights, market);
   const fit = compareRights(job.work_rights, declared?.[market]);
   return (
-    <span className={`badge ${FIT_CLASS[fit]}`}>
+    <span className={`cx-chip ${FIT_CLASS[fit]}`} style={{ whiteSpace: 'normal' }}>
       {label}
-      {fit !== 'unknown' && <> · {FIT_TEXT[fit]}</>}
+      {fit !== 'unknown' && <>, {FIT_TEXT[fit]}</>}
     </span>
   );
 }

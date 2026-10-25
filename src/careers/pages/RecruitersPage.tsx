@@ -6,8 +6,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
-import { PageHead, ToolFoot } from '../../tools/ui/common';
-import { EmptyState, ErrorCard, ModalShell, PageLoading } from '../components/states';
+import { ErrorCard, ModalShell, PageLoading } from '../components/states';
+import { Empty, Panel } from '../ui/primitives';
+import '../ui/forms.css';
 import { useCareers } from '../context/CareersContext';
 import {
   deleteRecruiter,
@@ -83,38 +84,46 @@ export default function RecruitersPage() {
   if (loading) return <PageLoading />;
 
   return (
-    <div className="fx-page">
-      <PageHead chip="Recruiter CRM" chipColor="#D4AF37" chipBg="rgba(212,175,55,.12)" icon="users" title="Every recruiter, one place">
-        Track who you've talked to, how the relationship is going, and every conversation that led there.
-      </PageHead>
-
+    <div>
       {(ctxError || loadError) && <ErrorCard error={(ctxError ?? loadError)!} onRetry={() => { void refresh(); void load(); }} />}
 
-      <div className="lib-toolbar">
-        <input className="fi" style={{ maxWidth: 320 }} placeholder="Search recruiters…" aria-label="Search recruiters…" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <button className="btn btn-sm" style={{ width: 'auto' }} onClick={() => { setForm({ ...EMPTY_FORM }); setEditOpen(true); }}>+ Add recruiter</button>
-      </div>
+      <Panel
+        title="Recruiters"
+        action={<button type="button" className="cx-btn cx-btn-sm" onClick={() => { setForm({ ...EMPTY_FORM }); setEditOpen(true); }}>Add recruiter</button>}
+      >
+        <p className="cx-sub" style={{ marginBottom: 14 }}>
+          Who you have talked to and how it is going. The relationship score grows as you log contact.
+        </p>
+        <div className="cxf-toolbar">
+          <input className="fi cxf-grow" type="search" placeholder="Search recruiters" aria-label="Search recruiters" value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
 
-      {!visible.length ? (
-        <div className="card"><EmptyState icon="users" title="No recruiters yet">Add the first one you've spoken with.</EmptyState></div>
-      ) : (
-        visible.map((r) => (
-          <div className="card" key={r.id} style={{ padding: 14, marginBottom: 8 }}>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <b>{r.name}</b> {r.role && <span className="note">· {r.role}</span>}
-                <div className="job-meta">
-                  {r.company_name && <span>{r.company_name}</span>}
-                  <span className="badge badge-blue">relationship {r.relationship_score}</span>
-                  {r.last_contact_at && <span>Last contact {formatDate(r.last_contact_at)}</span>}
+        {!visible.length ? (
+          <Empty title="No recruiters yet">Add the first one you have spoken with.</Empty>
+        ) : (
+          <ul className="cx-list">
+            {visible.map((r) => (
+              <li key={r.id}>
+                <div className="cx-row">
+                  <div className="cx-row-main">
+                    <p className="cx-row-title">{r.name}</p>
+                    <p className="cx-row-meta">
+                      {r.role && <span>{r.role}</span>}
+                      {r.company_name && <span>{r.company_name}</span>}
+                      <span className="cx-chip cx-num">Relationship score {r.relationship_score}</span>
+                      {r.last_contact_at && <span>Last contact {formatDate(r.last_contact_at)}</span>}
+                    </p>
+                  </div>
+                  <div className="cx-row-actions">
+                    <button type="button" className="cx-btn cx-btn-sm" onClick={() => void openDetail(r)}>Open</button>
+                    <button type="button" className="cx-icon-btn" aria-label={`Delete ${r.name}`} onClick={() => { if (user) void deleteRecruiter(user.id, r.id).then(load); }}>✕</button>
+                  </div>
                 </div>
-              </div>
-              <button className="btn btn-ghost btn-sm" style={{ width: 'auto' }} onClick={() => void openDetail(r)}>Open</button>
-              <button className="icon-btn danger" aria-label={`Delete ${r.name}`} onClick={() => { if (user) void deleteRecruiter(user.id, r.id).then(load); }}>✕</button>
-            </div>
-          </div>
-        ))
-      )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
 
       {editOpen && (
         <ModalShell label="Add recruiter" onClose={() => setEditOpen(false)}>
@@ -136,8 +145,8 @@ export default function RecruitersPage() {
       )}
 
       {detail && (
-        <ModalShell label={`Recruiter — ${detail.name}`} onClose={() => setDetail(null)} wide>
-            <h3>{detail.name} — {detail.company_name || 'no company'}</h3>
+        <ModalShell label={`Recruiter: ${detail.name}`} onClose={() => setDetail(null)} wide>
+            <h3>{detail.name}, {detail.company_name || 'no company'}</h3>
             {detail.notes && <p className="note" style={{ marginTop: 8 }}>{detail.notes}</p>}
             <div className="panel-eyebrow" style={{ marginTop: 16 }}>Log a contact</div>
             <div className="grid2" style={{ marginTop: 8 }}>
@@ -162,8 +171,6 @@ export default function RecruitersPage() {
             <button className="btn btn-ghost btn-sm" style={{ marginTop: 14 }} onClick={() => setDetail(null)}>Close</button>
         </ModalShell>
       )}
-
-      <ToolFoot><b>Recruiter CRM</b> · relationship score grows automatically as you log contact</ToolFoot>
     </div>
   );
 }

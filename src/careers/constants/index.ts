@@ -1,138 +1,88 @@
 /** FinatriX Careers — module-wide constants. */
 
+/**
+ * Every in-app destination. The workspace has six areas (Home, Resume, Jobs,
+ * Applications, Interviews, Companies) plus Settings; what used to be separate
+ * pages are now tabs inside those areas, addressed with `?tab=`. The old paths
+ * still resolve — App.tsx redirects each one here — because they live on in
+ * bookmarks, emails and stored notification links.
+ */
 export const CAREERS_ROUTES = {
   /**
    * The PUBLIC Careers landing page — marketing, indexable, no auth. It is not
-   * an entry point into the workspace: in-app navigation must use `dashboard`
-   * below. (`root` used to render the dashboard behind the auth gate, which is
-   * why the whole paid product was invisible to anyone who had not bought it.)
+   * an entry point into the workspace: in-app navigation must use `dashboard`.
    */
   root: '/careers',
-  /** The workspace entry point. Every in-app link to "Careers" belongs here. */
+  /** Home — the workspace entry point. Every in-app link to "Careers" belongs here. */
   dashboard: '/careers/dashboard',
-  upload: '/careers/upload',
-  resumes: '/careers/resumes',
+  coach: '/careers/dashboard?tab=coach',
+  resume: '/careers/resume',
+  resumes: '/careers/resume',
+  upload: '/careers/resume?tab=upload',
+  profile: '/careers/resume?tab=profile',
   jobs: '/careers/jobs',
-  /** Match Queue — one scored role at a time (reached from Job Search). */
-  queue: '/careers/queue',
+  /** One scored role at a time. */
+  queue: '/careers/jobs?tab=review',
   applications: '/careers/applications',
-  companies: '/careers/companies',
-  // Phase 4.1 — Company Intelligence search + profiles.
-  intelligence: '/careers/intelligence',
-  companyProfile: '/careers/intelligence/company',
+  tasks: '/careers/applications?tab=tasks',
+  assessments: '/careers/applications?tab=assessments',
+  offers: '/careers/applications?tab=offers',
   interviews: '/careers/interviews',
-  coach: '/careers/coach',
-  profile: '/careers/profile',
+  knowledge: '/careers/interviews?tab=stories',
+  /** The company directory (intelligence search). */
+  intelligence: '/careers/companies',
+  /** Your own tracked companies. */
+  companies: '/careers/companies?tab=yours',
+  companyProfile: '/careers/companies/profile',
+  recruiters: '/careers/companies?tab=people',
+  network: '/careers/companies?tab=people',
   settings: '/careers/settings',
-  // Phase 3 — Application Intelligence Engine.
-  tasks: '/careers/tasks',
-  recruiters: '/careers/recruiters',
-  network: '/careers/network',
-  assessments: '/careers/assessments',
-  offers: '/careers/offers',
-  knowledge: '/careers/knowledge',
-  // Phase 4 — Enterprise Platform.
-  billing: '/careers/billing',
+  billing: '/careers/settings?tab=plan',
   admin: '/careers/admin',
 } as const;
 
-/**
- * Primary tab bar — intentionally kept to 7 items (master context, 2026-07-04):
- * the platform should focus on one thing, getting users interviews and jobs.
- * Every other routable section still exists and works; it's just not in the
- * main nav. See CAREERS_HIDDEN_SECTIONS.
- */
+/** The six areas, in the order a job search runs. Settings sits apart, in the rail footer. */
 export const CAREERS_NAV = [
-  { id: 'dashboard', name: 'Dashboard', href: CAREERS_ROUTES.dashboard },
-  { id: 'resumes', name: 'Resume Library', href: CAREERS_ROUTES.resumes },
-  { id: 'jobs', name: 'Job Search', href: CAREERS_ROUTES.jobs },
-  { id: 'applications', name: 'Applications', href: CAREERS_ROUTES.applications },
-  { id: 'interviews', name: 'Interview Prep', href: CAREERS_ROUTES.interviews },
-  { id: 'coach', name: 'Career Coach', href: CAREERS_ROUTES.coach },
-  { id: 'settings', name: 'Settings', href: CAREERS_ROUTES.settings },
+  { id: 'dashboard', name: 'Home', href: CAREERS_ROUTES.dashboard, icon: 'home' },
+  { id: 'resume', name: 'Resume', href: CAREERS_ROUTES.resume, icon: 'resume' },
+  { id: 'jobs', name: 'Jobs', href: CAREERS_ROUTES.jobs, icon: 'jobs' },
+  { id: 'applications', name: 'Applications', href: CAREERS_ROUTES.applications, icon: 'applications' },
+  { id: 'interviews', name: 'Interviews', href: CAREERS_ROUTES.interviews, icon: 'interviews' },
+  { id: 'companies', name: 'Companies', href: CAREERS_ROUTES.intelligence, icon: 'companies' },
 ] as const;
 
+export type CareersAreaId = (typeof CAREERS_NAV)[number]['id'] | 'settings' | 'admin';
+
 /**
- * Routable sections not shown in the tab bar (breadcrumb/back-link names).
- * Still fully functional — reachable by direct URL and linked from Settings
- * ("More tools") — just decluttered from primary navigation.
+ * Places inside the areas, for the command palette and anything else that
+ * wants to jump straight to a sub-view. Names are what the user is doing,
+ * not what the page used to be called.
  */
 export const CAREERS_HIDDEN_SECTIONS = [
-  { id: 'upload', name: 'Upload', href: CAREERS_ROUTES.upload },
-  { id: 'profile', name: 'Career Profile', href: CAREERS_ROUTES.profile },
-  // Kept out of the 7-item tab bar per the focus decision above; entered from
-  // Job Search and the dashboard rather than by URL.
-  { id: 'queue', name: 'Match Queue', href: CAREERS_ROUTES.queue },
+  { id: 'upload', name: 'Upload a resume', href: CAREERS_ROUTES.upload },
+  { id: 'profile', name: 'Career profile', href: CAREERS_ROUTES.profile },
+  { id: 'queue', name: 'Review jobs one by one', href: CAREERS_ROUTES.queue },
   { id: 'tasks', name: 'Tasks', href: CAREERS_ROUTES.tasks },
-  { id: 'companies', name: 'Companies', href: CAREERS_ROUTES.companies },
-  { id: 'intelligence', name: 'Company Intelligence', href: CAREERS_ROUTES.intelligence },
-  { id: 'companyProfile', name: 'Company Intelligence', href: CAREERS_ROUTES.companyProfile },
-  { id: 'recruiters', name: 'Recruiters', href: CAREERS_ROUTES.recruiters },
-  { id: 'network', name: 'Network', href: CAREERS_ROUTES.network },
   { id: 'assessments', name: 'Assessments', href: CAREERS_ROUTES.assessments },
   { id: 'offers', name: 'Offers', href: CAREERS_ROUTES.offers },
-  { id: 'knowledge', name: 'Knowledge Base', href: CAREERS_ROUTES.knowledge },
-  { id: 'billing', name: 'Billing', href: CAREERS_ROUTES.billing },
-  // Admin is additionally RBAC-gated (shown conditionally in the nav for admins only).
-  { id: 'admin', name: 'Admin Dashboard', href: CAREERS_ROUTES.admin },
+  { id: 'knowledge', name: 'Story bank', href: CAREERS_ROUTES.knowledge },
+  { id: 'yourCompanies', name: 'Your companies', href: CAREERS_ROUTES.companies },
+  { id: 'people', name: 'Recruiters and contacts', href: CAREERS_ROUTES.recruiters },
+  { id: 'coach', name: 'Career coach', href: CAREERS_ROUTES.coach },
+  { id: 'settings', name: 'Careers settings', href: CAREERS_ROUTES.settings },
+  { id: 'billing', name: 'Plan', href: CAREERS_ROUTES.billing },
+  // Admin is additionally RBAC-gated (shown only to admins).
+  { id: 'admin', name: 'Admin', href: CAREERS_ROUTES.admin },
 ] as const;
 
-/**
- * The sections above, grouped by the job the user is trying to do, for the
- * "More" disclosure in the primary nav and the mobile drawer.
- *
- * Why this exists: the 7-item tab bar is a deliberate focus decision and stays
- * as it is, but the other ten sections were reachable only from a "More tools"
- * list *inside Settings* or the command palette. Settings is where you
- * configure a product, not where you navigate it, so half of Careers was
- * effectively undiscoverable by anyone who does not use keyboard shortcuts.
- * Grouping them behind one disclosure in the nav keeps the bar at seven while
- * putting every section two clicks from anywhere.
- *
- * `upload` and `profile` are deliberately absent: Upload is the primary action
- * on the Resume Library and dashboard, and Career Profile is reached from the
- * dashboard's Career DNA card — both already have stronger entry points than a
- * menu row. `admin` is RBAC-gated and rendered separately.
- */
-export const CAREERS_SECTION_GROUPS = [
-  {
-    id: 'pipeline',
-    name: 'Pipeline',
-    items: [
-      { id: 'queue', name: 'Match Queue', href: CAREERS_ROUTES.queue },
-      { id: 'tasks', name: 'Tasks', href: CAREERS_ROUTES.tasks },
-      { id: 'assessments', name: 'Assessments', href: CAREERS_ROUTES.assessments },
-      { id: 'offers', name: 'Offers', href: CAREERS_ROUTES.offers },
-    ],
-  },
-  {
-    id: 'research',
-    name: 'Research',
-    items: [
-      { id: 'companies', name: 'Companies', href: CAREERS_ROUTES.companies },
-      { id: 'intelligence', name: 'Company Intelligence', href: CAREERS_ROUTES.intelligence },
-      { id: 'knowledge', name: 'Knowledge Base', href: CAREERS_ROUTES.knowledge },
-    ],
-  },
-  {
-    id: 'people',
-    name: 'People',
-    items: [
-      { id: 'recruiters', name: 'Recruiters', href: CAREERS_ROUTES.recruiters },
-      { id: 'network', name: 'Network', href: CAREERS_ROUTES.network },
-    ],
-  },
-  {
-    id: 'account',
-    name: 'Account',
-    items: [{ id: 'billing', name: 'Billing', href: CAREERS_ROUTES.billing }],
-  },
-] as const;
-
-/** Flat set of every section id reachable from the "More" disclosure. */
-export const CAREERS_MORE_IDS: readonly string[] = CAREERS_SECTION_GROUPS.flatMap((g) =>
-  g.items.map((i) => i.id)
-);
+/** Area name for a pathname, used for the document title and the current-place marker. */
+export function careersAreaFor(pathname: string): { id: CareersAreaId; name: string } {
+  const seg = /^\/careers\/([a-z]+)/i.exec(pathname)?.[1]?.toLowerCase() ?? 'dashboard';
+  if (seg === 'settings') return { id: 'settings', name: 'Settings' };
+  if (seg === 'admin') return { id: 'admin', name: 'Admin' };
+  const area = CAREERS_NAV.find((n) => n.id === seg);
+  return area ? { id: area.id, name: area.name } : { id: 'dashboard', name: 'Home' };
+}
 
 // ─────────────────────────── uploads ───────────────────────────
 

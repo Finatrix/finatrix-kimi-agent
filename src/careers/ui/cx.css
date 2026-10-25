@@ -1,0 +1,414 @@
+/*
+ * FinatriX Careers — workspace design layer.
+ *
+ * Sits on the site tokens (styles/tokens.css) and the `.fx-tools` colour
+ * variables (tools/tools.css), so light/dark, high-contrast and reduced-motion
+ * all come from one place. Everything here is scoped to `.cx` (the Careers
+ * shell) so it can never leak into the money tools.
+ *
+ * Principles: one accent (gold) spent on the primary action, the current
+ * place and the fit meter; sentence-case labels; numbers in tabular figures;
+ * surfaces separated by hairlines rather than stacked shadows; no hover lift.
+ */
+
+.cx {
+  --cx-rail-w: 236px;
+  --cx-topbar-h: 52px;
+  --cx-bottombar-h: 62px;
+  --cx-content-max: 1120px;
+  --cx-gutter: 16px;
+  --cx-panel: var(--card-solid);
+  --cx-panel-2: var(--surface-1);
+  --cx-line: var(--hair2);
+  --cx-line-strong: var(--hair);
+  --cx-r-lg: 16px;
+  --cx-r-md: 12px;
+  --cx-r-sm: 9px;
+  --cx-accent: var(--gold);
+  --cx-accent-ink: var(--accent-text);
+  --cx-accent-wash: color-mix(in srgb, var(--gold) 14%, transparent);
+  --cx-hover: color-mix(in srgb, var(--ink) 5%, transparent);
+  --cx-press: color-mix(in srgb, var(--ink) 9%, transparent);
+  --cx-shadow-pop: 0 18px 48px -18px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--hair2);
+  font-feature-settings: 'ss01' on;
+}
+/* The shell root only; a portal root (.fx-scope) carries the tokens, not the page box. */
+.cx:not(.fx-scope) { min-height: calc(100dvh - var(--fx-safe-top)); background: var(--surface-base); }
+@media (min-width: 640px) { .cx { --cx-gutter: 24px; } }
+@media (min-width: 1024px) { .cx { --cx-gutter: 40px; } }
+
+.cx .cx-num { font-variant-numeric: tabular-nums; }
+
+/* ───────────────────────── shell ───────────────────────── */
+
+.cx-shell { display: flex; min-height: inherit; }
+
+.cx-rail {
+  display: none;
+  position: sticky;
+  top: var(--fx-safe-top);
+  height: calc(100dvh - var(--fx-safe-top));
+  width: var(--cx-rail-w);
+  flex: 0 0 var(--cx-rail-w);
+  flex-direction: column;
+  border-right: 1px solid var(--cx-line);
+  background: var(--cx-panel-2);
+  padding: 18px 12px 14px;
+  z-index: var(--z-sticky);
+}
+@media (min-width: 1024px) { .cx-rail { display: flex; } }
+
+.cx-brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 4px 10px 18px;
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 15px; font-weight: 600; letter-spacing: -0.01em;
+}
+.cx-brand-sub { color: var(--ink3); font-weight: 500; }
+.cx-beta {
+  margin-left: auto;
+  font-size: 11px; font-weight: 600;
+  color: var(--cx-accent-ink);
+  background: var(--cx-accent-wash);
+  border-radius: 999px; padding: 2px 8px;
+}
+
+.cx-nav { display: flex; flex-direction: column; gap: 2px; }
+.cx-nav-label { padding: 16px 12px 6px; font-size: 12px; color: var(--ink3); }
+.cx-nav a, .cx-nav button.cx-nav-item {
+  position: relative;
+  display: flex; align-items: center; gap: 12px;
+  min-height: 40px; padding: 0 12px;
+  border-radius: var(--cx-r-sm);
+  color: var(--ink2);
+  font-size: 14px; font-weight: 500;
+  text-decoration: none;
+  background: none; border: 0; width: 100%; text-align: left; cursor: pointer;
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+.cx-nav a:hover, .cx-nav button.cx-nav-item:hover { background: var(--cx-hover); color: var(--ink); }
+.cx-nav a[aria-current='page'] { color: var(--ink); background: var(--cx-hover); }
+.cx-nav a[aria-current='page']::before {
+  content: ''; position: absolute; left: -12px; top: 9px; bottom: 9px; width: 3px;
+  border-radius: 0 3px 3px 0; background: var(--cx-accent);
+}
+.cx-nav svg { flex: none; color: var(--ink3); }
+.cx-nav a[aria-current='page'] svg { color: var(--cx-accent-ink); }
+.cx-nav-ext { margin-left: auto; opacity: 0.6; }
+
+.cx-rail-foot { margin-top: auto; display: flex; flex-direction: column; gap: 2px; border-top: 1px solid var(--cx-line); padding-top: 10px; }
+
+.cx-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+
+/* Top bar: always on phones/tablets; on desktop it carries search, theme,
+   bell and account to the right of the content. */
+.cx-topbar {
+  position: sticky; top: var(--fx-safe-top); z-index: var(--z-header);
+  display: flex; align-items: center; gap: 10px;
+  height: var(--cx-topbar-h); padding: 0 var(--cx-gutter);
+  background: var(--nav-bg);
+  backdrop-filter: saturate(180%) blur(18px); -webkit-backdrop-filter: saturate(180%) blur(18px);
+  border-bottom: 1px solid var(--cx-line);
+}
+.cx-topbar .cx-brand { padding: 0; }
+@media (min-width: 1024px) { .cx-topbar .cx-brand { display: none; } }
+.cx-topbar-tools { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+.cx-content {
+  width: 100%; max-width: calc(var(--cx-content-max) + 2 * var(--cx-gutter));
+  padding: 28px var(--cx-gutter) calc(48px + var(--cx-bottombar-h) + var(--fx-safe-bottom));
+  margin: 0 auto 0 0;
+}
+@media (min-width: 1024px) { .cx-content { padding-bottom: 64px; padding-top: 36px; } }
+
+/* Bottom bar (phones and tablets). */
+.cx-bottombar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-mobilenav);
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  height: calc(var(--cx-bottombar-h) + var(--fx-safe-bottom));
+  padding-bottom: var(--fx-safe-bottom);
+  background: var(--nav-bg);
+  backdrop-filter: saturate(180%) blur(18px); -webkit-backdrop-filter: saturate(180%) blur(18px);
+  border-top: 1px solid var(--cx-line);
+}
+@media (min-width: 1024px) { .cx-bottombar { display: none; } }
+.cx-bottombar a, .cx-bottombar button {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  min-height: 44px;
+  color: var(--ink3); font-size: 11px; font-weight: 500;
+  text-decoration: none; background: none; border: 0; cursor: pointer;
+}
+.cx-bottombar [aria-current='page'], .cx-bottombar [aria-expanded='true'] { color: var(--ink); }
+.cx-bottombar [aria-current='page'] svg { color: var(--cx-accent-ink); }
+
+/* ───────────────────────── page header ───────────────────────── */
+
+.cx-head { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px 24px; margin-bottom: 22px; }
+.cx-head-text { flex: 1 1 320px; min-width: 0; }
+.cx-head h1 {
+  margin: 0; color: var(--ink);
+  font-size: clamp(24px, 3.2vw, 30px); line-height: 1.15; font-weight: 600; letter-spacing: -0.025em;
+}
+.cx-head p { margin: 8px 0 0; max-width: 62ch; color: var(--ink2); font-size: 15px; line-height: 1.55; }
+.cx-head-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ───────────────────────── buttons ───────────────────────── */
+
+.cx-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 40px; padding: 0 16px;
+  border-radius: 999px; border: 1px solid var(--cx-line-strong);
+  background: transparent; color: var(--ink);
+  font: inherit; font-size: 14px; font-weight: 600; letter-spacing: -0.005em;
+  text-decoration: none; cursor: pointer; white-space: nowrap;
+  transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+.cx-btn:hover { background: var(--cx-hover); }
+.cx-btn:active { background: var(--cx-press); }
+.cx-btn:disabled, .cx-btn[aria-disabled='true'] { opacity: 0.5; cursor: default; }
+.cx-btn-primary { background: var(--cx-accent); border-color: transparent; color: #1a1400; }
+.cx-btn-primary:hover { background: color-mix(in srgb, var(--cx-accent) 88%, white); }
+.cx-btn-primary:active { background: color-mix(in srgb, var(--cx-accent) 88%, black); }
+.cx-btn-quiet { border-color: transparent; color: var(--ink2); }
+.cx-btn-quiet:hover { color: var(--ink); }
+.cx-btn-danger { color: var(--red); border-color: color-mix(in srgb, var(--red) 40%, transparent); }
+.cx-btn-sm { min-height: 34px; padding: 0 12px; font-size: 13px; }
+.cx-btn-block { width: 100%; }
+.cx-icon-btn {
+  display: inline-grid; place-items: center; width: 40px; height: 40px;
+  border-radius: 999px; border: 0; background: none; color: var(--ink2); cursor: pointer;
+}
+.cx-icon-btn:hover { background: var(--cx-hover); color: var(--ink); }
+
+/* ───────────────────────── tabs ───────────────────────── */
+
+.cx-tabs {
+  display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none;
+  margin: 0 0 24px; border-bottom: 1px solid var(--cx-line);
+}
+.cx-tabs::-webkit-scrollbar { display: none; }
+.cx-tab {
+  position: relative; flex: none;
+  min-height: 44px; padding: 0 14px;
+  background: none; border: 0; cursor: pointer;
+  color: var(--ink3); font: inherit; font-size: 14px; font-weight: 500;
+  text-decoration: none; display: inline-flex; align-items: center; gap: 8px;
+}
+.cx-tab:hover { color: var(--ink); }
+.cx-tab[aria-selected='true'], .cx-tab[aria-current='page'] { color: var(--ink); }
+.cx-tab[aria-selected='true']::after, .cx-tab[aria-current='page']::after {
+  content: ''; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px;
+  border-radius: 2px; background: var(--cx-accent);
+}
+.cx-tab-count { color: var(--ink3); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+/* ───────────────────────── panels, rows, tiles ───────────────────────── */
+
+.cx-panel {
+  background: var(--cx-panel);
+  border: 1px solid var(--cx-line);
+  border-radius: var(--cx-r-lg);
+  padding: 20px;
+}
+@media (min-width: 640px) { .cx-panel { padding: 24px; } }
+:not(.cx-grid) > .cx-panel + .cx-panel { margin-top: 16px; }
+.cx-panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.cx-panel-head h2 { margin: 0; color: var(--ink); font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+.cx-panel-head a { color: var(--cx-accent-ink); font-size: 13px; font-weight: 500; text-decoration: none; }
+.cx-panel-head a:hover { text-decoration: underline; }
+.cx-muted { color: var(--ink3); }
+.cx-sub { color: var(--ink2); font-size: 14px; line-height: 1.55; margin: 0; }
+
+.cx-grid { display: grid; gap: 16px; }
+@media (min-width: 900px) {
+  .cx-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cx-grid-main { grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); align-items: start; }
+}
+
+.cx-list { list-style: none; margin: 0; padding: 0; }
+.cx-row {
+  display: flex; align-items: center; gap: 14px;
+  min-height: 56px; padding: 10px 0;
+  border-top: 1px solid var(--cx-line);
+}
+.cx-list > li:first-child > .cx-row, .cx-list > .cx-row:first-child { border-top: 0; }
+.cx-row-main { flex: 1 1 auto; min-width: 0; }
+.cx-row-title { color: var(--ink); font-size: 14.5px; font-weight: 600; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx-row-meta { color: var(--ink3); font-size: 13px; margin: 2px 0 0; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+a.cx-row { color: inherit; text-decoration: none; border-radius: var(--cx-r-sm); }
+a.cx-row:hover .cx-row-title { color: var(--cx-accent-ink); }
+
+.cx-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--cx-line); border: 1px solid var(--cx-line); border-radius: var(--cx-r-lg); overflow: hidden; }
+@media (min-width: 720px) { .cx-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.cx-tile { background: var(--cx-panel); padding: 16px 18px; min-width: 0; text-decoration: none; display: block; }
+a.cx-tile:hover { background: color-mix(in srgb, var(--cx-panel) 92%, var(--ink)); }
+.cx-tile-value { display: block; color: var(--ink); font-size: 26px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.cx-tile-label { display: block; margin-top: 6px; color: var(--ink2); font-size: 13px; }
+.cx-tile-note { display: block; margin-top: 2px; color: var(--ink3); font-size: 12px; }
+
+/* ───────────────────────── chips, fit meter ───────────────────────── */
+
+.cx-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 24px; padding: 0 9px;
+  border-radius: 999px; border: 1px solid var(--cx-line);
+  color: var(--ink2); font-size: 12px; font-weight: 500; white-space: nowrap;
+}
+.cx-chip-accent { color: var(--cx-accent-ink); border-color: color-mix(in srgb, var(--cx-accent) 45%, transparent); background: var(--cx-accent-wash); }
+.cx-chip-good { color: var(--green); border-color: color-mix(in srgb, var(--green) 40%, transparent); }
+.cx-chip-warn { color: var(--orange); border-color: color-mix(in srgb, var(--orange) 40%, transparent); }
+.cx-chip-bad { color: var(--red); border-color: color-mix(in srgb, var(--red) 40%, transparent); }
+
+/* The fit meter — the one recurring signature of the workspace: ten ticks,
+   filled in gold up to the match, with the exact number beside them. */
+.cx-fit { display: inline-flex; align-items: center; gap: 8px; }
+.cx-fit-ticks { display: inline-grid; grid-template-columns: repeat(10, 4px); gap: 2px; }
+.cx-fit-ticks i { display: block; height: 14px; border-radius: 2px; background: var(--cx-line-strong); opacity: 0.55; }
+.cx-fit-ticks i.on { background: var(--cx-accent); opacity: 1; }
+.cx-fit-value { color: var(--ink); font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; min-width: 3.2ch; }
+.cx-fit-none { color: var(--ink3); font-size: 13px; }
+
+/* ───────────────────────── empty, skeleton, notice ───────────────────────── */
+
+.cx-empty { padding: 36px 8px; text-align: left; max-width: 52ch; }
+.cx-empty h3 { margin: 0; color: var(--ink); font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+.cx-empty p { margin: 8px 0 18px; color: var(--ink2); font-size: 14.5px; line-height: 1.55; }
+
+.cx-skel { display: block; border-radius: 8px; background: linear-gradient(90deg, var(--cx-hover), var(--cx-press), var(--cx-hover)); background-size: 200% 100%; animation: cxShimmer 1.4s ease-in-out infinite; }
+@keyframes cxShimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+
+.cx-notice {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 14px 16px; border-radius: var(--cx-r-md);
+  border: 1px solid var(--cx-line); background: var(--cx-panel-2);
+  color: var(--ink2); font-size: 14px; line-height: 1.5;
+}
+.cx-notice strong { color: var(--ink); }
+
+/* ───────────────────────── next step (Home) ───────────────────────── */
+
+.cx-next {
+  position: relative; overflow: hidden;
+  padding: 26px 24px; border-radius: var(--cx-r-lg);
+  border: 1px solid color-mix(in srgb, var(--cx-accent) 35%, var(--cx-line));
+  background:
+    radial-gradient(120% 140% at 100% 0%, var(--cx-accent-wash), transparent 55%),
+    var(--cx-panel);
+}
+@media (min-width: 640px) { .cx-next { padding: 30px 32px; } }
+.cx-next-kicker { margin: 0 0 10px; color: var(--cx-accent-ink); font-size: 13px; font-weight: 600; }
+.cx-next h2 { margin: 0; max-width: 30ch; color: var(--ink); font-size: clamp(21px, 2.6vw, 26px); line-height: 1.25; font-weight: 600; letter-spacing: -0.02em; }
+.cx-next p { margin: 10px 0 20px; max-width: 58ch; color: var(--ink2); font-size: 15px; line-height: 1.55; }
+
+.cx-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.cx-step { display: flex; align-items: center; gap: 12px; min-height: 44px; color: var(--ink2); font-size: 14px; }
+.cx-step-dot { flex: none; width: 20px; height: 20px; border-radius: 999px; border: 1.5px solid var(--cx-line-strong); display: grid; place-items: center; }
+.cx-step[data-done='true'] { color: var(--ink3); }
+.cx-step[data-done='true'] .cx-step-dot { background: var(--cx-accent); border-color: var(--cx-accent); color: #1a1400; }
+.cx-step[data-current='true'] { color: var(--ink); font-weight: 600; }
+.cx-step[data-current='true'] .cx-step-dot { border-color: var(--cx-accent); }
+
+/* ───────────────────────── sheet / side panel ───────────────────────── */
+
+.cx-scrim {
+  position: fixed; inset: 0; z-index: var(--z-modal);
+  background: rgba(0, 0, 0, 0.5);
+  animation: cxFade var(--dur-fast) ease both;
+}
+.cx-sheet {
+  position: fixed; z-index: calc(var(--z-modal) + 1);
+  background: var(--cx-panel); color: var(--ink);
+  box-shadow: var(--cx-shadow-pop);
+  display: flex; flex-direction: column;
+  outline: none;
+}
+.cx-sheet-side { top: 0; right: 0; bottom: 0; width: min(560px, 100vw); border-left: 1px solid var(--cx-line); animation: cxSlideIn var(--dur-med) var(--fx-ease) both; }
+.cx-sheet-center {
+  left: 50%; top: 50%; width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 48px);
+  border-radius: var(--cx-r-lg); transform: translate(-50%, -50%);
+  animation: cxPop var(--dur-med) var(--fx-ease) both;
+}
+@media (max-width: 639px) {
+  .cx-sheet-center { left: 0; right: 0; top: auto; bottom: 0; width: 100%; transform: none; border-radius: var(--cx-r-lg) var(--cx-r-lg) 0 0; padding-bottom: var(--fx-safe-bottom); animation: cxRise var(--dur-med) var(--fx-ease) both; }
+}
+.cx-sheet-head { display: flex; align-items: flex-start; gap: 12px; padding: 20px 20px 0 24px; }
+.cx-sheet-head h2 { flex: 1; margin: 6px 0 0; font-size: 18px; font-weight: 600; letter-spacing: -0.015em; }
+.cx-sheet-body { padding: 14px 24px 8px; overflow-y: auto; color: var(--ink2); font-size: 14.5px; line-height: 1.6; }
+.cx-sheet-foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding: 14px 24px 20px; }
+@keyframes cxFade { from { opacity: 0; } }
+@keyframes cxSlideIn { from { transform: translateX(24px); opacity: 0; } }
+@keyframes cxPop { from { transform: translate(-50%, -48%); opacity: 0; } }
+@keyframes cxRise { from { transform: translateY(24px); opacity: 0; } }
+
+.cx-more-list { display: grid; gap: 2px; padding: 4px 12px 16px; }
+.cx-more-list a { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 12px; border-radius: var(--cx-r-sm); color: var(--ink); text-decoration: none; font-size: 15px; }
+.cx-more-list a:hover { background: var(--cx-hover); }
+.cx-more-list svg { color: var(--ink3); }
+
+/* ───────────────────────── legacy content inside the new shell ─────────────────────────
+   Sections not yet rebuilt still use the money-tools card kit. Inside the
+   Careers shell they take the calmer workspace look: no hover lift, flatter
+   cards, sentence-case labels. */
+.cx .card { background: var(--cx-panel); border-color: var(--cx-line); border-radius: var(--cx-r-lg); box-shadow: none; }
+.cx .card:hover { transform: none; box-shadow: none; }
+.cx .panel-eyebrow { text-transform: none; letter-spacing: 0; font-family: inherit; font-size: 13px; font-weight: 600; color: var(--ink2); }
+.cx .fx-page { padding-top: 0; }
+/* The area header replaces the money-tools page head and footer line that
+   the not-yet-rebuilt sections still render. */
+.cx .cx-content .page-head, .cx .cx-content .foot { display: none; }
+
+/* Secondary view switches inside a section (the shared money-tools `Tabs`,
+   both variants). Their stylesheet rules were removed site-wide, which left
+   them as run-together text; inside Careers they read as a segmented control,
+   one level below the area tabs. */
+.cx [role='tablist'].nav, .cx [role='tablist'].fx-tabs {
+  display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px;
+  border: 1px solid var(--cx-line); border-radius: 999px; background: var(--cx-panel-2);
+}
+.cx [role='tablist'].nav > button, .cx [role='tablist'].fx-tabs > button {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 34px; padding: 0 14px; border: 0; border-radius: 999px;
+  background: none; color: var(--ink3); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer;
+}
+.cx [role='tablist'].nav > button:hover, .cx [role='tablist'].fx-tabs > button:hover { color: var(--ink); }
+.cx [role='tablist'].nav > button[aria-selected='true'], .cx [role='tablist'].fx-tabs > button[aria-selected='true'] {
+  background: var(--cx-panel); color: var(--ink); box-shadow: 0 0 0 1px var(--cx-line);
+}
+
+/* Legacy kit, workspace look. Specificity is `.cx.fx-tools …` (two classes
+   plus the element class) so it outranks the `.fx-tools …` originals without
+   !important. */
+.cx.fx-tools .badge {
+  font-size: 12px; font-weight: 500; letter-spacing: 0; text-transform: none;
+  padding: 2px 9px; min-height: 22px; border: 1px solid var(--cx-line); background: transparent; color: var(--ink2);
+}
+.cx.fx-tools .badge-gold { color: var(--cx-accent-ink); border-color: color-mix(in srgb, var(--cx-accent) 40%, transparent); background: var(--cx-accent-wash); }
+.cx.fx-tools .badge-green { color: var(--green); border-color: color-mix(in srgb, var(--green) 35%, transparent); background: transparent; }
+.cx.fx-tools .badge-blue { color: var(--blue); border-color: color-mix(in srgb, var(--blue) 35%, transparent); background: transparent; }
+.cx.fx-tools .badge-red { color: var(--red); border-color: color-mix(in srgb, var(--red) 35%, transparent); background: transparent; }
+.cx.fx-tools .badge-mute { color: var(--ink3); background: transparent; }
+.cx.fx-tools .tag { border-color: var(--cx-line); background: transparent; }
+
+.cx.fx-tools .btn {
+  width: auto; min-height: 40px; padding: 0 18px; font-size: 14px; letter-spacing: -0.005em;
+  border: 1px solid transparent; box-shadow: none; background: var(--cx-accent); color: #1a1400;
+}
+.cx.fx-tools .btn:hover { transform: none; box-shadow: none; background: color-mix(in srgb, var(--cx-accent) 88%, white); }
+.cx.fx-tools .btn:active { transform: none; background: color-mix(in srgb, var(--cx-accent) 88%, black); }
+.cx.fx-tools .btn-ghost { background: transparent; color: var(--ink); border-color: var(--cx-line-strong); }
+.cx.fx-tools .btn-ghost:hover { background: var(--cx-hover); border-color: var(--cx-line-strong); }
+.cx.fx-tools .btn-sm { min-height: 34px; padding: 0 14px; font-size: 13px; }
+
+.cx.fx-tools .fl { font-size: 13px; font-weight: 500; color: var(--ink2); }
+.cx.fx-tools .fi, .cx.fx-tools .fs { min-height: 44px; padding: 10px 14px; font-size: 15px; border-radius: var(--cx-r-md); }
+.cx.fx-tools .note { font-size: 13px; line-height: 1.55; }
+.cx.fx-tools .panel-title { font-size: 16px; }
+.cx.fx-tools .stat-cell { box-shadow: none; border-radius: var(--cx-r-md); text-align: left; padding: 16px; }
+.cx.fx-tools .stat-cell:hover { transform: none; box-shadow: none; }
+.cx.fx-tools .stat-cell .l { font-size: 12.5px; }
+.cx.fx-tools .empty-state { text-align: left; padding: 28px 4px; }
+.cx.fx-tools .empty-state .es-ic { display: none; }
+.cx.fx-tools .empty-state .es-t { font-size: 16px; color: var(--ink); }
+.cx.fx-tools .empty-state .es-d { font-size: 14px; color: var(--ink2); }
+.cx.fx-tools .job-meta { font-size: 13px; color: var(--ink3); }
