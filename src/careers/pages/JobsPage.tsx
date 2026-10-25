@@ -60,7 +60,7 @@ import {
   type TailoringReport,
 } from '../types/jobs';
 import { toCareersError, withRetry, type CareersError } from '../utils/errors';
-import { formatDate, scoreColor } from '../utils/format';
+import { capitalise, formatDate, scoreColor } from '../utils/format';
 import { safeHttpUrl } from '../../lib/sanitize';
 
 // ─────────────────────────── resume version picker ───────────────────────────
@@ -230,10 +230,15 @@ function JobWorkbench({
     }
   };
 
+  // A pasted description has no title or company until the analysis reads them from the text.
+  const title = target.title || intel?.analysis.extraction.title || 'Job description';
+  const company = target.company || intel?.analysis.extraction.company || '';
+  const heading = company ? `${title} — ${company}` : title;
+
   return (
-    <ModalShell label={`Job details — ${target.title}`} onClose={onClose} wide>
+    <ModalShell label={heading} onClose={onClose} wide>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-          <h3 style={{ flex: 1, marginBottom: 0 }}>{target.title || 'Job'} — {target.company || 'company'}</h3>
+          <h3 style={{ flex: 1, marginBottom: 0 }}>{heading}</h3>
           <button className="icon-btn" aria-label="Close" onClick={onClose}>✕</button>
         </div>
         <div className="job-meta" style={{ marginBottom: 14 }}>
@@ -335,11 +340,13 @@ function JobWorkbench({
                 Tailored summary: {tailor.summary}
               </div>
               {tailor.sections.map((s, i) => {
-                const accepted = tailorRow?.accepted_sections.includes(s.section) ?? false;
+                // Several suggestions can share a section ("experience"), so each is accepted on its own.
+                const key = `${s.section}#${i}`;
+                const accepted = tailorRow?.accepted_sections.includes(key) ?? false;
                 return (
                   <div className="card" key={i} style={{ padding: 16, marginBottom: 10 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                      <span className="badge badge-gold">{s.section}</span>
+                      <span className="badge badge-gold">{capitalise(s.section)}</span>
                       {s.addedKeywords.length > 0 && (
                         <span className="note">+ {s.addedKeywords.join(', ')}</span>
                       )}
@@ -357,7 +364,7 @@ function JobWorkbench({
                     {s.reason && <p className="note" style={{ marginTop: 6 }}>Why: {s.reason}</p>}
                     {tailorRow && (
                       <label className="note" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, cursor: 'pointer' }}>
-                        <input type="checkbox" checked={accepted} onChange={(e) => void toggleAccepted(s.section, e.target.checked)} />
+                        <input type="checkbox" checked={accepted} onChange={(e) => void toggleAccepted(key, e.target.checked)} />
                         Accept this change
                       </label>
                     )}

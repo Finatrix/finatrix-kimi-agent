@@ -71,3 +71,8 @@ export function fitLabel(score: number | null | undefined): string {
   if (score >= 40) return 'Moderate fit';
   return 'Weak fit';
 }
+
+/** Upper-cases the first letter of an AI-supplied key or value ("experience" → "Experience"). */
+export function capitalise(text: string): string {
+  return text ? text[0].toUpperCase() + text.slice(1) : text;
+}

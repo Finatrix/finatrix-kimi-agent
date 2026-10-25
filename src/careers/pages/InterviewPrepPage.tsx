@@ -28,11 +28,25 @@ import {
   INTERVIEW_TYPES,
   type ApplicationRow,
   type InterviewAnswer,
+  type InterviewFeedback,
   type InterviewSessionRow,
   type StarAnswer,
 } from '../types/jobs';
 import { toCareersError, type CareersError } from '../utils/errors';
-import { formatDate, scoreColor } from '../utils/format';
+import { capitalise, formatDate, scoreColor } from '../utils/format';
+
+const FEEDBACK_LABELS: Record<keyof InterviewFeedback['scores'], string> = {
+  confidence: 'Confidence',
+  communication: 'Communication',
+  technical: 'Technical',
+  leadership: 'Leadership',
+  star: 'STAR structure',
+  behavioural: 'Behavioural',
+  structure: 'Structure',
+  problemSolving: 'Problem solving',
+  grammar: 'Grammar',
+  fluency: 'Fluency',
+};
 
 function completeVersions(resumes: ResumeWithVersions[]): { label: string; version: ResumeVersionRow }[] {
   return resumes.flatMap((r) =>
@@ -366,7 +380,7 @@ export default function InterviewPrepPage() {
                 <div style={{ flex: 1, minWidth: 220 }}>
                   {Object.entries(feedback.scores).map(([id, score]) => (
                     <div className="cat-row" key={id}>
-                      <span className="cat-label" style={{ textTransform: 'capitalize' }}>{id}</span>
+                      <span className="cat-label">{FEEDBACK_LABELS[id as keyof InterviewFeedback['scores']] ?? capitalise(id)}</span>
                       <div className="bar"><div className="bar-fill" style={{ width: `${score}%`, background: scoreColor(score) }} /></div>
                       <span className="cat-val">{score}</span>
                     </div>
@@ -393,8 +407,8 @@ export default function InterviewPrepPage() {
           ) : q ? (
             <div className="cx-panel">
               <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-                <span className="cx-chip cx-chip-accent">{q.category}</span>
-                <span className="cx-chip">{q.difficulty}</span>
+                <span className="cx-chip cx-chip-accent">{capitalise(q.category)}</span>
+                <span className="cx-chip">{capitalise(q.difficulty)}</span>
               </div>
               <p style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.5, margin: '0 0 12px', color: 'var(--ink)' }}>{q.question}</p>
 
