@@ -10,6 +10,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -41,21 +42,27 @@ export function CareersProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<CareersError | null>(null);
   const [profile, setProfile] = useState<CareerProfileRow | null>(null);
   const [resumes, setResumes] = useState<ResumeWithVersions[]>([]);
+  // The account whose data is on screen. Only the first load for an account blocks the page:
+  // pages swap themselves for a loading state while `loading` is true, so a refresh after a
+  // save would otherwise tear down open panels and in-progress results.
+  const loadedFor = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     if (!user) {
+      loadedFor.current = null;
       setProfile(null);
       setResumes([]);
       setError(null);
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (loadedFor.current !== user.id) setLoading(true);
     try {
       const [p, r] = await Promise.all([getOrCreateProfile(user.id), listResumes(user.id)]);
       setProfile(p);
       setResumes(r);
       setError(null);
+      loadedFor.current = user.id;
     } catch (e) {
       setError(toCareersError(e));
     } finally {

@@ -660,9 +660,11 @@ function AnalysisModal({
             <p style={{ fontSize: 13, color: 'var(--ink2)', lineHeight: 1.6, marginBottom: 12 }}>{v.career_dna.personalitySummary}</p>
             <div className="grid2">
               <div>
+                <div className="note" style={{ marginBottom: 6 }}>Strengths</div>
                 {v.career_dna.strengths.slice(0, 5).map((s) => <span className="tag green" key={s}>{s}</span>)}
               </div>
               <div>
+                <div className="note" style={{ marginBottom: 6 }}>Growth areas</div>
                 {v.career_dna.weaknesses.slice(0, 5).map((s) => <span className="tag red" key={s}>{s}</span>)}
               </div>
             </div>

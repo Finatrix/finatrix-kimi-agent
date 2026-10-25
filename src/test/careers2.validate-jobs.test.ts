@@ -87,6 +87,20 @@ describe('validateTailoring', () => {
     expect(report.sections[0].section).toBe('summary');
   });
 
+  it('drops a rewrite that states a figure its original never did', () => {
+    const report = validateTailoring({
+      sections: [
+        { section: 'experience', original: 'Cut reporting time by 12 hours a week.', improved: 'Saved 12 hours a week, a 40% cut.', reason: 'impact' },
+        { section: 'experience', original: 'Queried 1,200 accounts daily.', improved: 'Analysed 1200 accounts a day.', reason: 'verbs' },
+        { section: 'summary', original: '', improved: 'Analyst with 4 years in lending.', reason: 'new' },
+      ],
+    });
+    expect(report.sections.map((s) => s.improved)).toEqual([
+      'Analysed 1200 accounts a day.',
+      'Analyst with 4 years in lending.',
+    ]);
+  });
+
   it('rejects empty tailoring output', () => {
     expect(() => validateTailoring({ sections: [] })).toThrowError(CareersError);
   });

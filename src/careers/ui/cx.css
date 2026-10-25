@@ -389,6 +389,8 @@ a.cx-tile:hover { background: color-mix(in srgb, var(--cx-panel) 92%, var(--ink)
 .cx.fx-tools .badge-red { color: var(--red); border-color: color-mix(in srgb, var(--red) 35%, transparent); background: transparent; }
 .cx.fx-tools .badge-mute { color: var(--ink3); background: transparent; }
 .cx.fx-tools .tag { border-color: var(--cx-line); background: transparent; }
+.cx.fx-tools .score-ring .sr-cap { font-size: 11px; font-weight: 500; letter-spacing: 0; text-transform: none; }
+.cx.fx-tools .score-ring.sm .sr-cap { font-size: 8.5px; }
 
 .cx.fx-tools .btn {
   width: auto; min-height: 40px; padding: 0 18px; font-size: 14px; letter-spacing: -0.005em;
