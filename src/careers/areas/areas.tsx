@@ -3,7 +3,7 @@
  * pages; a tab's content is loaded only when it is opened.
  */
 import { Suspense, lazy, type ReactNode } from 'react';
-import { Link } from 'react-router';
+import { Link, Navigate, useSearchParams } from 'react-router';
 import { CAREERS_ROUTES } from '../constants';
 import { CxIcon } from '../ui/icons';
 import { Skeleton } from '../ui/primitives';
@@ -55,6 +55,15 @@ export function ResumeArea() {
 }
 
 export function JobsArea() {
+  // Links from before the redesign used `?view=analyzer|saved`.
+  const [params] = useSearchParams();
+  const legacyView = params.get('view');
+  if (!params.get('tab') && (legacyView === 'analyzer' || legacyView === 'saved')) {
+    const next = new URLSearchParams(params);
+    next.delete('view');
+    next.set('tab', legacyView === 'analyzer' ? 'analyse' : 'saved');
+    return <Navigate to={`${CAREERS_ROUTES.jobs}?${next}`} replace />;
+  }
   return (
     <Area
       title="Jobs"

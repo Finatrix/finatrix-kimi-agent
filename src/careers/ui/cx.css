@@ -412,3 +412,20 @@ a.cx-tile:hover { background: color-mix(in srgb, var(--cx-panel) 92%, var(--ink)
 .cx.fx-tools .empty-state .es-t { font-size: 16px; color: var(--ink); }
 .cx.fx-tools .empty-state .es-d { font-size: 14px; color: var(--ink2); }
 .cx.fx-tools .job-meta { font-size: 13px; color: var(--ink3); }
+
+/* Usage meters (Plan): label and value on one line, bar beneath, so the
+   numbers never break mid-figure on a phone. */
+.cx.fx-tools .cat-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'l v' 'b b';
+  gap: 6px 12px; align-items: baseline; margin: 0 0 14px;
+}
+.cx.fx-tools .cat-row .cat-label { grid-area: l; width: auto; font-size: 14px; color: var(--ink2); }
+.cx.fx-tools .cat-row .cat-val { grid-area: v; width: auto; white-space: nowrap; font-variant-numeric: tabular-nums; font-size: 13px; }
+.cx.fx-tools .cat-row .bar { grid-area: b; width: 100%; }
+
+/* Narrow phones: keep the brand on one line. */
+.cx-brand > span { white-space: nowrap; }
+@media (max-width: 400px) {
+  .cx-topbar .cx-brand { font-size: 14px; gap: 8px; }
+  .cx-topbar .cx-beta { display: none; }
+}

@@ -427,7 +427,9 @@ export default function JobsPage({ view: areaView }: { view?: View } = {}) {
     return wanted === 'analyzer' || wanted === 'saved' ? wanted : 'search';
   });
   const view = areaView ?? ownView;
-  const [params, setParams] = useState<JobSearchParams>({ ...DEFAULT_SEARCH_PARAMS });
+  // `?q=` (e.g. "Find live jobs" on a company page) prefills the search and runs it once.
+  const [initialQuery] = useState(() => new URLSearchParams(location.search).get('q')?.trim() ?? '');
+  const [params, setParams] = useState<JobSearchParams>(() => ({ ...DEFAULT_SEARCH_PARAMS, query: initialQuery }));
   const [searching, setSearching] = useState(false);
   const [report, setReport] = useState<SearchReport | null>(null);
   const [searchError, setSearchError] = useState<CareersError | null>(null);
@@ -768,6 +770,15 @@ export default function JobsPage({ view: areaView }: { view?: View } = {}) {
     })
     .map((x) => x.s);
 
+  // Run the `?q=` search once, on arrival.
+  const autoSearched = useRef(false);
+  useEffect(() => {
+    if (!initialQuery || autoSearched.current) return;
+    autoSearched.current = true;
+    void runSearch(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on arrival
+  }, [initialQuery]);
+
   if (loading) return <PageLoading />;
 
   return (
@@ -979,7 +990,7 @@ export default function JobsPage({ view: areaView }: { view?: View } = {}) {
                 // A percentage computed from two signals is not the same claim
                 // as one computed from eight; say so.
                 thinData={!!s.match && s.match.confidence < 50}
-                why={s.why}
+                why={[...s.why, ...(boostMap.get(s)?.why ?? []).map((w) => `Ranked higher: ${w}`)]}
                 addable={s.match?.addableTerms}
                 missing={s.match?.missingTerms}
                 primary={
