@@ -11,9 +11,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
-import { PageHead, ToolFoot } from '../../tools/ui/common';
 import { Tabs } from '../../tools/ui/Tabs';
-import { EmptyState, ErrorCard } from '../components/states';
+import { ErrorCard } from '../components/states';
+import { Empty } from '../ui/primitives';
+import '../ui/forms.css';
 import { CAREERS_ROUTES } from '../constants';
 import {
   getCompanyStore,
@@ -103,19 +104,20 @@ export default function CompanyIntelPage() {
   const pages = Math.ceil(total / PAGE_SIZE);
 
   return (
-    <div className="fx-page">
-      <PageHead chip="Company Intelligence" chipColor="#D4AF37" chipBg="rgba(212,175,55,.12)" icon="bank" title="Search company intelligence">
-        Search {store ? store.companies.length.toLocaleString() : 'thousands of'} companies and their graduate
-        programs, internships, departments, ATS platforms and locations — the same intelligence that enriches your job search.
-      </PageHead>
+    <div className="cxf-stack">
+      <p className="cx-sub">
+        Search {store ? store.companies.length.toLocaleString() : 'thousands of'} companies and their graduate programs, internships,
+        departments, ATS platforms and locations. This is reference data, not a live jobs feed;{' '}
+        <Link to={CAREERS_ROUTES.jobs}>search live jobs</Link> to see current openings.
+      </p>
 
-      {/* Applications reports — grouped via Company Intelligence. */}
+      {/* Applications reports, grouped via Company Intelligence. */}
       {reports && reports.total > 0 && (
-        <details className="card" style={{ padding: 16, marginBottom: 12 }}>
-          <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
-            Your applications, by company intelligence ({reports.total} tracked)
+        <details className="cx-panel">
+          <summary style={{ cursor: 'pointer', fontWeight: 600, minHeight: 32 }}>
+            Your applications by company ({reports.total} tracked)
           </summary>
-          <div className="dash-grid" style={{ marginTop: 12 }}>
+          <div className="cx-grid cx-grid-2" style={{ marginTop: 14 }}>
             {([
               ['By industry', reports.byIndustry],
               ['By ATS platform', reports.byAts],
@@ -123,22 +125,24 @@ export default function CompanyIntelPage() {
               ['By location', reports.byLocation],
             ] as const).map(([label, rec]) => (
               topEntries(rec, 5).length > 0 && (
-                <div key={label} className="stat-cell" style={{ textAlign: 'left' }}>
-                  <div className="l" style={{ marginBottom: 6 }}>{label}</div>
-                  {topEntries(rec, 5).map(([k, n]) => (
-                    <div key={k} className="job-meta" style={{ justifyContent: 'space-between' }}>
-                      <span>{k}</span><b>{n}</b>
-                    </div>
-                  ))}
+                <div key={label}>
+                  <h3 className="cx-sub" style={{ fontWeight: 600, marginBottom: 4 }}>{label}</h3>
+                  <ul className="cx-list">
+                    {topEntries(rec, 5).map(([k, n]) => (
+                      <li key={k} className="cx-row" style={{ minHeight: 36, padding: '4px 0', justifyContent: 'space-between' }}>
+                        <span>{k}</span><span className="cx-num">{n}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )
             ))}
           </div>
-          <div className="note" style={{ marginTop: 10 }}>
-            Graduate-track applications: <b>{reports.graduateApplications}</b> ·
-            Internship-track: <b>{reports.internshipApplications}</b> ·
-            Matched to intelligence base: <b>{reports.matched}/{reports.total}</b>
-          </div>
+          <p className="cx-sub" style={{ marginTop: 12 }}>
+            <span className="cx-num">{reports.graduateApplications}</span> graduate-track applications,{' '}
+            <span className="cx-num">{reports.internshipApplications}</span> internship-track,{' '}
+            <span className="cx-num">{reports.matched} of {reports.total}</span> matched to the company directory.
+          </p>
         </details>
       )}
 
@@ -146,103 +150,104 @@ export default function CompanyIntelPage() {
       <Tabs
         variant="nav"
         label="Search scope"
-        style={{ flexWrap: 'wrap', marginBottom: 12, padding: '10px 0' }}
+        style={{ flexWrap: 'wrap', padding: 0 }}
         active={facet}
         onChange={setFacet}
         items={FACETS.map((f) => ({ key: f.id, label: f.label }))}
       />
 
-      {/* Query + filters */}
-      <div className="lib-toolbar" style={{ flexWrap: 'wrap', gap: 8 }}>
+      {/* One toolbar: query, filters, search */}
+      <div className="cxf-toolbar" role="search" style={{ marginBottom: 0 }}>
         <input
-          className="fi"
+          className="fi cxf-grow"
           type="search"
-          placeholder={`Search ${FACETS.find((f) => f.id === facet)?.label.toLowerCase()}…`}
+          placeholder={`Search ${FACETS.find((f) => f.id === facet)?.label.toLowerCase()}`}
           aria-label="Search query"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && void run(0)}
         />
-        <button className="btn btn-sm" style={{ width: 'auto' }} onClick={() => void run(0)}>Search</button>
+        {store && (
+          <>
+            <select className="fs" aria-label="Industry filter" value={filters.industry ?? ''} onChange={(e) => setFilter('industry', e.target.value)}>
+              <option value="">All industries</option>
+              {store.industries.map((i) => <option key={i} value={i}>{i}</option>)}
+            </select>
+            <select className="fs" aria-label="Department filter" value={filters.department ?? ''} onChange={(e) => setFilter('department', e.target.value)}>
+              <option value="">All departments</option>
+              {store.departments.map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
+            <select className="fs" aria-label="ATS platform filter" value={filters.ats ?? ''} onChange={(e) => setFilter('ats', e.target.value)}>
+              <option value="">All ATS platforms</option>
+              {store.atsPlatforms.map((a) => <option key={a} value={a}>{a}</option>)}
+            </select>
+            <select className="fs" aria-label="Company size filter" value={filters.sizeBand ?? ''} onChange={(e) => setFilter('sizeBand', e.target.value)}>
+              <option value="">All sizes</option>
+              {store.sizeBands.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <select className="fs" aria-label="Opportunity source filter" value={filters.source ?? ''} onChange={(e) => setFilter('source', e.target.value)}>
+              <option value="">All sources</option>
+              {store.sources.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+            <label className="cxf-check cx-sub">
+              <input type="checkbox" checked={!!filters.graduateOnly} onChange={(e) => setFilter('graduateOnly', e.target.checked)} /> Graduate
+            </label>
+            <label className="cxf-check cx-sub">
+              <input type="checkbox" checked={!!filters.internshipOnly} onChange={(e) => setFilter('internshipOnly', e.target.checked)} /> Internships
+            </label>
+          </>
+        )}
+        <button type="button" className="cx-btn cx-btn-primary" onClick={() => void run(0)}>Search</button>
       </div>
 
-      {store && (
-        <div className="lib-toolbar" style={{ flexWrap: 'wrap', gap: 8, marginTop: 8 }} role="group" aria-label="Filters">
-          <select className="fi" aria-label="Industry filter" value={filters.industry ?? ''} onChange={(e) => setFilter('industry', e.target.value)}>
-            <option value="">All industries</option>
-            {store.industries.map((i) => <option key={i} value={i}>{i}</option>)}
-          </select>
-          <select className="fi" aria-label="Department filter" value={filters.department ?? ''} onChange={(e) => setFilter('department', e.target.value)}>
-            <option value="">All departments</option>
-            {store.departments.map((d) => <option key={d} value={d}>{d}</option>)}
-          </select>
-          <select className="fi" aria-label="ATS platform filter" value={filters.ats ?? ''} onChange={(e) => setFilter('ats', e.target.value)}>
-            <option value="">All ATS platforms</option>
-            {store.atsPlatforms.map((a) => <option key={a} value={a}>{a}</option>)}
-          </select>
-          <select className="fi" aria-label="Company size filter" value={filters.sizeBand ?? ''} onChange={(e) => setFilter('sizeBand', e.target.value)}>
-            <option value="">All sizes</option>
-            {store.sizeBands.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <select className="fi" aria-label="Opportunity source filter" value={filters.source ?? ''} onChange={(e) => setFilter('source', e.target.value)}>
-            <option value="">All sources</option>
-            {store.sources.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-            <input type="checkbox" checked={!!filters.graduateOnly} onChange={(e) => setFilter('graduateOnly', e.target.checked)} /> Graduate
-          </label>
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-            <input type="checkbox" checked={!!filters.internshipOnly} onChange={(e) => setFilter('internshipOnly', e.target.checked)} /> Internships
-          </label>
-        </div>
-      )}
-
-      <div style={{ marginTop: 14 }} aria-live="polite">
+      <div aria-live="polite">
         {error && <ErrorCard error={error} onRetry={() => void run(page)} />}
         {!error && loading && <div style={{ minHeight: 120 }} aria-busy="true" />}
         {!error && !loading && results.length === 0 && (
-          <EmptyState icon="bank" title="No companies match">
-            Try a different scope, broaden your filters, or clear the search box.
-          </EmptyState>
+          <div className="cx-panel">
+            <Empty title="No companies match">
+              Try a different scope, broaden your filters, or clear the search box.
+            </Empty>
+          </div>
         )}
         {!error && !loading && results.length > 0 && (
-          <>
-            <div className="note" style={{ marginBottom: 8 }}>{total.toLocaleString()} companies · page {page + 1} of {pages}</div>
-            {results.map((c) => (
-              <div className="card" key={c.id} style={{ padding: 16, marginBottom: 8 }}>
-                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 15, fontWeight: 650 }}>{c.name}</div>
-                    <div className="job-meta">
-                      {c.industry && <span className="badge badge-gold">{c.industry}</span>}
-                      {(c.hqCity || c.hqCountry) && <span>{[c.hqCity, c.hqCountry].filter(Boolean).join(', ')}</span>}
-                      {c.sizeBand && <span>{c.sizeBand}</span>}
-                      {(c.graduateFriendly || c.graduatePrograms.length > 0) && <span className="badge badge-blue">Graduate</span>}
-                      {(c.internFriendly || c.internships.length > 0) && <span className="badge badge-blue">Internships</span>}
-                      {c.ats[0] && <span className="badge badge-mute">ATS: {c.ats[0].detected_ats}</span>}
-                      {c.confidenceScore != null && <span className="badge badge-mute">Intel {c.confidenceScore}%</span>}
+          <section className="cx-panel" aria-label="Search results">
+            <div className="cx-panel-head">
+              <h2><span className="cx-num">{total.toLocaleString()}</span> companies</h2>
+              <span className="cx-muted cx-num">Page {page + 1} of {pages}</span>
+            </div>
+            <ul className="cx-list">
+              {results.map((c) => (
+                <li key={c.id}>
+                  <div className="cx-row">
+                    <div className="cx-row-main">
+                      <p className="cx-row-title">{c.name}</p>
+                      <p className="cx-row-meta">
+                        {c.industry && <span>{c.industry}</span>}
+                        {(c.hqCity || c.hqCountry) && <span>{[c.hqCity, c.hqCountry].filter(Boolean).join(', ')}</span>}
+                        {c.sizeBand && <span>{c.sizeBand}</span>}
+                        {(c.graduateFriendly || c.graduatePrograms.length > 0) && <span className="cx-chip">Graduate programs</span>}
+                        {(c.internFriendly || c.internships.length > 0) && <span className="cx-chip">Internships</span>}
+                        {c.ats[0] && <span>ATS {c.ats[0].detected_ats}</span>}
+                        {c.confidenceScore != null && <span className="cx-num">Data confidence {c.confidenceScore}%</span>}
+                      </p>
                     </div>
+                    <Link className="cx-btn cx-btn-sm" aria-label={`View profile: ${c.name}`} to={`${CAREERS_ROUTES.companyProfile}?id=${encodeURIComponent(c.id)}`}>
+                      View profile
+                    </Link>
                   </div>
-                  <Link className="btn btn-ghost btn-sm" style={{ width: 'auto', textDecoration: 'none', flexShrink: 0 }} to={`${CAREERS_ROUTES.companyProfile}?id=${encodeURIComponent(c.id)}`}>
-                    View profile ↗
-                  </Link>
-                </div>
-              </div>
-            ))}
+                </li>
+              ))}
+            </ul>
             {pages > 1 && (
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 6 }}>
-                <button className="btn btn-ghost btn-sm" disabled={page === 0} onClick={() => void run(page - 1)}>← Previous</button>
-                <button className="btn btn-ghost btn-sm" disabled={page + 1 >= pages} onClick={() => void run(page + 1)}>Next →</button>
+              <div className="cxf-actions" style={{ justifyContent: 'center' }}>
+                <button type="button" className="cx-btn" disabled={page === 0} onClick={() => void run(page - 1)}>Previous</button>
+                <button type="button" className="cx-btn" disabled={page + 1 >= pages} onClick={() => void run(page + 1)}>Next</button>
               </div>
             )}
-          </>
+          </section>
         )}
       </div>
-
-      <ToolFoot>
-        Company intelligence is structured reference metadata, not a live jobs feed.{' '}
-        <Link to={CAREERS_ROUTES.jobs}>Search live jobs</Link> to see current openings enriched with this data.
-      </ToolFoot>
     </div>
   );
 }

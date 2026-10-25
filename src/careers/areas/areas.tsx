@@ -61,10 +61,16 @@ export function JobsArea() {
       description="Live openings from employers and job boards in five countries, scored against your resume."
       tabs={[
         { key: 'search', label: 'Search' },
+        { key: 'saved', label: 'Saved' },
         { key: 'review', label: 'Review one by one' },
+        { key: 'analyse', label: 'Analyse a job description' },
       ]}
     >
-      {(tab) => <View>{tab === 'review' ? <MatchQueuePage /> : <JobsPage />}</View>}
+      {(tab) => (
+        <View>
+          {tab === 'review' ? <MatchQueuePage /> : <JobsPage view={tab === 'analyse' ? 'analyzer' : tab} />}
+        </View>
+      )}
     </Area>
   );
 }

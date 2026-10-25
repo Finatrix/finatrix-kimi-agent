@@ -66,7 +66,11 @@ function chooseNextStep(
   if (latest.version.status === 'failed') {
     return {
       title: `The analysis of “${latest.resume.name}” stopped before it finished.`,
-      detail: latest.version.error || 'Open your resumes to run it again.',
+      // Versions that failed before Careers asked for AI permission in place
+      // carry the old "go to Settings → Privacy" text; a retry now asks.
+      detail: /allow finatrix ai/i.test(latest.version.error)
+        ? 'It stopped because FinatriX AI was not allowed yet. Run it again from your resumes and you will be asked.'
+        : latest.version.error || 'Open your resumes to run it again.',
       action: { label: 'Open resumes', to: CAREERS_ROUTES.resumes },
     };
   }

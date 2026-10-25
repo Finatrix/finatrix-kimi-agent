@@ -9,11 +9,8 @@ import { Link } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { track } from '../../lib/analytics';
 import { useToast } from '../../tools/ui/Toast';
-import { Icon } from '../../tools/ui/Icon';
-import { PageHead } from '../../tools/ui/common';
 import { Dropzone } from '../components/Dropzone';
 import { PipelineProgress } from '../components/PipelineProgress';
-import { ScoreRing } from '../components/ScoreRing';
 import { ErrorCard } from '../components/states';
 import { CAREERS_ROUTES, INDUSTRY_OPTIONS } from '../constants';
 import { useCareers } from '../context/CareersContext';
@@ -24,6 +21,8 @@ import type { PipelineProgress as Progress } from '../types';
 import { CareersError, toCareersError } from '../utils/errors';
 import { formatBytes } from '../utils/format';
 import { sanitizeFileName } from '../utils/sanitize';
+import { RsIcon } from '../areas/resume/icons';
+import '../areas/resume/resume.css';
 
 type Phase = 'idle' | 'ready' | 'running' | 'done' | 'error';
 
@@ -157,41 +156,27 @@ export default function CareersUpload() {
   };
 
   return (
-    <div className="fx-page">
-      <PageHead
-        chip="FinatriX Careers"
-        chipColor="#D4AF37"
-        chipBg="rgba(212,175,55,.12)"
-        icon="briefcase"
-        title="Upload your resume"
-      >
-        PDF, DOCX or DOC up to 10 MB. We extract the text, build your Career DNA and
-        score it for recruiters — all saved privately to your account. Add a job
-        description afterwards for an ATS score tuned to the role.
-      </PageHead>
+    <div className="rs-narrow">
+      {error && phase !== 'error' && <ErrorCard error={error} />}
 
-      <div style={{ maxWidth: 640, margin: '0 auto' }}>
-        {error && phase !== 'error' && <ErrorCard error={error} />}
-
-        {(phase === 'idle' || phase === 'ready') && (
-          <>
-            {!file ? (
-              <div className="card">
-                <Dropzone onFile={(f) => void onFile(f)} />
-              </div>
-            ) : (
-              <div className="card result-card-anim" style={{ animationDelay: '0ms' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-                  <div className="act-ic" style={{ background: 'rgba(212,175,55,.12)', color: 'var(--gold)' }}>
-                    <Icon name="bills" size={16} />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</div>
-                    <div style={{ fontSize: 12, color: 'var(--ink2)' }}>{formatBytes(file.size)}</div>
-                  </div>
-                  <button className="icon-btn" aria-label="Remove file" onClick={reset}>✕</button>
+      {(phase === 'idle' || phase === 'ready') && (
+        <>
+          {!file ? (
+            <Dropzone onFile={(f) => void onFile(f)} />
+          ) : (
+            <section className="cx-panel" aria-label="Resume details">
+              <div className="rs-file">
+                <span className="rs-file-icon"><RsIcon name="file" size={22} /></span>
+                <div className="cx-row-main">
+                  <p className="cx-row-title">{file.name}</p>
+                  <p className="cx-row-meta"><span className="cx-num">{formatBytes(file.size)}</span></p>
                 </div>
+                <button type="button" className="cx-icon-btn" aria-label={`Remove ${file.name}`} onClick={reset}>
+                  <RsIcon name="close" size={16} />
+                </button>
+              </div>
 
+              <div className="rs-fields">
                 <div className="fg">
                   <label className="fl" htmlFor="up-target">Save as</label>
                   <select
@@ -219,7 +204,7 @@ export default function CareersUpload() {
                         value={name}
                         maxLength={80}
                         onChange={(e) => setName(e.target.value)}
-                        placeholder="e.g. Finance Resume"
+                        placeholder="e.g. Finance resume"
                       />
                     </div>
                     <div className="fg">
@@ -233,82 +218,74 @@ export default function CareersUpload() {
                     </div>
                   </>
                 )}
+              </div>
 
-                <button className="btn" onClick={() => void start()}>
-                  Analyse resume
-                </button>
+              <button type="button" className="cx-btn cx-btn-primary" onClick={() => void start()}>
+                Analyse resume
+              </button>
+            </section>
+          )}
+          <p className="cx-sub cx-muted" style={{ marginTop: 14, fontSize: 13 }}>
+            Files are stored privately in your account. Identical files are only analysed once.
+          </p>
+        </>
+      )}
+
+      {phase === 'running' && (
+        <section className="cx-panel" aria-label="Processing">
+          <div className="cx-panel-head"><h2>Analysing {file?.name}</h2></div>
+          <PipelineProgress progress={progress} />
+        </section>
+      )}
+
+      {phase === 'error' && error && (
+        <section className="cx-panel" aria-label="Processing stopped">
+          <div className="cx-panel-head"><h2>Processing stopped</h2></div>
+          <PipelineProgress progress={progress} failedAt={failedStep ?? progress.step} />
+          <div className="cx-notice" role="alert" style={{ marginTop: 16 }}>
+            <p style={{ margin: 0 }}>{error.message}</p>
+          </div>
+          <div className="rs-actions-row" style={{ marginTop: 16 }}>
+            {error.retryable ? (
+              <button type="button" className="cx-btn cx-btn-primary" onClick={() => void retry()}>Try again</button>
+            ) : (
+              <button type="button" className="cx-btn cx-btn-primary" onClick={reset}>Choose a different file</button>
+            )}
+          </div>
+        </section>
+      )}
+
+      {phase === 'done' && outcome && (
+        <section className="cx-panel" aria-label="Analysis complete">
+          <div className="cx-panel-head"><h2 role="status">Analysis complete</h2></div>
+          <p className="cx-sub">
+            {outcome.version.file_name}, version <span className="cx-num">{outcome.version.version_number}</span>
+            {outcome.reusedAnalysis ? '. This file was analysed before, so the earlier result was reused.' : ''}
+          </p>
+          <div className="rs-done-scores">
+            <div className="rs-big">
+              <b>{outcome.version.resume_score ?? '–'}</b>
+              <span>Resume score</span>
+            </div>
+            {outcome.version.ats_score != null && (
+              <div className="rs-big">
+                <b>{outcome.version.ats_score}</b>
+                <span>ATS score</span>
               </div>
             )}
-            <p className="note" style={{ textAlign: 'center', marginTop: 4 }}>
-              Files are stored encrypted in your private storage. Identical files are never
-              analysed twice — we detect duplicates and reuse results.
-            </p>
-          </>
-        )}
-
-        {phase === 'running' && (
-          <div className="card">
-            <div className="panel-eyebrow">Processing</div>
-            <div className="panel-title" style={{ marginBottom: 18 }}>{file?.name}</div>
-            <PipelineProgress progress={progress} />
           </div>
-        )}
-
-        {phase === 'error' && error && (
-          <>
-            <div className="card">
-              <div className="panel-eyebrow">Processing stopped</div>
-              <div className="panel-title" style={{ marginBottom: 18 }}>{file?.name}</div>
-              <PipelineProgress progress={progress} failedAt={failedStep ?? progress.step} />
-            </div>
-            <ErrorCard error={error} onRetry={error.retryable ? () => void retry() : undefined} />
-            {!error.retryable && (
-              <button className="btn btn-ghost" onClick={reset}>Choose a different file</button>
-            )}
-          </>
-        )}
-
-        {phase === 'done' && outcome && (
-          <div className="card result-hero-anim" style={{ textAlign: 'center' }}>
-            <div
-              className="dz-ic"
-              style={{ background: 'rgba(52,210,122,.12)', color: 'var(--green)', margin: '0 auto 14px' }}
-            >
-              <Icon name="check" size={24} />
-            </div>
-            <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-.01em' }}>
-              Analysis complete
-            </div>
-            <p style={{ fontSize: 13, color: 'var(--ink2)', marginTop: 6 }}>
-              {outcome.version.file_name} · version {outcome.version.version_number}
-              {outcome.reusedAnalysis ? ' · duplicate detected, analysis reused' : ''}
+          {outcome.version.ats_score == null && (
+            <p className="cx-sub cx-muted" style={{ marginBottom: 18 }}>
+              Open the analysis from your resume list and add the job description you are targeting to get an ATS score.
             </p>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 28, margin: '24px 0' }}>
-              <ScoreRing score={outcome.version.resume_score} caption="Resume score" />
-              {outcome.version.ats_score != null && (
-                <ScoreRing score={outcome.version.ats_score} caption="ATS score" />
-              )}
-            </div>
-            {outcome.version.ats_score == null && (
-              <p className="note" style={{ marginBottom: 16 }}>
-                Want an ATS Score? Open the analysis in your Library and add the job
-                description you’re targeting — the score is calculated against that role.
-              </p>
-            )}
-            <div style={{ display: 'flex', gap: 10 }}>
-              <Link to={CAREERS_ROUTES.dashboard} className="btn btn-ghost" style={{ flex: 1, textDecoration: 'none' }}>
-                View dashboard
-              </Link>
-              <Link to={CAREERS_ROUTES.resumes} className="btn" style={{ flex: 1, textDecoration: 'none' }}>
-                Open library
-              </Link>
-            </div>
-            <button className="btn btn-ghost btn-sm" style={{ marginTop: 12 }} onClick={reset}>
-              Upload another resume
-            </button>
+          )}
+          <div className="rs-actions-row">
+            <Link to={CAREERS_ROUTES.resumes} className="cx-btn cx-btn-primary">Open resume</Link>
+            <Link to={CAREERS_ROUTES.jobs} className="cx-btn">Find matching jobs</Link>
+            <button type="button" className="cx-btn cx-btn-quiet" onClick={reset}>Upload another</button>
           </div>
-        )}
-      </div>
+        </section>
+      )}
     </div>
   );
 }

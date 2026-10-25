@@ -9,10 +9,11 @@ import { ymdLocal } from '../../lib/date';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
 import { Icon } from '../../tools/ui/Icon';
-import { PageHead, ToolFoot } from '../../tools/ui/common';
 import { Tabs } from '../../tools/ui/Tabs';
 import { ExportMenu } from '../../tools/ui/ExportMenu';
-import { ConfirmDialog, EmptyState, ErrorCard, ModalShell, PageLoading } from '../components/states';
+import { ConfirmDialog, ErrorCard, ModalShell, PageLoading } from '../components/states';
+import { Empty, FitMeter, Tiles } from '../ui/primitives';
+import '../ui/forms.css';
 import { useCareers } from '../context/CareersContext';
 import {
   addApplicationNote,
@@ -43,9 +44,7 @@ import {
 import { computeReminders } from '../services/reminders';
 import { syncReminderNotifications } from '../services/notifications';
 import {
-  APPLICATION_STAGES,
   STAGE_LABELS,
-  matchBand,
   type ApplicationHistoryRow,
   type ApplicationRow,
   type ApplicationStage,
@@ -164,11 +163,11 @@ function CalendarView({ events }: { events: CalEvent[] }) {
   };
 
   return (
-    <div className="card">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-        <button className="icon-btn" aria-label="Previous" onClick={() => step(-1)}>‹</button>
+    <div className="cx-panel">
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+        <button type="button" className="cx-icon-btn" aria-label="Previous" onClick={() => step(-1)}>‹</button>
         <b style={{ flex: 1, textAlign: 'center' }}>{monthLabel}</b>
-        <button className="icon-btn" aria-label="Next" onClick={() => step(1)}>›</button>
+        <button type="button" className="cx-icon-btn" aria-label="Next" onClick={() => step(1)}>›</button>
         <Tabs
           variant="nav"
           label="Calendar mode"
@@ -328,13 +327,13 @@ function ApplicationDetail({
   return (
     <ModalShell label={`Application — ${app.job_title}`} onClose={onClose} wide>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-          <h3 style={{ flex: 1, marginBottom: 0 }}>{app.job_title} — {app.company_name}</h3>
-          <button className="icon-btn" aria-label="Close" onClick={onClose}>✕</button>
+          <h3 style={{ flex: 1, marginBottom: 0 }}>{app.job_title} at {app.company_name}</h3>
+          <button type="button" className="cx-icon-btn" aria-label="Close" onClick={onClose}>✕</button>
         </div>
         <div className="job-meta" style={{ marginBottom: 16 }}>
           <span className="badge badge-gold">{STAGE_LABELS[app.stage]}</span>
           {app.match_score != null && (
-            <span><span className={`tl-dot tl-${matchBand(app.match_score)}`} />{app.match_score}% match</span>
+            <FitMeter score={app.match_score} />
           )}
           {app.ats_score != null && <span>ATS {app.ats_score}</span>}
           <span>Tracked {timeAgo(app.created_at)}</span>
@@ -386,7 +385,7 @@ function ApplicationDetail({
           </div>
 
           <div>
-            <div className="panel-eyebrow" style={{ marginBottom: 10 }}>Timeline (immutable)</div>
+            <div className="panel-eyebrow" style={{ marginBottom: 10 }}>Timeline (entries cannot be edited)</div>
             <div style={{ maxHeight: 320, overflowY: 'auto', paddingRight: 4 }}>
               {history.map((h) => (
                 <div className="act-row" key={h.id}>
@@ -397,7 +396,7 @@ function ApplicationDetail({
                     <div>{h.body || h.event}</div>
                     <div style={{ fontSize: 11, color: 'var(--ink3)' }}>
                       {formatDateTime(h.created_at)}
-                      {h.from_stage && h.to_stage ? ` · ${STAGE_LABELS[h.from_stage as ApplicationStage] ?? h.from_stage} → ${STAGE_LABELS[h.to_stage as ApplicationStage] ?? h.to_stage}` : ''}
+                      {h.from_stage && h.to_stage ? `. Moved from ${STAGE_LABELS[h.from_stage as ApplicationStage] ?? h.from_stage} to ${STAGE_LABELS[h.to_stage as ApplicationStage] ?? h.to_stage}` : ''}
                     </div>
                   </div>
                 </div>
@@ -466,6 +465,23 @@ const STAGE_FILTERS = [
   { id: 'closed', label: 'Closed' },
   { id: 'all', label: 'All' },
 ] as const;
+
+/** The 22 stages, in their existing order, grouped for the stage select. */
+const STAGE_GROUPS: { label: string; stages: readonly ApplicationStage[] }[] = [
+  { label: 'Before applying', stages: ['saved', 'preparing_resume', 'preparing_cover_letter', 'ready_to_apply'] },
+  { label: 'Applied', stages: ['applied', 'application_viewed', 'recruiter_contacted'] },
+  { label: 'Interviewing', stages: ['phone_screening', 'technical_assessment', 'online_assessment', 'behavioural_interview', 'technical_interview', 'panel_interview', 'final_interview', 'reference_check'] },
+  { label: 'Offer', stages: ['offer_received', 'negotiating', 'offer_accepted', 'offer_declined'] },
+  { label: 'Closed', stages: ['rejected', 'withdrawn', 'archived'] },
+];
+
+/** Stage colour is always paired with the stage's text label in the chip. */
+function stageTone(stage: ApplicationStage): string {
+  if (['offer_received', 'negotiating', 'offer_accepted'].includes(stage)) return 'cx-chip-good';
+  if (stage === 'rejected') return 'cx-chip-bad';
+  if (['phone_screening', 'technical_assessment', 'online_assessment', 'behavioural_interview', 'technical_interview', 'panel_interview', 'final_interview', 'reference_check'].includes(stage)) return 'cx-chip-accent';
+  return '';
+}
 
 export default function ApplicationsPage() {
   const { user } = useAuth();
@@ -590,62 +606,56 @@ export default function ApplicationsPage() {
   if (loading) return <PageLoading />;
 
   return (
-    <div className="fx-page">
-      <PageHead
-        chip="Applications"
-        chipColor="#D4AF37"
-        chipBg="rgba(212,175,55,.12)"
-        icon="briefcase"
-        title="Your application command center"
-      >
-        Every application, from saved to offer, with a full immutable history —
-        a personal ATS built for the candidate side of the table.
-      </PageHead>
-
+    <div className="cxf-stack">
       {(ctxError || loadError) && <ErrorCard error={(ctxError ?? loadError)!} onRetry={() => { void refresh(); void load(); }} />}
 
-      {/* Stats */}
-      <div className="dash-grid" style={{ marginBottom: 14 }}>
-        <div className="metric"><div className="ml">Applied</div><div className="mv">{stats.applied}</div><div className="md">{stats.total} tracked · {stats.saved} saved</div></div>
-        <div className="metric" style={{ ['--metric-accent' as string]: 'var(--blue)' }}><div className="ml">Interviews</div><div className="mv">{stats.interviews}</div><div className="md">{stats.interviewRate}% interview rate</div></div>
-        <div className="metric" style={{ ['--metric-accent' as string]: 'var(--green)' }}><div className="ml">Offers</div><div className="mv">{stats.offers}</div><div className="md">{stats.successRate}% success rate · {stats.accepted} accepted</div></div>
-        <div className="metric" style={{ ['--metric-accent' as string]: 'var(--red)' }}><div className="ml">Rejections</div><div className="mv">{stats.rejections}</div><div className="md">{stats.withdrawn} withdrawn</div></div>
-        <div className="metric" style={{ ['--metric-accent' as string]: 'var(--purple)' }}><div className="ml">Avg match</div><div className="mv">{stats.avgMatchScore ?? '—'}</div><div className="md">Avg ATS {stats.avgAtsScore ?? '—'}</div></div>
-      </div>
+      <Tiles
+        label="Application totals"
+        items={[
+          { label: 'Applied', value: stats.applied, note: `${stats.total} tracked, ${stats.saved} saved` },
+          { label: 'Interviewing', value: stats.interviews, note: `${stats.interviewRate}% interview rate` },
+          { label: 'Offers', value: stats.offers, note: `${stats.successRate}% success rate, ${stats.accepted} accepted` },
+          { label: 'Rejections', value: stats.rejections, note: `${stats.withdrawn} withdrawn` },
+          { label: 'Average match', value: stats.avgMatchScore ?? '—', note: `Average ATS score ${stats.avgAtsScore ?? '—'}` },
+        ]}
+      />
 
-      {/* Reminders */}
       {reminders.length > 0 && (
-        <div className="card" style={{ padding: 16 }}>
-          <div className="panel-eyebrow" style={{ marginBottom: 6 }}>Smart reminders</div>
-          {reminders.slice(0, 5).map((r) => (
-            <div className="act-row" key={r.id}>
-              <div className="act-ic" style={r.overdue ? { color: 'var(--red)', background: 'rgba(255,90,82,.1)' } : { color: 'var(--gold)', background: 'rgba(212,175,55,.1)' }}>
-                <Icon name={r.kind === 'interview' ? 'clock' : 'warn'} size={14} />
-              </div>
-              <div style={{ flex: 1 }}>{r.title}</div>
-              <span className="note">{formatDate(r.dueAt)}</span>
-              <button
-                className="btn btn-ghost btn-sm" style={{ padding: '5px 12px', fontSize: 12 }}
-                onClick={() => { const app = apps.find((a) => a.id === r.applicationId); if (app) setDetail(app); }}
-              >
-                Open
-              </button>
-            </div>
-          ))}
-        </div>
+        <section className="cx-panel" aria-labelledby="ap-reminders">
+          <div className="cx-panel-head"><h2 id="ap-reminders">Reminders</h2></div>
+          <ul className="cx-list">
+            {reminders.slice(0, 5).map((r) => (
+              <li key={r.id}>
+                <div className="cx-row">
+                  <div className="cx-row-main">
+                    <p className="cx-row-title wrap">{r.title}</p>
+                    <p className="cx-row-meta">
+                      <span className={`cx-chip ${r.overdue ? 'cx-chip-bad' : ''}`}>{r.overdue ? 'Overdue' : 'Coming up'}</span>
+                      <span>{formatDate(r.dueAt)}</span>
+                    </p>
+                  </div>
+                  <button
+                    type="button" className="cx-btn cx-btn-sm"
+                    onClick={() => { const app = apps.find((a) => a.id === r.applicationId); if (app) setDetail(app); }}
+                  >
+                    Open
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
-      {/* Toolbar */}
-      <div className="lib-toolbar">
-        <input className="fi" type="search" placeholder="Search applications…" aria-label="Search applications" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <select className="fs" aria-label="Filter" value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)}>
+      <div className="cxf-toolbar">
+        <input className="fi cxf-grow" type="search" placeholder="Search applications" aria-label="Search applications" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <select className="fs" aria-label="Show" value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)}>
           {STAGE_FILTERS.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
         </select>
-        <button className="icon-btn" aria-label={view === 'list' ? 'Calendar view' : 'List view'} title={view === 'list' ? 'Calendar view' : 'List view'} onClick={() => setView((v) => (v === 'list' ? 'calendar' : 'list'))}>
-          <Icon name={view === 'list' ? 'clock' : 'bills'} size={14} />
+        <button type="button" className="cx-btn" onClick={() => setView((v) => (v === 'list' ? 'calendar' : 'list'))}>
+          {view === 'list' ? 'Calendar view' : 'List view'}
         </button>
-        <button className="btn btn-sm" style={{ width: 'auto' }} onClick={() => setAddOpen(true)}>+ Track application</button>
-        <span style={{ flex: 1 }} />
+        <span className="cxf-spacer" />
         {/* Was four loose format buttons competing with the page's real
             actions. ExportMenu is the primitive the finance tools already use
             for exactly this, so the control is now consistent site-wide, the
@@ -659,61 +669,72 @@ export default function ApplicationsPage() {
           onJson={() => doExport('json')}
         />
         {view === 'calendar' && (
-          <button className="btn btn-ghost btn-sm" onClick={async () => {
+          <button type="button" className="cx-btn" onClick={async () => {
             try { await downloadIcs(toCalendarEvents(eventsOf(apps, reminders)), 'careers-calendar.ics'); }
             catch (error) { notify(toCareersError(error).message, 'error'); }
           }}>
             Export .ics
           </button>
         )}
+        <button type="button" className="cx-btn cx-btn-primary" onClick={() => setAddOpen(true)}>Track application</button>
       </div>
 
       {view === 'calendar' ? (
         <CalendarView events={eventsOf(apps, reminders)} />
       ) : !visible.length ? (
-        <div className="card">
-          <EmptyState icon="briefcase" title={apps.length ? 'Nothing matches your filters' : 'No applications tracked yet'}>
+        <div className="cx-panel">
+          <Empty title={apps.length ? 'Nothing matches your filters' : 'No applications tracked yet'}>
             {apps.length ? 'Try a different search or filter.' : 'Track jobs from the Jobs page, or add one manually.'}
-          </EmptyState>
+          </Empty>
         </div>
       ) : (
-        visible.map((app) => (
-          <div className="card" key={app.id} style={{ padding: 16, marginBottom: 10 }}>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-              <div style={{ flex: 1, minWidth: 200 }}>
-                <div style={{ fontSize: 15, fontWeight: 650 }}>{app.job_title}</div>
-                <div className="job-meta">
-                  <span><b style={{ color: 'var(--ink)' }}>{app.company_name}</b></span>
-                  {app.location && <span>{app.location}</span>}
-                  {app.priority === 'high' && <span className="badge badge-red">high priority</span>}
-                  {app.match_score != null && (
-                    <span><span className={`tl-dot tl-${matchBand(app.match_score)}`} />{app.match_score}%</span>
-                  )}
-                  {app.closes_at && <span>Closes {formatDate(app.closes_at)}</span>}
-                  <span>Updated {timeAgo(app.updated_at)}</span>
+        <section className="cx-panel" aria-label="Applications">
+          <ul className="cx-list">
+            {visible.map((app) => (
+              <li key={app.id}>
+                <div className="cx-row">
+                  <div className="cx-row-main">
+                    <p className="cx-row-title">{app.job_title} at {app.company_name}</p>
+                    <p className="cx-row-meta">
+                      <span className={`cx-chip ${stageTone(app.stage)}`}>{STAGE_LABELS[app.stage]}</span>
+                      {app.priority === 'high' && <span className="cx-chip cx-chip-warn">High priority</span>}
+                      {app.location && <span>{app.location}</span>}
+                      {app.closes_at && <span>Closes {formatDate(app.closes_at)}</span>}
+                      <span>Updated {timeAgo(app.updated_at)}</span>
+                    </p>
+                  </div>
+                  {app.match_score != null && <span className="cx-row-side"><FitMeter score={app.match_score} /></span>}
+                  <div className="cx-row-actions">
+                    <select
+                      className="fs" aria-label={`Stage for ${app.job_title} at ${app.company_name}`}
+                      value={app.stage}
+                      onChange={(e) => void onStageChange(app, e.target.value as ApplicationStage)}
+                    >
+                      {STAGE_GROUPS.map((g) => (
+                        <optgroup key={g.label} label={g.label}>
+                          {g.stages.map((s) => <option key={s} value={s}>{STAGE_LABELS[s]}</option>)}
+                        </optgroup>
+                      ))}
+                    </select>
+                    <button type="button" className="cx-btn cx-btn-sm" onClick={() => setDetail(app)}>Open</button>
+                    <button type="button" className="cx-icon-btn" aria-label={`Delete application at ${app.company_name}`} onClick={() => setDeleteTarget(app)}>✕</button>
+                  </div>
                 </div>
-              </div>
-              <select
-                className="fs stage-select" style={{ width: 'auto' }} aria-label={`Stage for ${app.job_title}`}
-                value={app.stage}
-                onChange={(e) => void onStageChange(app, e.target.value as ApplicationStage)}
-              >
-                {APPLICATION_STAGES.map((s) => <option key={s} value={s}>{STAGE_LABELS[s]}</option>)}
-              </select>
-              <button className="btn btn-ghost btn-sm" style={{ width: 'auto' }} onClick={() => setDetail(app)}>Open</button>
-              <button className="icon-btn danger" aria-label={`Delete application at ${app.company_name}`} onClick={() => setDeleteTarget(app)}>✕</button>
-            </div>
-          </div>
-        ))
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {view === 'list' && apps.length > 0 && (
-        <button
-          className="btn btn-ghost btn-sm" style={{ marginTop: 6 }}
-          onClick={() => void exportTablePdf(analyticsTable(stats)).then(() => notify('Analytics PDF ready.', 'ok'), (e) => notify(toCareersError(e).message, 'error'))}
-        >
-          Export analytics report
-        </button>
+        <div>
+          <button
+            type="button" className="cx-btn cx-btn-quiet cx-btn-sm"
+            onClick={() => void exportTablePdf(analyticsTable(stats)).then(() => notify('Analytics PDF ready.', 'ok'), (e) => notify(toCareersError(e).message, 'error'))}
+          >
+            Export analytics report
+          </button>
+        </div>
       )}
 
       {/* Manual add modal */}
@@ -753,10 +774,6 @@ export default function ApplicationsPage() {
         onConfirm={() => void onDelete()}
         onCancel={() => setDeleteTarget(null)}
       />
-
-      <ToolFoot>
-        <b>Applications</b> · timeline events are immutable — history is never rewritten
-      </ToolFoot>
     </div>
   );
 }

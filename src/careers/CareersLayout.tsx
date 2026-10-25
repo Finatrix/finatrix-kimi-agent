@@ -197,7 +197,20 @@ export default function CareersLayout() {
               <CxIcon name="wallet" />
               Money tools
             </Link>
+            {/* The account menu lives in the top bar from 768 px up; below
+                that, these are its only way in. */}
+            {user && (
+              <Link to="/profile">
+                <CxIcon name="resume" />
+                Profile and account
+              </Link>
+            )}
           </nav>
+          {user && (
+            <button type="button" className="cx-btn cx-btn-danger cx-btn-block" style={{ marginTop: 12 }} onClick={() => { closeMore(); void signOut(); }}>
+              Sign out
+            </button>
+          )}
         </Sheet>
 
         <AiConsentPrompt />

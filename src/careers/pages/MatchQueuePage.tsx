@@ -22,11 +22,11 @@ import { Link } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { track as trackEvent } from '../../lib/analytics';
 import { useToast } from '../../tools/ui/Toast';
-import { PageHead, ToolFoot } from '../../tools/ui/common';
 import { CountryOptions } from '../components/CountryOptions';
-import { EmptyState, ErrorCard, PageLoading, SkeletonCards } from '../components/states';
-import { ScoreRing } from '../components/ScoreRing';
-import { WorkRightsChip } from '../components/WorkRightsChip';
+import { ErrorCard, PageLoading, SkeletonCards } from '../components/states';
+import { JobCard } from '../areas/jobs/JobCard';
+import { CxIcon } from '../ui/icons';
+import { Empty } from '../ui/primitives';
 import { CAREERS_ROUTES } from '../constants';
 import { useCareers } from '../context/CareersContext';
 import { buildDeck, gapsOf, progressOf, strengthsOf, type QueueVerdict } from '../queue/deck';
@@ -34,7 +34,6 @@ import { clearDecisions, loadDecisions, recordDecision } from '../queue/decision
 import { createApplication } from '../services/applications';
 import { jobContentSha, saveJob, searchProviders } from '../services/jobsService';
 import { runSearchPipeline, type ScoredJob } from '../search/pipeline';
-import { categoryLabel } from '../search/taxonomy';
 import type { QuickMatchInput } from '../search/quickMatch';
 import type { ResumeVersionRow, ResumeWithVersions } from '../types';
 import {
@@ -43,7 +42,7 @@ import {
   type JobSearchParams,
 } from '../types/jobs';
 import { toCareersError, type CareersError } from '../utils/errors';
-import { fitLabel, formatDate, scoreColor } from '../utils/format';
+import { fitLabel } from '../utils/format';
 import { safeHttpUrl } from '../../lib/sanitize';
 
 /** Resume versions that can actually be matched against. Mirrors JobsPage. */
@@ -234,32 +233,20 @@ export default function MatchQueuePage() {
   const gaps = card ? gapsOf(card) : [];
 
   return (
-    <div className="fx-page">
-      <PageHead
-        chip="Match Queue"
-        chipColor="#D4AF37"
-        chipBg="rgba(212,175,55,.12)"
-        icon="compass"
-        title="One job at a time"
-      >
-        Every role scored against your resume, reviewed one card at a time — with
-        the gaps shown as plainly as the matches, so you spend applications on
-        the jobs that are actually worth one.
-      </PageHead>
-
+    <div className="cx-grid">
       {error && <ErrorCard error={error} onRetry={() => void refresh()} />}
 
       {/* Setup — resume + what to queue */}
-      <div className="card" style={{ padding: 18 }}>
-        <div className="grid3" style={{ marginBottom: 10 }}>
+      <section className="cx-panel" aria-label="Queue setup">
+        <div className="jb-filters" style={{ marginTop: 0 }}>
           <input
-            className="fi" placeholder="Role or keyword *" aria-label="Role or keyword"
+            className="fi" placeholder="Role or keyword" aria-label="Role or keyword"
             value={params.query}
             onChange={(e) => setParams((p) => ({ ...p, query: e.target.value }))}
             onKeyDown={(e) => e.key === 'Enter' && void build()}
           />
           <input
-            className="fi" placeholder="City / state" aria-label="Location"
+            className="fi" placeholder="City or state" aria-label="Location"
             value={params.location}
             onChange={(e) => setParams((p) => ({ ...p, location: e.target.value }))}
             onKeyDown={(e) => e.key === 'Enter' && void build()}
@@ -271,31 +258,30 @@ export default function MatchQueuePage() {
             <CountryOptions />
           </select>
         </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <label className="fl" style={{ marginBottom: 0 }} htmlFor="queue-version">Match against</label>
+        <div className="jb-version" style={{ marginTop: 12, marginBottom: 0 }}>
+          <label htmlFor="queue-version">Match against</label>
           {versions.length ? (
             <select
-              id="queue-version" className="fs" style={{ width: 'auto' }}
+              id="queue-version" className="fs"
               value={version?.id ?? ''} onChange={(e) => setVersionId(e.target.value)}
             >
               {versions.map((v) => <option key={v.version.id} value={v.version.id}>{v.label}</option>)}
             </select>
           ) : (
-            <Link to={CAREERS_ROUTES.upload} className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}>
+            <Link to={CAREERS_ROUTES.upload} className="cx-btn cx-btn-sm">
               Upload a resume to enable scoring
             </Link>
           )}
-          <button className={`btn btn-sm ${building ? 'btn-loading' : ''}`} disabled={building} onClick={() => void build()}>
+          <button className="cx-btn cx-btn-primary cx-btn-sm" disabled={building} onClick={() => void build()}>
             {building ? 'Building…' : started ? 'Rebuild queue' : 'Build my queue'}
           </button>
         </div>
         {!versions.length && (
-          <p className="note" style={{ marginTop: 10 }}>
-            Without a resume every job still queues up — it just arrives unscored,
-            so there is nothing to weigh it against.
+          <p className="cx-muted" style={{ marginTop: 10, fontSize: 13 }}>
+            Without a resume every job still queues up, but unscored.
           </p>
         )}
-      </div>
+      </section>
 
       {searchError && <ErrorCard error={searchError} onRetry={() => void build()} />}
 
@@ -303,11 +289,11 @@ export default function MatchQueuePage() {
 
       {/* Progress — terminal verdicts only; skipping is not progress. */}
       {!building && started && progress.total > 0 && (
-        <div className="lib-toolbar" style={{ flexWrap: 'wrap', gap: 12 }}>
-          <span className="note" aria-live="polite">
-            <b style={{ color: 'var(--ink)' }}>{progress.reviewed}</b> of {progress.total} reviewed
-            {deck.deferred > 0 && ` · ${deck.deferred} skipped, back at the end`}
-            {deck.belowThreshold > 0 && ` · ${deck.belowThreshold} below ${threshold}%`}
+        <div className="jb-progress">
+          <span className="cx-sub" aria-live="polite">
+            <span className="cx-num">{progress.reviewed}</span> of {progress.total} reviewed
+            {deck.deferred > 0 && `, ${deck.deferred} skipped and back at the end`}
+            {deck.belowThreshold > 0 && `, ${deck.belowThreshold} below ${threshold}%`}
           </span>
           <div
             className="q-progress" role="progressbar" aria-label="Queue progress"
@@ -320,124 +306,91 @@ export default function MatchQueuePage() {
 
       {/* The card */}
       {!building && card && (
-        <article className="card result-card-anim" style={{ padding: 20 }} aria-label={`${card.job.title} at ${card.job.company}`}>
-          <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <h2 style={{ fontSize: 19, fontWeight: 680, marginBottom: 4 }}>{card.job.title}</h2>
-              <div className="job-meta">
-                <span><b style={{ color: 'var(--ink)' }}>{card.job.company || 'Unknown company'}</b></span>
-                {card.job.location && <span>{card.job.location}</span>}
-                {card.job.classification.category !== 'other' && (
-                  <span className="badge badge-gold">{categoryLabel(card.job.classification.category)}</span>
-                )}
-                {(card.job.workMode || card.job.work_mode) && (
-                  <span className="badge badge-blue">{card.job.workMode || card.job.work_mode}</span>
-                )}
-                {(card.job.salary_min || card.job.salary_max) && (
-                  <span>
-                    {[card.job.salary_min, card.job.salary_max].filter(Boolean).map((n) => n!.toLocaleString()).join(' – ')} {card.job.currency}
-                  </span>
-                )}
-                {card.job.posted_at && <span>Posted {formatDate(card.job.posted_at)}</span>}
-                <WorkRightsChip job={card.job} declared={settings.declaredRights} />
-              </div>
-            </div>
-            <div style={{ textAlign: 'center', flexShrink: 0 }}>
-              <ScoreRing score={score} caption="resume match" size={78} />
-              <div style={{ fontSize: 12.5, fontWeight: 620, color: scoreColor(score), marginTop: 4 }}>
-                {fitLabel(score)}
-              </div>
-            </div>
-          </div>
-
-          {card.why.length > 0 && (
-            <p className="note" style={{ marginTop: 12 }}>
-              Why this surfaced: {card.why.slice(0, 3).join(' · ')}
-            </p>
-          )}
+        <JobCard
+          headingLevel="h2"
+          job={card.job}
+          declaredRights={settings.declaredRights}
+          score={score}
+          why={card.why}
+          primary={
+            <button className="cx-btn cx-btn-primary" disabled={acting} onClick={() => void decide('applied')}>
+              {acting ? 'Saving…' : 'Apply'}
+              {!acting && <CxIcon name="external" size={14} />}
+            </button>
+          }
+          secondary={
+            <>
+              <button className="cx-btn cx-btn-sm" disabled={acting} onClick={() => void decide('declined')}>
+                Decline
+              </button>
+              <button className="cx-btn cx-btn-quiet cx-btn-sm" disabled={acting} onClick={() => void decide('skipped')}>
+                Skip
+              </button>
+            </>
+          }
+        >
+          <p className="cx-sub" style={{ marginTop: 10, fontWeight: 600 }}>{fitLabel(score)}</p>
 
           {/* Both sides of the argument, side by side and equally weighted. */}
-          <div className="grid2" style={{ gap: 12, marginTop: 14 }}>
+          <div className="jb-lists">
             <div>
-              <div className="panel-eyebrow">What lines up</div>
+              <h3>What lines up</h3>
               {strengths.length ? (
-                <div className="job-meta" style={{ marginTop: 6 }}>
-                  {strengths.map((s) => <span key={s} className="badge badge-green">{s}</span>)}
+                <div className="jb-chip-row">
+                  {strengths.map((s) => <span key={s} className="cx-chip cx-chip-good">{s}</span>)}
                 </div>
               ) : (
-                <p className="note" style={{ marginTop: 6 }}>
-                  {score == null ? 'Select a resume to see this.' : 'Nothing specific matched — treat the score with caution.'}
+                <p className="cx-muted" style={{ fontSize: 13, margin: 0 }}>
+                  {score == null ? 'Select a resume to see this.' : 'Nothing specific matched. Treat the score with caution.'}
                 </p>
               )}
             </div>
             <div>
-              <div className="panel-eyebrow">Not evidenced in your resume</div>
+              <h3>Not evidenced in your resume</h3>
               {gaps.length ? (
-                <div className="job-meta" style={{ marginTop: 6 }}>
-                  {gaps.map((g) => <span key={g} className="badge badge-mute">{g}</span>)}
+                <div className="jb-chip-row">
+                  {gaps.map((g) => <span key={g} className="cx-chip">{g}</span>)}
                 </div>
               ) : (
-                <p className="note" style={{ marginTop: 6 }}>
+                <p className="cx-muted" style={{ fontSize: 13, margin: 0 }}>
                   {score == null ? 'Select a resume to see this.' : 'No significant gaps found.'}
                 </p>
               )}
             </div>
           </div>
-
-          <div style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'wrap' }}>
-            <button className="btn btn-ghost btn-sm" disabled={acting} onClick={() => void decide('declined')}>
-              Decline
-            </button>
-            <button className="btn btn-ghost btn-sm" disabled={acting} onClick={() => void decide('skipped')}>
-              Skip
-            </button>
-            <button className={`btn btn-sm ${acting ? 'btn-loading' : ''}`} disabled={acting} onClick={() => void decide('applied')}>
-              {acting ? 'Saving…' : 'Apply ↗'}
-            </button>
-            {safeHttpUrl(card.job.apply_url) && (
-              <a
-                className="btn btn-ghost btn-sm" style={{ width: 'auto', textDecoration: 'none' }}
-                href={safeHttpUrl(card.job.apply_url)} target="_blank" rel="noopener noreferrer"
-              >
-                View posting
-              </a>
-            )}
-          </div>
-          <p className="note" style={{ marginTop: 10 }}>
-            <kbd>←</kbd> decline · <kbd>S</kbd> skip · <kbd>→</kbd> apply.
-            Apply opens the employer's own posting and tracks it as ready to apply —
-            nothing is submitted for you.
+          <p className="jb-hint">
+            <kbd>←</kbd> decline, <kbd>S</kbd> skip, <kbd>→</kbd> apply.
+            Apply opens the employer's own posting and tracks it as ready to apply. Nothing is submitted for you.
           </p>
-          <p className="note" aria-live="polite" style={{ minHeight: 16 }}>
+          <p className="jb-hint" aria-live="polite" style={{ minHeight: 16 }}>
             {lastVerdict ? VERDICT_COPY[lastVerdict] : ''}
           </p>
-        </article>
+        </JobCard>
       )}
 
       {/* Deck exhausted */}
       {!building && started && !card && (
-        <div className="card">
+        <section className="cx-panel" aria-label="Queue status">
           {progress.total === 0 && !searchError ? (
-            <EmptyState icon="goal" title={`Nothing cleared the ${threshold}% bar`}>
+            <Empty title={`Nothing cleared the ${threshold}% bar`}>
               {deck.belowThreshold > 0
                 ? `${deck.belowThreshold} role${deck.belowThreshold === 1 ? '' : 's'} matched your search but scored below ${threshold}% against this resume. Try a broader role title, another location, or a different resume version.`
                 : 'No live roles matched that search. Try a broader role title or another location.'}
-            </EmptyState>
+            </Empty>
           ) : (
-            <EmptyState
-              icon="park"
+            <Empty
               title="Queue clear"
               action={
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-                  <button className="btn btn-sm" style={{ width: 'auto' }} onClick={() => void build()}>
+                <div className="jb-actions" style={{ marginTop: 0 }}>
+                  <button className="cx-btn cx-btn-primary cx-btn-sm" onClick={() => void build()}>
                     Find more roles
                   </button>
-                  <Link className="btn btn-ghost btn-sm" style={{ width: 'auto', textDecoration: 'none' }} to={CAREERS_ROUTES.applications}>
+                  <Link className="cx-btn cx-btn-sm" to={CAREERS_ROUTES.applications}>
                     Go to Applications
                   </Link>
                   {userId && (
                     <button
-                      className="btn btn-ghost btn-sm" style={{ width: 'auto' }}
+                      className="cx-btn cx-btn-quiet cx-btn-sm"
                       onClick={() => { clearDecisions(userId); setDecisions(new Map()); notify('Declined roles will show again.', 'ok'); }}
                     >
                       Reset declines
@@ -448,24 +401,19 @@ export default function MatchQueuePage() {
             >
               You reviewed {progress.reviewed} role{progress.reviewed === 1 ? '' : 's'}. Anything you
               applied to is waiting in Applications.
-            </EmptyState>
+            </Empty>
           )}
-        </div>
+        </section>
       )}
 
       {/* First visit */}
       {!building && !started && (
-        <div className="card">
-          <EmptyState icon="compass" title="Build your first queue">
-            Tell us the role above and we will score every live opening against your
-            resume, then hand them to you one at a time.
-          </EmptyState>
-        </div>
+        <section className="cx-panel" aria-label="Queue status">
+          <Empty title="Build your first queue">
+            Enter a role above. Each live opening is scored against your resume and shown one at a time.
+          </Empty>
+        </section>
       )}
-
-      <ToolFoot>
-        <b>Match Queue</b> · scored against your resume before you spend an application
-      </ToolFoot>
     </div>
   );
 }

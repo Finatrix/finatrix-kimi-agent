@@ -1,0 +1,51 @@
+/* Jobs area: the job card and the search toolbar. Colours come from the cx tokens. */
+
+.jb-card { padding: 18px; }
+@media (min-width: 640px) { .jb-card { padding: 20px 22px; } }
+.jb-top { display: flex; gap: 16px; align-items: flex-start; }
+.jb-main { flex: 1 1 auto; min-width: 0; }
+.jb-title { margin: 0; color: var(--ink); font-size: 16px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.35; overflow-wrap: anywhere; }
+.jb-meta { margin-top: 4px; }
+.jb-company { color: var(--ink2); font-weight: 600; }
+.jb-source { margin: 4px 0 0; color: var(--ink3); font-size: 13px; }
+.jb-fit { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.jb-thin { font-size: 12px; }
+.jb-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.jb-why { margin-top: 8px; }
+.jb-why-body { margin-top: 6px; padding-left: 12px; border-left: 2px solid var(--cx-line); }
+.jb-why-body p + p { margin-top: 4px; }
+.jb-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; }
+.jb-actions .cx-btn { min-height: 40px; }
+.jb-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 520px) {
+  .jb-top { flex-direction: column; gap: 10px; }
+  .jb-fit { align-items: flex-start; }
+}
+
+.jb-upload { position: relative; }
+.jb-upload:focus-within { outline: 2px solid var(--cx-accent); outline-offset: 2px; }
+.jb-form { display: grid; gap: 10px; grid-template-columns: 1fr; align-items: center; }
+@media (min-width: 720px) { .jb-form { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; } }
+.jb-form input, .jb-form select, .jb-filters input, .jb-filters select { min-height: 40px; }
+.jb-filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.jb-filters { display: grid; gap: 10px; margin-top: 12px; grid-template-columns: 1fr; }
+@media (min-width: 720px) { .jb-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.jb-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin: 4px 0 12px; }
+.jb-toolbar .jb-count { flex: 1 1 auto; margin: 0; }
+.jb-toolbar label { color: var(--ink2); font-size: 13px; }
+.jb-toolbar input[type='range'] { width: 140px; min-height: 40px; accent-color: var(--cx-accent); }
+.jb-toolbar select { width: auto; min-height: 40px; }
+.jb-details { margin-bottom: 12px; }
+.jb-details-body { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 8px; color: var(--ink3); font-size: 13px; }
+.jb-pager { display: flex; gap: 8px; justify-content: center; margin-top: 12px; }
+.jb-version { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 14px; }
+.jb-version label { color: var(--ink2); font-size: 14px; }
+.jb-version select { width: auto; min-height: 40px; max-width: 100%; }
+.jb-lists { display: grid; gap: 12px; margin-top: 14px; }
+@media (min-width: 640px) { .jb-lists { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.jb-lists h3 { margin: 0 0 6px; color: var(--ink); font-size: 14px; font-weight: 600; }
+.jb-chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.jb-progress { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 0 12px; }
+.jb-hint { margin: 10px 0 0; color: var(--ink3); font-size: 13px; }
+.jb-hint kbd { font: inherit; padding: 1px 6px; border: 1px solid var(--cx-line-strong); border-radius: 6px; }
+.jb-text { width: 100%; min-height: 200px; resize: vertical; line-height: 1.55; }

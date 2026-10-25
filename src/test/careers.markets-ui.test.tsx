@@ -34,7 +34,7 @@ describe('WorkRightsChip', () => {
 
   it('states the requirement in the market’s words and how it reads against the user', () => {
     render(<WorkRightsChip job={{ country: 'AU', work_rights: citizensOnly }} declared={{ au: 'needs_sponsorship' }} />);
-    expect(screen.getByText(/Australian citizens only · does not match your work rights/)).toBeTruthy();
+    expect(screen.getByText(/Australian citizens only, does not match your work rights/)).toBeTruthy();
   });
 
   it('carries its meaning in text, not only colour, when the user has declared nothing', () => {
