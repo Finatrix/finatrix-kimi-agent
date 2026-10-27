@@ -37,6 +37,11 @@
 -- straight through — which is what leaves room for the billing webhook to do
 -- its job. Platform admins are exempt too, matching the existing policies.
 --
+-- All three guards are SECURITY INVOKER, and must stay so. Inside a SECURITY
+-- DEFINER function `current_user` is the function's owner (postgres), so the
+-- role check above would exempt every caller and the guard would block
+-- nothing. That is exactly how the first draft of this migration shipped.
+--
 -- What a client MAY still change, because both are legitimately user-initiated:
 --   • `cancel_at_period_end` — "cancel at the end of the period";
 --   • `status`, but only to 'canceled' — "cancel now". Any other transition
@@ -44,7 +49,7 @@
 create or replace function public.guard_subscription_entitlements()
 returns trigger
 language plpgsql
-security definer
+security invoker
 set search_path = ''
 as $$
 begin
@@ -94,7 +99,7 @@ create trigger guard_subscription_entitlements
 create or replace function public.guard_subscription_insert()
 returns trigger
 language plpgsql
-security definer
+security invoker
 set search_path = ''
 as $$
 begin
@@ -122,7 +127,7 @@ create trigger guard_subscription_insert
 create or replace function public.guard_usage_counter_decrease()
 returns trigger
 language plpgsql
-security definer
+security invoker
 set search_path = ''
 as $$
 begin
@@ -162,13 +167,25 @@ create trigger guard_usage_counter_decrease
 --   -4  per-user MONTHLY call quota reached   ← new
 --   >=1 the post-increment daily call count
 --
+-- The monthly quota is what the Careers plans sell, so only Careers calls count
+-- toward it (`p_quota_call`), in their own column. The free money tools share
+-- this meter, and counting them would cap every Free user's calculator
+-- assistant and statement import at the Free plan's 20 calls a month, and let a
+-- paid user's money-tool use eat into their Careers analyses.
+--
 -- The original is left in place: an un-migrated deployment keeps working, and
 -- overloading by name would make the PostgREST call ambiguous.
+alter table public.careers_ai_usage
+  add column if not exists quota_calls int not null default 0;
+
+drop function if exists public.begin_ai_call_v2(uuid, date, int, int, bigint, bigint);
+
 create or replace function public.begin_ai_call_v2(
   p_user_id      uuid,
   p_day          date,
   p_call_limit   int,
   p_month_limit  int,      -- <= 0 means unlimited
+  p_quota_call   boolean,  -- does this call count toward the monthly quota?
   p_token_limit  bigint,
   p_global_limit bigint
 ) returns int language plpgsql
@@ -200,8 +217,8 @@ begin
   -- Monthly quota, summed over the calendar month `p_day` falls in. Checked
   -- before the increment for the same reason the token budget is: admit while
   -- under, rather than reserving and refunding.
-  if p_month_limit > 0 then
-    select coalesce(sum(calls), 0) into v_month_calls
+  if p_quota_call and p_month_limit > 0 then
+    select coalesce(sum(quota_calls), 0) into v_month_calls
       from public.careers_ai_usage
      where user_id = p_user_id
        and day >= date_trunc('month', p_day)::date
@@ -211,10 +228,11 @@ begin
     end if;
   end if;
 
-  insert into public.careers_ai_usage (user_id, day, calls)
-  values (p_user_id, p_day, 1)
+  insert into public.careers_ai_usage (user_id, day, calls, quota_calls)
+  values (p_user_id, p_day, 1, case when p_quota_call then 1 else 0 end)
   on conflict (user_id, day) do update
-    set calls = public.careers_ai_usage.calls + 1
+    set calls = public.careers_ai_usage.calls + 1,
+        quota_calls = public.careers_ai_usage.quota_calls + case when p_quota_call then 1 else 0 end
   where public.careers_ai_usage.calls < p_call_limit
   returning calls into v_calls;
 
@@ -233,7 +251,7 @@ begin
   return coalesce(v_calls, 1);
 end $$;
 
-revoke execute on function public.begin_ai_call_v2(uuid, date, int, int, bigint, bigint)
+revoke execute on function public.begin_ai_call_v2(uuid, date, int, int, boolean, bigint, bigint)
   from public, anon, authenticated;
-grant  execute on function public.begin_ai_call_v2(uuid, date, int, int, bigint, bigint)
+grant  execute on function public.begin_ai_call_v2(uuid, date, int, int, boolean, bigint, bigint)
   to service_role;

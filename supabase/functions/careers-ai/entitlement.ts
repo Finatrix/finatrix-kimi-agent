@@ -20,20 +20,20 @@
  * ── Why this is not simply "paid plans only" ───────────────────────────────
  * `careers-ai` is the whole application's AI transport, not just Careers'. The
  * FREE money tools reach it too — the assistant in the calculators, and the
- * bank-statement categoriser in the Expense Tracker. Refusing every non-paid
- * caller would have broken both.
+ * Expense Tracker's statement import (categorising, and reading the layout of
+ * a pasted screenshot). Refusing every non-paid caller would have broken them.
  *
  * So the gate is per TASK. `FREE_TIER_TASKS` is an allowlist of the money-tool
- * tasks, which any plan may run against its own quota; everything else is a
- * Careers task and requires a paid plan. An allowlist rather than a list of
- * Careers tasks on purpose: `tasks-jobs.ts` and `tasks-phase3.ts` pass dynamic
- * labels through, so a Careers task nobody remembered to register defaults to
- * REQUIRING payment rather than to being free.
+ * tasks, which any plan may run under the daily limits alone; everything else
+ * is a Careers task, requires a paid plan and counts toward that plan's monthly
+ * quota. An allowlist rather than a list of Careers tasks on purpose:
+ * `tasks-jobs.ts` and `tasks-phase3.ts` pass dynamic labels through, so a
+ * Careers task nobody remembered to register defaults to REQUIRING payment
+ * rather than to being free.
  */
 
 /**
- * What a caller gets when there is no subscription row, or when the plan join
- * comes back empty.
+ * The quota a paid row gets when its plan join comes back empty.
  *
  * Matches the `free` row seeded in `subscription_plans` (ai_quota_monthly = 20),
  * and `careersAiEntitlement.test.ts` pins the two together. Stated as the
@@ -48,11 +48,11 @@ export const PAID_PLAN_IDS = ['student', 'professional', 'premium', 'enterprise'
 /**
  * Tasks the free money tools issue. Everything not listed is a Careers task.
  *
- * Keep in step with the `task:` labels in `src/tools/ai/` — there are only two,
- * and `careersAiEntitlement.test.ts` fails if a third appears without landing
- * here.
+ * Keep in step with the `task:` labels in `src/tools/ai/`.
+ * `careersAiEntitlement.test.ts` reads every file there and fails if one sends
+ * a task that is not listed.
  */
-export const FREE_TIER_TASKS = ['money-chat', 'statement-categorize'] as const;
+export const FREE_TIER_TASKS = ['money-chat', 'statement-categorize', 'statement-layout'] as const;
 
 export interface PlanSnapshot {
   /** `subscriptions.plan_id`, or null when the user has no subscription row. */
@@ -67,6 +67,8 @@ export type EntitlementDecision =
       planId: string;
       /** Calls permitted this calendar month. `null` means unlimited. */
       monthlyCallLimit: number | null;
+      /** Whether this call counts toward the monthly quota: Careers tasks only. */
+      quotaCall: boolean;
     }
   | {
       allowed: false;
@@ -100,7 +102,13 @@ export function isFreeTierTask(task: string): boolean {
 export function decideEntitlement(task: string, snapshot: PlanSnapshot | null): EntitlementDecision {
   const planId = effectivePlanId(snapshot);
 
-  if (!isFreeTierTask(task) && !isPaidPlan(planId)) {
+  // The money tools are free on every plan and are not what the monthly quota
+  // sells, so they run under the daily limits alone and do not count toward it.
+  if (isFreeTierTask(task)) {
+    return { allowed: true, planId, monthlyCallLimit: null, quotaCall: false };
+  }
+
+  if (!snapshot || !isPaidPlan(planId)) {
     return {
       allowed: false,
       planId,
@@ -109,13 +117,8 @@ export function decideEntitlement(task: string, snapshot: PlanSnapshot | null): 
     };
   }
 
-  // No subscription row means Free, which has a quota rather than none.
   // `null` on a real row genuinely means unlimited (Enterprise) and is passed
   // through as such; the caller normalises a missing plan join to the fallback
   // before building the snapshot, so there is no third state to handle here.
-  return {
-    allowed: true,
-    planId,
-    monthlyCallLimit: snapshot ? snapshot.aiQuotaMonthly : FREE_PLAN_FALLBACK_QUOTA,
-  };
+  return { allowed: true, planId, monthlyCallLimit: snapshot.aiQuotaMonthly, quotaCall: true };
 }

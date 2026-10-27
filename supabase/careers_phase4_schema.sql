@@ -337,7 +337,7 @@ grant execute on function public.validate_coupon(text) to authenticated, service
 -- for a long time this file read as though it were. RLS scopes updates to the
 -- caller's row; it says nothing about WHICH COLUMNS they may set, so `plan_id`
 -- was client-writable and the React paywall read that column to decide access.
--- The column guard lives in migrations/20260825000100_paywall_enforcement.sql
+-- The column guard lives in migrations/20261027000100_paywall_enforcement.sql
 -- (a BEFORE UPDATE trigger, because `with check` cannot compare against OLD).
 -- Read that file before relying on these three policies for anything.
 drop policy if exists "subscriptions_select" on public.subscriptions;
@@ -360,7 +360,7 @@ create policy "billing_history_admin_write" on public.billing_history for insert
 
 -- usage_counters: own row select; the client increments its own counters.
 -- It may not DECREASE them — that guard is a trigger in
--- migrations/20260825000100_paywall_enforcement.sql, since the policy below
+-- migrations/20261027000100_paywall_enforcement.sql, since the policy below
 -- cannot express "not lower than before".
 drop policy if exists "usage_counters_select" on public.usage_counters;
 create policy "usage_counters_select" on public.usage_counters for select

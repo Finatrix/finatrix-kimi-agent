@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   FREE_PLAN_FALLBACK_QUOTA,
@@ -29,7 +29,7 @@ import {
 const ROOT = join(__dirname, '..', '..');
 const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8');
 
-const MIGRATION = 'supabase/migrations/20260825000100_paywall_enforcement.sql';
+const MIGRATION = 'supabase/migrations/20261027000100_paywall_enforcement.sql';
 const SCHEMA = 'supabase/careers_phase4_schema.sql';
 
 const plan = (planId: string, aiQuotaMonthly: number | null): PlanSnapshot => ({ planId, aiQuotaMonthly });
@@ -57,8 +57,11 @@ describe('the free money tools keep working on every plan', () => {
   });
 
   it('covers exactly the tasks the money tools actually send', () => {
-    const sources = ['src/tools/ai/assistant.ts', 'src/tools/ai/statementCategorize.ts']
-      .map(read)
+    // Every file, not a fixed list: `statement-layout` arrived in a new file and
+    // a hard-coded list of two would never have seen it.
+    const sources = readdirSync(join(ROOT, 'src/tools/ai'))
+      .filter((f) => /\.tsx?$/.test(f))
+      .map((f) => read(`src/tools/ai/${f}`))
       .join('\n');
     const sent = [...sources.matchAll(/task:\s*'([a-z0-9-]+)'/g)].map((m) => m[1]);
     expect(sent.length, 'expected the money tools to send at least one task').toBeGreaterThan(0);
@@ -126,10 +129,24 @@ describe('the quota comes from the plan, not from an env var', () => {
     expect(d.allowed && d.monthlyCallLimit).toBeNull();
   });
 
-  /** A lookup that returns nothing must not become a blank cheque. */
-  it('falls back to the smallest allowance when there is no subscription', () => {
-    const d = decideEntitlement('money-chat', null);
+  it('counts only Careers tasks toward the monthly quota', () => {
+    const careers = decideEntitlement(CAREERS_TASK, plan('student', 100));
+    expect(careers.allowed && careers.quotaCall).toBe(true);
+    // The money tools are not what the quota sells: no monthly cap on Free,
+    // and a paid user's money-tool use does not eat into their analyses.
+    for (const snapshot of [null, plan('free', 20), plan('premium', 2000)]) {
+      const money = decideEntitlement('money-chat', snapshot);
+      expect(money.allowed && money.quotaCall).toBe(false);
+      expect(money.allowed && money.monthlyCallLimit).toBeNull();
+    }
+  });
+
+  /** A paid row whose plan has a missing quota must not become a blank cheque. */
+  it('passes the fallback quota through for a paid row with an empty plan join', () => {
+    const d = decideEntitlement(CAREERS_TASK, plan('premium', FREE_PLAN_FALLBACK_QUOTA));
     expect(d.allowed && d.monthlyCallLimit).toBe(FREE_PLAN_FALLBACK_QUOTA);
+    const fn = read('supabase/functions/careers-ai/index.ts');
+    expect(fn).toMatch(/planJoin \? planJoin\.ai_quota_monthly : FREE_PLAN_FALLBACK_QUOTA/);
   });
 
   it('matches the free quota seeded in subscription_plans', () => {
@@ -176,6 +193,20 @@ describe('the database refuses a self-granted plan', () => {
     expect(exemptions.length).toBeGreaterThanOrEqual(3);
   });
 
+  /**
+   * Under SECURITY DEFINER, `current_user` is the owner (postgres), so the role
+   * check above exempts everyone and the guard is a no-op. The first draft did
+   * exactly that; a throwaway Postgres run is what caught it.
+   */
+  it('runs every guard as the caller, so current_user is the real role', () => {
+    const guards = sql().split(/create or replace function /).filter((f) => f.startsWith('public.guard_'));
+    expect(guards).toHaveLength(3);
+    for (const fn of guards) {
+      expect(fn, fn.slice(0, 40)).toMatch(/security invoker/);
+      expect(fn, fn.slice(0, 40)).not.toMatch(/security definer/);
+    }
+  });
+
   it('still lets a user cancel their own subscription', () => {
     const s = sql();
     expect(s).toMatch(/new\.status <> 'canceled'/);
@@ -196,6 +227,11 @@ describe('the database refuses a self-granted plan', () => {
     expect(s).toMatch(/p_month_limit\s+int/);
     expect(s).toMatch(/date_trunc\('month', p_day\)/);
     expect(s).toMatch(/return -4;/);
+    // Only Careers calls count toward the month, in their own column.
+    expect(s).toMatch(/p_quota_call\s+boolean/);
+    expect(s).toMatch(/if p_quota_call and p_month_limit > 0 then/);
+    expect(s).toMatch(/sum\(quota_calls\)/);
+    expect(read('supabase/functions/careers-ai/index.ts')).toMatch(/p_quota_call: entitlement\.quotaCall/);
     // Only the service role may meter.
     expect(s).toMatch(/revoke execute on function public\.begin_ai_call_v2[\s\S]*?from public, anon, authenticated;/);
     expect(s).toMatch(/grant\s+execute on function public\.begin_ai_call_v2[\s\S]*?to service_role;/);
@@ -207,6 +243,11 @@ describe('the client no longer ships a self-upgrade path', () => {
     const src = read('src/careers/services/subscriptions.ts');
     expect(src).not.toMatch(/export async function changePlan/);
     expect(src).toMatch(/careers-billing-webhook/);
+  });
+
+  it('has removed applyCoupon, whose coupon_code write the guard refuses', () => {
+    const src = read('src/careers/services/subscriptions.ts');
+    expect(src).not.toMatch(/export async function applyCoupon/);
   });
 
   it('keeps cancelSubscription, which the guard still permits', () => {

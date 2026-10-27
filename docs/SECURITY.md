@@ -68,7 +68,7 @@ statements in this document were more optimistic than the code.
   user could spend paid inference and the per-plan quotas sold on /pricing were
   enforced in neither direction.
 
-**What enforces it now** (`migrations/20260825000100_paywall_enforcement.sql`)
+**What enforces it now** (`migrations/20261027000100_paywall_enforcement.sql`)
 
 - `guard_subscription_entitlements` (BEFORE UPDATE) and
   `guard_subscription_insert` reject any client write to `plan_id`, `status`
@@ -79,14 +79,17 @@ statements in this document were more optimistic than the code.
 - `guard_usage_counter_decrease` permits counters to rise, never to fall.
 - `begin_ai_call_v2` adds the per-plan **monthly** quota to the existing daily
   call, daily token and global ceilings, in the same atomic call. Sentinel `-4`
-  is the monthly quota. Executable by `service_role` only.
+  is the monthly quota. Only Careers calls count toward it (`p_quota_call`,
+  summed from `careers_ai_usage.quota_calls`); the free money tools stay under
+  the daily limits alone. Executable by `service_role` only.
 - `careers-ai` now looks the plan up with the service role (never through the
   caller's token) and refuses with **402** when a Careers task is requested on a
   non-paid plan.
 
 **Why it is not simply "paid plans only".** `careers-ai` is the whole
 application's AI transport. The free money tools use it too — the calculators'
-assistant and the Expense Tracker's statement categoriser. The gate is therefore
+assistant and the Expense Tracker's statement import (categorising and reading
+a screenshot's layout). The gate is therefore
 per *task*: `FREE_TIER_TASKS` in `supabase/functions/careers-ai/entitlement.ts`
 allowlists the money-tool tasks; everything else needs a paid plan. An allowlist
 rather than a Careers list, so a task nobody registered defaults to requiring

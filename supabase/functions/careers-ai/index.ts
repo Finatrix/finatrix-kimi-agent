@@ -22,6 +22,7 @@ import { rateLimited } from '../_shared/ratelimit.ts';
 import {
   FREE_PLAN_FALLBACK_QUOTA,
   decideEntitlement,
+  isFreeTierTask,
   type PlanSnapshot,
 } from './entitlement.ts';
 import { corsHeaders } from '../_shared/origins.ts';
@@ -261,25 +262,33 @@ Deno.serve(async (req) => {
   // learn what they are actually entitled to, and the caller can influence
   // anything read through their own token. Joined to subscription_plans so the
   // quota comes from the plan row rather than from an env var shared by every
-  // account (see ./entitlement.ts for what this replaces).
-  const { data: subRow } = await admin
-    .from('subscriptions')
-    .select('plan_id, subscription_plans(ai_quota_monthly)')
-    .eq('user_id', userId)
-    .in('status', ['trialing', 'active', 'past_due'])
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const planJoin = (subRow as { subscription_plans?: { ai_quota_monthly: number | null } | null } | null)
-    ?.subscription_plans ?? null;
-  const snapshot: PlanSnapshot | null = subRow
-    ? {
-        planId: (subRow as { plan_id?: string }).plan_id ?? null,
-        // A join that came back empty must not read as "unlimited".
-        aiQuotaMonthly: planJoin ? planJoin.ai_quota_monthly : FREE_PLAN_FALLBACK_QUOTA,
-      }
-    : null;
+  // account (see ./entitlement.ts for what this replaces). The free money-tool
+  // tasks run on every plan, so they skip the lookup.
+  let snapshot: PlanSnapshot | null = null;
+  if (!isFreeTierTask(task)) {
+    const { data: subRow, error: subError } = await admin
+      .from('subscriptions')
+      .select('plan_id, subscription_plans(ai_quota_monthly)')
+      .eq('user_id', userId)
+      .in('status', ['trialing', 'active', 'past_due'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (subError) {
+      // Not a 402: a paying user must not be told to upgrade because a read failed.
+      console.error(JSON.stringify({ fn: 'careers-ai', task, stage: 'plan-lookup', code: subError.code }));
+      return json(503, { error: 'Could not check your plan right now. Please try again.' });
+    }
+    const planJoin = (subRow as { subscription_plans?: { ai_quota_monthly: number | null } | null } | null)
+      ?.subscription_plans ?? null;
+    snapshot = subRow
+      ? {
+          planId: (subRow as { plan_id?: string }).plan_id ?? null,
+          // A join that came back empty must not read as "unlimited".
+          aiQuotaMonthly: planJoin ? planJoin.ai_quota_monthly : FREE_PLAN_FALLBACK_QUOTA,
+        }
+      : null;
+  }
 
   const entitlement = decideEntitlement(task, snapshot);
   if (!entitlement.allowed) {
@@ -325,6 +334,7 @@ Deno.serve(async (req) => {
     p_day: today,
     p_call_limit: limit,
     p_month_limit: monthLimit,
+    p_quota_call: entitlement.quotaCall,
     p_token_limit: DAILY_TOKEN_BUDGET,
     p_global_limit: GLOBAL_DAILY_TOKENS,
   });
