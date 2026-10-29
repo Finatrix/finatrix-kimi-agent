@@ -1,6 +1,9 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: ["class"],
+  // `hover:` compiles behind @media (hover: hover), so a tap on a phone does
+  // not leave the hover style stuck on until the next tap elsewhere.
+  future: { hoverOnlyWhenSupported: true },
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {

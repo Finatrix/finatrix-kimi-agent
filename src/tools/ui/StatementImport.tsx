@@ -651,7 +651,7 @@ const STYLES = `
 .fx-imp-input{height:38px;padding:0 10px;border-radius:10px;border:1px solid var(--hair2);
   background:var(--well);color:var(--ink);font-size:13px;font-family:inherit;width:100%;max-width:320px;}
 .fx-imp-input:focus-visible{outline:none;border-color:var(--gold);box-shadow:var(--ring-gold);}
-.fx-imp-input-sm{height:30px;font-size:12.5px;max-width:none;}
+.fx-imp-input-sm{height:30px;font-size:max(12.5px, var(--field-min-fs));max-width:none;}
 .fx-imp-select{cursor:pointer;}
 
 .fx-imp-drop{width:100%;border:1.5px dashed var(--hair2);border-radius:16px;padding:34px 20px;

@@ -537,7 +537,7 @@ function AnalysisModal({
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
           <h3 style={{ flex: 1, marginBottom: 0 }}>{resume.name}</h3>
           {resume.versions.length > 1 && (
-            <select className="fs" style={{ width: 'auto', padding: '7px 34px 7px 12px', fontSize: 13 }} value={selected} onChange={(e) => setSelected(e.target.value)} aria-label="Version">
+            <select className="fs" style={{ width: 'auto', padding: '7px 34px 7px 12px', fontSize: 'max(13px, var(--field-min-fs))' }} value={selected} onChange={(e) => setSelected(e.target.value)} aria-label="Version">
               {resume.versions.map((x) => (
                 <option key={x.id} value={x.id}>v{x.version_number} · {formatDate(x.created_at)}</option>
               ))}

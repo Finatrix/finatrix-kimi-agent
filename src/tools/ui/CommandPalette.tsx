@@ -323,10 +323,9 @@ const STYLES = `
   /* Themed elevation. A flat 60%-black drop shadow is right on obsidian and
      far too heavy on warm paper; --shadow-3 is the raised-surface rung and
      carries the light theme's softer, warmer value. */
-  box-shadow:var(--shadow-3);overflow:hidden;
-  animation:fx-cmdk-in .16s var(--ease-in-out) both;}
-@keyframes fx-cmdk-in{from{opacity:0;transform:translateY(-6px) scale(.99)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){.fx-cmdk{animation:none}}
+  box-shadow:var(--shadow-3);overflow:hidden;}
+/* No open animation: the palette is summoned from the keyboard many times a
+   day, and any entrance makes it feel slower than the keystroke. */
 .fx-cmdk-head{display:flex;align-items:center;gap:10px;padding:12px 12px 12px 14px;
   border-bottom:1px solid var(--hair2);}
 .fx-cmdk-lead{color:var(--ink3);flex:0 0 auto;}

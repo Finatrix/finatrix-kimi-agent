@@ -39,7 +39,7 @@
   --wants-fill: var(--data-wants-fill);
   --r: var(--radius-xl); --shadow: var(--shadow-2);
   --spring: var(--ease-spring);
-  --ease-in-out: cubic-bezier(.42,0,.58,1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --duration-fast: var(--dur-fast); --duration-med: var(--dur-med); --duration-slow: var(--dur-slow);
 
   /* ── Control geometry ──────────────────────────────────────────────────
@@ -658,7 +658,7 @@ body.fx-has-add-fab .fx-tools .wrap { padding-bottom: calc(18px + var(--ctl-h-lg
    --ctl-r-sm rather than the lg rung's --ctl-r-md is deliberate: on the md
    rung this sits beside .bb-pct and the row action buttons, and two 40px
    controls with a 2px radius difference read as a mistake, not a distinction. */
-.fx-tools .fi-sm { width: 110px; height: var(--ctl-h-md); padding: 0 12px; border-radius: var(--ctl-r-sm); font-size: 14px; text-align: right; }
+.fx-tools .fi-sm { width: 110px; height: var(--ctl-h-md); padding: 0 12px; border-radius: var(--ctl-r-sm); font-size: max(14px, var(--field-min-fs)); text-align: right; }
 /* iOS Safari zooms the viewport whenever a focused field is under 16px. The
    money field is the one users tap most on mobile, so it was zooming the page
    on nearly every entry and leaving it zoomed. Bumping to 16px on small
@@ -853,7 +853,7 @@ body.fx-has-add-fab .fx-tools .wrap { padding-bottom: calc(18px + var(--ctl-h-lg
 /* ============ ANIMATIONS ============ */
 @keyframes fxResultHeroIn { 0% { opacity: 0; transform: translateY(40px) scale(0.92); } 60% { transform: translateY(-6px) scale(1.01); } 100% { opacity: 1; transform: none; } }
 @keyframes fxResultCardIn { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: none; } }
-@keyframes fxPageEnter { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes fxPageEnter { from { opacity: 0; } }
 .fx-tools .result-hero-anim { animation: fxResultHeroIn 600ms var(--spring) both; }
 .fx-tools .result-card-anim { opacity: 0; animation: fxResultCardIn 500ms var(--ease-out) both; }
 .fx-tools .result-card-anim:nth-child(1) { animation-delay: 100ms; }
@@ -862,11 +862,11 @@ body.fx-has-add-fab .fx-tools .wrap { padding-bottom: calc(18px + var(--ctl-h-lg
 .fx-tools .result-card-anim:nth-child(4) { animation-delay: 340ms; }
 .fx-tools .result-card-anim:nth-child(5) { animation-delay: 420ms; }
 .fx-tools .result-card-anim:nth-child(6) { animation-delay: 500ms; }
-/* `backwards` (not `both`) fill: a forwards-filling transform animation leaves a
-   permanent transform on the page wrapper, which becomes the containing block for
-   every position:fixed descendant — mispositioning the transaction modal, undo
-   toast and any fixed overlay rendered inside a tool page. */
-.fx-tools .fx-page { animation: fxPageEnter var(--duration-med) var(--ease-out) backwards; }
+/* Tool pages are switched dozens of times a day, so the entrance is a short fade
+   with no movement. Keep it transform-free: a transform on the page wrapper makes
+   it the containing block for every position:fixed descendant, mispositioning the
+   transaction modal, undo toast and any fixed overlay rendered inside a tool page. */
+.fx-tools .fx-page { animation: fxPageEnter var(--duration-fast) var(--ease-out) backwards; }
 
 /* ============ TOAST ============ */
 .fx-toast-wrap { position: fixed; left: 50%; bottom: calc(24px + var(--fx-safe-bottom)); transform: translateX(-50%); z-index: var(--z-toast); display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }

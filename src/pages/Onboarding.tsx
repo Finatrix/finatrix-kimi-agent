@@ -279,7 +279,7 @@ function OnbStyles() {
       .fx-onb-amount.sm .fx-onb-sym { font-size: 16px; }
       .fx-onb-amount input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 26px; font-weight: 700; letter-spacing: -.02em; padding: 10px 6px; font-family: inherit; }
       .fx-onb-amount.sm input { font-size: 18px; padding: 9px 4px; }
-      .fx-onb-amount select { border: 0; background: var(--surface-2); color: var(--ink-2); font-size: 13px; font-weight: 600; border-radius: 12px; padding: 8px 8px; cursor: pointer; font-family: inherit; }
+      .fx-onb-amount select { border: 0; background: var(--surface-2); color: var(--ink-2); font-size: max(13px, var(--field-min-fs)); font-weight: 600; border-radius: 12px; padding: 8px 8px; cursor: pointer; font-family: inherit; }
       .fx-onb-text { width: 100%; border: 1px solid var(--hairline); background: var(--tile-bg); border-radius: 14px; padding: 14px 16px; color: var(--ink); font-size: 16px; font-family: inherit; outline: none; transition: border-color .2s ease, box-shadow .2s ease; }
       .fx-onb-text:focus { border-color: hsl(var(--accent)); box-shadow: 0 0 0 3px rgba(212,175,55,.14); }
       .fx-onb-row { display: flex; gap: 12px; }

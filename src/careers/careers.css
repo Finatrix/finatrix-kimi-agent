@@ -50,7 +50,7 @@
 .fx-tools .lib-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(280px,1fr)); gap: 14px; }
 .fx-tools .lib-grid.list { grid-template-columns: 1fr; }
 .fx-tools .lib-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
-.fx-tools .lib-toolbar .fi, .fx-tools .lib-toolbar .fs { width: auto; flex: 0 1 auto; padding: 9px 13px; font-size: 13px; border-radius: 10px; }
+.fx-tools .lib-toolbar .fi, .fx-tools .lib-toolbar .fs { width: auto; flex: 0 1 auto; padding: 9px 13px; font-size: max(13px, var(--field-min-fs)); border-radius: 10px; }
 .fx-tools .lib-toolbar .fi { flex: 1 1 180px; min-width: 140px; }
 .fx-tools .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 3px 9px; border-radius: 980px; }
 .fx-tools .badge-gold { background: var(--gold-bg); color: var(--accent-text); }
@@ -131,7 +131,7 @@
 .fx-tools .kw.miss { background: rgba(255,90,82,.08); border-color: rgba(255,90,82,.22); color: var(--red); }
 
 /* ============ PHASE 2: PIPELINE / CALENDAR ============ */
-.fx-tools .stage-select { font-size: 12px; padding: 6px 28px 6px 10px; border-radius: 8px; }
+.fx-tools .stage-select { font-size: max(12px, var(--field-min-fs)); padding: 6px 28px 6px 10px; border-radius: 8px; }
 /* The 7-column track moved from the grid container onto each row, so the weeks
    can be real `role="row"` elements without `display: contents` (which some
    engines still drop from the accessibility tree). Rendered result is
