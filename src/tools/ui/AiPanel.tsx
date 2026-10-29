@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useInertOutside } from '../../hooks/useInertOutside';
 import { useAuth } from '../../context/AuthContext';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
+import { useSheetDrag } from '../../hooks/useSheetDrag';
 import { useCurrency } from '../CurrencyContext';
 import { Icon } from './Icon';
 import { Markdown } from './Markdown';
@@ -109,6 +110,9 @@ function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedA
   const allowRef = useRef<HTMLButtonElement>(null);
 
   const cardRef = useRef<HTMLDivElement>(null);
+  const headRef = useRef<HTMLElement>(null);
+  // Below 768px the panel is a bottom sheet: pull its header down to close.
+  useSheetDrag(cardRef, headRef, onClose, '(max-width: 767px)');
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const lastFocused = useRef<HTMLElement | null>(null);
@@ -341,7 +345,7 @@ function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedA
         id={id}
         tabIndex={-1}
       >
-        <header className="fx-ai-head">
+        <header className="fx-ai-head" ref={headRef}>
           <div className="fx-ai-title">
             {/* The same mark the launcher and every ✨ trigger use — the panel
                 is the thing they open, so a different glyph here read as a
@@ -903,17 +907,18 @@ const PANEL_STYLES = `
 @keyframes fxAiFade{from{opacity:0}to{opacity:1}}
 .fx-ai-card{position:fixed;z-index:calc(var(--z-panel) + 1);display:flex;flex-direction:column;
   background:var(--card-solid,#15151A);border:1px solid var(--hair);color:var(--ink);
-  box-shadow:0 30px 80px -24px rgba(0,0,0,.75);animation:fxAiIn .26s cubic-bezier(.34,1.15,.5,1) both;}
+  box-shadow:0 30px 80px -24px rgba(0,0,0,.75);animation:fxAiIn .26s cubic-bezier(0.23, 1, 0.32, 1) both;}
 @keyframes fxAiIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
 
 /* Mobile-first: a sheet that stops short of the status bar. */
-.fx-ai-card{left:0;right:0;bottom:0;top:calc(8vh + var(--fx-safe-top));border-radius:18px 18px 0 0;
+.fx-ai-card{left:0;right:0;bottom:0;top:calc(8dvh + var(--fx-safe-top));border-radius:18px 18px 0 0;
   padding-bottom:var(--fx-safe-bottom);}
 @media(min-width:768px){
   .fx-ai-card{left:auto;right:20px;bottom:20px;top:auto;padding-bottom:0;width:min(430px,calc(100vw - 40px));
     height:min(660px,calc(100dvh - 40px));border-radius:18px;}
 }
 
+@media(max-width:767px){.fx-ai-head{touch-action:none;}}
 .fx-ai-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;
   padding:14px 14px 12px 16px;border-bottom:1px solid var(--hair2);flex-shrink:0;}
 .fx-ai-title{display:flex;align-items:center;gap:10px;min-width:0;}
@@ -925,7 +930,8 @@ const PANEL_STYLES = `
 .fx-ai-ghost{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:30px;padding:5px 10px;
   border-radius:9px;border:1px solid transparent;background:transparent;color:var(--ink2);
   font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s,color .15s;}
-.fx-ai-ghost:hover{background:var(--fill-06);color:var(--ink);}
+@media (hover: hover) and (pointer: fine){
+.fx-ai-ghost:hover{background:var(--fill-06);color:var(--ink);}}
 .fx-ai-ghost.danger{color:var(--red);}
 
 .fx-ai-log{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px;
@@ -950,12 +956,14 @@ const PANEL_STYLES = `
 .fx-ai-review{display:inline-flex;align-items:center;gap:7px;padding:9px 14px;margin-bottom:12px;border-radius:980px;
   border:1px solid #B8962E;background:var(--gold);color:#1a1400;font-size:12.5px;font-weight:600;
   font-family:inherit;cursor:pointer;transition:background .15s;}
-.fx-ai-review:hover{background:#E0BC4B;}
+@media (hover: hover) and (pointer: fine){
+.fx-ai-review:hover{background:#E0BC4B;}}
 .fx-ai-chips{display:flex;flex-wrap:wrap;gap:6px;}
 .fx-ai-chip{padding:7px 12px;border-radius:980px;border:1px solid var(--hair2);background:var(--card);
   color:var(--ink2);font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;text-align:left;
   transition:background .15s,color .15s,border-color .15s;}
-.fx-ai-chip:hover:not(:disabled){background:var(--fill-06);color:var(--ink);border-color:var(--hair);}
+@media (hover: hover) and (pointer: fine){
+.fx-ai-chip:hover:not(:disabled){background:var(--fill-06);color:var(--ink);border-color:var(--hair);}}
 .fx-ai-chip:disabled{opacity:.5;cursor:default;}
 
 .fx-ai-dots{display:inline-flex;gap:3px;margin-right:7px;vertical-align:middle;}
@@ -976,11 +984,12 @@ const PANEL_STYLES = `
 .fx-ai-send:disabled{opacity:.4;cursor:default;}
 .fx-ai-report{align-self:flex-start;min-height:24px;padding:2px 4px;border:none;background:none;
   color:var(--ink3);font:inherit;font-size:11px;cursor:pointer;text-decoration:underline;text-underline-offset:2px;}
-.fx-ai-report:hover{color:var(--ink2);}
+@media (hover: hover) and (pointer: fine){
+.fx-ai-report:hover{color:var(--ink2);}}
 .fx-ai-report:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:4px;}
 .fx-ai-reported{font-size:11.5px;color:var(--ink3);margin:0;}
 .fx-ai-reported a{color:var(--accent-text);}
-.fx-ai-foot{font-size:10.5px;color:var(--ink3);margin:0;padding:0 16px 12px;line-height:1.5;flex-shrink:0;}
+.fx-ai-foot{font-size:11px;color:var(--ink3);margin:0;padding:0 16px 12px;line-height:1.5;flex-shrink:0;}
 .fx-ai-consent{margin:0 16px 10px;padding:14px;border-radius:14px;background:var(--well);border:1px solid var(--well-border);flex-shrink:0;}
 .fx-ai-consent-head{margin:0 0 6px;font-size:14px;font-weight:700;color:var(--ink);}
 .fx-ai-consent-body{margin:0 0 12px;font-size:12.5px;line-height:1.5;color:var(--ink2);}
@@ -1020,7 +1029,7 @@ const PANEL_STYLES = `
 .fx-ai-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:7px;margin:0 0 12px;}
 .fx-ai-tile{margin:0;padding:9px 10px;border-radius:11px;background:var(--fill-04,rgba(127,127,127,.06));
   border:1px solid var(--hair2);min-width:0;}
-.fx-ai-tile dt{font-size:10.5px;font-weight:600;color:var(--ink3);letter-spacing:.02em;text-transform:uppercase;
+.fx-ai-tile dt{font-size:11px;font-weight:600;color:var(--ink3);letter-spacing:.02em;text-transform:uppercase;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .fx-ai-tile dd{margin:3px 0 0;font-size:16px;font-weight:750;font-variant-numeric:tabular-nums;letter-spacing:-.01em;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -1034,7 +1043,8 @@ const PANEL_STYLES = `
   -webkit-mask-image:linear-gradient(to bottom,#000 65%,transparent);mask-image:linear-gradient(to bottom,#000 65%,transparent);}
 .fx-ai-more{margin:4px 0 0;padding:4px 0;border:none;background:none;color:var(--accent-text,var(--gold));
   font-size:12px;font-weight:650;font-family:inherit;cursor:pointer;}
-.fx-ai-more:hover{text-decoration:underline;}
+@media (hover: hover) and (pointer: fine){
+.fx-ai-more:hover{text-decoration:underline;}}
 
 /* Assistant-supplied chart */
 .fx-ai-chart{margin:10px 0 0;}
@@ -1048,7 +1058,7 @@ const PANEL_STYLES = `
 .fx-ai-chart-bar > span{display:block;height:100%;border-radius:5px;background:var(--gold);}
 .fx-ai-chart-v{font-size:11.5px;font-weight:700;font-variant-numeric:tabular-nums;flex-shrink:0;}
 .fx-ai-illus{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:980px;border:1px dashed var(--hair);
-  font-size:10px;font-weight:600;color:var(--ink3);text-transform:none;letter-spacing:0;}
+  font-size:11px;font-weight:600;color:var(--ink3);text-transform:none;letter-spacing:0;}
 .fx-ai-chart.is-illustrative .fx-ai-chart-bar > span,
 .fx-ai-chart.is-illustrative .fx-ai-stroke{opacity:.7;}
 .fx-ai-line{display:block;width:100%;height:auto;overflow:visible;}
@@ -1056,8 +1066,8 @@ const PANEL_STYLES = `
 .fx-ai-area{fill:color-mix(in srgb,var(--gold) 14%,transparent);stroke:none;}
 .fx-ai-stroke{fill:none;stroke:var(--gold);stroke-width:2;stroke-linejoin:round;stroke-linecap:round;}
 .fx-ai-dot{fill:var(--gold);}
-.fx-ai-lab{font-size:9px;fill:var(--ink3);font-family:inherit;}
-.fx-ai-lab.strong{font-size:10px;font-weight:700;fill:var(--ink);}
+.fx-ai-lab{font-size:11px;fill:var(--ink3);font-family:inherit;}
+.fx-ai-lab.strong{font-size:11px;font-weight:700;fill:var(--ink);}
 .fx-ai-donut{display:flex;align-items:center;gap:14px;}
 .fx-ai-donut svg{width:96px;height:96px;flex-shrink:0;transform:rotate(-90deg);}
 .fx-ai-donut-track{fill:none;stroke:var(--fill-06);stroke-width:14;}

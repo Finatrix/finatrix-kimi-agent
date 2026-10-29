@@ -335,7 +335,7 @@ export default function ReferencePage() {
       <PageHead
         chip="Reference data"
         chipColor="var(--blue)"
-        chipBg="color-mix(in srgb, var(--blue) 10%, transparent)"
+       
         icon="bills"
         title="Where the numbers come from."
       >

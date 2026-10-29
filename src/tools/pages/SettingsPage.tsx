@@ -62,7 +62,7 @@ export default function SettingsPage() {
 
   return (
     <div className="fx-page fx-settings">
-      <PageHead chip="Settings" chipColor="var(--gold)" chipBg="rgba(212,175,55,.1)" icon="shield" title="Settings & personalisation.">
+      <PageHead chip="Settings" chipColor="var(--gold)" icon="shield" title="Settings & personalisation.">
         Personalise how FinatriX looks, tell us where you live, choose your display currency, and
         manage your data. Signed-in finance records also sync with your account.
       </PageHead>

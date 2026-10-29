@@ -54,7 +54,7 @@ export default function ReportsPage() {
 
   return (
     <div className="fx-page">
-      <PageHead chip="Reports" chipColor="var(--gold)" chipBg="rgba(212,175,55,.1)" icon="layers" title="Your finances, ready to share." tour="reports-head">
+      <PageHead chip="Reports" chipColor="var(--gold)" icon="layers" title="Your finances, ready to share." tour="reports-head">
         Export your saved budget and expense records to CSV, Excel or PDF.
         Reports use the same calculations as their source tools and the exact month you select.
       </PageHead>

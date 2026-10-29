@@ -443,7 +443,7 @@ export default function BudgetPage() {
       <PageHead
         chip="Budget Builder"
         chipColor="var(--blue)"
-        chipBg="rgba(0,113,227,.1)"
+       
         icon="budget"
         title="The 50/30/20 rule, made effortless."
       >
@@ -1168,7 +1168,8 @@ const BUDGET_STYLES = `
 .fx-tools .bb-pct{height:var(--ctl-h-md);min-height:0;padding:0 12px;border-radius:var(--ctl-r-sm);
   text-align:center;font-size:18px;font-weight:700;letter-spacing:-.01em;}
 .fx-tools .bb-delplan{width:auto;gap:6px;margin-left:auto;}
-.fx-tools .bb-delplan:hover{color:var(--red);border-color:color-mix(in srgb,var(--red) 35%,transparent);}
+@media (hover: hover) and (pointer: fine){
+.fx-tools .bb-delplan:hover{color:var(--red);border-color:color-mix(in srgb,var(--red) 35%,transparent);}}
 .fx-tools .bb-monthbar > .fx-seg + .bb-delplan{margin-left:0;}
 .fx-tools .bb-inherit{display:flex;align-items:flex-start;gap:8px;font-size:11.5px;color:var(--ink3);
   line-height:1.55;margin:0 0 12px;padding:9px 12px;border-radius:var(--ctl-r-md);background:var(--well);
@@ -1181,7 +1182,7 @@ const BUDGET_STYLES = `
 .fx-tools .bb-row.is-over{box-shadow:inset 0 2px 0 0 var(--gold);}
 .fx-tools .bb-label{flex:1;min-width:0;font-size:14px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .fx-tools .bb-name{flex:1;width:auto;min-width:0;text-align:left;}
-.fx-tools .bb-badge{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);
+.fx-tools .bb-badge{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);
   background:var(--well);border-radius:var(--ctl-pill);padding:3px 8px;flex-shrink:0;}
 .fx-tools .bb-actions{display:inline-flex;align-items:center;gap:4px;flex-shrink:0;flex-wrap:wrap;}
 /* Row actions and the move arrows share the xs rung and the xs radius; they
@@ -1191,22 +1192,26 @@ const BUDGET_STYLES = `
   border-radius:var(--ctl-r-xs);border:var(--ctl-bw) solid var(--hair2);background:var(--card);color:var(--ink2);
   font-size:11.5px;font-weight:600;font-family:inherit;cursor:pointer;
   transition:background-color var(--ctl-trans),color var(--ctl-trans),border-color var(--ctl-trans);}
-.fx-tools .bb-act:hover{background:var(--fill-06);color:var(--ink);}
+@media (hover: hover) and (pointer: fine){
+.fx-tools .bb-act:hover{background:var(--fill-06);color:var(--ink);}}
 .fx-tools .bb-act.danger{color:var(--red);border-color:color-mix(in srgb,var(--red) 35%,transparent);}
-.fx-tools .bb-act.danger:hover{background:color-mix(in srgb,var(--red) 10%,transparent);}
+@media (hover: hover) and (pointer: fine){
+.fx-tools .bb-act.danger:hover{background:color-mix(in srgb,var(--red) 10%,transparent);}}
 .fx-tools .fx-grip{display:inline-flex;align-items:center;color:var(--ink3);cursor:grab;flex-shrink:0;}
 .fx-tools .fx-grip:active{cursor:grabbing;}
 .fx-tools .fx-move{display:inline-flex;gap:2px;}
 .fx-tools .fx-move-btn{display:inline-flex;align-items:center;justify-content:center;width:var(--ctl-h-xs);height:var(--ctl-h-xs);
   border-radius:var(--ctl-r-xs);border:var(--ctl-bw) solid var(--hair2);background:var(--card);color:var(--ink2);cursor:pointer;
   transition:background-color var(--ctl-trans),color var(--ctl-trans),border-color var(--ctl-trans);}
-.fx-tools .fx-move-btn:hover:not(:disabled){background:var(--fill-06);color:var(--ink);}
+@media (hover: hover) and (pointer: fine){
+.fx-tools .fx-move-btn:hover:not(:disabled){background:var(--fill-06);color:var(--ink);}}
 .fx-tools .fx-move-btn:disabled{opacity:.35;cursor:default;}
 .fx-tools .bb-add{margin-top:14px;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:var(--ctl-h-sm);
   background:transparent;border:var(--ctl-bw) dashed var(--hair);border-radius:var(--ctl-pill);padding:0 16px;color:var(--ink2);
   font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;
   transition:border-color var(--ctl-trans),color var(--ctl-trans),background-color var(--ctl-trans);}
-.fx-tools .bb-add:hover{border-color:var(--gold);color:var(--ink);background:var(--gold-bg);}
+@media (hover: hover) and (pointer: fine){
+.fx-tools .bb-add:hover{border-color:var(--gold);color:var(--ink);background:var(--gold-bg);}}
 .fx-tools .bb-archived{margin-top:14px;}
 .fx-tools .bb-archived > summary{font-size:12px;color:var(--ink3);cursor:pointer;font-weight:600;}
 .fx-tools .bb-arow{display:flex;align-items:center;gap:9px;padding:7px 0;font-size:13px;color:var(--ink2);border-bottom:1px solid var(--hair2);}

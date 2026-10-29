@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useSta
 import { useInertOutside } from '../../hooks/useInertOutside';
 import { createPortal } from 'react-dom';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
+import { useSheetDrag } from '../../hooks/useSheetDrag';
 import { Icon, type IconName } from './Icon';
 import { SECTION_LABEL, type CatKey } from '../lib/budget';
 import { SECTION_COLOR } from '../lib/sectionColors';
@@ -112,6 +113,8 @@ export default function TransactionModal({
   const [confirmDel, setConfirmDel] = useState(false);
 
   const cardRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<HTMLDivElement>(null);
+  useSheetDrag(cardRef, dragRef, onClose);
   const amountRef = useRef<HTMLInputElement>(null);
   const dateRef = useRef<HTMLInputElement>(null);
   const confirmRef = useRef<HTMLDivElement>(null);
@@ -310,23 +313,27 @@ export default function TransactionModal({
         .fx-tx-overlay{position:fixed;inset:0;z-index:var(--z-modal);display:flex;align-items:center;justify-content:center;
           padding:20px;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
           animation:fxTxFade .2s ease both;}
-        .fx-tx-card{position:relative;width:100%;max-width:560px;max-height:min(92vh,860px);overflow-y:auto;
+        .fx-tx-card{position:relative;width:100%;max-width:560px;max-height:min(92dvh,860px);overflow-y:auto;
           background:var(--card-solid,var(--card));border:1px solid var(--hair2);border-radius:22px;
           padding:22px 22px 18px;box-shadow:0 40px 90px -30px rgba(0,0,0,.7);
-          animation:fxTxIn .32s cubic-bezier(.34,1.3,.5,1) both;}
+          animation:fxTxIn 300ms cubic-bezier(0.23, 1, 0.32, 1) both;}
         @keyframes fxTxFade{from{opacity:0}to{opacity:1}}
         @keyframes fxTxIn{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:none}}
         @keyframes fxTxSheet{from{transform:translateY(100%)}to{transform:none}}
         .fx-tx-catbtn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 4px;border-radius:12px;
           border:1.5px solid var(--hair2);background:var(--card);cursor:pointer;transition:border-color .15s,background .15s,transform .1s;}
-        .fx-tx-catbtn:hover{border-color:var(--ink3);}
+        @media (hover: hover) and (pointer: fine){
+        .fx-tx-catbtn:hover{border-color:var(--ink3);}}
         .fx-tx-catbtn[aria-pressed="true"]{border-color:var(--ink);background:var(--hair);}
-        .fx-tx-catbtn:active{transform:scale(.96);}
+        .fx-tx-catbtn:active{scale: .96;}
         .fx-tx-recent{display:inline-flex;align-items:center;gap:6px;max-width:150px;padding:7px 12px;border-radius:980px;
           border:1.5px solid var(--hair2);background:var(--card);color:var(--ink);cursor:pointer;font-size:12px;font-weight:600;
           font-family:inherit;transition:border-color .15s,background .15s;}
-        .fx-tx-recent:hover{border-color:var(--ink3);}
+        @media (hover: hover) and (pointer: fine){
+        .fx-tx-recent:hover{border-color:var(--ink3);}}
         .fx-tx-recent[aria-pressed="true"]{border-color:var(--ink);background:var(--hair);}
+.fx-tx-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px;position:relative;}
+        .fx-tx-grab{display:none;}
         .fx-tx-err{color:var(--red);font-size:11.5px;margin-top:5px;font-weight:600;}
         /* Sticky to the card's EDGE, not to its padding: a sticky box stops at the
            scrollport inset by the card's bottom padding, which left an 18px
@@ -337,13 +344,19 @@ export default function TransactionModal({
         .fx-tx-iconbtn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;padding:0 14px;
           border-radius:10px;border:1px solid var(--hair2);background:var(--fill-03);color:var(--ink);
           font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s,border-color .15s;}
-        .fx-tx-iconbtn:hover{background:var(--fill-06);}
+        @media (hover: hover) and (pointer: fine){
+        .fx-tx-iconbtn:hover{background:var(--fill-06);}}
         .fx-tx-danger{color:var(--red);}
-        .fx-tx-danger:hover{border-color:var(--red);background:rgba(215,0,21,.08);}
+        @media (hover: hover) and (pointer: fine){
+        .fx-tx-danger:hover{border-color:var(--red);background:rgba(215,0,21,.08);}}
         @media (max-width:560px){
           .fx-tx-overlay{padding:0;align-items:flex-end;}
-          .fx-tx-card{max-width:none;max-height:94vh;border-radius:22px 22px 0 0;padding-bottom:calc(18px + var(--fx-safe-bottom));
-            animation:fxTxSheet .3s cubic-bezier(.34,1.2,.5,1) both;}
+          /* The grabber says the sheet can be pulled down; the header row is
+             the drag handle (hooks/useSheetDrag), so it does not scroll. */
+          .fx-tx-head{touch-action:none;padding-top:14px;margin-top:-8px;cursor:grab;}
+          .fx-tx-grab{display:block;position:absolute;top:0;left:50%;width:36px;height:5px;margin-left:-18px;border-radius:3px;background:var(--hair);}
+          .fx-tx-card{max-width:none;max-height:94dvh;border-radius:22px 22px 0 0;padding-bottom:calc(18px + var(--fx-safe-bottom));
+            animation:fxTxSheet .3s cubic-bezier(0.23, 1, 0.32, 1) both;}
           .fx-tx-footer{bottom:calc(-18px - var(--fx-safe-bottom));margin-bottom:calc(-18px - var(--fx-safe-bottom));
             padding-bottom:calc(32px + var(--fx-safe-bottom));}
         }
@@ -360,7 +373,8 @@ export default function TransactionModal({
         aria-labelledby={titleId}
         aria-describedby={descId}
       >
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
+        <div ref={dragRef} className="fx-tx-head">
+          <span className="fx-tx-grab" aria-hidden="true" />
           <div>
             <h2 id={titleId} style={{ fontSize: 17, fontWeight: 700, margin: 0, letterSpacing: '-.01em' }}>
               {isEdit ? 'Edit transaction' : 'Add a transaction'}
@@ -369,7 +383,7 @@ export default function TransactionModal({
               {isEdit ? 'Your dashboard updates the moment you save.' : 'Log a spend — totals update instantly.'}
             </p>
           </div>
-          <button type="button" className="fx-tx-iconbtn" onClick={onClose} aria-label="Close" style={{ width: 38, padding: 0 }}>
+          <button type="button" className="fx-tx-iconbtn" onClick={onClose} aria-label="Close" style={{ width: 'var(--ctl-h-md, 38px)', padding: 0 }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
           </button>
         </div>
@@ -496,7 +510,7 @@ export default function TransactionModal({
                           onClick={() => set('category', c.k)}
                         >
                           <Icon name={c.ic} size={17} style={{ color: SECTION_COLOR[sec] }} />
-                          <span style={{ fontSize: 10, color: 'var(--ink2)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{c.l}</span>
+                          <span style={{ fontSize: 11, color: 'var(--ink2)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{c.l}</span>
                         </button>
                       ))}
                     </div>

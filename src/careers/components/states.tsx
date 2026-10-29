@@ -164,7 +164,7 @@ export function SkeletonCards({ count = 3, label = 'Loading' }: { count?: number
 /** Full-page loading placeholder for Careers pages (replaces blank space). */
 export function PageLoading() {
   return (
-    <div style={{ minHeight: '50vh', paddingTop: 24 }}>
+    <div style={{ minHeight: '50svh', paddingTop: 24 }}>
       <SkeletonCards count={3} label="Loading page" />
     </div>
   );
@@ -235,7 +235,7 @@ export function ErrorCard({
  */
 export function CareersGate({ children }: { children: ReactNode }) {
   const { user, loading, configured } = useAuth();
-  if (loading) return <div style={{ minHeight: '40vh' }} aria-hidden="true" />;
+  if (loading) return <div style={{ minHeight: '40svh' }} aria-hidden="true" />;
   if (!configured) {
     return (
       <div className="card" style={{ maxWidth: 560, margin: '48px auto' }}>

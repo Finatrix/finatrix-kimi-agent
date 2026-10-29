@@ -197,7 +197,7 @@ export default function NetWorthPage() {
       <PageHead
         chip="Net Worth"
         chipColor="var(--accent-text)"
-        chipBg="rgba(212,175,55,.12)"
+       
         icon="trending"
         title="What you own, minus what you owe."
         tour="networth-head"
@@ -815,7 +815,7 @@ const STYLES = `
 .fx-tools .nw-sheet{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;}
 .fx-tools .nw-side-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;}
 .fx-tools .nw-side-head h2{font-size:14px;font-weight:700;}
-.fx-tools .nw-side-head p{font-size:12px;color:var(--ink3);margin-top:2px;}
+.fx-tools .nw-side-head p{font-size:13px;color:var(--ink3);margin-top:2px;}
 .fx-tools .nw-side-total{font-size:19px;font-weight:700;letter-spacing:-.01em;white-space:nowrap;}
 .fx-tools .nw-bar{display:flex;height:7px;border-radius:980px;overflow:hidden;background:var(--hair2);margin-bottom:14px;}
 .fx-tools .nw-bar span{display:block;}
@@ -833,7 +833,8 @@ const STYLES = `
 .fx-tools .nw-row-field .fi-sm{text-align:right;}
 .fx-tools .nw-row-del{flex:0 0 auto;color:var(--ink3);background:none;border:0;cursor:pointer;
   min-width:32px;min-height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;}
-.fx-tools .nw-row-del:hover{color:var(--red);background:var(--fill-05);}
+@media (hover: hover) and (pointer: fine){
+.fx-tools .nw-row-del:hover{color:var(--red);background:var(--fill-05);}}
 .fx-tools .nw-row-confirm{display:flex;gap:8px;flex-wrap:wrap;}
 .fx-tools .nw-danger,.fx-tools .nw-quiet{font-size:12px;border-radius:8px;padding:6px 10px;min-height:32px;cursor:pointer;
   border:1px solid var(--hair2);background:var(--fill-04);}
@@ -843,7 +844,7 @@ const STYLES = `
 .fx-tools .nw-empty{text-align:center;padding:36px 24px;}
 .fx-tools .nw-empty svg{color:var(--gold);}
 .fx-tools .nw-empty h2{font-size:18px;font-weight:700;margin:10px 0 8px;}
-.fx-tools .nw-empty p{font-size:13.5px;color:var(--ink2);line-height:1.6;max-width:44ch;margin:0 auto 18px;}
+.fx-tools .nw-empty p{font-size:15px;color:var(--ink2);line-height:1.6;max-width:44ch;margin:0 auto 18px;}
 
 .fx-tools .nw-add h2{font-size:15px;font-weight:700;margin-bottom:14px;}
 .fx-tools .nw-kind{border:0;padding:0;margin:0 0 16px;display:flex;gap:8px;flex-wrap:wrap;}

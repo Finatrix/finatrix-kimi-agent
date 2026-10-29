@@ -1,7 +1,6 @@
 import { Suspense, lazy, useEffect, useRef, useState, type ReactElement } from 'react';
 import { Link, Outlet, useLocation } from 'react-router';
 import { useAuth } from '../context/AuthContext';
-import { useMobileDrawer } from '../hooks/useMobileDrawer';
 import { TOOLS } from '../lib/tools';
 import { NavPills } from '../components/NavPills';
 import {
@@ -23,24 +22,21 @@ import { CURRENCY_CODES, currencySym } from './lib/format';
 import { onLocalWrite } from './lib/storage';
 import { AssumptionsReviewed } from './ui/AssumptionsReviewed';
 import { AccountMenu } from '../components/AccountMenu';
-import { MobileDrawer } from '../components/MobileDrawer';
-import { HomeButton } from '../components/HomeButton';
-import { BrandLogo } from '../components/BrandLogo';
+import { Wordmark } from '../components/Wordmark';
 import { Breadcrumb } from '../components/Breadcrumb';
 import { BackButton } from '../components/BackButton';
-import ThemeToggle from '../components/ThemeToggle';
+import AppearanceMenu from '../components/AppearanceMenu';
 import { CommandPaletteTrigger } from '../components/CommandPaletteTrigger';
 import { useCommandPalette } from '../hooks/useCommandPalette';
-import { CAREERS_ROUTES } from '../careers/constants';
 import { NotificationsBell } from './ui/NotificationsBell';
-import { AiProvider, AiLauncher } from './ui/AiAssistant';
+import { AiProvider, AiLauncher, AiHeaderButton } from './ui/AiAssistant';
 import { warnIfOverdue } from '../reference/review';
 import { isNativeApp } from '../native/platform';
-import { showCareersEntry } from '../lib/careersEntry';
 import { useReminderSync } from './lib/useReminderSync';
 import WalkthroughGate from '../walkthrough/WalkthroughGate';
 import TourGate from '../tour/TourGate';
 import { TourPageButton } from '../tour/TourPageButton';
+import { INVITE_SLOT_ID } from '../components/InlineInvite';
 import './tools.css';
 
 // Lazy on purpose: the palette carries the whole command registry (including
@@ -72,8 +68,8 @@ function useActiveTool(): string {
 /**
  * `className` exists so the header copy can be hidden on a phone without a
  * Tailwind display utility: `tools.css` is loaded after `@tailwind utilities`,
- * so at equal specificity a class defined there beats `.hidden`. The drawer
- * carries its own copy below that breakpoint — see the note at the call site.
+ * so at equal specificity a class defined there beats `.hidden`. The All tools
+ * page carries its own copy below that breakpoint.
  */
 function CurrencySelect({ className, tour }: { className?: string; tour?: string } = {}) {
   const { code, setCode } = useCurrency();
@@ -157,71 +153,64 @@ function ToolTabs() {
   );
 }
 
-/* Mobile bottom navigation (<768px). Thumb-reachable, one-handed quick access
-   to the hub and the three core money tools, plus a "More" affordance that opens
-   the full drawer — so nothing is hidden and there is no horizontal scrolling. */
+/* Mobile bottom navigation (<768px) — the one navigation system on a phone.
+   Five destinations, every one a real page: the dashboard, the three money
+   tools people open daily, and All tools, which lists everything else and the
+   display settings. It replaced a hamburger drawer plus a "More" tab that
+   opened the same drawer — two menus for one job, and an overflow tab
+   (Apple HIG, tab-bars.md › Best practices: avoid overflow tabs; a tab bar is
+   for navigation between top-level destinations). */
 const BOTTOM_NAV_TOOLS = ['budget', 'expenses', 'goals'] as const;
-/** Referenced by aria-controls from both triggers that open the drawer. */
-const DRAWER_ID = 'fx-tools-drawer';
+/** Pages that belong to the All tools tab rather than one of the other four. */
+const HUB_PATHS = new Set(['all', 'settings', 'reports', 'calendar', 'reference', 'networth', 'investmatch', 'parksmart', 'peercompare', 'lifemap']);
 const BOTTOM_NAV_ICONS: Record<string, ReactElement> = {
   dashboard: (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" />
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3.5 10.5L12 3.5l8.5 7" /><path d="M5.5 9v11h13V9" /><path d="M10 20v-5.5h4V20" />
     </svg>
   ),
   budget: (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M21 12a9 9 0 1 1-9-9v9z" /><path d="M12 3a9 9 0 0 1 9 9h-9z" opacity="0.55" />
     </svg>
   ),
   expenses: (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-1 2z" /><path d="M9 8h6M9 12h6" />
     </svg>
   ),
   goals: (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="4" /><circle cx="12" cy="12" r="0.6" fill="currentColor" />
     </svg>
   ),
-  more: (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" /><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none" />
+  all: (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="4" y="4" width="6.5" height="6.5" rx="1.6" /><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6" /><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6" /><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6" />
     </svg>
   ),
 };
 
-function MobileTabBar({ activeTool, onMore, moreActive, drawerOpen }: { activeTool: string; onMore: () => void; moreActive: boolean; drawerOpen: boolean }) {
+function MobileTabBar({ activeTool }: { activeTool: string }) {
   const items = [
-    { key: 'dashboard', label: 'Dashboard', href: '/tools/dashboard' },
+    { key: 'dashboard', label: 'Home', href: '/tools/dashboard' },
     ...BOTTOM_NAV_TOOLS.map((id) => {
       const t = TOOLS.find((x) => x.id === id)!;
       return { key: id, label: t.short, href: t.href };
     }),
+    { key: 'all', label: 'Tools', href: '/tools/all' },
   ];
   return (
     <nav className="fx-mobnav md:hidden" aria-label="Primary" data-tour="shell-nav">
       {items.map((it) => {
-        const active = activeTool === it.key;
+        const active = it.key === 'all' ? HUB_PATHS.has(activeTool) : activeTool === it.key;
         return (
-          <Link key={it.key} to={it.href} className={`fx-mobnav-item${active ? ' on' : ''}`} aria-current={active ? 'page' : undefined}>
+          <Link key={it.key} to={it.href} className={`fx-mobnav-item${active ? ' on' : ''}`} aria-current={active ? 'page' : undefined} data-tour={it.key === 'all' ? 'shell-all' : undefined}>
             {BOTTOM_NAV_ICONS[it.key]}
             <span>{it.label}</span>
           </Link>
         );
       })}
-      <button
-        type="button"
-        onClick={onMore}
-        className={`fx-mobnav-item${moreActive ? ' on' : ''}`}
-        aria-haspopup="dialog"
-        aria-expanded={drawerOpen}
-        aria-controls={DRAWER_ID}
-        aria-label="More tools and menu"
-      >
-        {BOTTOM_NAV_ICONS.more}
-        <span>More</span>
-      </button>
     </nav>
   );
 }
@@ -248,7 +237,7 @@ function MarketReviewNote() {
 
 function ToolSkeleton() {
   return (
-    <div style={{ minHeight: '50vh', paddingTop: 18 }} role="status" aria-label="Loading your data">
+    <div style={{ minHeight: '50svh', paddingTop: 18 }} role="status" aria-label="Loading your data">
       <div className="dash-grid" style={{ marginBottom: 16 }} aria-hidden="true">
         {[0, 1, 2, 3].map((i) => (
           <div className="card" key={i} style={{ marginBottom: 0, padding: 18 }}>
@@ -284,7 +273,6 @@ export default function ToolsLayout() {
   const readyRef = useRef(false);
   const canPushRef = useRef(false);
   const [sync, setSync] = useState<SyncStatus>(configured ? 'idle' : 'offline');
-  const [drawerOpen, setDrawerOpen] = useMobileDrawer();
   const { open: paletteOpen, openPalette, closePalette } = useCommandPalette();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeTool = useActiveTool();
@@ -465,56 +453,28 @@ export default function ToolsLayout() {
           </div>
           <IconSprite />
 
-          {/* Slim app bar */}
-          <header
-            className="flex items-center justify-between h-12 px-3 sm:px-4 border-b border-hairline-2"
-            style={{ position: 'sticky', top: 'var(--fx-safe-top)', zIndex: 51, background: 'var(--nav-bg)', backdropFilter: 'saturate(180%) blur(20px)', WebkitBackdropFilter: 'saturate(180%) blur(20px)' }}
-          >
-            <div className="flex items-center gap-1.5 sm:gap-2.5">
-              <button
-                type="button"
-                onClick={() => setDrawerOpen(true)}
-                aria-label="Open menu"
-                aria-haspopup="dialog"
-                aria-expanded={drawerOpen}
-                aria-controls={DRAWER_ID}
-                data-tour="shell-menu"
-                className="md:hidden -ml-1 p-2 text-ink hover:text-accent-text transition-colors"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
-                  <path d="M3 6h18M3 12h18M3 18h18" />
-                </svg>
-              </button>
-              <HomeButton compact className="hidden sm:inline-flex" />
-              {/* min-h-6 (24px): the mark is 22px and the wordmark shorter, so
-                  this standalone link rendered 2px under the WCAG 2.2 (2.5.8)
-                  target minimum. Growing the box leaves the artwork untouched. */}
-              <Link to="/" aria-label="FinatriX home" className="flex items-center gap-2 group min-h-6">
-                <BrandLogo size={22} className="shrink-0" />
-                <span className="fx-wordmark font-mono text-[12px] uppercase tracking-[0.12em] sm:tracking-[0.16em] text-ink group-hover:text-accent-text transition-colors select-none">
-                  FinatriX
-                </span>
-              </Link>
-            </div>
+          {/* App bar. On a phone it holds the wordmark and four icon buttons —
+              search, FinatriX AI, notifications, account — each 44px. Market,
+              currency and appearance join them from 640px / 768px up; on a
+              phone they live on the All tools page. */}
+          <header className="fx-appbar border-b border-hairline-2">
+            <Link to="/" aria-label="FinatriX home" className="fx-appbar-brand">
+              <Wordmark logo={22} />
+            </Link>
 
-            <div className="relative flex items-center gap-2.5 sm:gap-4">
+            <div className="fx-appbar-actions">
               <CommandPaletteTrigger onOpen={openPalette} />
+              {ready && <AiHeaderButton className="fx-phone-only" />}
               <NotificationsBell />
               {/* Display currency sits with the other global display controls,
-                  not in the navigation row. It is the same kind of setting as
-                  the theme toggle beside it — and it was taking ~105px out of a
-                  row that has to hold twelve destinations on one line.
-
-                  Hidden on a phone, where this header already carries four
-                  controls and a sign-in button: measured, it pushed the
-                  document 97px wider than the viewport. The drawer below has
-                  the same control, so nothing is lost. */}
+                  not in the navigation row; on a phone the All tools page has
+                  the same controls, so nothing is lost below 640px. */}
               <MarketChip className="fx-cur-desktop" tour="shell-market" />
               <CurrencySelect className="fx-cur-desktop" tour="shell-currency" />
-              <ThemeToggle tour="shell-theme" />
+              <AppearanceMenu className="fx-desktop-only" tour="shell-theme" />
               {user ? (
                 <>
-                  <span className={`hidden sm:inline font-mono text-[10px] uppercase tracking-[0.06em] ${syncColor[sync]}`} data-tour="shell-sync">
+                  <span className={`fx-sync-label hidden lg:inline ${syncColor[sync]}`} data-tour="shell-sync">
                     {syncLabel[sync]}
                   </span>
                   <AccountMenu
@@ -525,21 +485,22 @@ export default function ToolsLayout() {
                       { label: 'Settings', to: '/tools/settings' },
                       // The landing page is the website's front door; in the
                       // app, "/" is the dashboard this menu is already on.
-                      ...(isNativeApp() ? [] : [{ label: 'Back to home', to: '/' }]),
+                      ...(isNativeApp() ? [] : [{ label: 'FinatriX website', to: '/' }]),
                       { label: 'Sign out', onClick: () => void signOut(), danger: true },
                     ]}
                   />
                 </>
               ) : (
                 <>
-                  <span className="hidden sm:inline font-mono text-[10px] uppercase tracking-[0.06em] text-ink-3" data-tour="shell-sync">
-                    {configured ? 'Not signed in' : 'Local only'}
+                  <span className="fx-sync-label hidden lg:inline text-ink-3" data-tour="shell-sync">
+                    {configured ? 'Not signed in' : 'On this device'}
                   </span>
-                  <Link
-                    to="/login"
-                    data-tour="shell-account"
-                    className="font-mono text-[10px] sm:text-[11px] uppercase tracking-[0.08em] text-[#0A0A0A] bg-[#D4AF37] hover:bg-[#F1C40F] px-3 py-1.5 rounded-full transition-colors whitespace-nowrap"
-                  >
+                  <Link to="/login" data-tour="shell-account" className="fx-icon-btn fx-phone-only" aria-label="Sign in">
+                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <circle cx="12" cy="8.5" r="3.8" /><path d="M4.5 20c1.4-3.6 4.2-5.4 7.5-5.4s6.1 1.8 7.5 5.4" />
+                    </svg>
+                  </Link>
+                  <Link to="/login" data-tour="shell-account" className="fx-signin-pill fx-desktop-only">
                     Sign in
                   </Link>
                 </>
@@ -560,12 +521,15 @@ export default function ToolsLayout() {
                 from it: "Tour this page" (the breadcrumb and Back are
                 website chrome; the system BACK replaces them there). */}
             <div className="fx-crumbrow">
-              <Breadcrumb parent={{ label: 'Money tools', to: '/tools' }} current={activeTool === 'dashboard' ? 'Dashboard' : activeTool === 'reports' ? 'Reports' : activeTool === 'calendar' ? 'Calendar' : activeTool === 'settings' ? 'Settings' : (TOOLS.find((t) => t.id === activeTool)?.name ?? 'Tools')} />
+              <Breadcrumb parent={{ label: 'Money tools', to: '/tools' }} current={activeTool === 'dashboard' ? 'Dashboard' : activeTool === 'reports' ? 'Reports' : activeTool === 'calendar' ? 'Calendar' : activeTool === 'settings' ? 'Settings' : activeTool === 'all' ? 'All tools' : (TOOLS.find((t) => t.id === activeTool)?.name ?? 'Tools')} />
               <div className="fx-crumbrow-end">
                 {ready && <TourPageButton />}
                 <span data-web-only className="fx-crumbrow-back"><BackButton /></span>
               </div>
             </div>
+            {/* The tour's first-visit invitation renders here, in the page
+                flow, rather than floating over the content (tour/TourOffer). */}
+            <div id={INVITE_SLOT_ID} />
             {ready ? <Outlet /> : seedFailed ? (
               <section role="alert" className="card" style={{ marginTop: 24, padding: 24 }}>
                 <h1 style={{ fontSize: 20, marginBottom: 8 }}>Your saved data couldn’t be loaded</h1>
@@ -579,107 +543,6 @@ export default function ToolsLayout() {
               </div>
             )}
           </div>
-
-          {/* Mobile navigation drawer (<768px) */}
-          <MobileDrawer
-            id={DRAWER_ID}
-            open={drawerOpen}
-            onClose={() => setDrawerOpen(false)}
-            label="Main"
-            footer={
-              user ? (
-                <button onClick={() => { setDrawerOpen(false); void signOut(); }} className="w-full text-center font-mono text-[12px] uppercase tracking-[0.08em] text-[#E0726B] border border-hairline hover:border-[#E0726B]/50 rounded-full py-2.5 transition-colors">
-                  Sign out
-                </button>
-              ) : (
-                <Link to="/login" onClick={() => setDrawerOpen(false)} className="block w-full text-center font-mono text-[12px] uppercase tracking-[0.08em] text-[#0A0A0A] bg-[#D4AF37] hover:bg-[#F1C40F] rounded-full py-2.5 transition-colors">
-                  Sign in
-                </Link>
-              )
-            }
-          >
-            <button
-              type="button"
-              onClick={() => { setDrawerOpen(false); openPalette(); }}
-              aria-haspopup="dialog"
-              className="flex w-full items-center gap-3 px-5 py-3 text-left text-[15px] text-ink hover:bg-hairline-2"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true">
-                <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" />
-              </svg>
-              Search everything
-            </button>
-            <Link to="/" data-web-only onClick={() => setDrawerOpen(false)} className="flex items-center gap-3 px-5 py-3 text-[15px] text-ink hover:bg-hairline-2">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M3 11l9-8 9 8" /><path d="M5 10v10h14V10" />
-              </svg>
-              Home
-            </Link>
-            <Link to="/tools/dashboard" onClick={() => setDrawerOpen(false)} className={`flex items-center gap-3 px-5 py-3 text-[15px] hover:bg-hairline-2 ${activeTool === 'dashboard' ? 'text-accent-text' : 'text-ink'}`}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" />
-              </svg>
-              Dashboard
-            </Link>
-            {/* The phone's route to the display currency, which the header
-                cannot hold at this width. */}
-            <div className="flex items-center justify-between gap-3 px-5 py-3 fx-cur-drawer">
-              <span className="text-[15px] text-ink">Currency</span>
-              <CurrencySelect />
-            </div>
-            <div className="flex items-center justify-between gap-3 px-5 py-3 fx-cur-drawer">
-              <span className="text-[15px] text-ink">Market rules</span>
-              <MarketChip onNavigate={() => setDrawerOpen(false)} />
-            </div>
-            <div className="mt-1 mb-1 px-5 text-[10px] uppercase tracking-[0.12em] text-ink-3 font-mono">Tools</div>
-            {TOOLS.map((t) => (
-              <Link
-                key={t.id}
-                to={t.href}
-                onClick={() => setDrawerOpen(false)}
-                className={`flex items-center gap-3 px-5 py-2.5 text-[15px] hover:bg-hairline-2 ${
-                  activeTool === t.id ? 'text-accent-text' : 'text-ink'
-                }`}
-              >
-                <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
-                {t.name}
-              </Link>
-            ))}
-            <Link
-              to="/tools/reports"
-              onClick={() => setDrawerOpen(false)}
-              className={`flex items-center gap-3 px-5 py-2.5 text-[15px] hover:bg-hairline-2 ${activeTool === 'reports' ? 'text-accent-text' : 'text-ink'}`}
-            >
-              <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: '#D4AF37' }} />
-              Reports
-            </Link>
-            <Link
-              to="/tools/calendar"
-              onClick={() => setDrawerOpen(false)}
-              className={`flex items-center gap-3 px-5 py-2.5 text-[15px] hover:bg-hairline-2 ${activeTool === 'calendar' ? 'text-accent-text' : 'text-ink'}`}
-            >
-              <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: '#D4AF37' }} />
-              Calendar
-            </Link>
-            {showCareersEntry() && (
-              <>
-                <div className="mt-2 mb-1 px-5 text-[10px] uppercase tracking-[0.12em] text-ink-3 font-mono">Careers</div>
-                <Link
-                  to={CAREERS_ROUTES.dashboard}
-                  onClick={() => setDrawerOpen(false)}
-                  className="flex items-center gap-3 px-5 py-2.5 text-[15px] text-ink hover:bg-hairline-2"
-                >
-                  <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: '#D4AF37' }} />
-                  FinatriX Careers
-                </Link>
-              </>
-            )}
-            <div className="my-2 mx-5 border-t border-hairline-2" />
-            <Link to="/profile" onClick={() => setDrawerOpen(false)} className="block px-5 py-2.5 text-[15px] text-ink hover:bg-hairline-2">Profile</Link>
-            <Link to="/tools/settings" onClick={() => setDrawerOpen(false)} className={`block px-5 py-2.5 text-[15px] hover:bg-hairline-2 ${activeTool === 'settings' ? 'text-accent-text' : 'text-ink'}`}>Settings</Link>
-            <Link to="/privacy" onClick={() => setDrawerOpen(false)} className="block px-5 py-2.5 text-[14px] text-ink-3 hover:bg-hairline-2">Privacy</Link>
-            <Link to="/terms" onClick={() => setDrawerOpen(false)} className="block px-5 py-2.5 text-[14px] text-ink-3 hover:bg-hairline-2">Terms</Link>
-          </MobileDrawer>
 
           {/* The floating trigger. Sits at the end of the shell so it paints
               above the page without a stacking hack; the panel itself is
@@ -707,12 +570,7 @@ export default function ToolsLayout() {
           )}
 
           {/* Mobile bottom navigation (<768px) */}
-          <MobileTabBar
-            activeTool={activeTool}
-            drawerOpen={drawerOpen}
-            onMore={() => setDrawerOpen(true)}
-            moreActive={activeTool !== 'dashboard' && !BOTTOM_NAV_TOOLS.includes(activeTool as typeof BOTTOM_NAV_TOOLS[number])}
-          />
+          <MobileTabBar activeTool={activeTool} />
         </div>
         </AiProvider>
       </ToastProvider>

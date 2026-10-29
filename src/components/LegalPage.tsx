@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Breadcrumb } from './Breadcrumb';
-import ThemeToggle from './ThemeToggle';
+import AppearanceMenu from './AppearanceMenu';
+import { Wordmark } from './Wordmark';
 import { SUPPORT_EMAIL, SUPPORT_MAILTO } from '../shared/brand';
 import { publicPageFor } from '../shared/publicPages';
 import { formatReviewDate } from '../lib/date';
@@ -33,31 +34,17 @@ export default function LegalPage({
   const updated = formatReviewDate(page.updated);
 
   return (
-    <div className="min-h-screen bg-surface-base text-ink">
+    <div className="min-h-[100svh] bg-surface-base text-ink">
       <header className="sticky top-0 z-50 flex items-center justify-between h-14 px-4 sm:px-6 bg-[var(--nav-bg)] backdrop-blur-[14px] border-b border-hairline-2">
-        <Link to="/" aria-label="FinatriX home" className="flex items-center gap-2 group">
-          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-            <rect x="7" y="7" width="10" height="10" rx="2.5" fill="#D4AF37" />
-            <circle cx="12" cy="12" r="2.1" fill="var(--surface-base)" />
-          </svg>
-          <span className="font-semibold text-[14px] tracking-[-0.01em] text-ink group-hover:text-accent-text transition-colors">
-            Finatri<span className="fx-gold-text">X</span>
-          </span>
+        <Link to="/" aria-label="FinatriX home" className="fx-nav-brand">
+          <Wordmark logo={22} />
         </Link>
-        <div className="flex items-center gap-5 font-mono text-[11px] uppercase tracking-[0.08em]">
-          <Link to="/" className="text-ink-3 hover:text-accent-text transition-colors">
-            Home
-          </Link>
-          <Link to="/tools" className="text-ink-3 hover:text-accent-text transition-colors">
-            Tools
-          </Link>
-          <Link to="/privacy" className="hidden sm:inline text-ink-3 hover:text-accent-text transition-colors">
-            Privacy
-          </Link>
-          <Link to="/terms" className="hidden sm:inline text-ink-3 hover:text-accent-text transition-colors">
-            Terms
-          </Link>
-          <ThemeToggle />
+        <div className="flex items-center gap-1 sm:gap-2">
+          <Link to="/" data-web-only className="fx-nav-text-link inline-flex">Home</Link>
+          <Link to="/tools" className="fx-nav-text-link inline-flex">Tools</Link>
+          <Link to="/privacy" className="fx-nav-text-link hidden sm:inline-flex">Privacy</Link>
+          <Link to="/terms" className="fx-nav-text-link hidden sm:inline-flex">Terms</Link>
+          <AppearanceMenu />
         </div>
       </header>
 
@@ -76,20 +63,15 @@ export default function LegalPage({
           {children}
         </div>
 
-        <div className="mt-14 pt-8 border-t border-hairline text-[13px] text-ink-3">
-          Questions about this policy? Email{' '}
-          <a href={SUPPORT_MAILTO} className="fx-prose-link">
-            {SUPPORT_EMAIL}
-          </a>
-          , or see{' '}
-          <Link to="/support" className="fx-prose-link">
-            Support
-          </Link>{' '}
-          and{' '}
-          <Link to="/faq" className="fx-prose-link">
-            the FAQ
-          </Link>
-          .
+        <div className="mt-14 pt-8 border-t border-hairline">
+          <p className="text-[15px] text-ink-2">Questions about this policy?</p>
+          {/* A row of links, not three links inside a 13px sentence: each is
+              a full-height target, and none sits on top of another. */}
+          <div className="mt-1 flex flex-wrap gap-x-6">
+            <a href={SUPPORT_MAILTO} className="fx-footer-link">Email {SUPPORT_EMAIL}</a>
+            <Link to="/support" className="fx-footer-link">Support</Link>
+            <Link to="/faq" className="fx-footer-link">FAQ</Link>
+          </div>
         </div>
       </div>
 

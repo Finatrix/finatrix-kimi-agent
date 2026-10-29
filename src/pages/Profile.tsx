@@ -79,7 +79,7 @@ export default function Profile() {
       {error && <Notice kind="error">{error}</Notice>}
 
       <div className="mb-6">
-        <span className="block font-mono text-[10px] uppercase tracking-[0.08em] text-ink-3 mb-2">
+        <span className="block font-mono text-[11px] uppercase tracking-[0.08em] text-ink-3 mb-2">
           Email
         </span>
         <div className="text-[15px] text-ink">{user.email}</div>

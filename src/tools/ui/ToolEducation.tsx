@@ -251,19 +251,11 @@ export default function ToolEducation({ toolId }: { toolId: ToolId }) {
         )}
       </Disclosure>
 
-      <p className="mt-8 font-mono text-[10px] uppercase leading-[1.6] tracking-[0.12em] text-ink-3">
-        Educational tool · not financial advice ·{' '}
-        <Link to="/help" className="hover:text-accent-text transition-colors">
-          Help Centre
-        </Link>{' '}
-        ·{' '}
-        <Link to="/faq" className="hover:text-accent-text transition-colors">
-          FAQ
-        </Link>{' '}
-        ·{' '}
-        <Link to="/terms" className="hover:text-accent-text transition-colors">
-          Terms
-        </Link>
+      <p className="mt-8 flex flex-wrap items-center gap-x-4 text-[13px] leading-[1.6] text-ink-3">
+        <span>Educational tool, not financial advice.</span>
+        <Link to="/help" className="fx-footer-link">Help Centre</Link>
+        <Link to="/faq" className="fx-footer-link">FAQ</Link>
+        <Link to="/terms" className="fx-footer-link">Terms</Link>
       </p>
     </div>
   );

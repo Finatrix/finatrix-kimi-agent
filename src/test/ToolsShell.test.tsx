@@ -27,8 +27,8 @@ describe('ToolsLayout shell', () => {
 
   it('mounts the unified shell: brand, every tool tab, currency selector', async () => {
     renderShell('/tools/budget');
-    // Brand appears in the app bar.
-    expect(screen.getAllByText('FinatriX').length).toBeGreaterThan(0);
+    // Brand appears in the app bar, as the home link.
+    expect(screen.getByRole('link', { name: 'FinatriX home' })).toBeInTheDocument();
     // Every tool is present in the nav, under the SHORT label the landing page
     // uses — the bar carries twelve destinations and the full names put it on a
     // second line at every realistic desktop width.
@@ -40,11 +40,10 @@ describe('ToolsLayout shell', () => {
     for (const label of ['Dashboard', 'Reports', 'Calendar', 'Careers · 2027']) {
       expect(within(nav).getByText(label)).toBeInTheDocument();
     }
-    // Currency selector defaults to INR. There are TWO in the DOM by design —
-    // one in the header for a real screen and one in the drawer for a phone,
-    // because the two live in different subtrees and CSS shows exactly one.
+    // Currency selector defaults to INR. One in the header; on a phone the
+    // same control lives on the All tools page (there is no drawer copy).
     const currency = screen.getAllByLabelText('Display currency');
-    expect(currency).toHaveLength(2);
+    expect(currency).toHaveLength(1);
     for (const sel of currency) expect(sel).toHaveValue('INR');
     // The routed tool content renders once the sync gate opens.
     expect(await screen.findByText('tool-outlet-content')).toBeInTheDocument();

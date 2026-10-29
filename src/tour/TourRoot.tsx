@@ -173,15 +173,16 @@ export default function TourRoot({ request, onClose, chapters = CHAPTERS }: Prop
   const position = (id: string) => Math.max(0, chapters.findIndex((c) => c.id === id)) + 1;
 
   if (view.kind === 'offer') {
-    const minutes = chapters.reduce((sum, c) => sum + c.minutes, 0);
+    // The offer is for this page's chapter — a couple of minutes — not the
+    // whole tutorial; the rest is a tap away under All tools › Guided tours.
+    const here = chapterForPath(pathname, chapters) ?? chapters[0];
     return (
       <TourOffer
-        minutes={minutes}
-        reduced={reduced}
-        paused={paused}
+        minutes={here.minutes}
+        pageName={here.id === 'dashboard' ? 'your dashboard' : `the ${here.title}`}
         onYes={() => {
           acceptOffer();
-          startRun({ queue: chapters.map((c) => c.id), ci: 0, phase: 'intro', fromHub: false });
+          startRun({ queue: [here.id], ci: 0, phase: 'intro', fromHub: false });
         }}
         onLater={() => { snoozeOffer(Date.now()); onClose(); }}
         onNever={() => { setOptOut(true); onClose(); }}

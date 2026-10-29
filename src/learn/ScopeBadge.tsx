@@ -24,7 +24,7 @@ export function ScopeBadge({ scope, size = 'sm' }: { scope?: ContentScope; size?
       title={label.long}
       className={[
         'inline-flex items-center gap-1 rounded-full border font-mono uppercase tracking-[0.1em]',
-        size === 'md' ? 'px-2.5 py-1 text-[10px]' : 'px-2 py-0.5 text-[9px]',
+        size === 'md' ? 'px-2.5 py-1 text-[11px]' : 'px-2 py-0.5 text-[11px]',
         strong
           ? 'border-[color:var(--accent-text)]/40 bg-[color:var(--accent-text)]/10 text-accent-text'
           : 'border-hairline text-ink-3',

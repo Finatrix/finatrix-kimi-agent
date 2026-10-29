@@ -55,7 +55,7 @@ export default function Contact() {
         <p className="mb-8">
           <a
             href={SUPPORT_MAILTO}
-            className="fx-btn-gold inline-flex items-center gap-2 rounded-full px-6 py-3 font-mono text-[12px] uppercase tracking-[0.1em]"
+            className="fx-btn-gold inline-flex items-center gap-2 rounded-full px-6 py-3 text-[14px] font-medium"
           >
             {SUPPORT_EMAIL}
           </a>
@@ -71,7 +71,7 @@ export default function Contact() {
                 >
                   {r.label}
                 </a>
-                <span className="mt-1 block font-mono text-[10px] uppercase tracking-[0.12em] text-ink-3">
+                <span className="mt-1 block font-mono text-[11px] uppercase tracking-[0.12em] text-ink-3">
                   Subject: {r.subject}
                 </span>
               </dt>

@@ -89,7 +89,7 @@ function LegacyPeerComparePage() {
 
   return (
     <div className="fx-page">
-      <PageHead chip="PeerCompare" chipColor="var(--purple)" chipBg="rgba(110,59,212,.09)" icon="peer" title="Where your figures sit.">
+      <PageHead chip="PeerCompare" chipColor="var(--purple)" icon="peer" title="Where your figures sit.">
         Illustrative benchmarks for {cityEntries.length} locations across {market.name}, using an
         age-band and location model. These estimates provide context, not a population ranking or a target.
       </PageHead>
@@ -188,7 +188,7 @@ function PeerResultView({ result, input, market, money, onReset }: {
         <div style={{ position: 'relative', width: 140, height: 140, margin: '0 auto 14px' }} data-tour="peercompare-outcome">
           <svg aria-hidden="true" width="140" height="140" style={{ transform: 'rotate(-90deg)' }}>
             <circle cx="70" cy="70" r="56" fill="none" stroke="var(--hair2)" strokeWidth="9" />
-            <circle cx="70" cy="70" r="56" fill="none" stroke="var(--purple)" strokeWidth="9" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={off} style={{ transition: 'stroke-dashoffset 1s ease' }} />
+            <circle cx="70" cy="70" r="56" fill="none" stroke="var(--purple)" strokeWidth="9" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={off} style={{ transition: 'stroke-dashoffset 300ms ease' }} />
           </svg>
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ fontSize: 42, fontWeight: 700, letterSpacing: '-.03em', lineHeight: 1, color: 'var(--purple)' }}>{score}</div>

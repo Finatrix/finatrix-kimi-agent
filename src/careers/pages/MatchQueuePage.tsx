@@ -299,7 +299,7 @@ export default function MatchQueuePage() {
             className="q-progress" role="progressbar" aria-label="Queue progress"
             aria-valuenow={progress.pct} aria-valuemin={0} aria-valuemax={100}
           >
-            <div className="q-progress-fill" style={{ width: `${progress.pct}%` }} />
+            <div className="q-progress-fill" style={{ transform: `scaleX(${progress.pct / 100})` }} />
           </div>
         </div>
       )}

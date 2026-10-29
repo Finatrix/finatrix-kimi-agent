@@ -8,10 +8,10 @@
 .fx-tools .score-ring { position: relative; display: inline-flex; align-items: center; justify-content: center; }
 .fx-tools .score-ring svg { transform: rotate(-90deg); }
 .fx-tools .score-ring .sr-track { stroke: var(--fill-08); fill: none; }
-.fx-tools .score-ring .sr-fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 900ms var(--ease-out); }
+.fx-tools .score-ring .sr-fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 300ms var(--ease-out); }
 .fx-tools .score-ring .sr-val { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .fx-tools .score-ring .sr-num { font-size: 26px; font-weight: 700; letter-spacing: -.02em; line-height: 1; }
-.fx-tools .score-ring .sr-cap { font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink3); margin-top: 4px; }
+.fx-tools .score-ring .sr-cap { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink3); margin-top: 4px; }
 
 /* Small rings (job cards) tighten the inner type so it never crowds. */
 .fx-tools .score-ring.sm .sr-num { font-size: 15px; font-weight: 700; }
@@ -52,7 +52,7 @@
 .fx-tools .lib-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
 .fx-tools .lib-toolbar .fi, .fx-tools .lib-toolbar .fs { width: auto; flex: 0 1 auto; padding: 9px 13px; font-size: max(13px, var(--field-min-fs)); border-radius: 10px; }
 .fx-tools .lib-toolbar .fi { flex: 1 1 180px; min-width: 140px; }
-.fx-tools .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 3px 9px; border-radius: 980px; }
+.fx-tools .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 3px 9px; border-radius: 980px; }
 .fx-tools .badge-gold { background: var(--gold-bg); color: var(--accent-text); }
 .fx-tools .badge-green { background: rgba(52,210,122,.12); color: var(--green); }
 .fx-tools .badge-blue { background: rgba(77,155,255,.12); color: var(--blue); }
@@ -83,7 +83,7 @@
 /* ============ MODAL / DIALOG ============ */
 .fx-tools .fx-modal-wrap { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center; padding: 18px; }
 .fx-tools .fx-modal-back { position: absolute; inset: 0; background: rgba(0,0,0,.62); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-.fx-tools .fx-modal { position: relative; width: 100%; max-width: 480px; max-height: 86dvh; overflow-y: auto; background: var(--card-solid); border: 1px solid var(--hair); border-radius: var(--r); padding: 24px; box-shadow: 0 30px 80px -20px rgba(0,0,0,.8); animation: fxResultCardIn 320ms var(--ease-out) both; }
+.fx-tools .fx-modal { position: relative; width: 100%; max-width: 480px; max-height: 86dvh; overflow-y: auto; background: var(--card-solid); border: 1px solid var(--hair); border-radius: var(--r); padding: 24px; box-shadow: 0 30px 80px -20px rgba(0,0,0,.8); animation: fxResultCardIn 300ms var(--ease-out) both; }
 .fx-tools .fx-modal.wide { max-width: 860px; }
 /* The panel receives programmatic focus when the dialog opens (a11y); the
    container itself must not draw the interactive-element focus ring. */
@@ -138,12 +138,12 @@
    identical: seven equal columns, 4px gutters. */
 .fx-tools .cal-grid { display: flex; flex-direction: column; gap: 4px; }
 .fx-tools .cal-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-.fx-tools .cal-head { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink3); text-align: center; padding: 6px 0; }
+.fx-tools .cal-head { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink3); text-align: center; padding: 6px 0; }
 .fx-tools .cal-cell { min-height: 74px; border: 1px solid var(--hair2); border-radius: 10px; padding: 5px 6px; font-size: 11px; background: var(--fill-02); }
 .fx-tools .cal-cell.other { opacity: .35; }
 .fx-tools .cal-cell.today { border-color: rgba(212,175,55,.55); background: var(--gold-bg); }
 .fx-tools .cal-num { font-size: 11px; font-weight: 600; color: var(--ink2); }
-.fx-tools .cal-ev { display: block; margin-top: 3px; padding: 2px 6px; border-radius: 6px; font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: rgba(77,155,255,.14); color: var(--blue); }
+.fx-tools .cal-ev { display: block; margin-top: 3px; padding: 2px 6px; border-radius: 6px; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: rgba(77,155,255,.14); color: var(--blue); }
 .fx-tools .cal-ev.deadline { background: rgba(255,90,82,.13); color: var(--red); }
 .fx-tools .cal-ev.offer { background: rgba(52,210,122,.13); color: var(--green); }
 .fx-tools .cal-ev.interview { background: rgba(212,175,55,.15); color: var(--accent-text); }
@@ -204,9 +204,12 @@
 }
 .fx-tools .q-progress-fill {
   height: 100%;
+  width: 100%;
   border-radius: 980px;
   background: var(--gold);
-  transition: width 260ms var(--ease-out);
+  /* Progress moves by transform, not width: no layout on every step. */
+  transform-origin: left center;
+  transition: transform 260ms var(--ease-out);
 }
 @media (prefers-reduced-motion: reduce) {
   .fx-tools .q-progress-fill { transition: none; }
@@ -243,7 +246,7 @@
    stacking context), so --z-dropdown stacks it correctly against the bar it
    opens from without competing with the app header above it. */
 .fx-tools .fx-more { position: relative; display: inline-flex; flex-shrink: 0; }
-.fx-tools .fx-more-caret { font-size: 9px; opacity: .7; margin-left: -2px; }
+.fx-tools .fx-more-caret { font-size: 11px; opacity: .7; margin-left: -2px; }
 
 .fx-tools .fx-more-pop {
   position: absolute;
@@ -267,7 +270,7 @@
 .fx-tools .fx-more-group + .fx-more-group { margin-top: 4px; border-top: 1px solid var(--hair2); padding-top: 6px; }
 .fx-tools .fx-more-head {
   padding: 6px 10px 4px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: .1em;
   text-transform: uppercase;

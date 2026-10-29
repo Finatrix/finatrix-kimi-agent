@@ -191,23 +191,52 @@ test('logs a spend from the quick-add line, category and all', async ({ page }) 
   expect(stored[0].paymentMethod).toBe('UPI');
 });
 
-test('closed mobile drawer is not reachable by keyboard', async ({ page }) => {
+test('the add sheet is dismissed by pulling its header down, and stays for a short pull', async ({ page }) => {
+  const width = page.viewportSize()?.width ?? 1280;
+  test.skip(width > 560, 'the form is a centred dialog above 560px; only the bottom sheet drags');
+  await gotoFresh(page);
+  await openAddModal(page);
+  const dialog = page.getByRole('dialog');
+  // Measure once the sheet has finished sliding up, not mid-entrance.
+  await dialog.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
+  const head = dialog.locator('.fx-tx-head');
+  const box = (await head.boundingBox())!;
+  const x = box.x + 40;
+  const y = box.y + 12;
+
+  // A short, slow pull (24px at ~0.07 px/ms, under both thresholds) settles back.
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  for (let i = 1; i <= 6; i++) { await page.mouse.move(x, y + i * 4); await page.waitForTimeout(60); }
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+  await expect(dialog).toBeVisible();
+
+  // A long pull past the threshold closes it.
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  for (let i = 1; i <= 10; i++) await page.mouse.move(x, y + i * 22);
+  await page.mouse.up();
+  await expect(dialog).toHaveCount(0);
+});
+
+test('mobile navigation is one tab bar of real links, with no hidden menu', async ({ page }) => {
   await gotoFresh(page);
   const state = await page.evaluate(() => {
-    const shell = document.getElementById('fx-tools-drawer')!;
-    const link = shell.querySelector<HTMLElement>('a[href]')!;
-    link.focus();
+    const bar = document.querySelector<HTMLElement>('nav[aria-label="Primary"]');
     return {
-      inert: shell.inert,
-      ariaHidden: shell.getAttribute('aria-hidden'),
-      links: shell.querySelectorAll('a[href],button').length,
-      focusTook: document.activeElement === link,
+      // The off-canvas drawer and its hamburger are gone: nothing navigable
+      // sits hidden in the DOM waiting to be tabbed into.
+      drawer: document.getElementById('fx-tools-drawer') !== null,
+      menuButton: document.querySelector('[aria-label="Open menu"]') !== null,
+      tabs: bar ? [...bar.querySelectorAll('a[href]')].map((a) => a.getAttribute('href')) : [],
+      buttons: bar ? bar.querySelectorAll('button').length : -1,
     };
   });
-  expect(state.inert).toBe(true);
-  expect(state.ariaHidden).toBe('true');
-  expect(state.links).toBeGreaterThan(10); // still rendered, so it can animate
-  expect(state.focusTook).toBe(false);     // …but the browser refuses focus
+  expect(state.drawer).toBe(false);
+  expect(state.menuButton).toBe(false);
+  expect(state.tabs).toEqual(['/tools/dashboard', '/tools/budget', '/tools/expenses', '/tools/goals', '/tools/all']);
+  expect(state.buttons).toBe(0);
 });
 
 test('edits a transaction in place, then deletes with confirm + undo', async ({ page }) => {

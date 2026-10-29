@@ -262,7 +262,7 @@ function InvestMatchTool() {
 function Head({ market }: { market: MarketPack }) {
   return (
     <>
-    <PageHead marketNotice chip="InvestMatch" chipColor="var(--green)" chipBg="rgba(29,125,70,.09)" icon="invest" title="An allocation, illustrated.">
+    <PageHead marketNotice chip="InvestMatch" chipColor="var(--green)" icon="invest" title="An allocation, illustrated.">
       Six quick questions. An illustrative split across the instrument classes available in{' '}
       {market.name}, with the horizon-aware risk control most tools skip. It explains a shape —
       it never names a product or tells you what to buy.

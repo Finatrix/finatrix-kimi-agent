@@ -35,15 +35,13 @@ export function CommandPaletteTrigger({ onOpen }: { onOpen: () => void }) {
       aria-keyshortcuts={mac ? 'Meta+K' : 'Control+K'}
       aria-haspopup="dialog"
       data-tour="shell-search"
-      className="hidden min-[360px]:flex items-center gap-2 rounded-full border border-hairline px-2.5 sm:px-3 py-1.5 min-h-6 text-ink-3 hover:text-ink hover:border-hairline-2 transition-colors"
+      className="fx-icon-btn fx-search-btn"
     >
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
         <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" />
       </svg>
-      <span className="hidden lg:inline font-mono text-[10px] uppercase tracking-[0.08em]">Search</span>
-      <kbd className="hidden lg:inline font-mono text-[10px] tracking-[0.04em] text-ink-3 border border-hairline-2 rounded px-1 py-px">
-        {mac ? '⌘K' : 'Ctrl K'}
-      </kbd>
+      <span className="fx-search-label">Search</span>
+      <kbd className="fx-search-kbd">{mac ? '⌘K' : 'Ctrl K'}</kbd>
     </button>
   );
 }

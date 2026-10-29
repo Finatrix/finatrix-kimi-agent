@@ -6,7 +6,6 @@ import { MarketCurrencyNotice } from './MarketNote';
 export function PageHead({
   chip,
   chipColor,
-  chipBg,
   icon,
   title,
   children,
@@ -15,8 +14,8 @@ export function PageHead({
   tour,
 }: {
   chip: string;
+  /** The tool's colour, used on the chip's icon only; the label stays neutral so it holds its contrast. */
   chipColor: string;
-  chipBg: string;
   icon: IconName;
   title: string;
   children: ReactNode;
@@ -28,8 +27,8 @@ export function PageHead({
 }) {
   return (
     <div className="page-head" style={chipPadTop ? { paddingTop: chipPadTop } : undefined} data-tour={tour}>
-      <span className="tool-chip" style={{ background: chipBg, color: chipColor }}>
-        <Icon name={icon} size={14} style={{ marginRight: 5 }} />
+      <span className="tool-chip">
+        <Icon name={icon} size={14} style={{ marginRight: 5, color: chipColor }} />
         {chip}
       </span>
       <h1>{title}</h1>

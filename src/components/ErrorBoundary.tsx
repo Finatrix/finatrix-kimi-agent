@@ -34,7 +34,7 @@ export default class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div role="alert" aria-live="assertive" className="relative min-h-screen overflow-hidden bg-surface-base text-ink flex flex-col items-center justify-center px-6 text-center">
+        <div role="alert" aria-live="assertive" className="relative min-h-[100dvh] overflow-hidden bg-surface-base text-ink flex flex-col items-center justify-center px-6 text-center">
           <div className="pointer-events-none absolute left-1/2 top-1/2 h-[55vh] w-[55vh] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[120px] opacity-[0.16]" style={{ background: 'radial-gradient(circle, #E6C766 0%, #9c7a26 40%, transparent 70%)' }} />
           <span className="relative font-mono text-[11px] uppercase tracking-[0.18em] text-accent-text mb-4">
             Something broke
@@ -47,7 +47,7 @@ export default class ErrorBoundary extends Component<Props, State> {
           </p>
           <button
             onClick={this.handleReload}
-            className="relative mt-8 font-mono text-[12px] uppercase tracking-[0.08em] text-[#0A0A0A] bg-[#D4AF37] hover:bg-[#F1C40F] px-5 py-3 rounded-full transition-colors"
+            className="relative mt-8 text-[14px] text-[#0A0A0A] bg-[#D4AF37] hover:bg-[#F1C40F] px-5 py-3 rounded-full transition-colors font-medium"
           >
             Reload FinatriX
           </button>

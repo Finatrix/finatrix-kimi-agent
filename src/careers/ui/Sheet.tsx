@@ -7,6 +7,7 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
+import { useSheetDrag } from '../../hooks/useSheetDrag';
 import { CxIcon } from './icons';
 
 const FOCUSABLE =
@@ -31,6 +32,10 @@ export function Sheet({
   dismissable?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const headRef = useRef<HTMLDivElement>(null);
+  // A centred sheet becomes a bottom sheet below 640px: pull it down to close.
+  // Side panels and sheets that must be answered never close this way.
+  useSheetDrag(ref, headRef, onClose, !side && dismissable ? '(max-width: 639px)' : 'not all', open);
   const titleId = useId();
   // Read through a ref so a parent passing a fresh arrow each render does not
   // re-run the effect (which would bounce focus out and back in).
@@ -79,7 +84,7 @@ export function Sheet({
         aria-labelledby={titleId}
         tabIndex={-1}
       >
-        <div className="cx-sheet-head">
+        <div className="cx-sheet-head" ref={headRef}>
           <h2 id={titleId}>{title}</h2>
           {dismissable && (
             <button type="button" className="cx-icon-btn" onClick={onClose} aria-label="Close">

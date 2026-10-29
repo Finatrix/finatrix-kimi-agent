@@ -91,7 +91,7 @@ export default function CalendarPage() {
 
   return (
     <div className="fx-page">
-      <PageHead chip="Calendar" chipColor="var(--gold)" chipBg="rgba(212,175,55,.1)" icon="clock" title="Your money month, at a glance." tour="calendar-head">
+      <PageHead chip="Calendar" chipColor="var(--gold)" icon="clock" title="Your money month, at a glance." tour="calendar-head">
         Upcoming recurring bills, your investing SIP and goal dates — all projected from what you've
         already tracked. Nothing here is invented; events only appear when your data supports them.
       </PageHead>
@@ -212,7 +212,7 @@ export default function CalendarPage() {
                 >
                   <span aria-hidden="true" style={{ width: 40, textAlign: 'center', flexShrink: 0 }}>
                     <span style={{ display: 'block', fontSize: 16, fontWeight: 700, lineHeight: 1 }}>{Number(e.date.slice(8, 10))}</span>
-                    <span className="note" style={{ fontSize: 10 }}>{monthLabel(selMonth).slice(0, 3)}</span>
+                    <span className="note" style={{ fontSize: 11 }}>{monthLabel(selMonth).slice(0, 3)}</span>
                   </span>
                   <span style={{ width: 34, height: 34, borderRadius: 10, flexShrink: 0, display: 'grid', placeItems: 'center', background: `color-mix(in srgb, ${e.accent} 14%, transparent)`, color: e.accent }}>
                     <Icon name={e.icon} size={16} />
@@ -231,7 +231,7 @@ export default function CalendarPage() {
 
       <style>{`
         .fx-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-        .fx-cal-dow { text-align: center; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; color: var(--ink3); padding-bottom: 6px; text-transform: uppercase; }
+        .fx-cal-dow { text-align: center; font-size: 11px; font-weight: 700; letter-spacing: .04em; color: var(--ink3); padding-bottom: 6px; text-transform: uppercase; }
         .fx-cal-cell { position: relative; min-height: 46px; border-radius: 10px; border: 1px solid var(--hair2); padding: 5px 6px; display: flex; flex-direction: column; }
         .fx-cal-day-button { position: absolute; inset: 0; border: none; border-radius: inherit; background: transparent; cursor: pointer; text-align: left; padding: 5px 6px; display: flex; align-items: flex-start; }
         .fx-cal-day-button[aria-pressed="true"] { outline: 2px solid var(--gold); outline-offset: -2px; }

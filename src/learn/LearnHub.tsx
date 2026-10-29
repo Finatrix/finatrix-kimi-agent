@@ -34,7 +34,7 @@ function TopicCard({ topic }: { topic: Topic }) {
         </span>
         <span className="mt-2 flex-1 text-[14px] leading-[1.65] text-ink-2">{topic.lede}</span>
         <span className="mt-4 flex flex-wrap items-center gap-2">
-          <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-3">
+          <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-ink-3">
             {count} {count === 1 ? 'guide' : 'guides'}
           </span>
           <ScopeBadge scope={topic.scope} />
@@ -92,7 +92,7 @@ export default function LearnHub() {
             <li key={tool.id}>
               <Link
                 to={tool.href}
-                className="inline-flex rounded-full border border-hairline px-4 py-2 text-[13px] text-ink-2 transition-colors hover:border-[color:var(--accent-text)] hover:text-accent-text focus-visible:border-[color:var(--accent-text)]"
+                className="inline-flex min-h-[44px] items-center rounded-full border border-hairline px-4 text-[14px] text-ink-2 transition-colors hover:border-[color:var(--accent-text)] hover:text-accent-text focus-visible:border-[color:var(--accent-text)]"
               >
                 {tool.name}
               </Link>

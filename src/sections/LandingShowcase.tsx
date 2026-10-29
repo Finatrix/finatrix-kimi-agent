@@ -9,7 +9,7 @@ export default function LandingShowcase() {
     <section id="showcase" className="relative w-full bg-surface-base px-5 sm:px-8 py-24 sm:py-32">
       <div className="mx-auto max-w-[1120px]">
         <Reveal className="max-w-[640px]">
-          <span className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-accent-text">The toolkit</span>
+          <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-ink-3">The toolkit</span>
           <h2 className="mt-4 text-[clamp(30px,5vw,52px)] font-semibold leading-[1.04] tracking-[-0.025em] text-ink">
             {TOOL_COUNT_WORD_CAP} tools.<br />
             <span className="text-ink-2">Use the ones you need.</span>
@@ -32,21 +32,19 @@ export default function LandingShowcase() {
                 className="group relative flex h-full flex-col border-t border-hairline py-7 pr-4"
               >
                 {/* top accent line in the tool colour */}
-                <span
-                  className="text-accent-text"
-                >
+                <span className="text-ink-2">
                   <ToolIcon name={t.icon} className="h-[22px] w-[22px]" />
                 </span>
                 <h3 className="mt-5 flex flex-wrap items-baseline gap-x-2.5 text-[18px] font-semibold tracking-[-0.01em] text-ink">
                   {t.name}
                   {t.id === 'lifemap' && (
-                    <span className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-accent-text">
+                    <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink-3">
                       Flagship
                     </span>
                   )}
                 </h3>
-                <p className="mt-2 text-[14px] leading-relaxed text-ink-2 flex-grow">{t.blurb}</p>
-                <span className="mt-4 inline-flex items-center gap-1.5 text-[13px] text-ink-2 transition-colors group-hover:text-accent-text">
+                <p className="mt-2 text-[15px] leading-relaxed text-ink-2 flex-grow">{t.blurb}</p>
+                <span className="mt-4 inline-flex items-center gap-1.5 text-[14px] font-medium text-ink transition-colors">
                   Open {t.name}
                   <span className="transition-transform duration-300 group-hover:translate-x-0.5">→</span>
                 </span>
@@ -58,14 +56,13 @@ export default function LandingShowcase() {
           <Reveal delay={TOOLS.length * 60}>
             <Link
               to="/tools"
-              className="fx-card-hover group relative flex h-full flex-col justify-between rounded-[20px] p-6 overflow-hidden"
-              style={{ background: 'linear-gradient(155deg, #EAD27E, #C49B2E)', boxShadow: '0 18px 50px -20px rgba(212,175,55,0.5), inset 0 1px 0 rgba(255,255,255,0.4)' }}
+              className="fx-card-hover group relative mt-7 flex h-full flex-col justify-between rounded-[20px] border border-hairline bg-surface-2 p-6 overflow-hidden"
             >
-              <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-[#0A0A0A]/60">The full suite</span>
+              <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-ink-3">The full suite</span>
               <div className="mt-8">
-                <h3 className="text-[22px] font-semibold tracking-[-0.01em] text-[#0A0A0A]">Open everything</h3>
-                <span className="mt-3 inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.08em] text-[#0A0A0A]">
-                  Launch tools
+                <h3 className="text-[22px] font-semibold tracking-[-0.01em] text-ink">Open everything</h3>
+                <span className="mt-3 inline-flex items-center gap-1.5 text-[15px] font-medium text-ink">
+                  Launch the tools
                   <span className="transition-transform duration-300 group-hover:translate-x-0.5">→</span>
                 </span>
               </div>

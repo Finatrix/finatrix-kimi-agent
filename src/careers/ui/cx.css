@@ -114,6 +114,10 @@
 .cx-topbar .cx-brand { padding: 0; }
 @media (min-width: 1024px) { .cx-topbar .cx-brand { display: none; } }
 .cx-topbar-tools { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+/* Appearance sits in the desktop top bar; on a phone the bar holds search,
+   notifications and the account menu, and appearance follows the device. */
+@media (max-width: 767px) { .cx-topbar-tools .cx-desktop-only { display: none; } }
+.cx-topbar .fx-wordmark-suffix { color: var(--ink3); }
 
 .cx-content {
   width: 100%; max-width: calc(var(--cx-content-max) + 2 * var(--cx-gutter));
@@ -330,6 +334,7 @@ a.cx-tile:hover { background: color-mix(in srgb, var(--cx-panel) 92%, var(--ink)
   animation: cxPop var(--dur-med) var(--fx-ease) both;
 }
 @media (max-width: 639px) {
+  .cx-sheet-center .cx-sheet-head { touch-action: none; }
   .cx-sheet-center { left: 0; right: 0; top: auto; bottom: 0; width: 100%; transform: none; border-radius: var(--cx-r-lg) var(--cx-r-lg) 0 0; padding-bottom: var(--fx-safe-bottom); animation: cxRise var(--dur-med) var(--fx-ease) both; }
 }
 .cx-sheet-head { display: flex; align-items: flex-start; gap: 12px; padding: 20px 20px 0 24px; }
@@ -397,7 +402,7 @@ a.cx-tile:hover { background: color-mix(in srgb, var(--cx-panel) 92%, var(--ink)
   border: 1px solid transparent; box-shadow: none; background: var(--cx-accent); color: #1a1400;
 }
 .cx.fx-tools .btn:hover { transform: none; box-shadow: none; background: color-mix(in srgb, var(--cx-accent) 88%, white); }
-.cx.fx-tools .btn:active { transform: none; background: color-mix(in srgb, var(--cx-accent) 88%, black); }
+.cx.fx-tools .btn:active { scale: none; translate: none; background: color-mix(in srgb, var(--cx-accent) 88%, black); }
 .cx.fx-tools .btn-ghost { background: transparent; color: var(--ink); border-color: var(--cx-line-strong); }
 .cx.fx-tools .btn-ghost:hover { background: var(--cx-hover); border-color: var(--cx-line-strong); }
 .cx.fx-tools .btn-sm { min-height: 34px; padding: 0 14px; font-size: 13px; }

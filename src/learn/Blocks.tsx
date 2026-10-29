@@ -39,7 +39,7 @@ function Note({ tone, title, text }: { tone: 'note' | 'warning'; title: string; 
           : 'border-l-hairline bg-surface-2'
       }`}
     >
-      <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent-text">
+      <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-accent-text">
         {warn ? 'Worth knowing' : 'Note'}
       </p>
       <p className="mt-2 text-[15px] font-semibold text-ink">{title}</p>
@@ -91,7 +91,7 @@ function Table({
                 <th
                   key={i}
                   scope="col"
-                  className="whitespace-nowrap px-4 py-3 font-mono text-[10.5px] uppercase tracking-[0.1em] text-ink-3"
+                  className="whitespace-nowrap px-4 py-3 font-mono text-[11px] uppercase tracking-[0.1em] text-ink-3"
                 >
                   {h}
                 </th>
@@ -132,7 +132,7 @@ function Formula({
 }) {
   return (
     <figure className="my-7 rounded-[14px] border border-hairline bg-surface-2 p-5">
-      <figcaption className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent-text">
+      <figcaption className="font-mono text-[11px] uppercase tracking-[0.14em] text-accent-text">
         {label}
       </figcaption>
       {/* Not a `<code>` block: this is mathematical notation for a human reader,
@@ -186,13 +186,13 @@ function ToolCta({ toolId, text }: { toolId: string; text: string }) {
   if (!tool) return null;
   return (
     <div className="my-7 rounded-[14px] border border-hairline bg-surface-2 p-5">
-      <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent-text">
+      <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-accent-text">
         Try it yourself
       </p>
       <p className="mt-2.5 text-[14.5px] leading-[1.7] text-ink-2">{inline(text, 'tc')}</p>
       <Link
         to={`/tools/${tool.id}`}
-        className="fx-btn-ghost mt-4 inline-flex items-center gap-2 rounded-full px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.1em]"
+        className="fx-btn-ghost mt-4 inline-flex min-h-[44px] items-center gap-2 rounded-full px-5 text-[15px] font-medium"
         onClick={() => track('guide_tool_opened', { tool: tool.id, route: `/tools/${tool.id}` })}
       >
         Open {tool.name} <span aria-hidden="true">→</span>

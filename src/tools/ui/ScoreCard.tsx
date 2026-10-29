@@ -206,7 +206,7 @@ const SCORE_STYLES = `
 .fx-tools .fx-score-copy{min-width:0;flex:1;}
 .fx-tools .fx-score-hd{display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
 .fx-tools .fx-score-title{font-size:14px;font-weight:700;letter-spacing:-.01em;color:var(--ink);}
-.fx-tools .fx-score-grade{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+.fx-tools .fx-score-grade{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
   padding:3px 9px;border-radius:var(--ctl-pill);border:1px solid;}
 .fx-tools .fx-score-caption{font-size:11.5px;color:var(--ink3);margin:3px 0 0;}
 .fx-tools .fx-score-headline{font-size:13px;color:var(--ink2);line-height:1.55;margin:8px 0 0;}
@@ -215,7 +215,7 @@ const SCORE_STYLES = `
 .fx-tools .fx-score-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px;}
 .fx-tools .fx-score-detail{margin-top:14px;padding-top:14px;border-top:1px solid var(--hair2);}
 .fx-tools .fx-score-table{width:100%;border-collapse:collapse;font-size:12.5px;}
-.fx-tools .fx-score-table thead th{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+.fx-tools .fx-score-table thead th{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
   color:var(--ink3);text-align:right;padding:0 8px 7px;}
 .fx-tools .fx-score-table thead th:first-child{text-align:left;}
 .fx-tools .fx-score-table tbody th{text-align:left;font-weight:500;padding:9px 8px;vertical-align:top;
@@ -231,7 +231,7 @@ const SCORE_STYLES = `
 .fx-tools .fx-score-cw{color:var(--ink3);}
 .fx-tools .fx-score-gaps{margin-top:14px;padding:11px 13px;border-radius:var(--ctl-r-md);background:var(--well);
   border:1px solid var(--well-border);}
-.fx-tools .fx-score-gapt{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3);}
+.fx-tools .fx-score-gapt{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3);}
 .fx-tools .fx-score-gaps ul{margin:8px 0 0;padding-left:18px;}
 .fx-tools .fx-score-gaps li{font-size:12px;color:var(--ink2);line-height:1.6;}
 .fx-tools .fx-score-gapn{font-size:11.5px;color:var(--ink3);line-height:1.55;margin:8px 0 0;}

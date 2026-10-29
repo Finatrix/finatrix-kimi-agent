@@ -18,6 +18,8 @@ import {
  * only surfaces, ink, hairlines and ambient lighting flip (see tokens.css).
  */
 export type Theme = 'light' | 'dark';
+/** What the person chose: a fixed theme, or whatever the device is set to. */
+export type ThemeMode = Theme | 'system';
 
 const STORAGE_KEY = 'fx_theme';
 const THEME_COLOR: Record<Theme, string> = { dark: '#060607', light: '#F4F2EC' };
@@ -32,6 +34,10 @@ interface ThemeContextValue {
   followsSystem: boolean;
   /** Drop the explicit choice and go back to following the device. */
   followSystem: () => void;
+  /** The choice as one value — `system` until the person picks a theme. */
+  mode: ThemeMode;
+  /** Pick Light, Dark or System (the appearance menu and All tools). */
+  setMode: (mode: ThemeMode) => void;
 }
 
 // A safe, inert default so components that read the theme never crash when
@@ -43,6 +49,8 @@ const FALLBACK: ThemeContextValue = {
   toggleTheme: () => {},
   followsSystem: true,
   followSystem: () => {},
+  mode: 'system',
+  setMode: () => {},
 };
 
 const ThemeContext = createContext<ThemeContextValue>(FALLBACK);
@@ -132,8 +140,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return () => mq.removeEventListener?.('change', onChange);
   }, []);
 
+  const setMode = useCallback((mode: ThemeMode) => {
+    if (mode === 'system') followSystem();
+    else setTheme(mode);
+  }, [followSystem, setTheme]);
+  const mode: ThemeMode = followsSystem ? 'system' : theme;
+
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme, followsSystem, followSystem }}>
+    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme, followsSystem, followSystem, mode, setMode }}>
       {children}
     </ThemeContext.Provider>
   );

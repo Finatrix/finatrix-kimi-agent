@@ -240,7 +240,7 @@ export default function DashboardPage() {
           <Link key={e.id} to="/tools/calendar" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 0', borderTop: '1px solid var(--hair2)', textDecoration: 'none', color: 'inherit' }}>
             <span aria-hidden="true" style={{ width: 34, textAlign: 'center', flexShrink: 0 }}>
               <span style={{ display: 'block', fontSize: 15, fontWeight: 700, lineHeight: 1 }}>{Number(e.date.slice(8, 10))}</span>
-              <span style={{ fontSize: 10, color: 'var(--ink-3)' }}>{new Date(e.date + 'T00:00:00').toLocaleDateString(undefined, { month: 'short' })}</span>
+              <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>{new Date(e.date + 'T00:00:00').toLocaleDateString(undefined, { month: 'short' })}</span>
             </span>
             <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', background: e.accent, flexShrink: 0 }} />
             <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title}</span>
@@ -268,7 +268,7 @@ export default function DashboardPage() {
             <h1 id="fx-dash-title" style={{ fontSize: 'clamp(24px,3.4vw,32px)', fontWeight: 700, letterSpacing: '-.025em', lineHeight: 1.05, marginTop: 8, color: 'var(--ink)' }}>
               Your money, this month.
             </h1>
-            <p style={{ fontSize: 14.5, color: 'var(--ink2)', marginTop: 8, lineHeight: 1.55, maxWidth: 440 }}>
+            <p style={{ fontSize: 15, color: 'var(--ink2)', marginTop: 8, lineHeight: 1.55, maxWidth: 440 }}>
               {snap.healthScore == null
                 ? `${greeting()}. Start with your income and spending. Your dashboard will take shape as you add your records.`
                 : 'Your recorded income, spending and plans in one place. Review the figures, then choose your next step.'}
@@ -555,7 +555,7 @@ export default function DashboardPage() {
           Computed privately on your device
         </span>
         <span aria-hidden="true">·</span>
-        <span>Educational tools, not financial advice · <Link to="/editorial-standards">How we check our work</Link> · <Link to="/contact">Contact FinatriX</Link> · <Link to="/tools/settings">Privacy controls</Link></span>
+        <span>Educational tools, not financial advice · <Link to="/editorial-standards" className="fx-footer-link fx-footer-inline">How we check our work</Link> · <Link to="/contact" className="fx-footer-link fx-footer-inline">Contact FinatriX</Link> · <Link to="/tools/settings" className="fx-footer-link fx-footer-inline">Privacy controls</Link></span>
         <span aria-hidden="true">·</span>
         <span>Updated {updated}</span>
       </div>
@@ -580,20 +580,22 @@ function DashStyles() {
       .fx-method > summary { font-size: 12px; color: var(--ink3); cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 6px; user-select: none; transition: color .2s ease; }
       .fx-method > summary::-webkit-details-marker { display: none; }
       .fx-method > summary::before { content: "ⓘ"; font-size: 12px; opacity: .8; }
-      .fx-method > summary:hover { color: var(--ink2); }
+      @media (hover: hover) and (pointer: fine) {
+      .fx-method > summary:hover { color: var(--ink2); } }
       .fx-method[open] > summary { color: var(--ink2); margin-bottom: 6px; }
       .fx-method > p { font-size: 12.5px; color: var(--ink2); line-height: 1.6; max-width: 460px; }
 
       .fx-journey-progress { position: relative; width: 132px; height: 6px; border-radius: 980px; background: var(--hair2); overflow: hidden; }
-      .fx-journey-progress > span { position: absolute; inset: 0 auto 0 0; height: 100%; background: linear-gradient(90deg,#EAD27E,#C9A23C); border-radius: 980px; transition: width .6s var(--ease-out); }
+      .fx-journey-progress > span { position: absolute; inset: 0 auto 0 0; height: 100%; background: linear-gradient(90deg,#EAD27E,#C9A23C); border-radius: 980px; }
 
       .fx-journey { list-style: none; margin: 18px 0 0; padding: 0; display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
       .fx-journey-link { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 7px; padding: 12px 6px; border-radius: 14px; border: 1px solid transparent; text-decoration: none; transition: background .2s ease, border-color .2s ease, transform .2s var(--ease-out); position: relative; }
-      .fx-journey-link:hover { background: var(--fill-03); border-color: var(--hair2); transform: translateY(-2px); }
+      @media (hover: hover) and (pointer: fine) {
+      .fx-journey-link:hover { background: var(--fill-03); border-color: var(--hair2); transform: translateY(-2px); } }
       .fx-journey-node { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; border: 1.5px solid var(--hair); color: var(--ink3); background: var(--card-solid); transition: background-color .25s var(--ease-out), border-color .25s var(--ease-out), color .25s var(--ease-out); }
       .fx-journey-num { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
       .fx-journey-label { font-size: 12.5px; font-weight: 600; color: var(--ink); letter-spacing: -.01em; line-height: 1.15; }
-      .fx-journey-detail { font-size: 10.5px; color: var(--ink3); line-height: 1.3; }
+      .fx-journey-detail { font-size: 11px; color: var(--ink3); line-height: 1.3; }
       .fx-journey-step.is-done .fx-journey-node { border-color: rgba(212,175,55,.5); background: var(--gold-bg); color: var(--accent-text); }
       .fx-journey-step.is-now .fx-journey-node { border-color: var(--gold); color: var(--accent-text); box-shadow: 0 0 0 4px var(--gold-bg); }
       .fx-journey-step.is-now .fx-journey-link { background: var(--gold-bg); border-color: rgba(212,175,55,.3); }
@@ -603,12 +605,15 @@ function DashStyles() {
          type alone, and as standalone links (not inline in a sentence) they
          owe WCAG 2.2 (2.5.8) a 24px target. The box grows, the type does not,
          so the visual weight of the card footer is unchanged. */
-      .fx-card-cta { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; font-size: 12px; font-weight: 600; color: var(--ink2); text-decoration: none; transition: color var(--ctl-trans), gap var(--ctl-trans); white-space: nowrap; }
-      .fx-card-cta:hover { color: var(--accent-text); gap: 7px; }
+      .fx-card-cta { display: inline-flex; align-items: center; gap: 4px; min-height: var(--ctl-h-sm); font-size: 13px; font-weight: 600; color: var(--ink2); text-decoration: none; transition: color var(--ctl-trans), gap var(--ctl-trans); white-space: nowrap; }
+      @media (hover: hover) and (pointer: fine) {
+      .fx-card-cta:hover { color: var(--accent-text); gap: 7px; } }
       .fx-setup-card { border-style: dashed !important; }
-      .fx-setup-card:hover { border-color: rgba(212,175,55,.5) !important; }
+      @media (hover: hover) and (pointer: fine) {
+      .fx-setup-card:hover { border-color: rgba(212,175,55,.5) !important; } }
       .fx-dash-move { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--hair); background: var(--card); color: var(--ink2); cursor: pointer; font-size: 14px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; transition: background .15s ease, color .15s ease, border-color .15s ease; }
-      .fx-dash-move:hover:not(:disabled) { background: var(--fill-06); color: var(--ink); border-color: rgba(212,175,55,.4); }
+      @media (hover: hover) and (pointer: fine) {
+      .fx-dash-move:hover:not(:disabled) { background: var(--fill-06); color: var(--ink); border-color: rgba(212,175,55,.4); } }
       .fx-dash-move:disabled { opacity: .4; cursor: not-allowed; }
       .fx-dash-move:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
@@ -624,37 +629,43 @@ function DashStyles() {
       .fx-dash-trust > span:first-child { display: inline-flex; align-items: center; gap: 6px; }
 
       .fx-dash-careers { display: flex; align-items: center; gap: 12px; margin-top: 14px; padding: 14px 18px; border-radius: 16px; border: 1px solid var(--hair2); background: var(--fill-02); text-decoration: none; transition: border-color .2s ease, background .2s ease; }
-      .fx-dash-careers:hover { border-color: rgba(212,175,55,.4); background: var(--gold-bg); }
+      @media (hover: hover) and (pointer: fine) {
+      .fx-dash-careers:hover { border-color: rgba(212,175,55,.4); background: var(--gold-bg); } }
       .fx-dash-careers-ic { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--gold-bg); border: 1px solid rgba(212,175,55,.25); color: var(--accent-text); }
       .fx-dash-careers-tx { flex: 1; font-size: 13px; color: var(--ink2); line-height: 1.45; }
       .fx-dash-careers-tx b { color: var(--ink); font-weight: 600; }
       .fx-dash-careers-arrow { flex: 0 0 auto; color: var(--ink3); transition: color .2s ease, transform .2s ease; }
-      .fx-dash-careers:hover .fx-dash-careers-arrow { color: var(--accent-text); transform: translateX(2px); }
+      @media (hover: hover) and (pointer: fine) {
+      .fx-dash-careers:hover .fx-dash-careers-arrow { color: var(--accent-text); transform: translateX(2px); } }
 
       .fx-dash-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 14px 0; align-items: start; }
 
       .fx-rec { display: flex; align-items: center; gap: 12px; padding: 13px 14px; border-radius: 14px; border: 1px solid var(--hair2); background: var(--fill-02); text-decoration: none; transition: border-color .2s ease, background .2s ease, transform .2s var(--ease-out); color: var(--ink); }
-      .fx-rec:hover { border-color: rgba(212,175,55,.4); background: var(--gold-bg); transform: translateX(2px); }
+      @media (hover: hover) and (pointer: fine) {
+      .fx-rec:hover { border-color: rgba(212,175,55,.4); background: var(--gold-bg); transform: translateX(2px); } }
       .fx-rec-body { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
       .fx-rec-label { font-size: 14px; font-weight: 600; letter-spacing: -.01em; color: var(--ink); }
       .fx-rec-reason { font-size: 12.5px; color: var(--ink2); line-height: 1.4; }
       .fx-rec > svg { flex: 0 0 auto; color: var(--ink3); transition: color .2s ease, transform .2s ease; }
-      .fx-rec:hover > svg { color: var(--accent-text); transform: translateX(2px); }
+      @media (hover: hover) and (pointer: fine) {
+      .fx-rec:hover > svg { color: var(--accent-text); transform: translateX(2px); } }
 
       .fx-act-list { list-style: none; margin: 0; padding: 0; }
-      .fx-act { display: flex; align-items: center; gap: 11px; padding: 10px 6px; text-decoration: none; border-top: 1px solid var(--hair2); transition: padding-left .2s ease; }
+      .fx-act { display: flex; align-items: center; gap: 11px; padding: 10px 6px; text-decoration: none; border-top: 1px solid var(--hair2); }
       .fx-act-list li:first-child .fx-act { border-top: none; }
-      .fx-act:hover { padding-left: 10px; }
+      @media (hover: hover) and (pointer: fine) {
+      .fx-act:hover .fx-act-label { translate: 4px 0; } }
       .fx-act-dot { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--gold); }
-      .fx-act-label { flex: 1; font-size: 13.5px; color: var(--ink); font-weight: 500; }
-      .fx-act:hover .fx-act-label { color: var(--accent-text); }
+      .fx-act-label { flex: 1; font-size: 14px; color: var(--ink); font-weight: 500; transition: translate .2s var(--ease-out), color .2s var(--ease-out); }
+      @media (hover: hover) and (pointer: fine) {
+      .fx-act:hover .fx-act-label { color: var(--accent-text); } }
       .fx-act-time { font-size: 11.5px; color: var(--ink3); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
       .fx-ach-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
       .fx-ach { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 14px 6px; border-radius: 14px; border: 1px solid var(--hair2); background: var(--fill-02); transition: border-color .25s var(--ease-out), background .25s var(--ease-out); }
       .fx-ach-badge { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--hair); color: var(--ink3); background: var(--card-solid); }
       .fx-ach-label { font-size: 12px; font-weight: 600; color: var(--ink2); letter-spacing: -.01em; }
-      .fx-ach-desc { font-size: 10px; color: var(--ink3); line-height: 1.3; }
+      .fx-ach-desc { font-size: 11px; color: var(--ink3); line-height: 1.3; }
       .fx-ach.is-earned { border-color: rgba(212,175,55,.4); background: var(--gold-bg); }
       .fx-ach.is-earned .fx-ach-badge { border-color: rgba(212,175,55,.5); background: linear-gradient(150deg,#F0D779,#C49B2E); color: #1a1400; }
       .fx-ach.is-earned .fx-ach-label { color: var(--ink); }

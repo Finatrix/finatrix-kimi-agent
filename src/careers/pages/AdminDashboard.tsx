@@ -118,7 +118,7 @@ export default function AdminDashboard() {
   if (!isAdmin) {
     return (
       <div className="fx-page">
-        <PageHead chip="Admin" chipColor="#D4AF37" chipBg="rgba(212,175,55,.12)" icon="warn" title="Admin Dashboard">
+        <PageHead chip="Admin" chipColor="#D4AF37" icon="warn" title="Admin Dashboard">
           This area is restricted.
         </PageHead>
         <div className="card">
@@ -161,7 +161,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="fx-page">
-      <PageHead chip="Admin" chipColor="#D4AF37" chipBg="rgba(212,175,55,.12)" icon="briefcase" title="Admin Dashboard">
+      <PageHead chip="Admin" chipColor="#D4AF37" icon="briefcase" title="Admin Dashboard">
         Platform-wide subscriptions, AI usage, feature flags, organizations and support — admin-only.
       </PageHead>
 

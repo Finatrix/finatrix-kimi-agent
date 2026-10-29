@@ -51,16 +51,16 @@ export interface PageShellProps {
 function Trail({ crumbs, name }: { crumbs: readonly Crumb[]; name: string }) {
   return (
     <nav aria-label="Breadcrumb">
-      <ol className="flex flex-wrap items-center gap-2 font-mono text-[10.5px] uppercase tracking-[0.08em] text-ink-3">
+      <ol className="fx-crumbs flex-wrap">
         <li>
-          <Link to="/" className="hover:text-accent-text transition-colors">
+          <Link to="/" className="fx-crumb">
             Home
           </Link>
         </li>
         {crumbs.map((c) => (
           <li key={c.path} className="flex items-center gap-2">
             <span aria-hidden="true">›</span>
-            <Link to={c.path} className="hover:text-accent-text transition-colors">
+            <Link to={c.path} className="fx-crumb">
               {c.name}
             </Link>
           </li>
@@ -70,7 +70,7 @@ function Trail({ crumbs, name }: { crumbs: readonly Crumb[]; name: string }) {
           {/* The current page is text, not a link: a breadcrumb whose last crumb
               navigates to the page you are already on is a keyboard-tab stop
               that does nothing. */}
-          <span className="text-ink normal-case tracking-normal text-[12px]" aria-current="page">
+          <span className="fx-crumb-current" aria-current="page">
             {name}
           </span>
         </li>
@@ -92,7 +92,7 @@ export default function PageShell({
   children,
 }: PageShellProps) {
   return (
-    <div className="relative bg-surface-base min-h-screen flex flex-col">
+    <div className="relative bg-surface-base min-h-[100svh] flex flex-col">
       <LandingNav />
 
       {/* pt-14 clears the fixed nav; the ambient gradient is the same one the
@@ -127,7 +127,7 @@ export default function PageShell({
                 signal an AI answer engine uses to decide how current a citation
                 is. */}
             {updated && (
-              <p className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] uppercase tracking-[0.14em] text-ink-3">
+              <p className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-ink-3">
                 <span>
                   {updatedLabel} <time dateTime={updated}>{formatReviewDate(updated)}</time>
                 </span>

@@ -262,7 +262,7 @@ function TimelineChart({ timeline, cfmt, code, theme }: {
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        animation: { duration: 450 },
+        animation: { duration: 300 },
         interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: { display: false },

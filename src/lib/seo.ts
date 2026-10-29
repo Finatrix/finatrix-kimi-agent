@@ -373,6 +373,7 @@ const PRIVATE_TITLES: Record<string, string> = {
   '/tools/reports': 'Reports',
   '/tools/calendar': 'Calendar',
   '/tools/settings': 'Settings',
+  '/tools/all': 'All Tools',
   '/tools/reference': 'Reference Data',
   '/dashboard': 'Dashboard',
   // '/careers' is NOT here any more: it is now the public, indexable Careers

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { homeExampleFor, marketForHomeExample } from '../shared/homeExample';
-import { TOUR_LINK_STATE } from '../tour/launch';
 import './landing.css';
 
 export default function LandingHero() {
@@ -20,16 +19,6 @@ export default function LandingHero() {
       <p className="fx-home-lede">Budget, track, plan and understand your money with transparent tools built for India, the US, the UK, the UAE, Australia, Singapore and Mainland China. Review the month, spot repeat payments and compare plans before you commit.</p>
       <div className="fx-home-actions">
         <Link to="/tools/dashboard" className="fx-btn-gold">Open your dashboard <span aria-hidden="true">→</span></Link>
-        {/* The guided tour runs inside the tools, so this is a link there
-            carrying a request in router state (never in the URL). Nothing
-            of the tour loads on this page: it is fetched on arrival. */}
-        <Link to="/tools/dashboard" state={TOUR_LINK_STATE} className="fx-home-tour">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
-            <circle cx="12" cy="12" r="9.5" />
-            <path d="M10.2 8.4l5.2 3.6-5.2 3.6z" fill="currentColor" stroke="none" />
-          </svg>
-          Full tutorial to use this website
-        </Link>
         <Link to="/tools" className="fx-home-text-link">Explore the tools</Link>
       </div>
       <p className="fx-home-caption">Free finance tools. No account needed to start.<br />FinatriX Careers is a separate paid workspace.</p>
