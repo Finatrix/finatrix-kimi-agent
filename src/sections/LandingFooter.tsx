@@ -140,7 +140,7 @@ export default function LandingFooter() {
           ))}
         </nav>
 
-        <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-hairline pt-6 sm:flex-row">
+        <div className="mt-10 flex flex-col items-center justify-between gap-6 border-t border-hairline pt-6 sm:flex-row">
           <div className="flex items-center gap-2.5">
             <BrandLogo size={16} />
             <span className="text-[13px] text-ink-3">© 2026 FinatriX</span>
