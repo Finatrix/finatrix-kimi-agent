@@ -199,24 +199,32 @@ test('the add sheet is dismissed by pulling its header down, and stays for a sho
   const dialog = page.getByRole('dialog');
   // Measure once the sheet has finished sliding up, not mid-entrance.
   await dialog.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
-  const head = dialog.locator('.fx-tx-head');
-  const box = (await head.boundingBox())!;
-  const x = box.x + 40;
-  const y = box.y + 12;
+  // Pointer events are dispatched in the page rather than synthesised from
+  // page.mouse: mobile emulation turns mouse input into pointer events
+  // differently per platform (it passed on macOS and failed on Linux CI), and
+  // what is under test is the gesture logic, not the emulator.
+  const pull = (steps: number, px: number, gapMs: number) => page.evaluate(async ({ steps, px, gapMs }) => {
+    const head = document.querySelector<HTMLElement>('.fx-tx-head')!;
+    const r = head.getBoundingClientRect();
+    const x = r.left + 40;
+    const y = r.top + 12;
+    const fire = (target: EventTarget, type: string, cy: number) =>
+      target.dispatchEvent(new PointerEvent(type, { pointerId: 7, isPrimary: true, pointerType: 'touch', button: 0, buttons: 1, clientX: x, clientY: cy, bubbles: true }));
+    fire(head, 'pointerdown', y);
+    for (let i = 1; i <= steps; i++) {
+      await new Promise((resolve) => setTimeout(resolve, gapMs));
+      fire(window, 'pointermove', y + i * px);
+    }
+    fire(window, 'pointerup', y + steps * px);
+  }, { steps, px, gapMs });
 
   // A short, slow pull (24px at ~0.07 px/ms, under both thresholds) settles back.
-  await page.mouse.move(x, y);
-  await page.mouse.down();
-  for (let i = 1; i <= 6; i++) { await page.mouse.move(x, y + i * 4); await page.waitForTimeout(60); }
-  await page.mouse.up();
+  await pull(6, 4, 60);
   await page.waitForTimeout(400);
   await expect(dialog).toBeVisible();
 
   // A long pull past the threshold closes it.
-  await page.mouse.move(x, y);
-  await page.mouse.down();
-  for (let i = 1; i <= 10; i++) await page.mouse.move(x, y + i * 22);
-  await page.mouse.up();
+  await pull(10, 22, 8);
   await expect(dialog).toHaveCount(0);
 });
 
