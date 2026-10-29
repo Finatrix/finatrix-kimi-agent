@@ -648,7 +648,7 @@
 }
 .fx-navpill:hover { color: var(--ink); background: var(--hairline-2); }
 .fx-navpill:hover .fx-navpill-dot { opacity: 1; transform: scale(1.25); }
-.fx-navpill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fx-navpill:focus-visible { outline: 2px solid hsl(var(--accent)); outline-offset: 2px; }
 /* A tablet shows this bar too, under a finger. */
 @media (pointer: coarse) { .fx-navpill { min-height: 44px; } }
 /* The current page. Gold fill and near-black ink is the same active treatment

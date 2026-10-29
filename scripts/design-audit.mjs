@@ -4,7 +4,7 @@
  * surface, phone width and theme, against a running build.
  *
  *   npm run build && npx vite preview --port 4319 --strictPort &
- *   node scripts/design-audit.mjs [--base http://localhost:4319] [--out audit.json] [--quick]
+ *   node scripts/design-audit.mjs [--base http://localhost:4319] [--out audit.json] [--quick] [--motion-only | --keyboard-only]
  *
  * Per surface × width × theme it reports:
  *   - text   visible HTML text under 11px, prose paragraphs under 15px on phones
@@ -17,6 +17,8 @@
  *   - layout horizontal overflow, and content still under a fixed bottom bar or
  *            floating button when the page is scrolled to the end
  *   - motion elements whose computed transition covers `all`
+ *   - keyboard  every Tab stop shows focus and is not left under a fixed bar
+ *            (scripts/focus-walk.js), at one phone and one desktop width
  * plus `prefers-contrast: more` and `prefers-reduced-transparency` passes.
  *
  * The page logic runs in the browser in one evaluate per load; nothing here
@@ -24,6 +26,7 @@
  */
 import { createRequire } from 'node:module';
 import { writeFileSync } from 'node:fs';
+import { walkFocus } from './focus-walk.js';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
@@ -434,10 +437,22 @@ async function motionPass(surface) {
   await mo.ctx.close();
 }
 
+/** Keyboard focus at one phone width (the tab bar) and one desktop width (the full header). */
+async function keyboardPass(surface) {
+  for (const width of [390, 1280]) {
+    for (const theme of THEMES) {
+      const kb = await openSurface(browser, surface, width, theme);
+      rows.push({ surface: surface.id, width, theme, mode: 'keyboard', ...(await walkFocus(kb.page)) });
+      await kb.ctx.close();
+    }
+  }
+}
+
 const browser = await chromium.launch();
 const rows = [];
 const MOTION_ONLY = args.includes('--motion-only');
-for (const surface of MOTION_ONLY ? [] : SURFACES) {
+const KEYBOARD_ONLY = args.includes('--keyboard-only');
+for (const surface of MOTION_ONLY || KEYBOARD_ONLY ? [] : SURFACES) {
   for (const width of WIDTHS) {
     for (const theme of THEMES) {
       const { ctx, page, errors, phone } = await openSurface(browser, surface, width, theme);
@@ -465,15 +480,18 @@ for (const surface of MOTION_ONLY ? [] : SURFACES) {
     await rt.ctx.close();
   }
   await motionPass(surface);
+  await keyboardPass(surface);
   process.stderr.write(`${surface.id} `);
 }
 if (MOTION_ONLY) for (const surface of SURFACES) await motionPass(surface);
+if (KEYBOARD_ONLY) for (const surface of SURFACES) await keyboardPass(surface);
 await browser.close();
 
 // ---- summary ------------------------------------------------------------------
 const base = rows.filter((r) => !r.mode && !r.failed);
 const sum = (k) => base.reduce((n, r) => n + (Array.isArray(r[k]) ? r[k].length : r[k] || 0), 0);
 const phones = base.filter((r) => r.width <= 430);
+const keys = rows.filter((r) => r.mode === 'keyboard');
 const summary = {
   loads: rows.length,
   failedLoads: rows.filter((r) => r.failed).map((r) => `${r.surface}@${r.width}/${r.theme}: ${r.failed}`),
@@ -492,6 +510,9 @@ const summary = {
   coveredOnPhones: phones.reduce((n, r) => n + r.covered.length, 0),
   ...Object.fromEntries(['transitionAll', 'overshoot', 'slow', 'layoutAnim', 'hoverUngated', 'scaleZero', 'noPress'].map((k) => [k, rows.filter((r) => r.mode === 'motion').reduce((n, r) => n + r[k].length, 0)])),
   pressables: rows.filter((r) => r.mode === 'motion').reduce((n, r) => n + r.pressables, 0),
+  focusStops: keys.reduce((n, r) => n + r.stops, 0),
+  focusNoRing: keys.reduce((n, r) => n + r.noRing.length, 0),
+  focusObscured: keys.reduce((n, r) => n + r.obscured.length, 0),
   consoleErrorLoads: base.filter((r) => r.errors.length).map((r) => `${r.surface}@${r.width}/${r.theme}: ${r.errors[0]}`).slice(0, 10),
 };
 // Per-surface digest so a failure can be traced without opening the JSON.
@@ -509,6 +530,11 @@ for (const r of base) {
 for (const r of rows.filter((x) => x.mode === 'motion')) {
   const s = (bySurface[r.surface] ??= {});
   Object.assign(s, { tall: r.transitionAll.length, over: r.overshoot.length, slow: r.slow.length, lay: r.layoutAnim.length, hov: r.hoverUngated.length, press: `${r.pressables - r.noPress.length}/${r.pressables}` });
+}
+for (const r of keys) {
+  const s = (bySurface[r.surface] ??= {});
+  s.ring = (s.ring ?? 0) + r.noRing.length;
+  s.hid = (s.hid ?? 0) + r.obscured.length;
 }
 if (OUT) writeFileSync(OUT, JSON.stringify({ summary, bySurface, rows }, null, 1));
 console.log(JSON.stringify(summary, null, 1));

@@ -190,6 +190,12 @@
 html:has(.fx-tools) { --scroll-offset: 60px; }
 @media(min-width:768px){ html:has(.fx-tools) { --scroll-offset: 109px; } }
 
+/* On a phone the five-tab bar is fixed to the bottom edge, so a control that
+   focus scrolls into view would otherwise land underneath it (WCAG 2.2, 2.4.11
+   Focus Not Obscured). 72px covers the bar: 6px + a 48px row + 6px + hairline,
+   rounded up, plus the home-indicator inset. */
+@media(max-width:767px){ html:has(.fx-mobnav) { scroll-padding-bottom: calc(72px + var(--fx-safe-bottom)); } }
+
 /* ============ TOOL NAV (in-page tab bar) ============ */
 .fx-tools .nav-wrap { position: sticky; top: var(--fx-safe-top); z-index: var(--z-toolnav); background: var(--nav-solid); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-bottom: 1px solid var(--hair); }
 /* The tool bar's layout. The PILLS themselves are styled once, globally, in

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { walkFocus } from '../scripts/focus-walk.js';
 
 /**
  * The design floors, as a regression guard. The full measurement lives in
@@ -10,6 +11,8 @@ import { test, expect } from '@playwright/test';
  *   - no `transition: all`
  *   - every :hover rule behind (hover: hover) and (pointer: fine)
  *   - no overshooting easing curve on anything currently on screen
+ *   - every Tab stop shows focus and is not left under the app bar or the
+ *     phone tab bar (WCAG 2.2, 2.4.7 and 2.4.11)
  */
 const PAGES = ['/', '/tools/dashboard', '/tools/expenses', '/tools/all', '/login'];
 
@@ -66,5 +69,19 @@ for (const path of PAGES) {
     expect(r.all, 'transition: all').toEqual([]);
     expect(r.overshoot, 'overshooting easing').toEqual([]);
     expect(r.ungated, 'ungated :hover rules').toEqual([]);
+  });
+}
+
+// The desktop project covers the landing nav and the full app header (display
+// currency, market); the phone project covers the fixed tab bar, which a field
+// scrolled into view by focus must clear.
+for (const path of ['/', '/tools/budget']) {
+  test(`every Tab stop on ${path} shows focus and stays in view`, async ({ page }) => {
+    await page.goto(path);
+    await page.waitForLoadState('networkidle');
+    const r = await walkFocus(page);
+    expect(r.stops, 'Tab stops reached').toBeGreaterThan(5);
+    expect(r.noRing, 'no visible focus indicator').toEqual([]);
+    expect(r.obscured, 'focused control covered').toEqual([]);
   });
 }

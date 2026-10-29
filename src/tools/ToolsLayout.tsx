@@ -92,7 +92,6 @@ function CurrencySelect({ className, tour }: { className?: string; tour?: string
         padding: '7px 10px',
         cursor: 'pointer',
         fontFamily: 'inherit',
-        outline: 'none',
       }}
     >
       {CURRENCY_CODES.map((k) => (
