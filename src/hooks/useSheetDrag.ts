@@ -55,8 +55,13 @@ export function useSheetDrag(
       if ((e.target as HTMLElement).closest('button, a, input, select, textarea')) return;
       start = { y: e.clientY, t: e.timeStamp, lastY: e.clientY, lastT: e.timeStamp, v: 0, id: e.pointerId };
       dy = 0;
-      handle.setPointerCapture?.(e.pointerId);
       card.style.transition = 'none';
+      // Followed on the window, not only the handle: a finger leaves the
+      // header within a few pixels, and pointer capture is not guaranteed to
+      // hold on every engine.
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onUp);
     };
     const onMove = (e: PointerEvent) => {
       if (!start || e.pointerId !== start.id) return;
@@ -68,8 +73,14 @@ export function useSheetDrag(
       start.lastT = e.timeStamp;
       card.style.translate = `0 ${dy}px`;
     };
+    const stopFollowing = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
     const onUp = (e: PointerEvent) => {
       if (!start || e.pointerId !== start.id) return;
+      stopFollowing();
       const flick = start.v >= DISMISS_VELOCITY && dy > 24;
       start = null;
       if (dy >= DISMISS_DISTANCE || flick) {
@@ -81,14 +92,9 @@ export function useSheetDrag(
     };
 
     handle.addEventListener('pointerdown', onDown);
-    handle.addEventListener('pointermove', onMove);
-    handle.addEventListener('pointerup', onUp);
-    handle.addEventListener('pointercancel', onUp);
     return () => {
       handle.removeEventListener('pointerdown', onDown);
-      handle.removeEventListener('pointermove', onMove);
-      handle.removeEventListener('pointerup', onUp);
-      handle.removeEventListener('pointercancel', onUp);
+      stopFollowing();
     };
   }, [cardRef, handleRef, query, active]);
 }
