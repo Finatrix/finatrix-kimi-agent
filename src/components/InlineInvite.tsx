@@ -3,6 +3,17 @@ import { createPortal } from 'react-dom';
 
 /** The slot the tools shell renders under its breadcrumb row (ToolsLayout). */
 export const INVITE_SLOT_ID = 'fx-tour-slot';
+const PAGE_SLOT_ATTR = 'data-invite-slot';
+const INVITING_CLASS = 'fx-inviting';
+
+/**
+ * Where a page wants invitations: below its main card rather than above it, so
+ * the page's own primary action stays first. Pages without one get the shell's
+ * slot at the top of the content.
+ */
+export function InviteSlot() {
+  return <div {...{ [PAGE_SLOT_ATTR]: '' }} />;
+}
 
 /**
  * A first-visit invitation — to the one-minute intro, or to a tour of the
@@ -27,14 +38,26 @@ export function InlineInvite({ title, body, yesLabel, onYes, onLater, onNever }:
   /** Offered only where "never" means something (the tour can be opted out of). */
   onNever?: () => void;
 }) {
-  // Read once: the invitation only appears after the shell (and its slot) has
-  // mounted. Without a slot it falls back to a floating card at the bottom.
-  const [slot] = useState<HTMLElement | null>(() => document.getElementById(INVITE_SLOT_ID));
+  // Resolved on every render, not once: a page can offer a place below its
+  // main card (`data-invite-slot`, see InviteSlot), with the shell's slot above
+  // the content as the fallback. Both callers re-render on navigation, so the
+  // card follows the page it belongs to. Without either it floats at the bottom.
+  const slot = document.querySelector<HTMLElement>(`[${PAGE_SLOT_ATTR}]`) ?? document.getElementById(INVITE_SLOT_ID);
   const [announce, setAnnounce] = useState('');
   useEffect(() => {
-    const t = window.setTimeout(() => setAnnounce(`${title} Offered at the top of the page.`), 400);
+    const t = window.setTimeout(() => setAnnounce(`${title} Offered on this page.`), 400);
     return () => window.clearTimeout(t);
   }, [title]);
+  // One tour entry point at a time: while a card is offered, the shell's
+  // "Tour this page" pill steps aside (tools.css), and it returns once the
+  // card is answered or dismissed.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.add(INVITING_CLASS);
+    return () => {
+      if (!document.querySelector('.fx-invite')) root.classList.remove(INVITING_CLASS);
+    };
+  }, []);
 
   const onKeyDown = (e: KeyboardEvent<HTMLElement>) => {
     if (e.key === 'Escape') {

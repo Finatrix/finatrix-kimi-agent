@@ -527,6 +527,15 @@ body.fx-has-add-fab .fx-tools .wrap { padding-bottom: calc(18px + var(--ctl-h-lg
 .fx-tools .page-head { text-align: center; padding: 32px 8px 22px; max-width: 640px; margin: 0 auto; }
 .fx-tools .page-head h1 { font-size: clamp(28px,4.5vw,40px); font-weight: 700; letter-spacing: -.02em; line-height: 1.08; text-wrap: balance; }
 .fx-tools .page-head p { font-size: 15px; color: var(--ink2); margin-top: 12px; line-height: 1.55; text-wrap: pretty; }
+/* On a phone the hero gives the first screen to the tool's own main action.
+   The h1 stays (it names the page, for people and for search) at a size that
+   holds most titles to one or two lines; the chip and the introduction step
+   aside — the same words are in the page's description and its guide. */
+@media(max-width:767px){
+  .fx-tools .page-head { padding: 14px 4px 10px; }
+  .fx-tools .page-head > .tool-chip, .fx-tools .page-head > p { display: none; }
+  .fx-tools .page-head h1 { font-size: 24px; line-height: 1.15; }
+}
 .fx-tools .tool-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; padding: 5px 12px; border-radius: 980px; margin-bottom: 14px; color: var(--ink2); background: var(--fill-03); border: 1px solid var(--hair2); }
 
 /* ============ CARDS & FORMS ============ */
@@ -994,6 +1003,10 @@ html.fx-native .fx-tools .fx-crumbrow { padding-top: 0; }
 .fx-tools .fx-tourbtn-pill svg { color: var(--ink2); flex: 0 0 auto; }
 .fx-tools .fx-tourbtn:hover .fx-tourbtn-pill { border-color: var(--ink3); }
 .fx-tools .fx-tourbtn:focus-visible { outline: none; }
+/* One tour entry point at a time: the pill waits while the first-visit card is
+   on the page (components/InlineInvite sets the class), and returns once the
+   card is answered or dismissed. */
+html.fx-inviting .fx-tools .fx-tourbtn { display: none; }
 .fx-tools .fx-tourbtn:focus-visible .fx-tourbtn-pill { outline: 2px solid var(--ink); outline-offset: 2px; }
 .fx-tools .fx-tourbtn:active .fx-tourbtn-pill { scale: 0.97; }
 

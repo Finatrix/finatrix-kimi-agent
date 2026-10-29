@@ -727,8 +727,8 @@ export default function BudgetPage() {
         </>
       )}
 
-      {/* The year's carry-over, one tap away from wherever the user is. It
-          reads the same store this page writes, so it is never stale. */}
+      {/* The year's carry-over. It reads the same store this page writes, so
+          it is never stale. Docked on wider screens; on a phone a button here. */}
       <WalletDock items={spend} cats={view.active} budgetStore={allRef.current} month={month} />
 
       <ToolFoot>

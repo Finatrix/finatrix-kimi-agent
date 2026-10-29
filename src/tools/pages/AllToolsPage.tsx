@@ -23,7 +23,10 @@ import { CURRENCY_CODES, currencySym } from '../lib/format';
  * for them on a phone.
  */
 
-type Row = { to: string; label: string; detail?: string; icon?: IconName; color?: string };
+type Row = { to: string; label: string; detail?: string; icon: IconName; color?: string };
+
+/** Rows that are not a tool take the neutral ink, so colour still marks the tools. */
+const NEUTRAL = 'var(--ink2)';
 
 const EVERYDAY = ['budget', 'expenses', 'networth'];
 const PLANNING = ['goals', 'lifemap', 'investmatch', 'parksmart', 'peercompare'];
@@ -53,15 +56,20 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+/** Every row carries one, from the same set, so the labels line up down the list. */
+function HubIcon({ name, color = NEUTRAL }: { name: IconName; color?: string }) {
+  return (
+    <span className="fx-hub-icon" style={{ color, background: `color-mix(in srgb, ${color} 14%, transparent)` }}>
+      <ToolIcon name={name} className="h-[18px] w-[18px]" />
+    </span>
+  );
+}
+
 function LinkRow({ to, label, detail, icon, color }: Row) {
   return (
     <li>
       <Link to={to} className="fx-hub-row">
-        {icon && (
-          <span className="fx-hub-icon" style={{ color, background: `color-mix(in srgb, ${color} 14%, transparent)` }}>
-            <ToolIcon name={icon} className="h-[18px] w-[18px]" />
-          </span>
-        )}
+        <HubIcon name={icon} color={color} />
         <span className="fx-hub-text">
           <span className="fx-hub-label">{label}</span>
           {detail && <span className="fx-hub-detail">{detail}</span>}
@@ -93,6 +101,7 @@ function AppearanceRow() {
   };
   return (
     <li className="fx-hub-row is-static">
+      <HubIcon name="appearance" />
       <span className="fx-hub-text"><span className="fx-hub-label" id="hub-appearance">Appearance</span></span>
       <div className="fx-seg" role="radiogroup" aria-labelledby="hub-appearance" onKeyDown={onKeyDown}>
         {MODES.map((m) => (
@@ -118,6 +127,7 @@ function CurrencyRow() {
   const { code, setCode } = useCurrency();
   return (
     <li className="fx-hub-row is-static">
+      <HubIcon name="currency" />
       <label className="fx-hub-text" htmlFor="hub-currency"><span className="fx-hub-label">Display currency</span></label>
       <select id="hub-currency" className="fx-hub-select" value={code} onChange={(e) => setCode(e.target.value)}>
         {CURRENCY_CODES.map((k) => (
@@ -143,8 +153,8 @@ export default function AllToolsPage() {
       <Group title="Everyday money">
         <LinkRow to="/tools/dashboard" label="Dashboard" detail="Your month at a glance." icon="grid" color="#D4AF37" />
         {toolRows(EVERYDAY).map((r) => <LinkRow key={r.to} {...r} />)}
-        <LinkRow to="/tools/reports" label="Reports" detail="Print or export a month or a year." />
-        <LinkRow to="/tools/calendar" label="Calendar" detail="Bills and scheduled spending by day." />
+        <LinkRow to="/tools/reports" label="Reports" detail="Print or export a month or a year." icon="reports" />
+        <LinkRow to="/tools/calendar" label="Calendar" detail="Bills and scheduled spending by day." icon="calendar" />
       </Group>
 
       <Group title="Plan ahead">
@@ -153,21 +163,22 @@ export default function AllToolsPage() {
 
       {showCareersEntry() && (
         <Group title="Careers">
-          <LinkRow to={CAREERS_ROUTES.dashboard} label="FinatriX Careers" detail="A separate workspace for your job search." />
+          <LinkRow to={CAREERS_ROUTES.dashboard} label="FinatriX Careers" detail="A separate workspace for your job search." icon="careers" />
         </Group>
       )}
 
       <Group title="Preferences">
         <AppearanceRow />
         <CurrencyRow />
-        <LinkRow to="/tools/settings" label="Market rules" detail={`${market.flag} ${market.name}`} />
-        <LinkRow to="/tools/settings" label="Settings" detail="Data, privacy, reminders and more." />
-        {user && <LinkRow to="/profile" label="Profile" />}
+        <LinkRow to="/tools/settings" label="Market rules" detail={`${market.flag} ${market.name}`} icon="globe" />
+        <LinkRow to="/tools/settings" label="Settings" detail="Data, privacy, reminders and more." icon="settings" />
+        {user && <LinkRow to="/profile" label="Profile" icon="profile" />}
       </Group>
 
       <Group title="Help">
         <li>
           <button type="button" className="fx-hub-row" onClick={openTourHub}>
+            <HubIcon name="tour" />
             <span className="fx-hub-text">
               <span className="fx-hub-label">Guided tours</span>
               <span className="fx-hub-detail">Short chapters that point at the real buttons.</span>
@@ -175,10 +186,10 @@ export default function AllToolsPage() {
             <Chevron />
           </button>
         </li>
-        <LinkRow to="/learn" label="Learn" detail="Plain-language guides to money basics." />
-        {!native && <LinkRow to="/" label="FinatriX website" />}
-        <LinkRow to="/privacy" label="Privacy" />
-        <LinkRow to="/terms" label="Terms" />
+        <LinkRow to="/learn" label="Learn" detail="Plain-language guides to money basics." icon="learn" />
+        {!native && <LinkRow to="/" label="FinatriX website" icon="external" />}
+        <LinkRow to="/privacy" label="Privacy" icon="privacy" />
+        <LinkRow to="/terms" label="Terms" icon="terms" />
       </Group>
 
       <div className="fx-hub-account">

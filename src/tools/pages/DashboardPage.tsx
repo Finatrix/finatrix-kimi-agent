@@ -14,6 +14,7 @@ import {
   type DashPrefs, type DashSectionId,
 } from '../lib/dashboardPrefs';
 import { useCareersAccess } from '../../lib/careersAccess';
+import { InviteSlot } from '../../components/InlineInvite';
 
 /* ─────────────────────────── motion helpers ─────────────────────────── */
 function timeAgo(ts: number): string {
@@ -311,6 +312,7 @@ export default function DashboardPage() {
         )}
       </section>
 
+      <InviteSlot />
       <ReminderPrompt />
       <WorkspaceNavigator />
       <DashboardGuide

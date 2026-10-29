@@ -22,7 +22,22 @@ export type IconName =
   | 'goals'
   | 'lifemap'
   | 'networth'
-  | 'grid';
+  | 'grid'
+  // The rest of the shell's icon set: All tools gives every row an icon, so
+  // the non-tool rows draw from the same set, in the same stroke style.
+  | 'reports'
+  | 'calendar'
+  | 'careers'
+  | 'appearance'
+  | 'currency'
+  | 'globe'
+  | 'settings'
+  | 'profile'
+  | 'tour'
+  | 'learn'
+  | 'external'
+  | 'privacy'
+  | 'terms';
 
 export const TOOLS: Tool[] = [
   { id: 'budget', name: 'Budget Builder', short: 'Budget', blurb: 'Split income the 50/30/20 way.', href: '/tools/budget', color: '#16A36A', icon: 'budget' },

@@ -990,9 +990,10 @@ export default function ExpensePage() {
         />
       )}
 
-      {/* The year's carry-over across every category, one tap from anywhere on
-          the page. Same store, same categories, so it can never disagree with
-          the month on screen. */}
+      {/* The year's carry-over across every category. Same store, same
+          categories, so it can never disagree with the month on screen. Wider
+          screens dock it beside the +; on a phone it is a button here, at the
+          end of the page, so the + is the only control floating over the list. */}
       <WalletDock items={items} cats={cats} budgetStore={budgetStore} month={selMonth} />
 
       {/* Add a spend from anywhere on the page, on any tab — the same sheet as

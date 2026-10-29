@@ -6,6 +6,7 @@ import { useCurrency } from '../CurrencyContext';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import { useDialogFocus } from '../../hooks/useDialogFocus';
 import { useSheetDrag } from '../../hooks/useSheetDrag';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { computeWallet, walletSummary, type WalletRow } from '../lib/wallet';
 import { defaultFyStart, fyAllMonths, loadFyChoice, MONTH_NAMES, saveFyStart } from '../lib/fiscalYear';
 import { SECTION_COLOR } from '../lib/sectionColors';
@@ -70,6 +71,7 @@ export function WalletDock({ items, cats, budgetStore, month }: WalletDockProps)
   const [fyChoice, setFyChoice] = useState<number | null>(loadFyChoice);
   const fyStart = fyChoice ?? defaultFyStart(code);
   const slot = useDockSlot('wallet');
+  const inPage = useMediaQuery('(max-width: 767px)');
   const panelRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLButtonElement>(null);
 
@@ -98,33 +100,46 @@ export function WalletDock({ items, cats, budgetStore, month }: WalletDockProps)
 
   const chooseYear = (next: number) => { setFyChoice(next); saveFyStart(next); };
 
+  const trigger = (
+    <button
+      ref={openerRef}
+      type="button"
+      className={`fx-wallet-fab is-${tone}`}
+      data-tour="wallet-dock"
+      onClick={() => setOpen(true)}
+      aria-haspopup="dialog"
+      aria-expanded={open}
+      aria-label={`Wallet. ${summary}`}
+    >
+      <Icon name="bank" size={17} />
+      <span className="fx-wallet-fab-l">Wallet</span>
+      <span className="fx-wallet-fab-v" aria-hidden="true">
+        {wallet.empty ? '—' : `${balance < 0 ? '−' : ''}${cfmt(Math.abs(balance))}`}
+      </span>
+    </button>
+  );
+
   return (
     <>
-      {/* The DOCK is portaled too, not only the panel.
+      {/* On a phone the + is the one floating control, so Wallet is a button
+          in the page instead (where the page places this component). Wider
+          screens keep it in the shared dock beside the + and FinatriX AI.
+
+          The DOCK is portaled too, not only the panel.
           A `position: fixed` element is positioned against the nearest ancestor
           with a transform, filter or containment — and the tool pages animate
           their result cards, so a dock rendered in place was pinned five
           thousand pixels down the document instead of to the corner of the
           screen. Measured on a phone, where it was completely unreachable. */}
-      {createPortal(
+      {inPage ? (
+        <div className="fx-wallet-inline">
+          <style>{WALLET_STYLES}</style>
+          {trigger}
+        </div>
+      ) : createPortal(
         <div className={`fx-tools fx-scope fx-wallet-dock${slot ? ' is-docked' : ''}`}>
           <style>{WALLET_STYLES}</style>
-          <button
-            ref={openerRef}
-            type="button"
-            className={`fx-wallet-fab is-${tone}`}
-            data-tour="wallet-dock"
-            onClick={() => setOpen(true)}
-            aria-haspopup="dialog"
-            aria-expanded={open}
-            aria-label={`Wallet. ${summary}`}
-          >
-            <Icon name="bank" size={17} />
-            <span className="fx-wallet-fab-l">Wallet</span>
-            <span className="fx-wallet-fab-v" aria-hidden="true">
-              {wallet.empty ? '—' : `${balance < 0 ? '−' : ''}${cfmt(Math.abs(balance))}`}
-            </span>
-          </button>
+          {trigger}
         </div>,
         slot ?? document.body,
       )}
@@ -343,6 +358,8 @@ const WALLET_STYLES = `
 /* Inside the shared dock (ui/dockSlots.ts) the dock positions it. */
 .fx-tools.fx-wallet-dock.is-docked{position:static;min-width:0;}
 .fx-tools.fx-wallet-dock.is-docked .fx-wallet-fab{max-width:100%;}
+.fx-tools .fx-wallet-inline{display:flex;justify-content:center;margin:16px 0 4px;}
+.fx-tools .fx-wallet-inline .fx-wallet-fab{box-shadow:none;}
 .fx-tools .fx-wallet-fab{display:inline-flex;align-items:center;gap:9px;height:var(--ctl-h-lg);padding:0 16px;
   border-radius:var(--ctl-pill);border:var(--ctl-bw) solid var(--hair);background:var(--card-solid,var(--card));
   color:var(--ink);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;
