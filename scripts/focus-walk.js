@@ -6,8 +6,9 @@
  * It presses Tab until focus comes back round (or `max` stops) and checks each
  * stop against WCAG 2.2:
  *   - 2.4.7 Focus Visible: the element draws an outline or a box-shadow, or
- *     blurring it changes how it, its ::before / ::after or a child looks (a
- *     ring drawn on an inner pill, a border or fill change).
+ *     blurring it changes how it, its ::before / ::after, a child or one of its
+ *     two nearest ancestors looks (a ring on an inner pill, a :focus-within
+ *     ring on a field's wrapper, a border or fill change).
  *   - 2.4.11 Focus Not Obscured: the point at its centre belongs to the element,
  *     not to something on top of it such as a fixed tab bar or sticky header.
  */
@@ -42,9 +43,10 @@ async function focusStop() {
   const cs = getComputedStyle(el);
   let indicator = !shown || (cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) >= 1 && !/,\s*0\)$/.test(cs.outlineColor)) || cs.boxShadow !== 'none';
   if (!indicator) {
+    const wrappers = [el.parentElement, el.parentElement?.parentElement].filter(Boolean);
     const look = () =>
-      [el, ...el.querySelectorAll('*')]
-        .slice(0, 12)
+      [...wrappers, el, ...el.querySelectorAll('*')]
+        .slice(0, 14)
         .flatMap((e) => [getComputedStyle(e), getComputedStyle(e, '::before'), getComputedStyle(e, '::after')])
         .map((c) => [c.outlineStyle, c.outlineWidth, c.outlineColor, c.boxShadow, c.borderColor, c.backgroundColor, c.color, c.textDecorationLine].join(' '))
         .join('|');

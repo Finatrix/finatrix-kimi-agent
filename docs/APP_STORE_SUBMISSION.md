@@ -129,45 +129,64 @@ assistant is one more reason not to claim 4+.
 
 ## 7. App Review notes
 
-**Current text (3,418 characters; the field holds 4,000) — rewritten 2026-10-04**
-to answer Apple's Guideline 2.1 "Information Needed" request, which asks for
-the purpose, access instructions, external services, regional differences and
-regulated-industry position *in the Notes field* itself. It replaces the
-2,094-character text entered on 2026-10-02/03. The reply, the recording script
-and the order of work are in [APP_REVIEW_2_1_RESPONSE.md](APP_REVIEW_2_1_RESPONSE.md).
-The sample files it points to are `docs/launch/finatrix-review-samples.zip`,
-attached to the version as the App Review attachment.
+**Current text (3,973 characters; the field holds 4,000) — saved in App Store
+Connect 2026-10-30 for build 10.** It answers every request Apple has made so
+far, in the Notes field itself, as 2.1 asks:
+
+- TestFlight beta, 2026-10-02, 2.1(a): demo access (Sign-In Information).
+- 2026-10-04, 2.1 Information Needed: purpose, access, external services,
+  regions, regulated-industry position ([APP_REVIEW_2_1_RESPONSE.md](APP_REVIEW_2_1_RESPONSE.md)).
+- 2026-10-21, 2.1(b) Information Needed: business model / paid content —
+  answered by reply on 2026-10-22 and now stated up front.
+
+Two lines of the previous text were wrong and are gone: "The website has a
+paid plan through Stripe" (nothing is on sale — `CAREERS_AVAILABLE` is false —
+and it is the likely trigger of the 2.1(b) question) and "planned and announced
+to release on October 14, 2026". The paths follow the October design pass: no
+side menu; account deletion is account button › Profile; FinatriX AI is a
+header button on iPhone and the bottom-right button on iPad. The sample files
+are `docs/launch/finatrix-review-samples.zip`, attached to the version.
 
 ```
+THIS SUBMISSION: BUILD 10
+Build 10 replaces build 6. It changes design and accessibility only: one tab bar on iPhone, larger touch targets, Light/Dark/System appearance, visible keyboard focus. No change to features, data use or business model.
+Earlier feedback: TestFlight 2.1(a) demo access is in Sign-In Information; the 4 Oct 2.1 request is answered below; on the 21 Oct 2.1(b) question, there is no paid content (next section).
+
+BUSINESS MODEL (2.1(b), 3.1.1)
+FinatriX is free. It has no in-app purchases, subscriptions, ads, prices, paywalls or links to any purchase, and nothing in it is unlocked by buying anything anywhere. Every feature works for every user, with or without an account. Our website sells nothing either. If we ever sell features in the app, we will use In-App Purchase.
+
 WHAT IT IS
-FinatriX is a personal-finance planning and education app for adults, mainly in India (market packs: India, US, UK, UAE, Australia, Singapore, China). It solves a common problem: people can see their spending totals but not whether their plan actually works. It splits take-home pay 50/30/20, logs a spend from one line of text, works a goal back to the monthly SIP it needs, and shows the working behind every number. It is a calculator suite: it holds no money, moves no money and gives no personal advice.
+A personal-finance planning and education app for adults, mainly in India (reference packs for India, US, UK, UAE, Australia, Singapore, China). It splits take-home pay 50/30/20, logs a spend from one line of text, works a goal back to the monthly saving it needs, and shows the working behind every number. It holds no money, moves no money and gives no personal advice.
 
-HOW TO USE IT
-No account is needed. Every calculator works at once and data stays on the device. The demo account in the Sign-In Information fields adds sample data: tap SIGN IN (top right), then use the email form below "or sign in with email". Sign in with Apple and Google are offered too. Main features are in the tab bar: Dashboard, Budget (50/30/20 plan), Expenses (tap the round + and type "340 lunch"; Import reads statements), Goals, Net Worth, LifeMap. Sample statement files (CSV, PDF, photo) are in the attachment: Expenses > Import > choose a file (PDF import needs iOS 18 or later).
+HOW TO REVIEW IT
+No account is needed: every calculator works at once and data stays on the device. For sample data, sign in with the demo account in Sign-In Information: tap Sign in (top right), then use the email form under "or sign in with email". Sign in with Apple is offered alongside Google (4.8).
+iPhone: tab bar at the bottom: Home, Budget, Expenses, Goals, Tools. Tools lists everything else (Net Worth, LifeMap, Reports, Calendar, Settings, Profile, Privacy).
+iPad: the tool bar under the header lists every tool.
+Expenses: type "340 lunch" in Quick add and tap Add. Import reads the sample CSV, PDF and photo files in the attachment (PDF import needs iOS 18 or later).
 
-FINATRIX AI (OPTIONAL, SIGNED-IN ONLY)
-Gold sparkle button, bottom right ("Open FinatriX AI"). Before anything is sent it asks permission, naming OpenRouter and the model it routes to. Declining leaves every calculator usable; the permission can be withdrawn in Settings. No name, email or account ID is sent.
+FINATRIX AI (OPTIONAL, SIGNED-IN, 5.1.2(i))
+Sparkle button in the header on iPhone, "Open FinatriX AI" at the bottom right on iPad. Before anything is sent it asks permission, naming OpenRouter and the model it routes to. Declining leaves every calculator usable; permission can be withdrawn in Settings. No name, email or account ID is sent. Answers stay private to the user.
 
-EXTERNAL SERVICES
-- Supabase: the app's own backend (sign-in, cloud sync of the user's data, server functions). Used only when signed in, plus anonymous analytics.
-- Sign in with Apple, Google sign-in, email and password: authentication.
-- OpenRouter, routing to Google, Anthropic or OpenAI models: the optional AI assistant, only after consent, only through our Supabase function.
-- First-party anonymous analytics on our own endpoint: no ads, no third-party SDKs, no tracking; can be switched off in Settings.
-- On-device text recognition for statement photos; photos are never uploaded.
-- Payments: none in the app (no in-app purchases, prices or checkout links). The website has a paid plan through Stripe that the app never shows.
-- Data providers: none. Rates and tax figures are dated reference data bundled in the app, cited to official public sources (Settings > Reference data).
+NATIVE FEATURES (4.2, 2.5.2)
+Opt-in local reminders, haptics, on-device text recognition for statement photos (camera only after Take Photo; photos never uploaded), Sign in with Apple, offline use. All code is bundled in the app; nothing is downloaded or run remotely.
 
-ACCOUNT DELETION
-Menu (top left) > Profile > Delete account, then type the account's email (or DELETE for a Hide My Email address). Immediate and irreversible; it also revokes the Sign in with Apple authorization. If you delete the demo account, please tell us so we can recreate it.
+EXTERNAL SERVICES (5.1.1, 5.1.2)
+- Supabase: our backend (sign-in, cloud sync, server functions), only when signed in, plus anonymous analytics.
+- OpenRouter (Google, Anthropic or OpenAI models): the AI assistant, only after consent, via our server.
+- First-party anonymous analytics: no ads, no third-party SDKs, no tracking; can be switched off in Settings.
+- No data providers: rates and tax figures are dated reference data bundled in the app, with sources (Settings > Reference data).
 
-CAMERA
-Requested only if you choose Take Photo in Expenses > Import. The photo is read on the device and never uploaded.
+ACCOUNT DELETION (5.1.1(v))
+Signed in: account button (top right) > Profile > Delete account, then type the account's email (or DELETE for a Hide My Email address). Immediate and irreversible; it also revokes Sign in with Apple. If you delete the demo account, please tell us so we can recreate it.
 
 REGIONS
-Features are identical in every region. Only reference content (currency, tax rules, published rates, deposit-protection facts) differs by market pack. The pack defaults from the device language and time zone (no location or IP lookup) and can be changed in Settings.
+Features are identical everywhere; only reference content (currency, tax rules, published rates) differs by pack, set from the device language and time zone and changeable in Settings.
 
-REGULATION AND CONTENT
-FinatriX is not a bank, broker, lender or registered adviser. It executes no transactions, links no accounts and collects no bank credentials. Estimates come from user input under stated assumptions, with a disclaimer in the listing and in the app. It has no user-generated content shared between users, so no reporting or blocking is needed, and it contains no licensed third-party content.
+REGULATION AND CONTENT (3.2.1(viii), 5.1.1(ix), 1.2)
+FinatriX is not a bank, broker, lender or adviser and provides no financial service: it links no accounts, collects no bank credentials, executes no transactions and manages no money. Estimates come from the user's own input under stated assumptions, with a disclaimer in the app and listing. No content is shared between users.
+
+CONTACT
+Please reply in App Store Connect if anything blocks the review; we respond promptly.
 ```
 
 **Demo account:** a throwaway one exists and its address and password are in
