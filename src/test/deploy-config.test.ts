@@ -384,7 +384,7 @@ describe('observability wiring', () => {
   it('the analytics ingest re-validates the event allowlist and never stores IP', () => {
     const fn = read('supabase/functions/analytics-collect/index.ts');
     expect(fn).toContain('ALLOWED_EVENTS'); // server-side re-validation (never trust client)
-    expect(fn).toContain('CF-Connecting-IP'); // IP read for rate-limiting…
+    expect(fn).toContain('clientIp(req.headers)'); // IP read for rate-limiting…
     // …but the inserted row object has no `ip` field (session_id/event/props/client_t only).
     expect(fn).not.toContain('ip:');
   });

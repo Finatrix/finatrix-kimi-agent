@@ -15,11 +15,26 @@ function ipv4ToParts(ip: string): number[] | null {
   return parts.length === 4 && parts.every((p) => Number.isInteger(p) && p >= 0 && p <= 255) ? parts : null;
 }
 
+/**
+ * The IPv4 address inside an IPv6 literal that routes to it: mapped, compatible,
+ * NAT64 or 6to4. `new URL()` rewrites `[::ffff:127.0.0.1]` to `[::ffff:7f00:1]`,
+ * so the hex form is the one that reaches this check.
+ */
+function embeddedIpv4(host: string): string | null {
+  const dotted = /^(?:::ffff:|::|64:ff9b::)(\d+\.\d+\.\d+\.\d+)$/.exec(host);
+  if (dotted) return dotted[1]!;
+  const hex = /^(?:::ffff:|::|64:ff9b::)([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(host)
+    ?? /^2002:([0-9a-f]{1,4}):([0-9a-f]{1,4})(?::|$)/.exec(host);
+  if (!hex) return null;
+  const hi = parseInt(hex[1]!, 16);
+  const lo = parseInt(hex[2]!, 16);
+  return `${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`;
+}
+
 /** True for loopback, private, link-local, CGNAT, multicast and metadata addresses. */
 export function isBlockedAddress(address: string): boolean {
   const host = address.replace(/^\[|\]$/g, '').toLowerCase();
-  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(host);
-  const v4 = ipv4ToParts(mapped ? mapped[1]! : host);
+  const v4 = ipv4ToParts(embeddedIpv4(host) ?? host);
   if (v4) {
     const [a, b] = v4 as [number, number, number, number];
     return (
@@ -27,12 +42,14 @@ export function isBlockedAddress(address: string): boolean {
       (a === 169 && b === 254) ||
       (a === 172 && b >= 16 && b <= 31) ||
       (a === 192 && b === 168) ||
+      (a === 192 && b === 0 && v4[2] === 0) ||
+      (a === 198 && (b === 18 || b === 19)) ||
       (a === 100 && b >= 64 && b <= 127) ||
       a >= 224
     );
   }
   if (isIP(host) === 6) {
-    return host === '::' || host === '::1' || /^f[cd]/.test(host) || /^fe[89ab]/.test(host) || host.startsWith('ff');
+    return host === '::' || host === '::1' || /^f[cd]/.test(host) || /^fe[89a-f]/.test(host) || host.startsWith('ff');
   }
   return false;
 }

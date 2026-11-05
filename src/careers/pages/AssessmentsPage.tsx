@@ -22,6 +22,7 @@ import { ASSESSMENT_KINDS, type AssessmentKind, type AssessmentResult, type Asse
 import type { ApplicationRow } from '../types/jobs';
 import { toCareersError, type CareersError } from '../utils/errors';
 import { formatDate, scoreColor } from '../utils/format';
+import { safeHttpUrl } from '../../lib/sanitize';
 
 const EMPTY_FORM = { title: '', kind: 'online' as AssessmentKind, provider: '', link: '', dueAt: '', notes: '', applicationId: '' };
 
@@ -145,7 +146,7 @@ export default function AssessmentsPage() {
                       {a.due_at && <span>Due {formatDate(a.due_at)}</span>}
                       {a.score != null && <span className="cx-num" style={{ color: scoreColor(a.score) }}>Score {a.score}</span>}
                     </p>
-                    {a.link && <a className="cx-sub" href={a.link} target="_blank" rel="noopener noreferrer">Open assessment (opens in a new tab)</a>}
+                    {safeHttpUrl(a.link) && <a className="cx-sub" href={safeHttpUrl(a.link)} target="_blank" rel="noopener noreferrer">Open assessment (opens in a new tab)</a>}
                   </div>
                   <div className="cx-row-actions">
                     {!a.completed_at && (

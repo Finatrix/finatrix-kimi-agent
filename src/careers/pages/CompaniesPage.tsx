@@ -26,6 +26,7 @@ import { contactsTable, companiesTable, exportCsv, exportExcel } from '../servic
 import type { CompanyContactRow, CompanyRow } from '../types/jobs';
 import { toCareersError, type CareersError } from '../utils/errors';
 import { formatDate } from '../utils/format';
+import { safeHttpUrl } from '../../lib/sanitize';
 
 const EMPTY_FORM = {
   name: '', industry: '', headquarters: '', company_size: '', website: '',
@@ -250,8 +251,8 @@ export default function CompaniesPage() {
             </div>
             <div className="job-meta" style={{ marginBottom: 14 }}>
               {detail.industry && <span>{detail.industry}</span>}
-              {detail.website && <a href={detail.website} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold)' }}>Website (opens in a new tab)</a>}
-              {detail.linkedin_url && <a href={detail.linkedin_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold)' }}>LinkedIn (opens in a new tab)</a>}
+              {detail.website && <a href={safeHttpUrl(detail.website)} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold)' }}>Website (opens in a new tab)</a>}
+              {detail.linkedin_url && <a href={safeHttpUrl(detail.linkedin_url)} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold)' }}>LinkedIn (opens in a new tab)</a>}
               <span>Added {formatDate(detail.created_at)}</span>
             </div>
 

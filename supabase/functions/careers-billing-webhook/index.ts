@@ -11,10 +11,11 @@
 // Secret:  supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_...
 // Then in the Stripe Dashboard: add an endpoint pointing at this function's
 // URL, listening for checkout.session.completed / async_payment_succeeded /
-// async_payment_failed, and copy the signing secret it gives you back here.
+// async_payment_failed / charge.refunded / charge.dispute.created, and copy the
+// signing secret it gives you back here.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { verifyStripeSignature, periodEnd } from './signature.ts';
+import { verifyStripeSignature, periodEnd, renewalBase } from './signature.ts';
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -58,6 +59,66 @@ async function fetchHostedInvoiceUrl(invoiceId: string | null, stripeKey: string
   }
 }
 
+/**
+ * Take back what a refunded or disputed payment bought. Only the newest payment
+ * demotes the plan: refunding last month's charge must not end a period the
+ * customer has since paid for. The demotion mirrors expire_subscriptions(), and
+ * `provider` stays 'stripe', which is what marks the row as lapsed from paid.
+ */
+async function revokePayment(
+  admin: ReturnType<typeof createClient>,
+  paymentIntent: string,
+  status: 'refunded' | 'disputed',
+): Promise<boolean> {
+  const { data, error } = await admin
+    .from('billing_history')
+    .select('id, user_id, created_at')
+    .eq('provider', 'stripe')
+    .eq('provider_ref', paymentIntent)
+    .eq('status', 'paid')
+    .maybeSingle();
+  if (error) {
+    console.error('billing_history lookup failed', error.message);
+    return false;
+  }
+  const row = data as { id: string; user_id: string; created_at: string } | null;
+  if (!row) return true; // already revoked, or a payment this function never fulfilled
+
+  const { error: markErr } = await admin.from('billing_history').update({ status }).eq('id', row.id);
+  if (markErr) {
+    console.error('billing_history update failed', markErr.message);
+    return false;
+  }
+
+  const { data: newer } = await admin
+    .from('billing_history')
+    .select('id')
+    .eq('user_id', row.user_id)
+    .eq('status', 'paid')
+    .gt('created_at', row.created_at)
+    .limit(1);
+  if (newer?.length) return true;
+
+  const now = new Date().toISOString();
+  const { error: demoteErr } = await admin
+    .from('subscriptions')
+    .update({
+      plan_id: 'free',
+      status: 'active',
+      current_period_start: now,
+      current_period_end: null,
+      cancel_at_period_end: false,
+      updated_at: now,
+    })
+    .eq('user_id', row.user_id)
+    .in('status', ['trialing', 'active', 'past_due']);
+  if (demoteErr) {
+    console.error('subscription demotion failed', demoteErr.message);
+    return false;
+  }
+  return true;
+}
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json(405, { error: 'Method not allowed' });
 
@@ -77,6 +138,17 @@ Deno.serve(async (req) => {
   }
 
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+
+  if (event.type === 'charge.refunded' || event.type === 'charge.dispute.created') {
+    const object = event.data.object as { payment_intent?: string | null; refunded?: boolean };
+    // A partial refund leaves `refunded` false, and the customer keeps their access.
+    if (!object.payment_intent || (event.type === 'charge.refunded' && !object.refunded)) {
+      return json(200, { ok: true, skipped: true });
+    }
+    const status = event.type === 'charge.refunded' ? 'refunded' : 'disputed';
+    const done = await revokePayment(admin, object.payment_intent, status);
+    return done ? json(200, { ok: true }) : json(500, { error: 'Could not revoke access.' });
+  }
 
   const session = event.data.object as {
     id: string; payment_intent: string | null; invoice: string | null;
@@ -111,13 +183,36 @@ Deno.serve(async (req) => {
     return json(200, { ok: true, skipped: true }); // ack so Stripe stops retrying an unfulfillable event
   }
 
+  // Stripe redelivers events, and a renewal now extends the period, so applying
+  // the same payment twice would hand out a free extra period.
+  const providerRef = session.payment_intent ?? session.id;
+  const { data: alreadyPaid } = await admin
+    .from('billing_history')
+    .select('id')
+    .eq('provider', 'stripe')
+    .eq('provider_ref', providerRef)
+    .eq('status', 'paid')
+    .maybeSingle();
+  if (alreadyPaid) return json(200, { ok: true, duplicate: true });
+
+  const { data: current, error: currentErr } = await admin
+    .from('subscriptions')
+    .select('plan_id, current_period_end')
+    .eq('user_id', userId)
+    .in('status', ['trialing', 'active', 'past_due'])
+    .maybeSingle();
+  if (currentErr) {
+    console.error('subscription lookup failed', currentErr.message);
+    return json(500, { error: 'Could not read subscription.' });
+  }
+
   const now = new Date();
   const patch = {
     plan_id: planId,
     status: 'active',
     trial_ends_at: null,
     current_period_start: now.toISOString(),
-    current_period_end: periodEnd(period, now),
+    current_period_end: periodEnd(period, renewalBase(now, current, planId)),
     cancel_at_period_end: false,
     coupon_code: null,
     provider: 'stripe',
@@ -160,7 +255,7 @@ Deno.serve(async (req) => {
     currency: (session.currency ?? 'inr').toUpperCase(),
     status: 'paid',
     provider: 'stripe',
-    provider_ref: session.payment_intent ?? session.id,
+    provider_ref: providerRef,
     invoice_url: invoiceUrl,
   });
 

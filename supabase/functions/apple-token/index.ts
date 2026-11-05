@@ -17,6 +17,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { rateLimited } from '../_shared/ratelimit.ts';
 import { corsHeaders } from '../_shared/origins.ts';
+import { clientIp } from '../_shared/clientIp.ts';
 import {
   appleConfig,
   appleSubjectForRefreshToken,
@@ -42,8 +43,8 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json(405, { error: 'Method not allowed' });
 
-  const ip = req.headers.get('CF-Connecting-IP') ?? req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
-  if (rateLimited(`apple-token:ip:${ip}`, 20)) return json(429, { error: 'Too many requests.' });
+  const ip = clientIp(req.headers);
+  if (ip && rateLimited(`apple-token:ip:${ip}`, 20)) return json(429, { error: 'Too many requests.' });
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY');

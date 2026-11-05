@@ -13,6 +13,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
 import { Empty, PageHeader } from '../ui/primitives';
 import { ErrorCard, PageLoading } from '../components/states';
+import { safeHttpUrl } from '../../lib/sanitize';
 import '../ui/forms.css';
 import { CAREERS_ROUTES } from '../constants';
 import { getCompanyById, relatedCompanies } from '../services/companyIntelligence';
@@ -176,10 +177,10 @@ export default function CompanyProfilePage() {
         {(c.officialWebsite || careerPage) && (
           <div className="cxf-actions">
             {c.officialWebsite && (
-              <a className="cx-btn cx-btn-sm" href={c.officialWebsite} target="_blank" rel="noopener noreferrer">Official website (opens in a new tab)</a>
+              <a className="cx-btn cx-btn-sm" href={safeHttpUrl(c.officialWebsite)} target="_blank" rel="noopener noreferrer">Official website (opens in a new tab)</a>
             )}
             {careerPage && (
-              <a className="cx-btn cx-btn-sm" href={careerPage.url} target="_blank" rel="noopener noreferrer">Careers page (opens in a new tab)</a>
+              <a className="cx-btn cx-btn-sm" href={safeHttpUrl(careerPage.url)} target="_blank" rel="noopener noreferrer">Careers page (opens in a new tab)</a>
             )}
           </div>
         )}
@@ -215,7 +216,7 @@ export default function CompanyProfilePage() {
             <ul style={{ margin: 0, paddingLeft: 18 }}>
               {c.graduatePrograms.map((g) => (
                 <li key={g.program_id} style={{ marginBottom: 4 }}>
-                  {g.program_url ? <a href={g.program_url} target="_blank" rel="noopener noreferrer">{g.program_name}</a> : g.program_name}
+                  {g.program_url ? <a href={safeHttpUrl(g.program_url)} target="_blank" rel="noopener noreferrer">{g.program_name}</a> : g.program_name}
                   {g.program_type && <span className="cx-chip" style={{ marginLeft: 6 }}>{g.program_type.replace(/_/g, ' ')}</span>}
                 </li>
               ))}
@@ -230,7 +231,7 @@ export default function CompanyProfilePage() {
             <ul style={{ margin: 0, paddingLeft: 18 }}>
               {c.internships.map((i) => (
                 <li key={i.internship_id} style={{ marginBottom: 4 }}>
-                  {i.internship_url ? <a href={i.internship_url} target="_blank" rel="noopener noreferrer">{i.internship_type}</a> : i.internship_type}
+                  {i.internship_url ? <a href={safeHttpUrl(i.internship_url)} target="_blank" rel="noopener noreferrer">{i.internship_type}</a> : i.internship_type}
                   {i.typical_season && <span className="cx-muted" style={{ marginLeft: 6 }}>{i.typical_season}</span>}
                 </li>
               ))}
@@ -279,7 +280,7 @@ export default function CompanyProfilePage() {
           <div className="cxf-chips">
             {c.sources.map((s) => (
               s.source.website_url ? (
-                <a key={s.source.source_id} className="cx-chip" style={{ textDecoration: 'none', minHeight: 32 }} href={s.source.website_url} target="_blank" rel="noopener noreferrer">
+                <a key={s.source.source_id} className="cx-chip" style={{ textDecoration: 'none', minHeight: 32 }} href={safeHttpUrl(s.source.website_url)} target="_blank" rel="noopener noreferrer">
                   {s.source.source_name} (opens in a new tab)
                 </a>
               ) : (

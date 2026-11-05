@@ -28,6 +28,7 @@ import type { BillingHistoryRow, SubscriptionPlanRow, SubscriptionRow, UsageCoun
 import type { QuotaKind } from '../types/phase4';
 import { toCareersError, type CareersError } from '../utils/errors';
 import { formatDate } from '../utils/format';
+import { safeHttpUrl } from '../../lib/sanitize';
 
 const QUOTA_LABELS: Record<QuotaKind, string> = {
   ai_calls: 'AI analyses this month',
@@ -292,7 +293,7 @@ export default function BillingPage() {
             <div className="act-row" key={h.id}>
               <span style={{ flex: 1 }}>{h.currency} {h.amount.toLocaleString()} · {h.provider}</span>
               <span className={`badge ${h.status === 'paid' ? 'badge-green' : h.status === 'failed' ? 'badge-red' : 'badge-mute'}`}>{h.status}</span>
-              {h.invoice_url ? <a className="note" href={h.invoice_url} target="_blank" rel="noopener noreferrer">Receipt</a> : <span className="note">{formatDate(h.created_at)}</span>}
+              {h.invoice_url ? <a className="note" href={safeHttpUrl(h.invoice_url)} target="_blank" rel="noopener noreferrer">Receipt</a> : <span className="note">{formatDate(h.created_at)}</span>}
             </div>
           ))}
         </div>

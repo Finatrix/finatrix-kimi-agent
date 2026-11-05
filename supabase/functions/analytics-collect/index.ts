@@ -22,8 +22,13 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { rateLimited } from '../_shared/ratelimit.ts';
 import { corsHeaders } from '../_shared/origins.ts';
+import { clientIp } from '../_shared/clientIp.ts';
+import { overSharedQuota } from '../_shared/sharedQuota.ts';
 
 const RATE_PER_MINUTE = Number(Deno.env.get('ANALYTICS_RATE_PER_MINUTE') ?? '120');
+// A ceiling every isolate shares. The per-IP key is caller-settable and CORS only
+// binds browsers, so this is what actually bounds a flood of forged batches.
+const GLOBAL_RATE_PER_MINUTE = Number(Deno.env.get('ANALYTICS_GLOBAL_RATE_PER_MINUTE') ?? '3000');
 const MAX_BODY_BYTES = 16_384;
 const MAX_EVENTS = 50;
 
@@ -87,8 +92,8 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: CORS });
 
   // Per-IP burst limiting. The IP is read for this check only and never stored.
-  const ip = req.headers.get('CF-Connecting-IP') ?? req.headers.get('x-forwarded-for') ?? 'unknown';
-  if (rateLimited(`analytics:${ip}`, RATE_PER_MINUTE)) {
+  const ip = clientIp(req.headers);
+  if (ip && rateLimited(`analytics:${ip}`, RATE_PER_MINUTE)) {
     return new Response(null, { status: 429, headers: CORS });
   }
 
@@ -139,6 +144,13 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
+  if (
+    (ip && await overSharedQuota(admin, 'analytics:addr:min', ip, RATE_PER_MINUTE, 60))
+    || await overSharedQuota(admin, 'analytics:global:min', 'all', GLOBAL_RATE_PER_MINUTE, 60)
+  ) {
+    return new Response(null, { status: 429, headers: CORS });
+  }
+
   const { error } = await admin.from('analytics_events').insert(rows);
   if (error) {
     console.error('analytics-collect insert failed', error.message);

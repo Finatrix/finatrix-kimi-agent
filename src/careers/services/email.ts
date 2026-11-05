@@ -24,7 +24,7 @@ export interface SendResult {
 
 export async function sendEmail(to: string, content: EmailContent): Promise<SendResult> {
   const { data, error, reason } = await invokeAuthed<SendResult>('careers-email', {
-    to, subject: content.subject, html: content.html, text: content.text,
+    to, subject: content.subject, text: content.text,
   });
   if (reason === 'not-configured') return { sent: false, reason: 'not-configured' };
   if (reason === 'no-session') return { sent: false, reason: 'no-session' };
