@@ -69,7 +69,11 @@ export default function CareersFeatures() {
 
       <Section id="privacy" title="What happens to your resume">
         <UL>
-          <li>It is stored in your own account and is readable by nobody else.</li>
+          <li>It is stored in your own account, and no other account can read it.</li>
+          <li>
+            AI features send its text, including any contact details in it, to our AI provider, and
+            only after you give permission.
+          </li>
           <li>It is never listed in a recruiter-searchable database.</li>
           <li>It is never sent to an employer, a recruiter or a job board.</li>
           <li>You can delete any version, or the whole account, at any time.</li>

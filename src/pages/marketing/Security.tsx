@@ -22,6 +22,24 @@ export default function Security() {
 
   return (
     <MarketingPage path={PATH}>
+      <Section id="short-answers" title="The short answers">
+        <Grid min={250}>
+          <Card title="Who stores my data?">
+            Signed out, only your device. Signed in, Supabase also stores it, on Amazon Web Services
+            in Sydney, Australia. Stripe handles card payments.
+          </Card>
+          <Card title="Who can see it?">
+            No other account. Your records are not end-to-end encrypted, so people who administer our
+            database can technically access them. The app&rsquo;s own admin role cannot open your
+            finance records or resumes.
+          </Card>
+          <Card title="How good are those providers?">
+            Supabase is SOC 2 Type 2 compliant and encrypts stored data with AES-256. Those are its
+            results, not ours: FinatriX has no certification of its own or outside security test yet.
+          </Card>
+        </Grid>
+      </Section>
+
       <Section id="principles" title="Three things that shape everything else">
         <Grid min={250}>
           <Card title="Collect as little as possible" eyebrow="01">
@@ -29,8 +47,10 @@ export default function Security() {
             device fingerprinting and no advertising network anywhere on the site.
           </Card>
           <Card title="Enforce in the database" eyebrow="02">
-            Access rules live in Postgres, not in application code. A bug in the app cannot hand one
-            account another account&rsquo;s rows, because the database refuses to return them.
+            Access rules live in Postgres, not in the app&rsquo;s pages. A bug in a page cannot hand
+            one account another account&rsquo;s rows, because the database refuses to return them. A
+            few server functions, such as account deletion, use an admin key and must check the
+            account themselves.
           </Card>
           <Card title="Never hold what we do not need" eyebrow="03">
             Card details go straight to Stripe and never touch a FinatriX server. We could not leak
@@ -46,9 +66,9 @@ export default function Security() {
           secure, subpoena or lose.
         </P>
         <P>
-          <strong className="text-ink">Signed in</strong>, your data is stored in our managed
-          Postgres database and any files you upload go to object storage. Both are isolated per
-          account:
+          <strong className="text-ink">Signed in</strong>, your data is stored in a Postgres database
+          run by Supabase on Amazon Web Services in Sydney, Australia, and any files you upload go to
+          private object storage with the same provider. Both are isolated per account:
         </P>
         <UL>
           <li>
@@ -125,7 +145,7 @@ export default function Security() {
       <Section
         id="ai"
         title="What FinatriX AI sends, and where"
-        intro="The one part of FinatriX that leaves your device on purpose. It is opt-in per question — nothing is sent until you ask something."
+        intro="The one part of FinatriX that sends your data to an AI company. It asks your permission first, and nothing is sent until you use it."
       >
         <P>
           When you ask FinatriX AI a question, your question and a snapshot of the financial figures
@@ -150,7 +170,18 @@ export default function Security() {
           <li>
             <strong className="text-ink">What is never sent.</strong> Your name, your email, your
             account id, or any identifier that would let a provider connect a snapshot to a person.
-            The payload is figures and a question.
+            The payload is figures and a question, plus anything you type into the question itself.
+          </li>
+          <li>
+            <strong className="text-ink">Careers is different.</strong> Resume features send your
+            resume text, so any name, email or phone number written in it reaches the model. Your
+            account id is still not sent.
+          </li>
+          <li>
+            <strong className="text-ink">Storage and training.</strong> We send each request with a
+            setting that limits it to model providers whose stated policy is not to store prompts or
+            train on them. That relies on those providers&rsquo; policies, which we cannot inspect
+            ourselves.
           </li>
           <li>
             <strong className="text-ink">The model does not do the arithmetic.</strong> Every number
@@ -196,8 +227,19 @@ export default function Security() {
             welcome and are triaged ahead of the queue, but there is no reward scheme.
           </li>
           <li>
-            <strong className="text-ink">Backups are provider defaults.</strong> A documented
-            restore drill is planned and has not yet been run end to end.
+            <strong className="text-ink">No end-to-end encryption.</strong> Stored data is encrypted
+            by our providers, but it can be decrypted on their systems, and people who administer our
+            database can technically access it.
+          </li>
+          <li>
+            <strong className="text-ink">No separate lock on your device.</strong> Data on your device
+            relies on your device&rsquo;s own lock and encryption. FinatriX adds no passcode or
+            biometric lock.
+          </li>
+          <li>
+            <strong className="text-ink">Backups are limited.</strong> Point-in-time recovery is off
+            and we have not yet run a restore drill. Keep your own copy of anything important using
+            the backup in Settings.
           </li>
         </UL>
       </Section>

@@ -21,7 +21,7 @@ export default function PrivacyControls() {
   }, []);
   return <section className="fx-planning card" aria-labelledby="privacy-controls-title" data-tour="settings-privacy">
     <h2 id="privacy-controls-title">Privacy control centre</h2>
-    <p>Know what is saved, what is shared and which choices apply to this device.</p>
+    <p>Know what is saved, what is shared and which choices apply to this device. <Link to="/security" className="fx-prose-link">Who stores your data and who can see it</Link>.</p>
     <dl className="fx-plan-stats">
       <div><dt>Finance records</dt><dd style={{ fontSize: 14 }}>{user ? 'Local storage + account sync' : 'Stored on this device'}</dd></div>
       <div><dt>FinatriX AI</dt><dd style={{ fontSize: 14 }}>{aiConsent ? 'Allowed on this device' : 'Asks before sending anything'}</dd></div>

@@ -419,7 +419,7 @@ const LAUNCH_PAGES: readonly PublicPage[] = [
       'Answers to the questions people ask most about FinatriX: what the tools do, where your data lives, whether any of it is financial advice, and what costs money.',
     heading: 'Frequently asked questions',
     lede: 'The questions we are asked most, answered plainly. If yours is not here, the Support page tells you exactly how to reach a human.',
-    updated: REVIEWED,
+    updated: '2026-11-06',
     priority: 0.7,
     changefreq: 'monthly',
     faq: [
@@ -433,11 +433,15 @@ const LAUNCH_PAGES: readonly PublicPage[] = [
       },
       {
         q: 'Do I need an account to use the tools?',
-        a: 'No. Every money tool works signed out, with your figures kept in your own browser. Creating a free account adds encrypted sync so the same numbers appear on your phone and laptop.',
+        a: 'No. Every money tool works signed out, with your figures kept in your own browser. Creating a free account adds private sync over an encrypted connection, so the same numbers appear on your phone and laptop.',
       },
       {
         q: 'Where is my data stored?',
-        a: 'Signed out, entirely in your browser — it never leaves your device. Signed in, in your account on our managed Postgres database, protected by row-level security so no other account can read it. The Privacy Policy lists exactly what is stored.',
+        a: 'Signed out, entirely on your device — your records are never sent to us. Signed in, also in a database run by Supabase on Amazon Web Services in Sydney, Australia, protected by row-level security so no other account can read it. The Privacy Policy lists exactly what is stored.',
+      },
+      {
+        q: 'Can FinatriX see my data?',
+        a: 'Signed out, no. Signed in, your records are protected from other accounts but are not end-to-end encrypted, so people who administer our database can technically access them. The Trust & Security page explains the limits.',
       },
       {
         q: 'Do you sell my data or show ads?',
@@ -461,7 +465,7 @@ const LAUNCH_PAGES: readonly PublicPage[] = [
       },
       {
         q: 'How do I delete my account?',
-        a: 'Contact support to request account deletion. The privacy policy explains data handling and any retention obligations. Clearing finance records in Settings does not delete your account or Careers records.',
+        a: 'Sign in, open Profile, choose Delete account and confirm. This works on the website and in both apps. If you cannot sign in, contact support from the address on the account. Clearing finance records in Settings does not delete your account or Careers records.',
       },
       {
         q: 'Which currencies and countries does FinatriX support?',
@@ -525,8 +529,8 @@ const LAUNCH_PAGES: readonly PublicPage[] = [
     description:
       'The security controls behind FinatriX: row-level database isolation, encrypted transport, no card data on our servers, and what we deliberately never collect.',
     heading: 'Trust & security',
-    lede: 'What actually protects your data, described concretely enough to check — and an honest list of what we have not done yet.',
-    updated: REVIEWED,
+    lede: 'Who stores your data, who can see it and what protects it, described concretely enough to check — with an honest list of what we have not done yet.',
+    updated: '2026-11-06',
     priority: 0.6,
     changefreq: 'monthly',
     faq: [
@@ -536,7 +540,7 @@ const LAUNCH_PAGES: readonly PublicPage[] = [
       },
       {
         q: 'Can another user see my data?',
-        a: 'No. Every table carrying user data is protected by database-level row security keyed to your account, and uploaded files live in a storage folder owned by your account id. The check runs in the database, so it holds even if application code has a bug.',
+        a: 'No. Every table carrying user data is protected by database-level row security keyed to your account, and uploaded files live in a storage folder owned by your account id. The check runs in the database, so it holds even if a page in the app has a bug.',
       },
       {
         q: 'Is my data encrypted?',
@@ -652,7 +656,7 @@ const LAUNCH_PAGES: readonly PublicPage[] = [
     description:
       'How FinatriX handles your data: what is stored locally in your browser, what syncs to your account, what is never collected, and how to delete it all.',
     ogKey: 'privacy',
-    updated: '2026-10-02',
+    updated: '2026-11-06',
     priority: 0.3,
     changefreq: 'yearly',
   },

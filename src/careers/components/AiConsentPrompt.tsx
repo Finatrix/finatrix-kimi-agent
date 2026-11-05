@@ -52,8 +52,9 @@ export function AiConsentPrompt() {
         needs to {AI_RECIPIENT}.
       </p>
       <p>
-        That can include your resume text, job descriptions and your notes on an application. Your name, email
-        address and account ID are never sent.
+        That can include your resume text, job descriptions and your notes on an application. Contact details
+        written in your resume, such as your name, email and phone number, are part of that text. Your account ID
+        is never sent.
       </p>
       <p style={{ marginBottom: 0 }}>
         You can turn this off any time in Careers settings. Turning it off stops future requests; it does not recall

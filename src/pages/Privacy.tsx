@@ -48,6 +48,16 @@ export default function Privacy() {
           Reverse Goal Planner, LifeMap and the Net Worth tracker.
         </li>
         <li>
+          <strong>Careers data</strong> — if you use FinatriX Careers, the resumes you upload and
+          the details read from them, your career profile, applications and notes, cover letters,
+          interview practice, offers and job searches.
+        </li>
+        <li>
+          <strong>Payment and support records</strong> — the plan you bought and the amount, status
+          and receipt link of each payment, plus any support requests you send us. Stripe handles
+          your card details; we never receive them.
+        </li>
+        <li>
           <strong>Technical data</strong> — standard server logs kept by our hosting and
           backend providers (such as IP address and timestamps) for security and
           reliability.
@@ -67,9 +77,18 @@ export default function Privacy() {
         <li>
           <strong>When signed in:</strong> the data you enter into the tools and your
           currency preference are saved to your account in our cloud database so they sync
-          across the devices where you sign in.
+          across the devices where you sign in. That database and your uploaded files are held by
+          Supabase on Amazon Web Services in Sydney, Australia.
         </li>
       </UL>
+
+      <H2 id="access">Who can see your data</H2>
+      <P>
+        Other accounts cannot read your data. It is not end-to-end encrypted, however, so people
+        who administer our database, and our infrastructure providers&rsquo; systems, can
+        technically access it. The Service&rsquo;s own admin role has no access to your tool data or
+        resumes.
+      </P>
 
       <H2>How we use your information</H2>
       <UL>
@@ -83,11 +102,14 @@ export default function Privacy() {
       <P>
         We use trusted processors to run the Service: <strong>Supabase</strong> (account
         authentication, email verification and the database that stores your saved tool
-        data), <strong>Cloudflare</strong> (website hosting and global content delivery) and,
-        only when you use FinatriX AI, <strong>OpenRouter</strong> and the AI model provider
-        it routes your request to (see below). These providers process data on our behalf
-        under their own security and privacy terms. We do not share your data with anyone
-        else except where required by law.
+        data, running on Amazon Web Services), <strong>Cloudflare</strong> (website hosting and
+        global content delivery), <strong>Stripe</strong> (Careers payments), and, only when you
+        use FinatriX AI, <strong>OpenRouter</strong> and the AI model provider it routes your
+        request to (see below). If you sign in with Google or Apple, that company handles the
+        sign-in. When you search for jobs, job-search providers receive your search terms and
+        filters, but not your name, email or account identifier. These providers process data under
+        their own security and privacy terms. We do not share your data with anyone else except
+        where required by law.
       </P>
 
       <H2 id="ai">FinatriX AI</H2>
@@ -97,13 +119,26 @@ export default function Privacy() {
         that are relevant to it are sent over an encrypted connection to OpenRouter, which
         passes them to an AI model provider to generate the answer. We send no name, email
         address or account identifier with the request. Answers about your own figures are
-        checked against your records before they are shown.
+        checked against your records before they are shown. Anything you type into a question is
+        sent as written.
+      </P>
+      <P>
+        We send each request with a setting that limits it to model providers whose stated policy
+        is not to store prompts or train on them. That relies on those providers&rsquo; policies.
+      </P>
+      <P>
+        Careers AI features work differently. To analyse or tailor a resume or prepare you for an
+        interview, they send the text they need, which can include your resume, job descriptions
+        and your notes. Any name, email address or phone number written in your resume is part of
+        that text. Your account identifier is not sent.
       </P>
       <P>
         Statement import uses the same service for one narrow job: when you import a bank
         statement while signed in, the descriptions of merchants it does not recognise are
         sent so they can be named and categorised. Amounts, dates, balances, account numbers
-        and the file itself never leave your device.
+        and the file itself never leave your device. Screenshot import may also send the lines of
+        text it recognised, with every digit hidden, so it can work out which lines belong to one
+        transaction.
       </P>
       <P>
         Nothing is sent to an AI provider until you allow it. The first time either feature
@@ -188,10 +223,11 @@ export default function Privacy() {
         address (or DELETE, if you signed in with Apple and hid your address). This
         immediately and permanently deletes your login, your synced tool data, your
         Careers records and any files you uploaded, and, if you signed in with Apple,
-        revokes FinatriX&rsquo;s access to your Apple Account. Nothing is kept for later
-        recovery.
-        Payment records held by our payment processor are retained by that processor as the
-        law requires. If you cannot sign in, email{' '}
+        revokes FinatriX&rsquo;s access to your Apple Account. We keep nothing for later recovery,
+        though deleted database records can remain in our database provider&rsquo;s routine backups
+        until those expire, for up to 30 days. Deletion does not recall anything an AI provider has
+        already received. Payment records held by our payment processor are retained by that
+        processor as the law requires. If you cannot sign in, email{' '}
         <a href={SUPPORT_MAILTO} className="fx-prose-link">
           {SUPPORT_EMAIL}
         </a>{' '}
@@ -212,9 +248,10 @@ export default function Privacy() {
 
       <H2>Security</H2>
       <P>
-        Data is encrypted in transit (HTTPS), and database access is protected by row-level
-        security so that each account can only read and write its own data. No method of
-        transmission or storage is perfectly secure, so we cannot guarantee absolute
+        Data is encrypted in transit (HTTPS) and at rest by our storage provider, and database
+        access is protected by row-level security so that each account can only read and write its
+        own data. Data on your device relies on your device&rsquo;s own lock and encryption. No
+        method of transmission or storage is perfectly secure, so we cannot guarantee absolute
         security.
       </P>
 
