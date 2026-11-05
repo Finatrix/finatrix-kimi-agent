@@ -144,10 +144,7 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
-  if (
-    (ip && await overSharedQuota(admin, 'analytics:addr:min', ip, RATE_PER_MINUTE, 60))
-    || await overSharedQuota(admin, 'analytics:global:min', 'all', GLOBAL_RATE_PER_MINUTE, 60)
-  ) {
+  if (await overSharedQuota(admin, 'analytics:global:min', 'all', GLOBAL_RATE_PER_MINUTE, 60)) {
     return new Response(null, { status: 429, headers: CORS });
   }
 

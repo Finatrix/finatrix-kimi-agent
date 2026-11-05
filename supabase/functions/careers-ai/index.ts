@@ -21,7 +21,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { rateLimited } from '../_shared/ratelimit.ts';
 import { corsHeaders } from '../_shared/origins.ts';
 import { clientIp } from '../_shared/clientIp.ts';
-import { overSharedQuota } from '../_shared/sharedQuota.ts';
+import { overSharedQuota, privateQuotaKey } from '../_shared/sharedQuota.ts';
 import { CAREERS_AVAILABLE, CAREERS_LAUNCH_MESSAGE } from '../_shared/careersAvailability.ts';
 import { checkCareersEntitlement, type EntitlementClient } from '../_shared/careersEntitlement.ts';
 import { PUBLIC_AI_TASKS, PUBLIC_MAX_OUTPUT_TOKENS, isPinnedSystemPrompt } from '../_shared/aiTasks.ts';
@@ -318,7 +318,13 @@ Deno.serve(async (req) => {
   const ip = clientIp(req.headers);
   if (
     await overSharedQuota(admin, 'ai:user:min', userId, SHARED_USER_PER_MINUTE, 60)
-    || (ip && await overSharedQuota(admin, 'ai:ip:hour', ip, SHARED_IP_PER_HOUR, 3600))
+    || (ip && await overSharedQuota(
+      admin,
+      'ai:ip:hour',
+      await privateQuotaKey(ip, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!),
+      SHARED_IP_PER_HOUR,
+      3600,
+    ))
   ) {
     return json(429, { error: 'Too many AI requests. Wait a little and try again.' });
   }

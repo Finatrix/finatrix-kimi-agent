@@ -387,6 +387,14 @@ describe('observability wiring', () => {
     expect(fn).toContain('clientIp(req.headers)'); // IP read for rate-limiting…
     // …but the inserted row object has no `ip` field (session_id/event/props/client_t only).
     expect(fn).not.toContain('ip:');
+    // …and no quota counter persists it either: provider_quota is a table, not memory.
+    expect(fn).not.toMatch(/overSharedQuota\([^)]*\bip\b/);
+  });
+
+  it('careers-ai keeps raw IPs out of the shared quota table', () => {
+    const fn = read('supabase/functions/careers-ai/index.ts');
+    expect(fn).toContain('privateQuotaKey(ip,');
+    expect(fn).not.toMatch(/overSharedQuota\(admin, '[^']+', ip\b/);
   });
 });
 
