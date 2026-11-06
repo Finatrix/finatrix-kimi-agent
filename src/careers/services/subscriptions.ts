@@ -1,9 +1,9 @@
 /**
  * Subscription Platform (Phase 4, Module 1). Plans, the user's current
  * subscription, usage counters (for quota gating) and billing history.
- * Manual provider only — Stripe/Razorpay checkout is Module 2 (deferred);
- * `changePlan` and `cancelSubscription` mutate the subscription row directly,
- * which is exactly what a payment webhook will do once wired up.
+ * A plan is bought through Stripe Checkout (`startCheckout`) and granted only
+ * by `careers-billing-webhook`; the browser can never write `plan_id` (see
+ * migrations/20261027000100_paywall_enforcement.sql).
  */
 
 import { supabase } from '../../lib/supabase';
@@ -14,7 +14,6 @@ import { logAudit } from './audit';
 import { mapSupabaseError } from '../utils/errors';
 import type {
   BillingHistoryRow,
-  PlanId,
   QuotaCheck,
   QuotaKind,
   SubscriptionPlanRow,
@@ -59,25 +58,22 @@ export async function ensureFreeSubscription(userId: string): Promise<Subscripti
   return data as SubscriptionRow;
 }
 
-/** Change plan (upgrade or downgrade) — takes effect immediately, no proration logic yet. */
-export async function changePlan(userId: string, subscriptionId: string, planId: PlanId | string, trialDays = 0): Promise<SubscriptionRow> {
-  const patch: Partial<SubscriptionRow> = {
-    plan_id: planId,
-    status: trialDays > 0 ? 'trialing' : 'active',
-    trial_ends_at: trialDays > 0 ? new Date(Date.now() + trialDays * 86_400_000).toISOString() : null,
-    cancel_at_period_end: false,
-  };
-  const { data, error } = await supabase
-    .from('subscriptions')
-    .update(patch)
-    .eq('user_id', userId)
-    .eq('id', subscriptionId)
-    .select()
-    .single();
-  if (error) throw mapSupabaseError(error, 'Changing your plan');
-  logAudit(userId, 'subscription.plan_changed', { type: 'subscription', id: subscriptionId }, { planId });
-  return data as SubscriptionRow;
-}
+/*
+ * `changePlan` used to live here.
+ *
+ * It wrote `plan_id`, `status` and `trial_ends_at` to the subscriptions row
+ * straight from the browser, and the RLS policy allowed it — so it was a
+ * working self-upgrade path to Premium, exported into the client bundle. It had
+ * no callers, which is the only reason it was never exploited by accident.
+ *
+ * It is deleted rather than left unused: the column guard added in
+ * migrations/20261027000100_paywall_enforcement.sql now rejects that update, so
+ * keeping it would mean shipping a function that can only throw.
+ *
+ * Plan changes belong to `careers-billing-webhook`, which runs as the service
+ * role — the one caller the guard lets through, and the only one holding
+ * evidence that payment actually happened.
+ */
 
 export async function cancelSubscription(userId: string, subscriptionId: string, immediately = false): Promise<SubscriptionRow> {
   const patch: Partial<SubscriptionRow> = immediately
@@ -95,28 +91,12 @@ export async function cancelSubscription(userId: string, subscriptionId: string,
   return data as SubscriptionRow;
 }
 
-export async function applyCoupon(userId: string, subscriptionId: string, code: string): Promise<SubscriptionRow> {
-  // Validate via the SECURITY DEFINER RPC. The coupons table is not client-
-  // readable (a broad select policy would let anyone enumerate all codes); the
-  // RPC checks active/expiry/redemption-limit server-side and returns only the
-  // single submitted code when it is redeemable, or nothing when it is not.
-  const { data: rows, error: cErr } = await supabase.rpc('validate_coupon', {
-    p_code: code.trim().toUpperCase(),
-  });
-  const coupon = Array.isArray(rows) ? rows[0] : rows;
-  if (cErr || !coupon) {
-    throw mapSupabaseError(cErr ?? new Error('not found'), 'That coupon code is invalid or expired.');
-  }
-  const { data, error } = await supabase
-    .from('subscriptions')
-    .update({ coupon_code: coupon.code })
-    .eq('user_id', userId)
-    .eq('id', subscriptionId)
-    .select()
-    .single();
-  if (error) throw mapSupabaseError(error, 'Applying the coupon');
-  return data as SubscriptionRow;
-}
+/*
+ * `applyCoupon` used to live here too. It wrote `coupon_code` from the browser,
+ * which the same guard now refuses, and the `validate_coupon` RPC it called was
+ * never deployed. Nothing called it after the Careers redesign removed the
+ * coupon field. A discount belongs in Stripe Checkout, applied server-side.
+ */
 
 /**
  * Has this row just been demoted from a paid plan by `expire_subscriptions()`?
