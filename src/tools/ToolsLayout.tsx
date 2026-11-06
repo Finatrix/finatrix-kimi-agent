@@ -409,21 +409,33 @@ export default function ToolsLayout() {
         setSync(s);
       }, 700);
     };
-    const offWrite = onLocalWrite((key) => schedule(key));
+    /** A save that never landed gets another try when the tab or network returns. */
+    const retry = () => {
+      if (!canPushRef.current || saveTimer.current || !hasPendingCloudChanges(uid)) return;
+      setSync('saving');
+      void pushLocalToCloud(uid).then(setSync);
+    };
+    // Merged cloud data landing here is not the user editing anything.
+    const offWrite = onLocalWrite((key, origin) => {
+      if (origin !== 'remote') schedule(key);
+    });
     const onStorage = (e: StorageEvent) => schedule(e.key);
     // `visibilitychange` is the reliable moment on mobile, where `pagehide`
     // frequently never runs; both are cheap because flush is a no-op unless a
     // write is actually pending.
-    const onHide = () => {
+    const onVisibility = () => {
       if (document.visibilityState === 'hidden') flush();
+      else retry();
     };
     window.addEventListener('storage', onStorage);
-    document.addEventListener('visibilitychange', onHide);
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('online', retry);
     window.addEventListener('pagehide', flush);
     return () => {
       offWrite();
       window.removeEventListener('storage', onStorage);
-      document.removeEventListener('visibilitychange', onHide);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('online', retry);
       window.removeEventListener('pagehide', flush);
       flush();
     };

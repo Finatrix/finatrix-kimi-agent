@@ -1,5 +1,7 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { store } from './lib/storage';
+import { runRemoteApply, store } from './lib/storage';
+import { TOMBSTONE_KEY } from './lib/expenseTombstones';
+import { mergeCloudBlob } from './lib/syncMerge';
 
 /**
  * Cloud sync bridge for the tools.
@@ -8,9 +10,12 @@ import { store } from './lib/storage';
  * below (unchanged from the original app, so existing users' cloud data keeps
  * working). ToolsLayout watches for writes — via the same-document `fx:write`
  * event dispatched by the storage wrapper, plus cross-tab `storage` events — and
- * debounces a push of these keys to the signed-in user's Supabase row. The keys,
- * the RLS-protected `tool_data` JSONB row, and the pull/push logic are preserved
- * exactly.
+ * debounces a push of these keys to the signed-in user's Supabase row.
+ *
+ * Sync is a merge in both directions (see `lib/syncMerge.ts`). A load keeps rows
+ * the cloud has not seen, and a push is a compare-and-set against the row's
+ * `updated_at`: a write that finds another device got there first re-reads,
+ * merges and tries again rather than flattening it.
  */
 
 export const SYNC_KEYS = [
@@ -19,6 +24,9 @@ export const SYNC_KEYS = [
   // record of "what did I delete?" that only exists on the device where the
   // deletion happened answers the question exactly where it is least useful.
   'fx_expense_audit',
+  // Which transactions were deleted, so a merge can tell a row the cloud has not
+  // seen (keep it) from one deleted on another device (do not bring it back).
+  TOMBSTONE_KEY,
   // Categorisation preferences learned from confirmed statement imports. Holds
   // merchant names and category keys only — no amounts, dates or references —
   // and following the user between devices is the whole point: a preference
@@ -117,12 +125,20 @@ function lsRemove(k: string) {
   }
 }
 
+/**
+ * Bumped whenever this device's account data is cleared. A push still in flight
+ * from the previous account compares it before landing anything locally, or
+ * that account's rows could appear on the next one.
+ */
+let localGeneration = 0;
+
 // Writes go through `store` (not raw localStorage) so the same-document
 // `fx:write` event fires and already-mounted consumers — CurrencyProvider,
 // the notifications bell — pick the new values up immediately. Tool pages
 // mount after seeding (ToolsLayout gates on `ready`), but those providers
 // mount before it.
 export function clearSyncedLocal() {
+  localGeneration += 1;
   [...SYNC_KEYS, ...ACCOUNT_LOCAL_KEYS].forEach((k) => store.remove(k));
   store.remove(PENDING_KEY);
 }
@@ -135,7 +151,70 @@ export function setLastUid(id: string | null) {
   else lsRemove(LAST_UID_KEY);
 }
 
-/** Load cloud data, preserving this account's confirmed but unsaved edits. */
+/** This device's current values for the synced keys. */
+function snapshotLocal(): Record<string, string | null> {
+  return Object.fromEntries(SYNC_KEYS.map((key) => [key, store.raw(key)]));
+}
+
+/**
+ * Write merged values locally, tagged as remote so they are not mistaken for an
+ * edit. A key that changed since `expected` was read is left alone, because the
+ * user's newer edit stands. Returns false when that happened.
+ */
+function applyLocally(values: Record<string, string>, expected: Record<string, string | null>): boolean {
+  let complete = true;
+  runRemoteApply(() => {
+    for (const key of SYNC_KEYS) {
+      const next = values[key] ?? null;
+      const current = store.raw(key);
+      if (current === next) continue;
+      if (current !== (expected[key] ?? null)) {
+        complete = false;
+        continue;
+      }
+      if (next == null) store.remove(key);
+      else store.set(key, next);
+    }
+  });
+  return complete;
+}
+
+/**
+ * The `updated_at` this device last saw, which a push must still find to write.
+ * Only compared for equality, so a device with a wrong clock is harmless. It is
+ * per-user so an account switch cannot inherit the previous account's token.
+ */
+let seenVersion: { userId: string; updatedAt: string } | null = null;
+
+function rememberVersion(userId: string, updatedAt: string | null | undefined) {
+  seenVersion = updatedAt ? { userId, updatedAt } : null;
+}
+
+/** Test seam: forget which row version we last saw. */
+export function resetSyncVersion() {
+  seenVersion = null;
+}
+
+type CloudRow = { data: unknown; updated_at?: string | null };
+
+function validBlob(row: CloudRow): Record<string, string> | null {
+  const blob = row.data ?? {};
+  if (typeof blob !== 'object' || Array.isArray(blob)) return null;
+  const values = blob as Record<string, unknown>;
+  if (SYNC_KEYS.some((k) => values[k] != null && typeof values[k] !== 'string')) return null;
+  return values as Record<string, string>;
+}
+
+async function readRow(userId: string) {
+  const { data, error } = await supabase
+    .from('tool_data')
+    .select('data, updated_at')
+    .eq('user_id', userId)
+    .maybeSingle();
+  return { row: (data as CloudRow | null) ?? null, error };
+}
+
+/** Merge cloud data into this device, keeping anything the cloud has not seen. */
 export async function loadCloudIntoLocal(
   userId: string,
   shouldApply: () => boolean = () => true,
@@ -143,32 +222,27 @@ export async function loadCloudIntoLocal(
 ): Promise<SyncStatus> {
   if (!isSupabaseConfigured) return 'offline';
   try {
-    const { data, error } = await supabase
-      .from('tool_data')
-      .select('data')
-      .eq('user_id', userId)
-      .maybeSingle();
+    const { row, error } = await readRow(userId);
     if (error) return 'error';
     // The caller can switch account or unmount while the request is pending.
     // Check before writing anything, not after this function has mutated storage.
     if (!shouldApply()) return 'idle';
-    const blob: unknown = data?.data ?? {};
-    if (!blob || typeof blob !== 'object' || Array.isArray(blob)) return 'error';
-    const values = blob as Record<string, unknown>;
-    if (SYNC_KEYS.some((k) => values[k] != null && typeof values[k] !== 'string')) return 'error';
-    const pending = pendingChanges(userId);
-    SYNC_KEYS.forEach((k) => {
-      if (typeof values[k] === 'string') store.set(k, values[k]);
-      // An existing row is a complete snapshot, so omitted keys were deleted.
-      // Preserve guest data only for the explicit first-account merge.
-      else if (data && !mergeLocal) store.remove(k);
-    });
-    // The device may have been edited while offline. Those confirmed edits
-    // override the older cloud values; untouched areas still come from cloud.
-    for (const [key, value] of Object.entries(pending)) {
-      if (value === null) store.remove(key);
-      else store.set(key, value);
+    const local = snapshotLocal();
+    if (!row) {
+      // Nothing in the cloud yet, so everything here still needs uploading.
+      rememberVersion(userId, null);
+      for (const key of SYNC_KEYS) if (local[key] != null) recordPendingCloudChange(userId, key);
+      return 'saved';
     }
+    const remote = validBlob(row);
+    if (!remote) return 'error';
+    const { merged, aheadKeys } = mergeCloudBlob(SYNC_KEYS, local, remote, {
+      pending: new Set(Object.keys(pendingChanges(userId))),
+      keepLocalOnly: mergeLocal,
+    });
+    applyLocally(merged, local);
+    rememberVersion(userId, row.updated_at);
+    for (const key of aheadKeys) recordPendingCloudChange(userId, key);
     return 'saved';
   } catch {
     return 'error';
@@ -176,7 +250,7 @@ export async function loadCloudIntoLocal(
 }
 
 /**
- * Push the current tool values up to the user's cloud row.
+ * Push this device's values to the user's cloud row.
  *
  * Reads through `store`, not raw localStorage. When a write could not reach
  * localStorage — quota exceeded on a large expense list, or Safari private
@@ -184,20 +258,38 @@ export async function loadCloudIntoLocal(
  * UI carries on showing it. Reading `localStorage` directly here would upload
  * the older value (or omit the key entirely, deleting it from the cloud blob),
  * so the user's most recent edits were silently lost on the next device.
+ *
+ * Values are snapshotted before the first await, so a flush during sign-out
+ * still captures this account's data ahead of the seeding effect clearing it.
  */
 export async function pushLocalToCloud(userId: string): Promise<SyncStatus> {
   if (!isSupabaseConfigured) return 'offline';
-  const blob: Record<string, string> = {};
-  SYNC_KEYS.forEach((k) => {
-    const v = store.raw(k);
-    if (v != null) blob[k] = v;
-  });
-  try {
-    const { error } = await supabase.from('tool_data').upsert(
-      { user_id: userId, data: blob, updated_at: new Date().toISOString() },
-      { onConflict: 'user_id' }
-    );
-    if (error) return 'error';
+  const generation = localGeneration;
+  const pendingKeys = new Set(Object.keys(pendingChanges(userId)));
+  let local = snapshotLocal();
+  let blob: Record<string, string> = {};
+  for (const [key, value] of Object.entries(local)) if (value != null) blob[key] = value;
+  let staleLocal = false;
+
+  /** Fold in a row another device wrote, and show its rows here too. */
+  const reconcile = (row: CloudRow): boolean => {
+    const remote = validBlob(row);
+    if (!remote) return false;
+    const { merged } = mergeCloudBlob(SYNC_KEYS, local, remote, { pending: pendingKeys });
+    blob = merged;
+    if (generation === localGeneration) {
+      if (!applyLocally(merged, local)) staleLocal = true;
+      local = snapshotLocal();
+    } else {
+      local = Object.fromEntries(SYNC_KEYS.map((key) => [key, merged[key] ?? null]));
+    }
+    rememberVersion(userId, row.updated_at);
+    return true;
+  };
+
+  /** A key the user edited mid-merge lacks those rows, so its push must re-merge. */
+  const saved = (updatedAt: string | null | undefined): SyncStatus => {
+    rememberVersion(userId, staleLocal ? null : updatedAt);
     const pending = pendingChanges(userId);
     if (!Object.keys(pending).length) return 'saved';
     for (const [key, value] of Object.entries(pending)) {
@@ -207,6 +299,47 @@ export async function pushLocalToCloud(userId: string): Promise<SyncStatus> {
     if (Object.keys(pending).length) store.set(PENDING_KEY, JSON.stringify({ userId, keys: Object.keys(pending) }));
     else store.remove(PENDING_KEY);
     return 'saved';
+  };
+
+  // The last attempt drops the version check. By then the blob merges this device
+  // with a row read moments ago, and saving the user's data matters more than a
+  // race two rounds could not settle.
+  const MAX_ATTEMPTS = 3;
+  try {
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      const baseline = seenVersion?.userId === userId ? seenVersion.updatedAt : null;
+      const lastChance = attempt === MAX_ATTEMPTS - 1;
+
+      if (baseline && !lastChance) {
+        const { data, error } = await supabase
+          .from('tool_data')
+          .update({ data: blob, updated_at: new Date().toISOString() })
+          .eq('user_id', userId)
+          .eq('updated_at', baseline)
+          .select('updated_at')
+          .maybeSingle();
+        if (error) return 'error';
+        if (data) return saved(data.updated_at);
+      }
+
+      // No version yet, or another device moved the row: read it before writing.
+      const { row, error: readError } = await readRow(userId);
+      if (readError) return 'error';
+      if (row) {
+        if (!reconcile(row)) return 'error';
+        if (!lastChance) continue;
+      } else {
+        rememberVersion(userId, null);
+      }
+      const { data, error } = await supabase
+        .from('tool_data')
+        .upsert({ user_id: userId, data: blob, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+        .select('updated_at')
+        .maybeSingle();
+      if (error) return 'error';
+      return saved(data?.updated_at);
+    }
+    return 'error';
   } catch {
     return 'error';
   }

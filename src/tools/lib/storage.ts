@@ -96,19 +96,41 @@ function createStore(): FxStore {
   };
 }
 
+/**
+ * Where a write came from. `'remote'` is cloud sync landing merged data:
+ * ToolsLayout must not push back what it just downloaded, and a page holding
+ * that data in React state must refresh instead of ignoring it.
+ */
+export type WriteOrigin = 'user' | 'remote';
+
+let currentOrigin: WriteOrigin = 'user';
+
+/** Run `fn`'s writes as remote ones. Synchronous, because events fire inline. */
+export function runRemoteApply<T>(fn: () => T): T {
+  const previous = currentOrigin;
+  currentOrigin = 'remote';
+  try {
+    return fn();
+  } finally {
+    currentOrigin = previous;
+  }
+}
+
 function notifyWrite(key: string) {
   try {
-    window.dispatchEvent(new CustomEvent(FX_WRITE_EVENT, { detail: { key } }));
+    window.dispatchEvent(
+      new CustomEvent(FX_WRITE_EVENT, { detail: { key, origin: currentOrigin } })
+    );
   } catch {
     /* SSR / no window — ignore */
   }
 }
 
 /** Subscribe to same-document writes. Returns an unsubscribe function. */
-export function onLocalWrite(handler: (key: string) => void): () => void {
+export function onLocalWrite(handler: (key: string, origin: WriteOrigin) => void): () => void {
   const listener = (e: Event) => {
-    const key = (e as CustomEvent<{ key: string }>).detail?.key;
-    if (key) handler(key);
+    const detail = (e as CustomEvent<{ key: string; origin?: WriteOrigin }>).detail;
+    if (detail?.key) handler(detail.key, detail.origin ?? 'user');
   };
   window.addEventListener(FX_WRITE_EVENT, listener);
   return () => window.removeEventListener(FX_WRITE_EVENT, listener);

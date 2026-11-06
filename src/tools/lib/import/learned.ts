@@ -66,7 +66,7 @@ export function loadLearned(): LearnedMap {
 }
 
 export function saveLearned(map: LearnedMap): void {
-  setJSON(LEARNED_KEY, evict(map));
+  setJSON(LEARNED_KEY, evictLearned(map));
 }
 
 /** Look up a merchant's remembered category, if the user still has that category. */
@@ -111,7 +111,7 @@ export function rememberConfirmed(
     }
   }
 
-  return evict(next);
+  return evictLearned(next);
 }
 
 /** Drop a single remembered merchant — the undo for a preference set by mistake. */
@@ -121,8 +121,8 @@ export function forgetMerchant(map: LearnedMap, key: string): LearnedMap {
   return next;
 }
 
-/** Trim to MAX_LEARNED, least-recently-confirmed first. */
-function evict(map: LearnedMap): LearnedMap {
+/** Trim to MAX_LEARNED, least-recently-confirmed first. Sync applies it to merges too. */
+export function evictLearned(map: LearnedMap): LearnedMap {
   const keys = Object.keys(map);
   if (keys.length <= MAX_LEARNED) return map;
   const ordered = keys.sort((a, b) => (map[b].updatedAt || '').localeCompare(map[a].updatedAt || ''));

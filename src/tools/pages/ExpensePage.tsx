@@ -31,9 +31,10 @@ import {
 } from '../lib/expense';
 import {
   loadAuditLog, recordAudit, clearAuditLog, auditEvent, auditEdit, newBatchId, historyFor,
-  AUDIT_ACTION_LABEL, AUDIT_FIELD_LABEL,
+  AUDIT_ACTION_LABEL, AUDIT_FIELD_LABEL, AUDIT_KEY,
   type AuditEntry,
 } from '../lib/expenseAudit';
+import { clearDeletions, recordDeletions } from '../lib/expenseTombstones';
 import AuditTrail from '../ui/AuditTrail';
 import { QuickAddBar } from '../ui/QuickAddBar';
 import { learnCategoryWords, type QuickAddResult } from '../lib/quickAdd';
@@ -196,7 +197,13 @@ export default function ExpensePage() {
   );
 
   useEffect(() => {
-    const off = onLocalWrite((key) => {
+    const off = onLocalWrite((key, origin) => {
+      // Sync merged in rows from another device. Without re-reading, this page
+      // would write its older list back on the next edit and drop them.
+      if (origin === 'remote') {
+        if (key === 'fx_expenses') setItems(loadExpenses());
+        if (key === AUDIT_KEY) setAudit(loadAuditLog());
+      }
       if (key === 'fx_bb_cats' || key === 'fx_bb_catprefs' || key === 'fx_bb_cats_by_month') {
         setCats(loadCatViewFor(selMonthRef.current).active);
       }
@@ -328,6 +335,10 @@ export default function ExpensePage() {
     setItems(next);
     saveExpenses(next);
     if (events.length) setAudit(recordAudit(events));
+    // Sync merges the ledger, so a row missing here means nothing to another
+    // device unless the deletion is written down.
+    recordDeletions(events.filter((e) => e.action === 'delete').map((e) => e.txId));
+    clearDeletions(events.filter((e) => e.action === 'restore').map((e) => e.txId));
   };
 
   /**

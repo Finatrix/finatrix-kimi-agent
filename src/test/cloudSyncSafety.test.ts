@@ -6,17 +6,18 @@ vi.mock('../lib/supabase', () => ({
   supabase: {
     from: () => ({
       select: () => ({ eq: () => ({ maybeSingle: h.read }) }),
-      upsert: h.upsert,
+      upsert: (payload: unknown) => ({ select: () => ({ maybeSingle: () => h.upsert(payload) }) }),
     }),
   },
 }));
 
-import { clearSyncedLocal, hasPendingCloudChanges, loadCloudIntoLocal, pushLocalToCloud, recordPendingCloudChange } from '../tools/cloudSync';
+import { clearSyncedLocal, hasPendingCloudChanges, loadCloudIntoLocal, pushLocalToCloud, recordPendingCloudChange, resetSyncVersion } from '../tools/cloudSync';
 import { store } from '../tools/lib/storage';
 
 beforeEach(() => {
   localStorage.clear();
-  h.read.mockReset();
+  h.read.mockReset().mockResolvedValue({ data: null, error: null });
+  resetSyncVersion();
   h.upsert.mockReset().mockResolvedValue({ error: null });
 });
 afterEach(() => {
@@ -80,19 +81,24 @@ describe('cloud storage account and failure boundaries', () => {
     expect(await pushLocalToCloud('user')).toBe('error');
   });
 
-  it('merges pending offline edits and deletions over cloud while loading untouched data', async () => {
-    store.set('fx_expenses', '["offline-edit"]');
+  it('merges pending offline edits and deletions with cloud while loading untouched data', async () => {
+    const row = (id: string) => ({ id, amount: 1, category: 'food', date: '2026-08-01' });
+    store.set('fx_expenses', JSON.stringify([row('offline-edit')]));
     recordPendingCloudChange('user', 'fx_expenses');
     store.remove('fx_goals');
     recordPendingCloudChange('user', 'fx_goals');
-    h.read.mockResolvedValue({ data: { data: { fx_expenses: '["old"]', fx_goals: '{}', fx_currency: 'AUD' } }, error: null });
+    h.read.mockResolvedValue({ data: { data: { fx_expenses: JSON.stringify([row('old')]), fx_goals: '{}', fx_currency: 'AUD' } }, error: null });
     expect(await loadCloudIntoLocal('user')).toBe('saved');
-    expect(store.raw('fx_expenses')).toBe('["offline-edit"]');
+    const ids = () => JSON.parse(store.raw('fx_expenses')!).map((r: { id: string }) => r.id);
+    expect(ids()).toEqual(['offline-edit', 'old']);
     expect(store.raw('fx_goals')).toBeNull();
     expect(store.raw('fx_currency')).toBe('AUD');
     expect(hasPendingCloudChanges('user')).toBe(true);
     await pushLocalToCloud('user');
-    expect(h.upsert.mock.calls[0][0].data).toEqual({ fx_expenses: '["offline-edit"]', fx_currency: 'AUD' });
+    const written = h.upsert.mock.calls[0][0].data;
+    expect(JSON.parse(written.fx_expenses).map((r: { id: string }) => r.id)).toEqual(['offline-edit', 'old']);
+    expect(written).not.toHaveProperty('fx_goals');
+    expect(written.fx_currency).toBe('AUD');
     expect(hasPendingCloudChanges('user')).toBe(false);
   });
 
