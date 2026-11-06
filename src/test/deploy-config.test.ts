@@ -545,6 +545,15 @@ describe('edge function deploy coverage', () => {
     expect(functionSlugs).toContain('careers-billing-checkout');
   });
 
+  it('runs every function deploy on a pinned CLI that cannot stop to ask for confirmation', () => {
+    const deploys = workflow.split('\n').filter((line) => line.trim().startsWith('run:') && line.includes('functions deploy'));
+    expect(deploys.length).toBeGreaterThanOrEqual(6);
+    for (const line of deploys) {
+      expect(line).toMatch(/npx --yes supabase@\d+\.\d+\.\d+ functions deploy/);
+      expect(line).toMatch(/ --yes$/);
+    }
+  });
+
   it.each(functionSlugs)('%s is deployed by the deploy workflow', (slug) => {
     expect(workflow).toMatch(new RegExp(`functions deploy[^\\n]*\\b${slug}\\b`));
   });

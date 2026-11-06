@@ -216,7 +216,7 @@ function collectDrift(slugs) {
 
   for (const slug of slugs) {
     try {
-      execFileSync('npx', ['--yes', 'supabase@latest', 'functions', 'download', slug, '--project-ref', PROJECT_REF],
+      execFileSync('npx', ['--yes', 'supabase@3.0.0', 'functions', 'download', slug, '--project-ref', PROJECT_REF],
         { cwd: work, stdio: 'pipe' });
     } catch (e) {
       return { skipped: `skipped — could not download ${slug} (needs SUPABASE_ACCESS_TOKEN): ${String(e.message).slice(0, 120)}` };

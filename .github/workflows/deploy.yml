@@ -19,7 +19,7 @@
 # Each job fails fast with a clear message when its own secrets are absent, and
 # never blocks the other. Manual deploys keep working regardless:
 #   npm run build && npx wrangler deploy
-#   npx supabase functions deploy careers-jobs careers-ai
+#   npx --yes supabase@3.0.0 functions deploy careers-jobs careers-ai
 #
 # The preflight step in each job names EVERY missing secret in one run, and does
 # it before `npm ci`. Both properties were learned the hard way: the checks used
@@ -220,6 +220,10 @@ jobs:
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+      # The CLI is pinned because an unpinned npx took supabase@3.0.0 on
+      # 2026-11-06, which refuses hosted changes without --yes when it cannot
+      # prompt, and failed this job with no change in this repository.
+      #
       # careers-ai, careers-jobs, and careers-email authenticate the caller
       # in-function via anonClient.auth.getUser(), so the gateway JWT check is
       # redundant. More importantly, the gateway's legacy JWT validation can
@@ -227,7 +231,7 @@ jobs:
       # while their own getUser() call would succeed. The in-function check is
       # the authority; the gateway check adds no value.
       - name: Deploy user-authenticated edge functions (no JWT gate)
-        run: npx supabase functions deploy careers-ai careers-jobs careers-email --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF"
+        run: npx --yes supabase@3.0.0 functions deploy careers-ai careers-jobs careers-email --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF" --yes
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
@@ -236,7 +240,7 @@ jobs:
       # JWT check ensures it is a valid Supabase session before the function
       # runs.
       - name: Deploy billing edge function (with JWT gate)
-        run: npx supabase functions deploy careers-billing-checkout --project-ref "$SUPABASE_PROJECT_REF"
+        run: npx --yes supabase@3.0.0 functions deploy careers-billing-checkout --project-ref "$SUPABASE_PROJECT_REF" --yes
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
@@ -247,7 +251,7 @@ jobs:
       # their account, and a false 401 there would leave Play's required
       # in-app deletion broken with no error reaching the function's logs.
       - name: Deploy account deletion (verifies the caller in-function — see comment)
-        run: npx supabase functions deploy account-delete --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF"
+        run: npx --yes supabase@3.0.0 functions deploy account-delete --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF" --yes
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
@@ -255,7 +259,7 @@ jobs:
       # (auth.getUser, per-IP and per-user limits) and stores a Sign in with
       # Apple token only after Apple confirms it belongs to that caller.
       - name: Deploy Apple sign-in token store (verifies the caller in-function)
-        run: npx supabase functions deploy apple-token --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF"
+        run: npx --yes supabase@3.0.0 functions deploy apple-token --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF" --yes
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
@@ -267,7 +271,7 @@ jobs:
       # Stripe-Signature HMAC (supabase/functions/careers-billing-webhook/
       # signature.ts), which is unit-tested including the secret-rotation case.
       - name: Deploy Stripe webhook (no JWT gate — see comment)
-        run: npx supabase functions deploy careers-billing-webhook --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF"
+        run: npx --yes supabase@3.0.0 functions deploy careers-billing-webhook --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF" --yes
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
@@ -279,7 +283,7 @@ jobs:
       # bounded by per-IP rate limiting, strict allowlist validation, and a
       # table no client can read.
       - name: Deploy public analytics ingest (no JWT gate — see comment)
-        run: npx supabase functions deploy analytics-collect --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF"
+        run: npx --yes supabase@3.0.0 functions deploy analytics-collect --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF" --yes
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
@@ -288,7 +292,7 @@ jobs:
       # every call itself with the CAREERS_SCAN_SECRET shared secret (constant-
       # time compare, 32+ characters) and refuses anything else with 401.
       - name: Deploy scheduled employer job scan (no JWT gate — see comment)
-        run: npx supabase functions deploy careers-scan --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF"
+        run: npx --yes supabase@3.0.0 functions deploy careers-scan --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF" --yes
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
