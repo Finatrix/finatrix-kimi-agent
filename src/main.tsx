@@ -10,10 +10,15 @@ import { initWebVitals } from './lib/webVitals'
 import { initErrorReporting } from './lib/errorReporting'
 import { initActivityTracking } from './tools/lib/activity'
 import { registerServiceWorker } from './lib/serviceWorker'
+import { installChunkRecovery } from './lib/chunkRecovery'
 import { isNativeApp, markPlatform } from './native/platform'
 
 // Before anything renders, so `html.fx-native` styles apply to the first frame.
 markPlatform()
+
+// A tab left open across a deploy asks for chunks the server no longer has.
+// Installed before anything can lazy-load, so the first such failure is caught.
+installChunkRecovery()
 
 // Privacy-first observability. Each initialiser is a no-op unless an analytics
 // endpoint is configured AND the user has not opted out (DNT / GPC).

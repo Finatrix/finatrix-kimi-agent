@@ -132,7 +132,8 @@ self.addEventListener('message', (event) => {
     await Promise.all(data.urls.slice(0, 120).filter(isWarmable).map(async (url) => {
       try {
         if (await cache.match(url, MATCH)) return; // already held; don't refetch
-        await cache.add(url);
+        const res = await fetch(url);
+        if (isAssetResponse(res)) await cache.put(url, res);
       } catch {
         // One unreachable asset must not abandon the rest.
       }
@@ -199,12 +200,32 @@ async function cachedResponse(cache, request) {
   try { return await cache?.match(request, MATCH); } catch { return undefined; }
 }
 
+/**
+ * Is this a response worth keeping as a build asset?
+ *
+ * Everything under /assets and /fonts is a script, a stylesheet, a font, an
+ * image or WebAssembly — never a web page. A host that answers a missing file
+ * with its app shell under a 200 (any SPA fallback does; `vite preview` does)
+ * would otherwise have that page stored as the script, cache-first, for as long
+ * as this worker lives: the chunk can then never load again, even once the real
+ * file is back, because the network is never asked. Refusing to store a page
+ * under an asset URL makes that impossible whatever the host does.
+ */
+function isAssetResponse(res) {
+  if (!res || !res.ok) return false;
+  const type = (res.headers.get('content-type') || '').toLowerCase();
+  return !type.startsWith('text/html');
+}
+
 async function cacheFirst(event, request, cacheName) {
   const cache = await openCache(cacheName);
   const hit = await cachedResponse(cache, request);
-  if (hit) return hit;
+  if (hit && isAssetResponse(hit)) return hit;
+  // A page stored under an asset URL by an earlier worker: not an answer.
+  // Forget it and ask the network, so the cache heals instead of staying broken.
+  if (hit && cache) event.waitUntil(cache.delete(request, MATCH).catch(() => undefined));
   const res = await fetch(request);
-  if (cache && res && res.ok) {
+  if (cache && isAssetResponse(res)) {
     event.waitUntil(cache.put(request, res.clone()).catch(() => undefined));
   }
   return res;
