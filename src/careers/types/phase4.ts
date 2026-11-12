@@ -135,12 +135,20 @@ export interface QuotaCheck {
 
 // ─────────────────────────── feature flags (Module 3) ───────────────────────────
 
+/** Who an override can be aimed at. */
 export type FlagScope = 'user' | 'org' | 'plan';
+
+/**
+ * What an override row is stored under: one of the scopes above, or `global`,
+ * meaning everyone. Only kill switches are stored globally — see
+ * KILL_SWITCH_SCOPE in services/featureFlags2.ts.
+ */
+export type FlagOverrideScope = FlagScope | 'global';
 
 export interface FeatureFlagOverrideRow {
   id: string;
   flag: string;
-  scope: FlagScope;
+  scope: FlagOverrideScope;
   scope_id: string;
   enabled: boolean;
   rollout_percent: number;

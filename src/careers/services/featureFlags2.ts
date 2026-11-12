@@ -6,12 +6,36 @@
  * a flag never needs a deploy.
  *
  * Resolution order (first match wins): kill-switch → user → org → plan → global.
+ *
+ * A KILL SWITCH IS FOR EVERYONE
+ * -----------------------------
+ * The client can only resolve from the rows it is allowed to read, and a
+ * signed-in user reads the rows that are not about one person plus the rows
+ * about themselves (the `feature_flag_overrides_select` policy). A kill switch
+ * saved under `user:<someone>` would reach that one account and nobody else.
+ * So a kill switch is never stored under the scope that was picked: it is one
+ * row per flag under `global:*`, which every signed-in user reads.
  */
 
 import { supabase } from '../../lib/supabase';
 import { mapSupabaseError } from '../utils/errors';
-import type { FeatureFlagOverrideRow, FlagScope } from '../types/phase4';
+import type { FeatureFlagOverrideRow, FlagOverrideScope, FlagScope } from '../types/phase4';
 import type { FeatureFlagRow } from '../types/jobs';
+
+/** Where a kill switch is stored: one row per flag, readable by every signed-in user. */
+export const KILL_SWITCH_SCOPE: FlagOverrideScope = 'global';
+export const KILL_SWITCH_SCOPE_ID = '*';
+
+/** The scope and id an override is stored under. A kill switch is never scoped. */
+export function overrideTarget(
+  scope: FlagScope,
+  scopeId: string,
+  isKillSwitch: boolean
+): { scope: FlagOverrideScope; scope_id: string } {
+  return isKillSwitch
+    ? { scope: KILL_SWITCH_SCOPE, scope_id: KILL_SWITCH_SCOPE_ID }
+    : { scope, scope_id: scopeId };
+}
 
 export async function listGlobalFlags(): Promise<FeatureFlagRow[]> {
   const { data, error } = await supabase.from('careers_feature_flags').select('*');
@@ -31,15 +55,15 @@ export async function setFlagOverride(
   scopeId: string,
   fields: { enabled?: boolean; rolloutPercent?: number; isBeta?: boolean; isKillSwitch?: boolean }
 ): Promise<void> {
+  const isKillSwitch = fields.isKillSwitch ?? false;
   const { error } = await supabase.from('feature_flag_overrides').upsert(
     {
       flag,
-      scope,
-      scope_id: scopeId,
+      ...overrideTarget(scope, scopeId, isKillSwitch),
       enabled: fields.enabled ?? true,
       rollout_percent: fields.rolloutPercent ?? 100,
       is_beta: fields.isBeta ?? false,
-      is_kill_switch: fields.isKillSwitch ?? false,
+      is_kill_switch: isKillSwitch,
     },
     { onConflict: 'flag,scope,scope_id' }
   );
@@ -77,7 +101,10 @@ export function resolveFlag(
 ): boolean {
   const forFlag = overrides.filter((o) => o.flag === flag);
 
-  const killSwitch = forFlag.find((o) => o.is_kill_switch);
+  // A kill switch decides the flag for everyone. The one saved for everyone
+  // wins over any older one that was saved under a scope.
+  const killSwitches = forFlag.filter((o) => o.is_kill_switch);
+  const killSwitch = killSwitches.find((o) => o.scope === KILL_SWITCH_SCOPE) ?? killSwitches[0];
   if (killSwitch) return killSwitch.enabled;
 
   const userOverride = forFlag.find((o) => o.scope === 'user' && o.scope_id === ctx.userId);

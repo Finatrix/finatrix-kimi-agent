@@ -155,8 +155,8 @@ create table if not exists public.usage_counters (
 create table if not exists public.feature_flag_overrides (
   id         uuid primary key default gen_random_uuid(),
   flag       text not null,
-  scope      text not null,       -- user | org | plan
-  scope_id   text not null,       -- user_id / org_id / plan_id
+  scope      text not null,       -- user | org | plan | global (kill switches only)
+  scope_id   text not null,       -- user_id / org_id / plan_id, or '*' for global
   enabled    boolean not null default true,
   rollout_percent int not null default 100,
   is_beta    boolean not null default false,
@@ -359,10 +359,16 @@ create policy "usage_counters_upsert" on public.usage_counters for insert with c
 drop policy if exists "usage_counters_update" on public.usage_counters;
 create policy "usage_counters_update" on public.usage_counters for update using (auth.uid() = user_id);
 
--- feature_flag_overrides: readable by everyone signed in (client resolves scope match itself);
--- writable only by admins.
+-- feature_flag_overrides: a signed-in user reads the rows that are not about one
+-- person (plan, org and global rows, which the client needs to resolve its own
+-- flags) and the rows about themselves. `using (true)` let any account list
+-- other people's ids and the flags they hold. Writable only by admins, whose
+-- FOR ALL policy also lets them read every row.
+-- Kept identical to migration 20261112000100_scope_feature_flag_override_reads.sql,
+-- which is what production runs: re-running this file must not reopen the table.
 drop policy if exists "feature_flag_overrides_select" on public.feature_flag_overrides;
-create policy "feature_flag_overrides_select" on public.feature_flag_overrides for select to authenticated using (true);
+create policy "feature_flag_overrides_select" on public.feature_flag_overrides for select to authenticated
+  using (scope <> 'user' or scope_id = (select auth.uid())::text);
 drop policy if exists "feature_flag_overrides_admin_write" on public.feature_flag_overrides;
 create policy "feature_flag_overrides_admin_write" on public.feature_flag_overrides for all
   using (public.is_platform_admin(auth.uid())) with check (public.is_platform_admin(auth.uid()));

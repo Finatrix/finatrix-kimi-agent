@@ -7,7 +7,7 @@
 
 import { describe, expect, it, beforeEach } from 'vitest';
 import { checkQuota } from '../careers/services/subscriptions';
-import { resolveFlag } from '../careers/services/featureFlags2';
+import { overrideTarget, resolveFlag } from '../careers/services/featureFlags2';
 import { summarizeUsage } from '../careers/services/aiUsage';
 import { allowAction, resetRateLimit, retryAfterMs } from '../careers/utils/rateLimit';
 import type { SubscriptionPlanRow, UsageCounterRow } from '../careers/types/phase4';
@@ -80,6 +80,45 @@ describe('feature flag resolution (Module 3)', () => {
       { id: '1', flag: 'risky', scope: 'plan', scope_id: 'enterprise', enabled: true, rollout_percent: 100, is_beta: false, is_kill_switch: true, updated_at: '' },
     ];
     expect(resolveFlag('risky', [], overrides, { userId: 'anyone', planId: 'free' })).toBe(true);
+  });
+
+  // What the database serves a signed-in user: the rows that are not about one
+  // person, plus the rows about themselves (`feature_flag_overrides_select`).
+  const readableBy = (userId: string, rows: FeatureFlagOverrideRow[]) =>
+    rows.filter((o) => o.scope !== 'user' || o.scope_id === userId);
+
+  const killSwitch = (over: Partial<FeatureFlagOverrideRow> = {}): FeatureFlagOverrideRow => ({
+    id: '1', flag: 'risky', scope: 'global', scope_id: '*', enabled: false, rollout_percent: 100,
+    is_beta: false, is_kill_switch: true, updated_at: '', ...over,
+  });
+
+  it('stores a kill switch for everyone, whatever scope was picked', () => {
+    expect(overrideTarget('user', 'admin-1', true)).toEqual({ scope: 'global', scope_id: '*' });
+    expect(overrideTarget('plan', 'pro', true)).toEqual({ scope: 'global', scope_id: '*' });
+    // An ordinary override stays where it was aimed.
+    expect(overrideTarget('user', 'u1', false)).toEqual({ scope: 'user', scope_id: 'u1' });
+    expect(overrideTarget('org', 'org-1', false)).toEqual({ scope: 'org', scope_id: 'org-1' });
+  });
+
+  it("a kill switch reaches people who cannot read each other's rows", () => {
+    const onGlobally: FeatureFlagRow[] = [{ flag: 'risky', enabled: true, free_limit: null, notes: '' }];
+    // An admin ticks "kill switch" with User and their own id still in the form.
+    const saved = [killSwitch(overrideTarget('user', 'admin-1', true))];
+    for (const userId of ['admin-1', 'someone-else']) {
+      expect(resolveFlag('risky', onGlobally, readableBy(userId, saved), { userId })).toBe(false);
+    }
+    // Stored under the scope that was picked, nobody else would be served the
+    // row, and the feature would have stayed on for them.
+    const scoped = [killSwitch({ scope: 'user', scope_id: 'admin-1' })];
+    expect(readableBy('someone-else', scoped)).toEqual([]);
+    expect(resolveFlag('risky', onGlobally, readableBy('someone-else', scoped), { userId: 'someone-else' })).toBe(true);
+  });
+
+  it('the kill switch saved for everyone wins over an older scoped one', () => {
+    const older = killSwitch({ id: 'old', scope: 'plan', scope_id: 'enterprise', enabled: true });
+    const current = killSwitch({ id: 'new', enabled: false });
+    expect(resolveFlag('risky', [], [older, current], { userId: 'u1' })).toBe(false);
+    expect(resolveFlag('risky', [], [current, older], { userId: 'u1' })).toBe(false);
   });
 
   it('org override applies to org members and does not leak to others', () => {
