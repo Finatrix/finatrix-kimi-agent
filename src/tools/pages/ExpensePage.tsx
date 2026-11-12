@@ -22,7 +22,8 @@ import {
   type ExpenseExport,
 } from '../lib/exporters';
 import { currentMonth, monthLabel, nextMonthUnclamped, prevMonth } from '../lib/month';
-import { getJSON, setJSON, onLocalWrite } from '../lib/storage';
+import { getJSON, setJSON, onLocalWrite, store } from '../lib/storage';
+import { reloadForNewBuild } from '../../lib/chunkRecovery';
 import {
   loadExpenses, saveExpenses, etToday, etMonthsWithData, computeDashboard, genExpenseId,
   isSpendingCategory, migrateCategory,
@@ -91,8 +92,15 @@ const UNDO_WINDOW_MS = 10_000;
  * are someone logging a coffee. Keeping it out of the Expense Tracker's chunk
  * means importing costs a moment when it is first used, and costs nothing at all
  * to everyone who never does.
+ *
+ * The loader is named so the Import button can call it too. A chunk fetch can
+ * fail — a deploy since this tab was opened, or no connection — and `lazy`
+ * turns that failure into a thrown render error, which took down the whole app
+ * (see lib/chunkRecovery.ts). So the button waits for the chunk itself, and
+ * only renders the sheet once it has arrived.
  */
-const StatementImport = lazy(() => import('../ui/StatementImport'));
+const loadStatementImport = () => import('../ui/StatementImport');
+const StatementImport = lazy(loadStatementImport);
 
 const TAB_ITEMS: ReadonlyArray<TabItem<Tab>> = [
   { key: 'overview', label: 'Overview', icon: 'expense' },
@@ -155,6 +163,10 @@ export default function ExpensePage() {
   // the most recent batch and re-inserts it, so a run of mistaken deletes
   // can be walked back one by one.
   const [importing, setImporting] = useState(false);
+  /** The importer's chunk is on its way: the button says so and ignores a second press. */
+  const [importLoading, setImportLoading] = useState(false);
+  /** A write that did not reach storage is announced once, not on every edit. */
+  const warnedUnsaved = useRef(false);
   const [undoStack, setUndoStack] = useState<{ victims: ExpenseItem[]; label: string }[]>([]);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Bumped on every delete/undo to restart the countdown bar. */
@@ -331,14 +343,39 @@ export default function ExpensePage() {
    * path is an audit trail nobody can trust. Pass `[]` deliberately for a change
    * that genuinely records nothing (an edit that changed no field).
    */
-  const commit = (next: ExpenseItem[], events: AuditEntry[]) => {
+  const commit = (
+    next: ExpenseItem[],
+    events: AuditEntry[],
+    { allOrNothing = false }: { allOrNothing?: boolean } = {},
+  ): boolean => {
+    // `false` only when storage exists and refused the write (it is full).
+    // With no storage at all nothing can persist, and the list already says so.
+    const saved = saveExpenses(next) || !store.persistent;
+
+    if (!saved && allOrNothing) {
+      // Nothing else has been touched yet, so the ledger can go back exactly as
+      // it was: on disk, in this session, and in what sync uploads next.
+      saveExpenses(items);
+      return false;
+    }
+
     setItems(next);
-    saveExpenses(next);
     if (events.length) setAudit(recordAudit(events));
     // Sync merges the ledger, so a row missing here means nothing to another
     // device unless the deletion is written down.
     recordDeletions(events.filter((e) => e.action === 'delete').map((e) => e.txId));
     clearDeletions(events.filter((e) => e.action === 'restore').map((e) => e.txId));
+
+    // The change is on screen but would not survive a reload. Saying nothing
+    // here is how someone loses a week of entries without ever being told.
+    if (!saved && !warnedUnsaved.current) {
+      warnedUnsaved.current = true;
+      notify(
+        'This device’s storage is full, so that change could not be saved here. Export a backup now so nothing is lost.',
+        'error',
+      );
+    }
+    return saved;
   };
 
   /**
@@ -567,13 +604,73 @@ export default function ExpensePage() {
    * transactions" as a single, expandable line rather than burying a week of
    * manual entries under one upload.
    */
-  const importTransactions = (imported: ExpenseItem[]) => {
-    if (!imported.length) return;
+  const importTransactions = (imported: ExpenseItem[]): boolean => {
+    if (!imported.length) return true;
     const batch = batchIdFor(imported.length);
-    commit([...imported, ...items], imported.map((it) => auditEvent('add', it, { batch })));
+
+    // All or nothing. An import is the one write large enough to meet a full
+    // disk, and "Imported 143 transactions" over a ledger that will be empty
+    // again after a reload is the worst thing this page could say. Returning
+    // false keeps the review sheet open with its work intact.
+    const saved = commit(
+      [...imported, ...items],
+      imported.map((it) => auditEvent('add', it, { batch })),
+      { allOrNothing: true },
+    );
+    if (!saved) return false;
+
     haptic('success');
-    notify(`Imported ${imported.length} transaction${imported.length > 1 ? 's' : ''}.`, 'ok');
     track('tool_completed', { tool: 'expenses' });
+
+    // A statement is nearly always for a month that has ended, and this page
+    // opens on the current one — so the rows used to land where nobody was
+    // looking, and the import looked as though it had done nothing. If none of
+    // them fall in the month on screen, go to the latest month that got some.
+    const count = `Imported ${imported.length} transaction${imported.length > 1 ? 's' : ''}.`;
+    const landed = [...new Set(imported.map((it) => (it.date || '').slice(0, 7)).filter(Boolean))].sort();
+    const latest = landed[landed.length - 1];
+    if (latest && !landed.includes(selMonthRef.current)) {
+      switchMonth(latest);
+      notify(
+        landed.length > 1
+          ? `${count} Showing ${monthLabel(latest)}, the latest of the ${landed.length} months they cover.`
+          : `${count} Showing ${monthLabel(latest)}, where they landed.`,
+        'ok',
+      );
+    } else {
+      notify(landed.length > 1 ? `${count} They cover ${landed.length} months.` : count, 'ok');
+    }
+    return true;
+  };
+
+  /**
+   * Open the statement importer.
+   *
+   * Waits for the importer's chunk before rendering anything, for two reasons.
+   * The button can then show that something is happening, where it used to sit
+   * unchanged until the sheet appeared. And a chunk that fails to arrive fails
+   * HERE, as a message beside a page that still works, instead of as a render
+   * error that replaces the app. A stale build is cured by a reload, which
+   * `reloadForNewBuild` does once; anything else is reported.
+   */
+  const openImport = async () => {
+    if (importLoading) return;
+    setImportLoading(true);
+    try {
+      await loadStatementImport();
+      setImporting(true);
+    } catch {
+      if (!reloadForNewBuild()) {
+        notify(
+          typeof navigator !== 'undefined' && navigator.onLine === false
+            ? 'Import needs a connection the first time it opens. Reconnect and try again.'
+            : 'Import could not be loaded. Check your connection and try again.',
+          'error',
+        );
+      }
+    } finally {
+      setImportLoading(false);
+    }
   };
 
   /**
@@ -833,8 +930,9 @@ export default function ExpensePage() {
             <button
               type="button"
               className="btn btn-ghost btn-sm"
-              style={{ gap: 6 }}
-              onClick={() => setImporting(true)}
+              style={{ gap: 6, ...(importLoading ? { opacity: 0.6, cursor: 'progress' } : null) }}
+              onClick={openImport}
+              aria-busy={importLoading || undefined}
             >
               <Icon name="layers" size={15} />
               Import

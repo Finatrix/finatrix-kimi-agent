@@ -28,7 +28,13 @@ interface FxStore {
    * silently miss values that only ever made it into `mem`.
    */
   raw(key: string): string | null;
-  set(key: string, value: string): void;
+  /**
+   * Write a value. Returns whether it reached persistent storage: `false` means
+   * the value is held for this session only (storage is full, or blocked), which
+   * a caller writing something the user would grieve to lose must not report as
+   * saved. The value is readable through `get`/`raw` either way.
+   */
+  set(key: string, value: string): boolean;
   remove(key: string): void;
   readonly persistent: boolean;
   /** True while any latest value lives only in this session after a failed write. */
@@ -67,13 +73,13 @@ function createStore(): FxStore {
       const v = raw(key);
       return v === null ? fallback : v;
     },
-    set(key: string, value: string): void {
+    set(key: string, value: string): boolean {
       try {
         if (ok) {
           localStorage.setItem(key, value);
           mem.delete(key); // localStorage is authoritative again
           notifyWrite(key);
-          return;
+          return true;
         }
       } catch {
         /* quota/security error — shadow the value in memory so this session
@@ -81,6 +87,7 @@ function createStore(): FxStore {
       }
       mem.set(key, value);
       notifyWrite(key);
+      return false;
     },
     remove(key: string): void {
       try {
@@ -150,10 +157,11 @@ export function getJSON<T>(key: string, fallback: T): T {
   }
 }
 
-export function setJSON(key: string, value: unknown): void {
+/** Returns whether the value reached persistent storage — see `FxStore.set`. */
+export function setJSON(key: string, value: unknown): boolean {
   try {
-    store.set(key, JSON.stringify(value));
+    return store.set(key, JSON.stringify(value));
   } catch {
-    /* ignore */
+    return false;
   }
 }

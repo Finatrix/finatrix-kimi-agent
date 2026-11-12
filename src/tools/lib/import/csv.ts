@@ -19,11 +19,19 @@
  */
 
 import { sanitizeField } from '../../../lib/sanitize';
-import { parseAmount, parseStatementDate, detectDateOrder } from './fields';
+import { parseAmount, parseBalance, parseStatementDate, detectDateOrder } from './fields';
 import type { DateOrder, SourceKind, StatementDoc, StatementRow } from './types';
 
 /** How far into the file we will look for a header row. */
 const MAX_PREAMBLE_LINES = 30;
+
+/**
+ * Rows one import will read. The same ceiling the spreadsheet reader applies,
+ * and for the same reason: far above any personal statement, and a file over
+ * it is refused rather than read in part — a ledger must never be handed "the
+ * first 20,000 rows" as though that were the statement.
+ */
+export const MAX_STATEMENT_ROWS = 20_000;
 /** Delimiters worth trying, most likely first. */
 const DELIMITERS = [',', ';', '\t', '|'] as const;
 
@@ -258,20 +266,35 @@ export function parseStatementMatrix(
   now: Date = new Date(),
   source: SourceKind = 'csv',
 ): StatementDoc {
+  if (matrix.length > MAX_STATEMENT_ROWS + MAX_PREAMBLE_LINES) {
+    throw new StatementParseError(
+      `This statement has more than ${MAX_STATEMENT_ROWS.toLocaleString('en')} rows. Please download a shorter date range from your bank.`,
+    );
+  }
+
   let headerAt = -1;
   let map: ColumnMap = EMPTY_MAP;
   for (let i = 0; i < Math.min(matrix.length, MAX_PREAMBLE_LINES); i++) {
     const candidate = mapColumns(matrix[i]);
     if (isUsable(candidate)) { headerAt = i; map = candidate; break; }
   }
+  // No header row. Some banks export exactly that, so the columns are worked
+  // out from what is in them — but only where the file itself settles it (see
+  // `inferColumns`). Anything short of that is still refused.
+  let columnsInferred = false;
   if (headerAt < 0) {
-    throw new StatementParseError(
-      'We could not find a header row in this file. It needs a date column and either an amount column or separate debit/credit columns.'
-    );
+    const inferred = inferColumns(matrix);
+    if (!inferred) {
+      throw new StatementParseError(
+        'We could not find a header row in this file. It needs a date column and either an amount column or separate debit/credit columns.'
+      );
+    }
+    map = inferred;
+    columnsInferred = true;
   }
 
-  const preamble = matrix.slice(0, headerAt).flat().join(' ');
-  const headerText = matrix[headerAt].join(' ');
+  const preamble = headerAt > 0 ? matrix.slice(0, headerAt).flat().join(' ') : '';
+  const headerText = headerAt >= 0 ? matrix[headerAt].join(' ') : '';
 
   const body = matrix.slice(headerAt + 1);
   const cell = (row: string[], idx: number): string => (idx >= 0 && idx < row.length ? (row[idx] ?? '').trim() : '');
@@ -281,6 +304,33 @@ export function parseStatementMatrix(
   const dateSamples = body.map((r) => cell(r, map.date)).filter(Boolean);
   const detected = detectDateOrder(dateSamples);
   const dateOrder: DateOrder = detected ?? 'dmy';
+
+  // How a bare sign is to be read, settled across the whole column first.
+  //
+  // A column holding both negative and positive amounts is using the sign to
+  // say which way the money went — but not every export agrees which sign is
+  // which: a bank prints spending as negative, some card exports print it as
+  // positive and the repayments as negative. Reading negative as "spent" and
+  // leaving positives to default to "spent" as well made every deposit in a
+  // bank export an expense. The side with more rows is the spending, because
+  // that is what a statement mostly is; a tie keeps the bank convention. This
+  // is only ever a reading, never a statement: the balance column overrules it
+  // wherever there is one, and the review sheet offers to swap it.
+  let negatives = 0;
+  let positives = 0;
+  if (map.amount >= 0) {
+    for (const raw of body) {
+      const debit = map.debit >= 0 ? parseAmount(cell(raw, map.debit)) : null;
+      const credit = map.credit >= 0 ? parseAmount(cell(raw, map.credit)) : null;
+      if ((debit && debit.value > 0) || (credit && credit.value > 0)) continue;
+      const single = parseAmount(cell(raw, map.amount));
+      if (!single || single.marker || single.value === 0) continue;
+      if (single.negative) negatives++;
+      else positives++;
+    }
+  }
+  const signedColumn = negatives > 0 && positives > 0;
+  const spendingIsNegative = negatives >= positives;
 
   const rows: StatementRow[] = [];
   let skipped = 0;
@@ -296,13 +346,13 @@ export function parseStatementMatrix(
       .filter(Boolean)
       .join(' — ');
 
-    const balance = parseAmount(cell(raw, map.balance))?.value ?? null;
+    const balance = parseBalance(cell(raw, map.balance));
 
     // Summary lines carry the statement's own balances, which the reconciler
     // needs, but are not transactions.
     if (SUMMARY_RE.test(description) || SUMMARY_RE.test(cell(raw, 0))) {
       const text = `${cell(raw, 0)} ${description}`;
-      const value = balance ?? parseAmount(cell(raw, map.amount))?.value ?? null;
+      const value = balance ?? parseBalance(cell(raw, map.amount));
       if (value !== null) {
         if (/opening|b\/f/i.test(text)) openingBalance = value;
         else if (/closing|c\/f/i.test(text)) closingBalance = value;
@@ -321,20 +371,25 @@ export function parseStatementMatrix(
 
     let amount: number | null = null;
     let direction: StatementRow['direction'] = null;
+    // Whether the bank said which way the money moved, or we read it off a sign.
+    let directionStated = false;
 
     if (debit && debit.value > 0) {
       amount = debit.value;
       direction = 'debit';
+      directionStated = true;
     } else if (credit && credit.value > 0) {
       amount = credit.value;
       direction = 'credit';
+      directionStated = true;
     } else if (single) {
       amount = single.value;
       // An explicit Dr/Cr marker is the bank stating the direction outright and
       // outranks sign. Otherwise the sign is only a hint — `resolveDirections`
       // settles it against the balance column, which cannot be misread.
-      if (single.marker === 'dr') direction = 'debit';
-      else if (single.marker === 'cr') direction = 'credit';
+      if (single.marker === 'dr') { direction = 'debit'; directionStated = true; }
+      else if (single.marker === 'cr') { direction = 'credit'; directionStated = true; }
+      else if (signedColumn) direction = single.negative === spendingIsNegative ? 'debit' : 'credit';
       else if (single.negative) direction = 'debit';
       else direction = null;
     }
@@ -348,6 +403,7 @@ export function parseStatementMatrix(
       description: sanitizeField(description || cell(raw, 0), 300),
       amount,
       direction,
+      ...(directionStated ? { directionStated } : null),
       balance,
       reference: map.reference >= 0 ? (cell(raw, map.reference) || null) : null,
       currency: map.currency >= 0 ? (cell(raw, map.currency).toUpperCase() || null) : null,
@@ -363,5 +419,100 @@ export function parseStatementMatrix(
     skipped,
     dateOrder,
     dateOrderAssumed: detected === null,
+    ...(columnsInferred ? { columnsInferred } : null),
+  };
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   Files with no header row
+   ════════════════════════════════════════════════════════════════════════ */
+
+/** A cell that is a date and nothing else. */
+const DATE_LIKE_RE = /^(?:\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}|\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[ -][A-Za-z]{3,9}[ -]\d{2,4})$/;
+
+/** Share of a column's filled cells that must agree before it is called that kind. */
+const COLUMN_AGREEMENT = 0.9;
+
+/** Share of rows whose balance must step by their own amount to call a column the balance. */
+const CHAIN_PROOF = 0.6;
+
+/**
+ * How many rows step `balanceCol` by exactly the figure in `amountCol`, in
+ * whichever order the file lists them. This is the same evidence the reconciler
+ * uses: a running balance is the one column whose steps ARE another column.
+ */
+function chainMatches(rows: string[][], amountCol: number, balanceCol: number): number {
+  const amounts = rows.map((r) => parseAmount((r[amountCol] ?? '').trim())?.value ?? null);
+  const balances = rows.map((r) => parseBalance((r[balanceCol] ?? '').trim()));
+  let forward = 0;
+  let backward = 0;
+  for (let i = 0; i < rows.length; i++) {
+    const amount = amounts[i];
+    const balance = balances[i];
+    if (amount === null || balance === null) continue;
+    const above = i > 0 ? balances[i - 1] : null;
+    const below = i < rows.length - 1 ? balances[i + 1] : null;
+    if (above !== null && Math.abs(Math.abs(balance - above) - amount) < 0.005) forward++;
+    if (below !== null && Math.abs(Math.abs(balance - below) - amount) < 0.005) backward++;
+  }
+  return Math.max(forward, backward);
+}
+
+/**
+ * Work out the columns of a file that has no header row.
+ *
+ * Only two shapes are accepted, because only these can be read from evidence
+ * rather than from a guess about what a bank probably meant:
+ *
+ *   date, description, amount            — one money column: it is the amount
+ *   date, description, amount, balance   — two money columns, where one steps
+ *                                          by the other row after row, which
+ *                                          makes it the running balance
+ *
+ * in any column order. Two money columns that do not step that way (they might
+ * be withdrawals and deposits, in either order), three or more money columns,
+ * no date column, or no text column all return null, and the caller refuses the
+ * file as before. The result is marked as inferred so the review sheet says so.
+ */
+export function inferColumns(matrix: string[][]): ColumnMap | null {
+  const rows = matrix.filter((row) => row.some((c) => (c ?? '').trim() !== '')).slice(0, 400);
+  if (!rows.length) return null;
+  const width = Math.max(...rows.map((r) => r.length));
+
+  const dates: number[] = [];
+  const money: number[] = [];
+  const text: Array<{ index: number; length: number }> = [];
+
+  for (let c = 0; c < width; c++) {
+    const cells = rows.map((r) => (r[c] ?? '').trim()).filter(Boolean);
+    if (!cells.length) continue;
+    const dateLike = cells.filter((v) => DATE_LIKE_RE.test(v)).length;
+    const moneyLike = cells.filter((v) => !DATE_LIKE_RE.test(v) && parseAmount(v) !== null).length;
+    if (dateLike / cells.length >= COLUMN_AGREEMENT) dates.push(c);
+    else if (moneyLike / cells.length >= COLUMN_AGREEMENT) money.push(c);
+    else text.push({ index: c, length: cells.reduce((sum, v) => sum + v.length, 0) / cells.length });
+  }
+
+  if (!dates.length || !text.length || money.length < 1 || money.length > 2) return null;
+
+  let amount = money[0];
+  let balance = -1;
+  if (money.length === 2) {
+    const needed = Math.max(1, Math.ceil((rows.length - 1) * CHAIN_PROOF));
+    const firstIsAmount = chainMatches(rows, money[0], money[1]);
+    const secondIsAmount = chainMatches(rows, money[1], money[0]);
+    if (firstIsAmount >= needed && firstIsAmount > secondIsAmount) { amount = money[0]; balance = money[1]; }
+    else if (secondIsAmount >= needed && secondIsAmount > firstIsAmount) { amount = money[1]; balance = money[0]; }
+    else return null;
+  }
+
+  return {
+    ...EMPTY_MAP,
+    date: dates[0],
+    postedDate: dates.length > 1 ? dates[1] : -1,
+    // The widest text column is the description; codes and types are shorter.
+    description: [text.sort((a, b) => b.length - a.length)[0].index],
+    amount,
+    balance,
   };
 }

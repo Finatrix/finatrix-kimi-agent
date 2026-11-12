@@ -42,7 +42,11 @@ interface Props {
   cfmt: (n: number) => string;
   /** ISO code of the active display currency, for the mismatch warning. */
   currencyCode: string;
-  onImport: (items: ExpenseItem[]) => void;
+  /**
+   * Write the confirmed transactions. Return `false` when they could not be
+   * saved: the sheet then stays open, review intact, and says why.
+   */
+  onImport: (items: ExpenseItem[]) => boolean | void;
   onClose: () => void;
   /** False when the assistant should not be called at all. */
   aiEnabled?: boolean;
@@ -72,7 +76,9 @@ export default function StatementImport({
   const {
     phase, message, fileName, drafts, summary, extraction,
     aiPhase, aiMessage, resumable, dateOrder, dateOrderAssumed, flipDateOrder, allowAi, declineAi,
-    start, submitPassword, updateDraft, setAllIncluded, resume, discardResumable, confirm, reset,
+    directionsUncertain, swapDirections,
+    start, submitPassword, updateDraft, setAllIncluded, resume, discardResumable, confirm, saveError,
+    reset, discard, stash,
   } = trip;
 
   const [filter, setFilter] = useState<Filter>('all');
@@ -91,13 +97,29 @@ export default function StatementImport({
   useBodyScrollLock(true);
 
   // Remember the opener and restore focus on close, so a keyboard user is not
-  // dropped at the top of the document.
+  // dropped at the top of the document. Focus then moves INTO the dialog: the
+  // page behind is inert, so focus left on the opener is focus on nothing —
+  // Enter did nothing and a screen reader announced no dialog at all.
   useEffect(() => {
     lastFocused.current = document.activeElement as HTMLElement | null;
+    const card = cardRef.current;
+    (card?.querySelector<HTMLElement>('[data-autofocus]') ?? card)?.focus();
     return () => { lastFocused.current?.focus?.(); };
   }, []);
 
-  const close = useCallback(() => { reset(); onClose(); }, [reset, onClose]);
+  /**
+   * Put the sheet away without deciding anything.
+   *
+   * The ✕, Escape and the backdrop all mean "not now", not "throw this away",
+   * so an unfinished review is stashed and offered again next time. All three
+   * used to delete it — including a review staged on an earlier visit, which
+   * merely opening and closing this sheet destroyed. Only the Cancel button in
+   * the review footer discards, because that is the one control that says so.
+   */
+  const close = useCallback(() => { stash(); onClose(); }, [stash, onClose]);
+
+  /** The user chose to abandon this import. */
+  const cancelImport = useCallback(() => { discard(); onClose(); }, [discard, onClose]);
 
   // Escape closes; Tab is trapped inside the dialog.
   useEffect(() => {
@@ -143,10 +165,10 @@ export default function StatementImport({
     start(file);
   }, [start]);
 
+  // Closes only when the transactions were actually written. A refused write
+  // leaves the sheet open with the reason shown beside the button.
   const doImport = useCallback(() => {
-    const items = confirm();
-    if (items.length) onImport(items);
-    onClose();
+    if (confirm(onImport)) onClose();
   }, [confirm, onImport, onClose]);
 
   const currencyMismatch =
@@ -156,10 +178,12 @@ export default function StatementImport({
 
   return createPortal(
     <div className="fx-tools fx-scope">
-      <div className="fx-imp-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}>
+      {/* A click on the backdrop closes the sheet — except mid-review, where a
+          stray click beside a four-hundred-row table should not put it away. */}
+      <div className="fx-imp-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget && phase !== 'review') close(); }}>
         <style>{STYLES}</style>
 
-        <div ref={cardRef} className="fx-imp-card" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descId}>
+        <div ref={cardRef} tabIndex={-1} className="fx-imp-card" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descId}>
           <header className="fx-imp-head">
             <div>
               <h2 id={titleId} className="fx-imp-title">Import a statement</h2>
@@ -245,6 +269,29 @@ export default function StatementImport({
                     </span>
                     <button type="button" className="fx-imp-btn fx-imp-sm" onClick={flipDateOrder}>
                       Read as {dateOrder === 'dmy' ? 'MM/DD' : 'DD/MM'}
+                    </button>
+                  </p>
+                )}
+
+                {extraction?.doc.columnsInferred && (
+                  <p className="fx-imp-banner" role="status">
+                    This file has no header row, so the columns were worked out from what is
+                    in them. Check the first few rows before importing.
+                  </p>
+                )}
+
+                {/* Only when the file settled nothing AND there is something to
+                    swap: a statement read as all spending has no second reading. */}
+                {directionsUncertain && summary.credits > 0 && summary.credits < drafts.length && (
+                  <p className="fx-imp-banner" role="status">
+                    <span>
+                      This file does not say which rows are money out and which are money in,
+                      so we read <b>{drafts.length - summary.credits}</b> as spending
+                      and <b>{summary.credits}</b> as money in. If that is the wrong way round,
+                      swap them here rather than fixing each row.
+                    </span>
+                    <button type="button" className="fx-imp-btn fx-imp-sm" onClick={swapDirections}>
+                      Swap money in and out
                     </button>
                   </p>
                 )}
@@ -359,13 +406,16 @@ export default function StatementImport({
 
           {phase === 'review' && (
             <footer className="fx-imp-foot">
+              {saveError && (
+                <p className="fx-imp-banner fx-imp-warn fx-imp-foot-error" role="alert">{saveError}</p>
+              )}
               <p className="fx-imp-note fx-imp-foot-note">
                 Only merchant descriptions are sent for AI categorisation — never amounts,
                 balances or account numbers. For a screenshot, the assistant may also see its
                 text with every digit hidden, to tell which lines are one transaction.
               </p>
               <div className="fx-imp-actions">
-                <button type="button" className="fx-imp-btn" onClick={close}>Cancel</button>
+                <button type="button" className="fx-imp-btn" onClick={cancelImport}>Cancel</button>
                 <button
                   type="button"
                   className="fx-imp-btn fx-imp-primary"
@@ -398,7 +448,7 @@ function IdlePane({
   onResume: () => void;
   onDiscard: () => void;
 }) {
-  const inputId = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
   const pdfUnavailable = pdfCompatibilityMessage();
 
   return (
@@ -423,16 +473,30 @@ function IdlePane({
       >
         <p className="fx-imp-state-title">Drop a bank or credit card statement</p>
         <p className="fx-imp-note">
-          CSV, Excel{pdfUnavailable ? '' : ', PDF'} — or a screenshot or photo of one.
+          CSV, Excel (.xlsx){pdfUnavailable ? '' : ', PDF'} — or a screenshot or photo of one.
           {!pdfUnavailable && ' Password-protected PDFs are supported.'}
         </p>
         {pdfUnavailable && <p className="fx-imp-note" role="status">{pdfUnavailable}</p>}
-        <label className="fx-imp-btn fx-imp-primary fx-imp-filebtn" htmlFor={inputId}>Choose a file</label>
+        {/* A real button, not a <label> styled as one. A label is not focusable
+            and the input it pointed at was visually hidden, so a keyboard user
+            tabbed onto an invisible control with no focus ring at all. The
+            button takes focus, shows it, and opens the same picker. */}
+        <button
+          type="button"
+          className="fx-imp-btn fx-imp-primary fx-imp-filebtn"
+          data-autofocus
+          onClick={() => inputRef.current?.click()}
+        >
+          Choose a file
+        </button>
         <input
-          id={inputId}
+          ref={inputRef}
           className="fx-imp-sr"
           type="file"
           accept={ACCEPT_ATTRIBUTE}
+          aria-label="Statement file"
+          aria-hidden="true"
+          tabIndex={-1}
           onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ''; }}
         />
       </div>
@@ -638,6 +702,9 @@ const STYLES = `
 @media (hover: hover) and (pointer: fine){
 .fx-imp-btn:hover:not(:disabled){background:var(--fill-06);}}
 .fx-imp-btn:disabled{opacity:.5;cursor:not-allowed;}
+.fx-imp-btn:focus-visible,.fx-imp-chip:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+.fx-imp-card:focus{outline:none;}
+.fx-imp-foot-error{flex:1 1 100%;margin:0;}
 .fx-imp-primary{background:var(--gold);border-color:var(--fab-border);color:#1a1608;}
 @media (hover: hover) and (pointer: fine){
 .fx-imp-primary:hover:not(:disabled){background:var(--gold-2);}}

@@ -29,7 +29,7 @@ import { setAiConsent } from '../../../lib/ai/consent';
 import type { ExpenseItem } from '../expense';
 import { applySuggestions, pendingDescriptions } from './categorize';
 import { markDuplicates } from './dedupe';
-import { buildDrafts, clearStaged, loadStaged, saveStaged, toExpense } from './draft';
+import { buildDrafts, clearStaged, flipDirection, loadStaged, saveStaged, toExpense } from './draft';
 import { isImportable, summarize } from './status';
 import { extractStatement, ImportError, type ExtractedStatement } from './extract';
 import { loadLearned, rememberConfirmed, saveLearned } from './learned';
@@ -72,6 +72,10 @@ export interface UseStatementImport {
   dateOrderAssumed: boolean;
   /** Re-read every ambiguous date the other way round. */
   flipDateOrder: () => void;
+  /** True when the file gave no evidence of which way any row moved. */
+  directionsUncertain: boolean;
+  /** Re-read every row the other way round: money out as money in, and back. */
+  swapDirections: () => void;
   /** Give permission for third-party AI, then name the unrecognised merchants. */
   allowAi: () => void;
   /** Keep this import on the device: categorise by hand. */
@@ -83,9 +87,29 @@ export interface UseStatementImport {
   setAllIncluded: (include: boolean) => void;
   resume: () => void;
   discardResumable: () => void;
-  /** Builds the transactions to save and folds confirmed choices into learning. */
-  confirm: () => ExpenseItem[];
+  /**
+   * Hand the ticked rows to `save` and, only if it took them, fold the
+   * confirmed choices into learning and drop the staged copy. Returns whether
+   * the import went through. When `save` refuses (it returns `false` — storage
+   * is full), nothing is learned, nothing is cleared, and `saveError` says why.
+   */
+  confirm: (save: (items: ExpenseItem[]) => boolean | void) => boolean;
+  /** Why the last confirm did not go through. Empty otherwise. */
+  saveError: string;
+  /** Back to the file picker. Leaves any staged review where it is. */
   reset: () => void;
+  /** Abandon this import: back to the file picker, and the staged copy is deleted. */
+  discard: () => void;
+  /** Write the staged copy now, rather than on the next debounce tick. */
+  stash: () => void;
+}
+
+/** The staged review this browser holds, as the resume banner describes it. */
+function readResumable(): UseStatementImport['resumable'] {
+  const staged = loadStaged();
+  return staged
+    ? { fileName: staged.fileName, savedAt: staged.savedAt, count: staged.drafts.length }
+    : null;
 }
 
 const EMPTY_SUMMARY: ImportSummary = {
@@ -119,12 +143,8 @@ export function useStatementImport({
      than in an effect: it is a synchronous fact about storage at open time, not
      an event to react to, and deriving it here means the resume banner is in the
      first paint instead of arriving a render later. */
-  const [resumable, setResumable] = useState<UseStatementImport['resumable']>(() => {
-    const staged = loadStaged();
-    return staged
-      ? { fileName: staged.fileName, savedAt: staged.savedAt, count: staged.drafts.length }
-      : null;
-  });
+  const [resumable, setResumable] = useState<UseStatementImport['resumable']>(readResumable);
+  const [saveError, setSaveError] = useState('');
 
   /** The pending file for the password retry. Never persisted. */
   const pendingFile = useRef<File | null>(null);
@@ -184,6 +204,7 @@ export function useStatementImport({
       setFileName(file.name);
       setPhase('reading');
       setMessage('');
+      setSaveError('');
       setAiPhase('skipped');
       setAiMessage('');
       setAiAsked(0);
@@ -290,6 +311,17 @@ export function useStatementImport({
     );
   }, [existing]);
 
+  /**
+   * Read the whole statement the other way round.
+   *
+   * Offered only when the file itself settled nothing (`directionsUncertain`).
+   * Duplicate flags are recomputed afterwards so a row that is now spending and
+   * already in the ledger is still held back.
+   */
+  const swapDirections = useCallback(() => {
+    setDrafts((current) => markDuplicates(current.map(flipDirection), existing));
+  }, [existing]);
+
   const resume = useCallback(() => {
     const staged = loadStaged();
     if (!staged) return;
@@ -307,10 +339,17 @@ export function useStatementImport({
     setResumable(null);
   }, []);
 
+  /**
+   * Back to the file picker.
+   *
+   * Does NOT delete the staged review. This runs for "Choose another file"
+   * after a file that could not be read, where the only staged copy there can
+   * be is an earlier, unfinished review — and deleting that because a different
+   * file failed to parse threw away work the user never asked to lose.
+   */
   const reset = useCallback(() => {
     runId.current++;
     pendingFile.current = null;
-    clearStaged();
     setPhase('idle');
     setMessage('');
     setFileName('');
@@ -319,11 +358,42 @@ export function useStatementImport({
     setAiPhase('skipped');
     setAiMessage('');
     setAiAsked(0);
+    setSaveError('');
+    setResumable(readResumable());
   }, []);
 
-  const confirm = useCallback((): ExpenseItem[] => {
+  /** The user said to abandon this import: the staged copy goes with it. */
+  const discard = useCallback(() => {
+    clearStaged();
+    reset();
+  }, [reset]);
+
+  /**
+   * Save the review as it stands, now.
+   *
+   * The effect above writes it half a second after the last edit. A sheet
+   * dismissed inside that half second would otherwise be resumed one edit
+   * behind — or, for a file opened and dismissed at once, not at all.
+   */
+  const stash = useCallback(() => {
+    if (phase === 'review' && drafts.length) saveStaged(fileName, drafts);
+  }, [phase, drafts, fileName]);
+
+  const confirm = useCallback((save: (items: ExpenseItem[]) => boolean | void): boolean => {
     const chosen = drafts.filter((d) => d.include && isImportable(d));
-    const items = chosen.map((d) => toExpense(d));
+    if (!chosen.length) return false;
+
+    // The ledger first. Learning from a category choice and deleting the
+    // staged review are both things to do AFTER the transactions are safely
+    // written — done before, a refused write cost the user their review and
+    // taught the importer from rows that were never imported.
+    if (save(chosen.map((d) => toExpense(d))) === false) {
+      setSaveError(
+        'Nothing was imported. This device’s storage is full, so these transactions could not be saved. '
+        + 'Export a backup and clear some older data, or untick some rows, then try again. Your review is kept.',
+      );
+      return false;
+    }
 
     saveLearned(
       rememberConfirmed(
@@ -332,8 +402,9 @@ export function useStatementImport({
       ),
     );
 
+    setSaveError('');
     clearStaged();
-    return items;
+    return true;
   }, [drafts]);
 
   const summary = useMemo(() => (drafts.length ? summarize(drafts) : EMPTY_SUMMARY), [drafts]);
@@ -349,8 +420,9 @@ export function useStatementImport({
     phase, message, fileName, drafts, summary, extraction,
     aiPhase, aiMessage, aiAsked, resumable,
     dateOrder, dateOrderAssumed: extraction?.doc.dateOrderAssumed ?? false, flipDateOrder,
+    directionsUncertain: extraction?.directionsUncertain ?? false, swapDirections,
     allowAi, declineAi,
     start, submitPassword, updateDraft, setAllIncluded,
-    resume, discardResumable, confirm, reset,
+    resume, discardResumable, confirm, saveError, reset, discard, stash,
   };
 }

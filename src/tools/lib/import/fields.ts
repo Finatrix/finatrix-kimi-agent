@@ -95,6 +95,22 @@ export function parseAmount(raw: string): ParsedAmount | null {
   };
 }
 
+/**
+ * Read one balance cell as a signed figure.
+ *
+ * `parseAmount` returns a magnitude because a transaction's sense is carried by
+ * its `direction`. A balance has nothing else to carry it: `-150.00`,
+ * `150.00 Dr` and `(150.00)` all say the account is overdrawn by 150. Read as
+ * +150, every row while the account is below zero steps the wrong way, and the
+ * balance check then "proves" that spending was money coming in.
+ */
+export function parseBalance(raw: string): number | null {
+  const parsed = parseAmount(raw);
+  if (!parsed) return null;
+  if (parsed.value === 0) return 0;
+  return parsed.negative || parsed.marker === 'dr' ? -parsed.value : parsed.value;
+}
+
 /** Digits with `.`/`,` separators → a number, applying the rules above. */
 function toNumber(s: string): number | null {
   const lastDot = s.lastIndexOf('.');

@@ -135,6 +135,30 @@ export function toExpense(draft: DraftRow, now: Date = new Date()): ExpenseItem 
   };
 }
 
+/**
+ * Read one draft the other way round: money out becomes money in, and back.
+ *
+ * Used when a file gave no evidence of direction and the reading of its signs
+ * turned out to be the wrong one. The same rule `buildDrafts` applies decides
+ * what starts ticked afterwards — money going out, fully readable, and not read
+ * by a camera — so a swapped statement looks exactly as it would have if it had
+ * been read that way to begin with.
+ */
+export function flipDirection(draft: DraftRow): DraftRow {
+  const wasCredit = draft.issues.includes('credit');
+  const issues: RowIssue[] = wasCredit
+    ? draft.issues.filter((issue) => issue !== 'credit')
+    : [...draft.issues, 'credit'];
+  const next: DraftRow = {
+    ...draft,
+    amount: draft.amount === 0 ? 0 : -draft.amount,
+    issues,
+    source: { ...draft.source, direction: wasCredit ? 'debit' : 'credit' },
+  };
+  next.include = wasCredit && !issues.includes('recognised-text') && isImportable(next);
+  return next;
+}
+
 /* ── Staging ─────────────────────────────────────────────────────────── */
 
 export interface StagedImport {

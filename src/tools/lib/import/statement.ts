@@ -64,6 +64,15 @@ interface MoneyToken {
   at: number;
 }
 
+/**
+ * A balance token as a signed figure: `-150.00`, `150.00 Dr` and `(150.00)` are
+ * all an overdrawn 150. See `parseBalance` in fields.ts for why this matters.
+ */
+function signedBalance(token: MoneyToken): number {
+  if (token.value === 0) return 0;
+  return token.negative || token.marker === 'dr' ? -token.value : token.value;
+}
+
 /** Every money-shaped token on a line, in order. */
 function moneyTokens(line: string): MoneyToken[] {
   const out: MoneyToken[] = [];
@@ -112,7 +121,7 @@ export function parseTextStatement(
 
     if (OPENING_RE.test(trimmed) || CLOSING_RE.test(trimmed)) {
       const tokens = moneyTokens(line);
-      const value = tokens.length ? tokens[tokens.length - 1].value : null;
+      const value = tokens.length ? signedBalance(tokens[tokens.length - 1]) : null;
       if (value !== null) {
         if (OPENING_RE.test(trimmed)) openingBalance = value;
         else closingBalance = value;
@@ -151,6 +160,8 @@ export function parseTextStatement(
     if (amountToken.marker === 'dr') direction = 'debit';
     else if (amountToken.marker === 'cr') direction = 'credit';
     else if (amountToken.negative) direction = 'debit';
+    // A Dr/Cr marker is the bank's own word; a minus sign is only a convention.
+    const directionStated = amountToken.marker !== null;
 
     rows.push({
       line: i + 1,
@@ -159,7 +170,8 @@ export function parseTextStatement(
       description,
       amount: amountToken.value,
       direction,
-      balance: balanceToken ? balanceToken.value : null,
+      ...(directionStated ? { directionStated } : null),
+      balance: balanceToken ? signedBalance(balanceToken) : null,
       reference: null,
       currency: null,
     });

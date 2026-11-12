@@ -19,10 +19,15 @@
  *     importing rather than discovering a wrong month total later.
  *
  * This is the feature that makes the importer trustworthy rather than merely
- * convenient, and it costs one pass over an array.
+ * convenient, and it costs a few passes over an array.
+ *
+ * Three facts about the balance column are read from the file rather than
+ * assumed, because assuming any of them makes the arithmetic agree with a
+ * wrong reading: its SIGN (an overdrawn balance is negative — the parsers keep
+ * it), its ORDER (`isNewestFirst`), and what it COUNTS (`balanceKindOf`).
  */
 
-import type { StatementDoc, StatementRow } from './types';
+import type { BalanceKind, StatementDoc, StatementRow } from './types';
 
 /** Money compares to the paisa/cent; below this two figures are the same. */
 const EPSILON = 0.005;
@@ -37,37 +42,165 @@ export interface DirectionOutcome {
   proved: number;
   /** Rows left to the description hint or the default. */
   assumed: number;
+  /** What the balance column turned out to count. See `balanceKindOf`. */
+  balanceKind: BalanceKind;
+  /** True when the file lists its rows newest-first. See `isNewestFirst`. */
+  newestFirst: boolean;
+}
+
+type Direction = NonNullable<StatementRow['direction']>;
+
+/**
+ * Which way a balance step says the money moved, or null when the step is not
+ * exactly this row's amount (a missing row, a fee folded in, a misread digit).
+ *
+ * On a `'funds'` balance money coming in raises the figure; on an `'owed'`
+ * balance it lowers it, so the same step means the opposite thing.
+ */
+function directionOfStep(delta: number, amount: number, kind: BalanceKind): Direction | null {
+  const rise: Direction = kind === 'owed' ? 'debit' : 'credit';
+  const fall: Direction = kind === 'owed' ? 'credit' : 'debit';
+  if (Math.abs(delta - amount) < EPSILON) return rise;
+  if (Math.abs(delta + amount) < EPSILON) return fall;
+  return null;
+}
+
+/** How many rows step the balance by exactly their own amount, read in this order. */
+function provableSteps(rows: readonly StatementRow[], opening: number | null): number {
+  let count = 0;
+  let previous = opening;
+  for (const row of rows) {
+    if (
+      row.amount !== null && row.balance !== null && previous !== null &&
+      Math.abs(Math.abs(row.balance - previous) - row.amount) < EPSILON
+    ) count++;
+    if (row.balance !== null) previous = row.balance;
+  }
+  return count;
+}
+
+/**
+ * Is this statement listed newest-first?
+ *
+ * A balance belongs to the row it is printed on and follows from the row that
+ * happened BEFORE it — which is the line above in a statement printed oldest
+ * first, and the line below in one printed newest first, as a great many bank
+ * exports are. Walked the wrong way, almost no step matches its row, so the
+ * statement "fails" to reconcile; and where two neighbouring rows share an
+ * amount the step does match, with its sign reversed, and a second ₹100 debit
+ * is "proved" to be a credit.
+ *
+ * Decided by the arithmetic rather than the dates, which are useless when a
+ * whole statement falls on one day: whichever reading has more rows stepping
+ * the balance by exactly their own amount is the order the bank printed.
+ */
+export function isNewestFirst(doc: StatementDoc): boolean {
+  if (doc.rows.length < 2) return false;
+  const forward = provableSteps(doc.rows, doc.openingBalance);
+  const backward = provableSteps([...doc.rows].reverse(), doc.openingBalance);
+  return backward > forward;
+}
+
+/** The rows oldest-first: the order the balances step in. */
+function chronological(rows: readonly StatementRow[], newestFirst: boolean | undefined): readonly StatementRow[] {
+  return newestFirst ? [...rows].reverse() : rows;
+}
+
+/**
+ * Work out what the balance column counts: money held, or money owed.
+ *
+ * A bank account's balance falls when you spend. A credit card's balance is
+ * what you owe, so it RISES when you spend — and read as a bank balance, every
+ * purchase on a card statement "proves" itself to be money coming in, every
+ * repayment proves itself to be spending, and the arithmetic still reconciles
+ * perfectly because it is wrong the same way on every row.
+ *
+ * The file settles it wherever the bank stated a direction outright (a Debit or
+ * Credit column, a Dr/Cr marker): those rows are checked against the balance
+ * step, and if they contradict the bank-account reading more often than they
+ * agree with it, the balance is an amount owed. A bare minus sign gets no vote
+ * — whether negative means "spent" is itself a convention that varies by
+ * export, so it cannot be evidence about another convention.
+ *
+ * One contradiction on its own flips the reading only when it is all the
+ * evidence there is. Otherwise a single misattributed marker in a scanned PDF
+ * would turn a whole statement round.
+ */
+export function balanceKindOf(doc: StatementDoc, newestFirst = isNewestFirst(doc)): BalanceKind {
+  let agree = 0;
+  let disagree = 0;
+  let provable = 0;
+  let previous = doc.openingBalance;
+
+  for (const row of chronological(doc.rows, newestFirst)) {
+    if (row.amount !== null && row.balance !== null && previous !== null) {
+      const asFunds = directionOfStep(row.balance - previous, row.amount, 'funds');
+      if (asFunds) {
+        provable++;
+        if (row.directionStated && row.direction) {
+          if (row.direction === asFunds) agree++;
+          else disagree++;
+        }
+      }
+    }
+    if (row.balance !== null) previous = row.balance;
+  }
+
+  if (disagree <= agree) return 'funds';
+  return disagree >= 2 || disagree === provable ? 'owed' : 'funds';
 }
 
 /**
  * Settle each row's direction, preferring evidence over convention.
  *
  * Precedence, strongest first:
- *   1. an explicit Dr/Cr marker the bank printed (already applied by the parsers)
- *   2. the balance delta against the previous row (or the opening balance)
+ *   1. the balance step against the previous row (or the opening balance), read
+ *      the way the bank's own stated directions say this balance works
+ *   2. the direction the parser took from the file — a Debit/Credit column, a
+ *      Dr/Cr marker, or failing those a minus sign, read the way the balance
+ *      showed this file uses its signs
  *   3. an inflow word in the description
  *   4. debit — the overwhelming majority of rows in a spending statement
  *
- * Rows are processed in file order, which is the order the balances step in.
+ * The balance outranks the parsed direction because it cannot be misread:
+ * text extraction routinely collapses a PDF's separate withdrawal and deposit
+ * columns into one, and the step between two printed balances still says which
+ * it was. What it must not outrank is the bank's stated directions taken as a
+ * whole — that is what `balanceKindOf` is for.
+ *
+ * Rows are walked oldest-first, which is the order the balances step in, and
+ * returned in the order the file listed them.
  */
 export function resolveDirections(doc: StatementDoc): DirectionOutcome {
+  const newestFirst = isNewestFirst(doc);
+  const balanceKind = balanceKindOf(doc, newestFirst);
   let previousBalance = doc.openingBalance;
   let proved = 0;
   let assumed = 0;
+  // How the parser's reading of a bare sign fared against the balance.
+  let signAgreed = 0;
+  let signContradicted = 0;
+  /** Rows the balance could not reach, whose direction is only a sign reading. */
+  const unprovenSignReadings: StatementRow[] = [];
 
-  const rows = doc.rows.map((row) => {
+  const settledRows = chronological(doc.rows, newestFirst).map((row) => {
     const settled = { ...row };
+    const signReading = !row.directionStated ? row.direction : null;
+    let stepped: Direction | null = null;
 
     if (settled.amount !== null && settled.balance !== null && previousBalance !== null) {
-      const delta = settled.balance - previousBalance;
-      if (Math.abs(delta - settled.amount) < EPSILON) {
-        settled.direction = 'credit';
+      stepped = directionOfStep(settled.balance - previousBalance, settled.amount, balanceKind);
+      if (stepped) {
+        settled.direction = stepped;
         proved++;
-      } else if (Math.abs(delta + settled.amount) < EPSILON) {
-        settled.direction = 'debit';
-        proved++;
+        if (signReading) {
+          if (signReading === stepped) signAgreed++;
+          else signContradicted++;
+        }
       }
     }
+
+    if (!stepped && signReading) unprovenSignReadings.push(settled);
 
     if (settled.direction === null) {
       settled.direction = INFLOW_HINT_RE.test(settled.description) ? 'credit' : 'debit';
@@ -78,7 +211,18 @@ export function resolveDirections(doc: StatementDoc): DirectionOutcome {
     return settled;
   });
 
-  return { rows, proved, assumed };
+  // The balance has now said what a minus sign means in this file. Where it
+  // contradicted the parser's reading more often than it agreed, the rows it
+  // could not reach — the oldest row, which has nothing to step from, above
+  // all — were read with the same wrong convention, and are turned round.
+  if (signContradicted > signAgreed) {
+    for (const row of unprovenSignReadings) {
+      row.direction = row.direction === 'credit' ? 'debit' : 'credit';
+    }
+  }
+
+  const rows = newestFirst ? settledRows.reverse() : settledRows;
+  return { rows, proved, assumed, balanceKind, newestFirst };
 }
 
 export interface Reconciliation {
@@ -113,6 +257,13 @@ const NOTHING: Reconciliation = {
  * avoid.
  */
 export function reconcile(doc: StatementDoc, rows: readonly StatementRow[]): Reconciliation {
+  // On an amount-owed balance a credit lowers the figure, so every balance
+  // movement below is read with its sign turned round. `actualNet` stays in the
+  // one convention the rest of the importer uses: credits positive.
+  const sense = doc.balanceKind === 'owed' ? -1 : 1;
+  // Oldest first, whatever order the file used: "first" and "last" below mean
+  // the earliest and latest balances, and each step follows the one before it.
+  const ordered = chronological(rows, doc.newestFirst);
   const usable = rows.filter((r) => r.amount !== null);
   const actualNet = usable.reduce(
     (sum, r) => sum + (r.direction === 'credit' ? (r.amount as number) : -(r.amount as number)),
@@ -123,10 +274,10 @@ export function reconcile(doc: StatementDoc, rows: readonly StatementRow[]): Rec
   let basis: Reconciliation['basis'] = 'none';
 
   if (doc.openingBalance !== null && doc.closingBalance !== null) {
-    expectedNet = doc.closingBalance - doc.openingBalance;
+    expectedNet = sense * (doc.closingBalance - doc.openingBalance);
     basis = 'stated-balances';
   } else {
-    const withBalance = rows.filter((r) => r.balance !== null);
+    const withBalance = ordered.filter((r) => r.balance !== null);
     if (withBalance.length >= 2) {
       const first = withBalance[0];
       const last = withBalance[withBalance.length - 1];
@@ -135,7 +286,7 @@ export function reconcile(doc: StatementDoc, rows: readonly StatementRow[]): Rec
       const firstEffect = first.amount === null
         ? 0
         : (first.direction === 'credit' ? first.amount : -first.amount);
-      expectedNet = (last.balance as number) - ((first.balance as number) - firstEffect);
+      expectedNet = sense * ((last.balance as number) - (first.balance as number)) + firstEffect;
       basis = 'row-balances';
     }
   }
@@ -144,11 +295,11 @@ export function reconcile(doc: StatementDoc, rows: readonly StatementRow[]): Rec
 
   let breaks = 0;
   let previous: number | null = doc.openingBalance;
-  for (const row of rows) {
+  for (const row of ordered) {
     if (row.balance === null || row.amount === null) continue;
     if (previous !== null) {
       const effect = row.direction === 'credit' ? row.amount : -row.amount;
-      if (Math.abs(row.balance - (previous + effect)) >= EPSILON) breaks++;
+      if (Math.abs(row.balance - (previous + sense * effect)) >= EPSILON) breaks++;
     }
     previous = row.balance;
   }

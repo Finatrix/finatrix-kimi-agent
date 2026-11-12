@@ -134,8 +134,12 @@ export function loadExpenses(): ExpenseItem[] {
   const arr = getJSON<Array<Partial<ExpenseItem> & { id?: string | number }>>('fx_expenses', []);
   return Array.isArray(arr) ? arr.map(normalizeExpense) : [];
 }
-export function saveExpenses(items: ExpenseItem[]): void {
-  setJSON('fx_expenses', items);
+/**
+ * Write the ledger. Returns whether it reached persistent storage; `false`
+ * means this session can still see it but a reload will not (see `FxStore.set`).
+ */
+export function saveExpenses(items: ExpenseItem[]): boolean {
+  return setJSON('fx_expenses', items);
 }
 
 /**
