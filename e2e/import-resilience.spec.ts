@@ -16,14 +16,19 @@ import { expect, test } from '@playwright/test';
 test.use({ serviceWorkers: 'block' });
 
 const IMPORT_CHUNK = /\/assets\/StatementImport-[\w-]+\.js$/;
+/** The app's own "has the site been deployed since I loaded?" question. */
+const BUILD_CHECK = /\/index\.html\?build-check=\d+$/;
+const NEWER_SHELL = '<!doctype html><script type="module" crossorigin src="/assets/index-anewerbuild.js"></script><div id="root"></div>';
 
 test('a missing importer chunk reloads the page once, then explains itself, and never crashes the app', async ({ page }) => {
   await page.goto('/tools/expenses');
   const importButton = page.getByRole('button', { name: 'Import', exact: true });
   await expect(importButton).toBeVisible();
 
-  // The deploy: the chunk this tab knows about is gone.
+  // The deploy: the chunk this tab knows about is gone, and the server now
+  // serves a shell for a newer build.
   await page.route(IMPORT_CHUNK, (route) => route.fulfill({ status: 404, contentType: 'text/plain', body: 'Not found' }));
+  await page.route(BUILD_CHECK, (route) => route.fulfill({ status: 200, contentType: 'text/html', body: NEWER_SHELL }));
 
   // First press: the page reloads itself onto the current build.
   await importButton.click();
@@ -45,11 +50,29 @@ test('a missing importer chunk reloads the page once, then explains itself, and 
   // to load for as long as the page lives, so the cure is a fresh page — which
   // is what the automatic reload does once its one-minute guard has passed.
   await page.unroute(IMPORT_CHUNK);
+  await page.unroute(BUILD_CHECK);
   await page.reload();
   await importButton.click();
   const dialog = page.getByRole('dialog', { name: 'Import a statement' });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Choose a file' })).toBeFocused();
+});
+
+test('a chunk that fails with no newer build behind it never reloads the page', async ({ page }) => {
+  // What an interrupted import looks like to the app — WebKit fails every
+  // import in flight the moment a navigation starts. The build is unchanged,
+  // so reloading would only cancel whatever the user had just asked for.
+  await page.goto('/tools/expenses');
+  const importButton = page.getByRole('button', { name: 'Import', exact: true });
+  await expect(importButton).toBeVisible();
+  await page.route(IMPORT_CHUNK, (route) => route.fulfill({ status: 503, contentType: 'text/plain', body: 'Unavailable' }));
+  await page.evaluate(() => { (window as unknown as { __sameDocument?: boolean }).__sameDocument = true; });
+
+  await importButton.click();
+
+  await expect(page.getByText('Import could not be loaded. Check your connection and try again.')).toBeVisible();
+  expect(await page.evaluate(() => window.sessionStorage.getItem('fx_chunk_reload_at'))).toBeNull();
+  expect(await page.evaluate(() => (window as unknown as { __sameDocument?: boolean }).__sameDocument)).toBe(true);
 });
 
 test('a statement for an earlier month takes the tracker to that month', async ({ page }) => {

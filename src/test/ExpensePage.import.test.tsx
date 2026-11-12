@@ -20,7 +20,7 @@ const h = vi.hoisted(() => ({
   items: [] as unknown[],
   /** What `onImport` answered. */
   result: undefined as boolean | void | undefined,
-  reloadForNewBuild: vi.fn(() => false),
+  reloadIfBuildIsStale: vi.fn(async () => false),
 }));
 
 vi.mock('../tools/ui/StatementImport', () => {
@@ -41,7 +41,7 @@ vi.mock('../tools/ui/StatementImport', () => {
   };
 });
 
-vi.mock('../lib/chunkRecovery', () => ({ reloadForNewBuild: h.reloadForNewBuild }));
+vi.mock('../lib/chunkRecovery', () => ({ reloadIfBuildIsStale: h.reloadIfBuildIsStale }));
 
 import ExpensePage from '../tools/pages/ExpensePage';
 
@@ -78,7 +78,7 @@ beforeEach(() => {
   localStorage.clear();
   h.items = [];
   h.result = undefined;
-  h.reloadForNewBuild.mockReset().mockReturnValue(false);
+  h.reloadIfBuildIsStale.mockReset().mockResolvedValue(false);
 });
 
 afterEach(() => {

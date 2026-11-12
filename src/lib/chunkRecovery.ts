@@ -26,6 +26,23 @@
  * "Once" is enforced across the reload itself, in sessionStorage: if a reload
  * did not cure it, a second one will not either, and a page that reloads every
  * time something is pressed is worse than one that explains itself.
+ *
+ * A FAILED CHUNK IS NOT PROOF OF A NEW BUILD
+ * ------------------------------------------
+ * WebKit fails every import still in flight the moment a navigation begins — a
+ * reload, a redirect to a payment page, a sign-in hand-off — while the old
+ * page's JavaScript is still running. Treating that as a stale build and
+ * calling `location.reload()` cancels the navigation the user just asked for
+ * and reloads the page they were leaving. (It first showed up as a release
+ * check failing with "Frame load interrupted".) No event reliably says "this
+ * page is on its way out" on every engine; iOS Safari does not fire
+ * `beforeunload` at all.
+ *
+ * So the question is asked directly: has the site been deployed since this
+ * page loaded? The app shell is fetched fresh and checked for the entry script
+ * this page booted from (`isBuildStale`). Only a different build is a reason
+ * to reload. An interrupted import, a dropped connection and a captive portal
+ * all answer "no", and the caller reports the failure in place instead.
  */
 
 const RELOAD_STAMP_KEY = 'fx_chunk_reload_at';
@@ -54,18 +71,46 @@ export function isChunkLoadError(error: unknown): boolean {
 
 let reloading = false;
 
-/** True once a reload has been started and the page is on its way out. */
-export function isReloadingForNewBuild(): boolean {
-  return reloading;
+/** The entry script this page booted from. Its content hash names the build. */
+function currentEntry(): string | null {
+  if (typeof document === 'undefined') return null;
+  return document.querySelector('script[type="module"][src*="/assets/"]')?.getAttribute('src') ?? null;
 }
 
 /**
- * Reload to pick up the current build, if that can help.
+ * Has the site been deployed since this page loaded?
  *
- * Returns true when a reload is under way, so the caller can stay quiet rather
- * than flash an error at someone whose page is about to be replaced. Returns
- * false — and does nothing — when offline, when a reload was already tried in
- * the last minute, or when there is nowhere to record that it was tried.
+ * Fetches the app shell — past the HTTP cache, and with a unique query so no
+ * service worker cache can answer for it — and looks for this page's own entry
+ * script in it. A shell that names a different entry is a newer build. Every
+ * way of not finding out (offline, a page being torn down, a response that is
+ * not a shell at all) answers false: no evidence is not evidence of a deploy.
+ */
+export async function isBuildStale(): Promise<boolean> {
+  const entry = currentEntry();
+  // The dev server has no hashed entry, and nothing there goes stale.
+  if (!entry) return false;
+  try {
+    const response = await fetch(`/index.html?build-check=${Date.now()}`, {
+      cache: 'no-store',
+      credentials: 'same-origin',
+    });
+    if (!response.ok) return false;
+    const html = await response.text();
+    if (!/\/assets\/[^"'\s]+\.js/.test(html)) return false;
+    return !html.includes(entry);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Reload to pick up the current build — the guarded primitive.
+ *
+ * Callers want `reloadIfBuildIsStale`, which first establishes that there IS a
+ * newer build. Returns true when a reload is under way. Returns false — and
+ * does nothing — when offline, when a reload was already tried in the last
+ * minute, or when there is nowhere to record that it was tried.
  */
 export function reloadForNewBuild(now: number = Date.now()): boolean {
   if (reloading) return true;
@@ -87,19 +132,34 @@ export function reloadForNewBuild(now: number = Date.now()): boolean {
 }
 
 /**
+ * Reload onto the current build if — and only if — there is one.
+ *
+ * Resolves true when a reload is under way, so the caller can stay quiet
+ * rather than flash an error at someone whose page is about to be replaced;
+ * false when the failure was something a reload cannot cure, which the caller
+ * should then report.
+ */
+export async function reloadIfBuildIsStale(): Promise<boolean> {
+  if (reloading) return true;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
+  if (!(await isBuildStale())) return false;
+  return reloadForNewBuild();
+}
+
+/**
  * Catch chunk failures wherever they happen.
  *
  * Vite routes every dynamic import in a production build through a helper that
  * announces a failure as `vite:preloadError` before rejecting. Listening here
  * covers all ninety-odd lazy boundaries at once — routes, panels, the PDF
  * reader — without each having to know about deploys. The rejection is left to
- * propagate (no `preventDefault`): the caller still fails cleanly if the reload
- * is refused.
+ * propagate (no `preventDefault`): the caller still fails cleanly if there is
+ * no newer build to reload onto.
  */
 export function installChunkRecovery(): void {
   if (typeof window === 'undefined') return;
   window.addEventListener('vite:preloadError', () => {
-    reloadForNewBuild();
+    void reloadIfBuildIsStale();
   });
 }
 

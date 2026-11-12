@@ -19,7 +19,7 @@ import { ToastProvider } from '../tools/ui/Toast';
 
 const h = vi.hoisted(() => ({
   failImport: true,
-  reloadForNewBuild: vi.fn(() => false),
+  reloadIfBuildIsStale: vi.fn(async () => false),
 }));
 
 vi.mock('../tools/ui/StatementImport', () => {
@@ -27,7 +27,7 @@ vi.mock('../tools/ui/StatementImport', () => {
   return { default: () => <div role="dialog" aria-label="Import a statement">sheet</div> };
 });
 
-vi.mock('../lib/chunkRecovery', () => ({ reloadForNewBuild: h.reloadForNewBuild }));
+vi.mock('../lib/chunkRecovery', () => ({ reloadIfBuildIsStale: h.reloadIfBuildIsStale }));
 
 import ExpensePage from '../tools/pages/ExpensePage';
 
@@ -49,7 +49,7 @@ const toastText = () => screen.queryAllByRole('status').map((el) => el.textConte
 beforeEach(() => {
   localStorage.clear();
   h.failImport = true;
-  h.reloadForNewBuild.mockReset().mockReturnValue(false);
+  h.reloadIfBuildIsStale.mockReset().mockResolvedValue(false);
 });
 
 afterEach(() => {
@@ -78,11 +78,11 @@ describe('pressing Import when the importer cannot be loaded', () => {
   });
 
   it('stays quiet when the page is already reloading onto the current build', async () => {
-    h.reloadForNewBuild.mockReturnValue(true);
+    h.reloadIfBuildIsStale.mockResolvedValue(true);
     renderPage();
     fireEvent.click(importButton());
 
-    await waitFor(() => expect(h.reloadForNewBuild).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(h.reloadIfBuildIsStale).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(importButton()).not.toHaveAttribute('aria-busy'));
     expect(toastText()).not.toMatch(/could not be loaded|needs a connection/);
   });

@@ -1,14 +1,19 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { reportError } from '../lib/errorReporting';
-import { isChunkLoadError, isReloadingForNewBuild, reloadForNewBuild } from '../lib/chunkRecovery';
+import { isChunkLoadError, reloadIfBuildIsStale } from '../lib/chunkRecovery';
 
 interface Props {
   children: ReactNode;
 }
 interface State {
   hasError: boolean;
-  /** The error was a part of the app failing to load, not a bug in a page. */
-  chunkFailed: boolean;
+  /**
+   * Set when the error was a part of the app failing to load rather than a bug
+   * in a page. `checking` while it is being established whether a newer build
+   * explains it (nothing is shown: the page may be about to reload); `failed`
+   * once it is known that a reload will not help.
+   */
+  chunk: 'none' | 'checking' | 'failed';
 }
 
 /**
@@ -17,15 +22,15 @@ interface State {
  *
  * A chunk that failed to load is handled apart from a real crash (see
  * lib/chunkRecovery.ts). It is not a glitch on our end and "go to the home
- * page" is the wrong cure: the page reloads itself where it stands when that
- * can help, and otherwise says what actually happened — usually no connection —
- * and offers to try the same page again.
+ * page" is the wrong cure: the page reloads itself where it stands when a
+ * newer build is the reason, and otherwise says what actually happened —
+ * usually no connection — and offers to try the same page again.
  */
 export default class ErrorBoundary extends Component<Props, State> {
-  state: State = { hasError: false, chunkFailed: false };
+  state: State = { hasError: false, chunk: 'none' };
 
   static getDerivedStateFromError(error: unknown): State {
-    return { hasError: true, chunkFailed: isChunkLoadError(error) };
+    return { hasError: true, chunk: isChunkLoadError(error) ? 'checking' : 'none' };
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
@@ -33,15 +38,17 @@ export default class ErrorBoundary extends Component<Props, State> {
     console.error('Unhandled UI error:', error, info);
     // Privacy-first telemetry: error TYPE + route only, never message/stack.
     reportError(isChunkLoadError(error) ? 'ChunkLoadError' : error.name, 'boundary');
-    // Usually already under way from the `vite:preloadError` listener; this
-    // covers a rejection that reached React without passing through it. The
-    // fallback has already rendered by now, so it is rendered again to take it
-    // off the screen for the moment before the page is replaced.
-    if (isChunkLoadError(error) && reloadForNewBuild()) this.forceUpdate();
+    // Reload onto the newer build if there is one. If there is not, a reload
+    // would change nothing, so say what happened instead.
+    if (isChunkLoadError(error)) {
+      void reloadIfBuildIsStale().then((reloading) => {
+        if (!reloading) this.setState({ chunk: 'failed' });
+      });
+    }
   }
 
   private handleReload = () => {
-    this.setState({ hasError: false, chunkFailed: false });
+    this.setState({ hasError: false, chunk: 'none' });
     window.location.assign('/');
   };
 
@@ -51,10 +58,11 @@ export default class ErrorBoundary extends Component<Props, State> {
   };
 
   render() {
-    if (this.state.hasError && this.state.chunkFailed) {
-      // The page is about to be replaced by the current build: show nothing
-      // rather than flash an error at someone who did nothing wrong.
-      if (isReloadingForNewBuild()) return null;
+    // Finding out whether a newer build explains it, or already reloading onto
+    // one: show nothing rather than flash an error at someone who did nothing
+    // wrong and whose page may be about to be replaced.
+    if (this.state.hasError && this.state.chunk === 'checking') return null;
+    if (this.state.hasError && this.state.chunk === 'failed') {
       return (
         <div role="alert" aria-live="assertive" className="relative min-h-[100dvh] overflow-hidden bg-surface-base text-ink flex flex-col items-center justify-center px-6 text-center">
           <span className="relative font-mono text-[11px] uppercase tracking-[0.18em] text-accent-text mb-4">

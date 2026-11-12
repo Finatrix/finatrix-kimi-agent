@@ -8,13 +8,29 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import ErrorBoundary from '../components/ErrorBoundary';
 import {
-  installChunkRecovery, isChunkLoadError, isReloadingForNewBuild, reloadForNewBuild,
+  installChunkRecovery, isBuildStale, isChunkLoadError, reloadForNewBuild, reloadIfBuildIsStale,
   resetChunkRecoveryForTests,
 } from '../lib/chunkRecovery';
 
 const realLocation = window.location;
 let reload: ReturnType<typeof vi.fn>;
 let online = true;
+let entryScript: HTMLScriptElement;
+
+/** The app shell as the server would send it for a given build. */
+const shell = (entry: string) => `<!doctype html><script type="module" crossorigin src="${entry}"></script><div id="root"></div>`;
+const THIS_BUILD = '/assets/index-thisbuild.js';
+const NEWER_BUILD = '/assets/index-newerbuild.js';
+
+/** What the server answers when asked for the shell. */
+function serverHas(body: string | Error, status = 200) {
+  return vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+    if (body instanceof Error) throw body;
+    return new Response(body, { status, headers: { 'content-type': 'text/html' } });
+  });
+}
+
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 beforeEach(() => {
   sessionStorage.clear();
@@ -26,10 +42,16 @@ beforeEach(() => {
     value: { ...realLocation, reload, assign: vi.fn() },
   });
   vi.spyOn(navigator, 'onLine', 'get').mockImplementation(() => online);
+  // This page booted from THIS_BUILD.
+  entryScript = document.createElement('script');
+  entryScript.type = 'module';
+  entryScript.setAttribute('src', THIS_BUILD);
+  document.head.appendChild(entryScript);
 });
 
 afterEach(() => {
   cleanup();
+  entryScript.remove();
   Object.defineProperty(window, 'location', { configurable: true, value: realLocation });
   vi.restoreAllMocks();
 });
@@ -56,7 +78,6 @@ describe('reloadForNewBuild', () => {
   it('reloads once when online, and reports that it is on its way', () => {
     expect(reloadForNewBuild(1_000_000)).toBe(true);
     expect(reload).toHaveBeenCalledTimes(1);
-    expect(isReloadingForNewBuild()).toBe(true);
     // Asked again before the page has gone: still one reload.
     expect(reloadForNewBuild(1_000_500)).toBe(true);
     expect(reload).toHaveBeenCalledTimes(1);
@@ -86,10 +107,78 @@ describe('reloadForNewBuild', () => {
     expect(reload).not.toHaveBeenCalled();
   });
 
-  it('is triggered by the event Vite raises when a chunk cannot be fetched', () => {
+});
+
+describe('isBuildStale', () => {
+  it('is true when the server now names a different entry script', async () => {
+    const fetched = serverHas(shell(NEWER_BUILD));
+    expect(await isBuildStale()).toBe(true);
+    // Asked past every cache: a stale shell would answer "nothing has changed".
+    const [url, init] = fetched.mock.calls[0];
+    expect(String(url)).toMatch(/^\/index\.html\?build-check=\d+$/);
+    expect(init).toMatchObject({ cache: 'no-store' });
+  });
+
+  it('is false when the server still serves the build this page is running', async () => {
+    serverHas(shell(THIS_BUILD));
+    expect(await isBuildStale()).toBe(false);
+  });
+
+  it.each([
+    ['the request fails (offline, or the page is being torn down)', new TypeError('Load failed'), 200],
+    ['the server answers with an error', 'Service unavailable', 503],
+    ['the answer is not an app shell at all', '<html><body>Sign in to this network</body></html>', 200],
+  ])('is false when %s', async (_why, body, status) => {
+    serverHas(body as string | Error, status as number);
+    expect(await isBuildStale()).toBe(false);
+  });
+
+  it('is false where there is no hashed entry to compare, as on the dev server', async () => {
+    entryScript.remove();
+    const fetched = serverHas(shell(NEWER_BUILD));
+    expect(await isBuildStale()).toBe(false);
+    expect(fetched).not.toHaveBeenCalled();
+  });
+});
+
+describe('reloadIfBuildIsStale', () => {
+  it('reloads when there is a newer build', async () => {
+    serverHas(shell(NEWER_BUILD));
+    expect(await reloadIfBuildIsStale()).toBe(true);
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not reload when the build has not changed', async () => {
+    // What WebKit produces when a navigation interrupts an import in flight:
+    // a failed chunk with nothing wrong on the server. Reloading here would
+    // cancel the navigation the user asked for.
+    serverHas(shell(THIS_BUILD));
+    expect(await reloadIfBuildIsStale()).toBe(false);
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it('does not even ask when offline', async () => {
+    online = false;
+    const fetched = serverHas(shell(NEWER_BUILD));
+    expect(await reloadIfBuildIsStale()).toBe(false);
+    expect(fetched).not.toHaveBeenCalled();
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it('is what the event Vite raises for a failed chunk leads to', async () => {
+    serverHas(shell(NEWER_BUILD));
     installChunkRecovery();
     window.dispatchEvent(new Event('vite:preloadError'));
+    await settle();
     expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the page alone when that event fires with the build unchanged', async () => {
+    serverHas(shell(THIS_BUILD));
+    installChunkRecovery();
+    window.dispatchEvent(new Event('vite:preloadError'));
+    await settle();
+    expect(reload).not.toHaveBeenCalled();
   });
 });
 
@@ -100,22 +189,25 @@ describe('the root error boundary', () => {
   const chunkError = () =>
     new TypeError('Failed to fetch dynamically imported module: /assets/StatementImport-CoqXlJOA.js');
 
-  it('reloads onto the current build instead of showing an error, when that can help', () => {
+  it('reloads onto the newer build instead of showing an error', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
+    serverHas(shell(NEWER_BUILD));
     const { container } = render(<ErrorBoundary><Throw error={chunkError()} /></ErrorBoundary>);
 
+    // Nothing is flashed while it finds out, or once it is reloading.
+    expect(container).toBeEmptyDOMElement();
+    await settle();
     expect(reload).toHaveBeenCalledTimes(1);
-    // Nothing is flashed at someone whose page is about to be replaced.
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('says what happened, and retries the same page, when a reload cannot help', () => {
+  it('says what happened, and retries the same page, when there is no newer build', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    online = false;
+    serverHas(shell(THIS_BUILD));
     render(<ErrorBoundary><Throw error={chunkError()} /></ErrorBoundary>);
 
+    expect(await screen.findByRole('alert')).toHaveTextContent(/didn.t finish loading/i);
     expect(reload).not.toHaveBeenCalled();
-    expect(screen.getByRole('alert')).toHaveTextContent(/didn.t finish loading/i);
     expect(screen.getByRole('alert')).toHaveTextContent(/saved data is safe/i);
     // Not "a glitch on our end", and not a trip to the home page.
     expect(screen.queryByText(/glitch on our end/i)).not.toBeInTheDocument();
@@ -123,6 +215,17 @@ describe('the root error boundary', () => {
     screen.getByRole('button', { name: 'Try again' }).click();
     expect(reload).toHaveBeenCalledTimes(1);
     expect(window.location.assign).not.toHaveBeenCalled();
+  });
+
+  it('says so when offline, without asking the server anything', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    online = false;
+    const fetched = serverHas(shell(NEWER_BUILD));
+    render(<ErrorBoundary><Throw error={chunkError()} /></ErrorBoundary>);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/didn.t finish loading/i);
+    expect(fetched).not.toHaveBeenCalled();
+    expect(reload).not.toHaveBeenCalled();
   });
 
   it('still treats a real crash as a crash', () => {

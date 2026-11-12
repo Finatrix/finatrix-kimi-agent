@@ -23,7 +23,7 @@ import {
 } from '../lib/exporters';
 import { currentMonth, monthLabel, nextMonthUnclamped, prevMonth } from '../lib/month';
 import { getJSON, setJSON, onLocalWrite, store } from '../lib/storage';
-import { reloadForNewBuild } from '../../lib/chunkRecovery';
+import { reloadIfBuildIsStale } from '../../lib/chunkRecovery';
 import {
   loadExpenses, saveExpenses, etToday, etMonthsWithData, computeDashboard, genExpenseId,
   isSpendingCategory, migrateCategory,
@@ -651,7 +651,8 @@ export default function ExpensePage() {
    * unchanged until the sheet appeared. And a chunk that fails to arrive fails
    * HERE, as a message beside a page that still works, instead of as a render
    * error that replaces the app. A stale build is cured by a reload, which
-   * `reloadForNewBuild` does once; anything else is reported.
+   * `reloadIfBuildIsStale` does once, after confirming there is a newer build;
+   * anything else is reported.
    */
   const openImport = async () => {
     if (importLoading) return;
@@ -660,7 +661,7 @@ export default function ExpensePage() {
       await loadStatementImport();
       setImporting(true);
     } catch {
-      if (!reloadForNewBuild()) {
+      if (!(await reloadIfBuildIsStale())) {
         notify(
           typeof navigator !== 'undefined' && navigator.onLine === false
             ? 'Import needs a connection the first time it opens. Reconnect and try again.'

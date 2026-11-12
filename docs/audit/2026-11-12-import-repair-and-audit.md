@@ -45,7 +45,7 @@ The defects were concentrated in one place the tests did not reach: whole files 
 
 | # | Severity | Problem | Fix |
 |---|---|---|---|
-| 14 | Medium | Any of the ~90 lazily loaded parts failing to load showed the crash screen and sent the user to the home page | Chunk failures are recognised app-wide: reload once when that can help, otherwise a plain "didn't finish loading" screen that retries the same page |
+| 14 | Medium | Any of the ~90 lazily loaded parts failing to load showed the crash screen and sent the user to the home page | Chunk failures are recognised app-wide: reload once, and only after confirming the server has a newer build (WebKit fails in-flight imports whenever a navigation starts, so a failed chunk alone proves nothing); otherwise a plain "didn't finish loading" screen that retries the same page |
 | 15 | Medium | The service worker could store a web page as a script, after which that chunk could never load again | It refuses to store HTML under an asset URL and discards any it already holds |
 | 16 | Medium | A failed save to the account was invisible below 1024px (the "Sync error" label is hidden on phones) | A notice is shown once per failure on every screen size |
 | 17 | Process | The working branch lacked three production commits | Merged `origin/main` into a new branch |
@@ -120,7 +120,7 @@ Not tested: the Android and iOS apps, Firefox and Safari, real bank statements (
 | Production build | Pass | Pass |
 | Unit and integration (Vitest) | 264 files, 4,342 passed, 14 skipped (derived: the released branch minus the 88 tests added) | 270 files, 4,430 passed, 14 skipped |
 | Dependency audit | Pass (xlsx knowingly accepted) | Pass (unchanged) |
-| E2E (Playwright) | Not run | Import, dialog, expense and offline specs: 17 passed, 1 skipped (Chromium). New `import-resilience` spec: 4 passed (desktop and phone). Full suite and WebKit not run |
+| E2E (Playwright) | Not run | Full suite on desktop and phone: 1,237 passed, 1 skipped. WebKit project: 120 passed. The first release attempt failed one WebKit check in CI, which exposed fix 14 reloading on an interrupted import; it now reloads only when the server has a newer build |
 | Import functionality | 13 defects reproduced | Each verified fixed in the production build |
 
 For reference, the development tree (security-audit branch plus `main`) measured 268 files and 4,377 tests before any change, and 274 files and 4,450 tests after the first round of fixes.
