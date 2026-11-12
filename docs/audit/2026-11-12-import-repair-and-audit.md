@@ -13,9 +13,9 @@ The defects were concentrated in one place the tests did not reach: whole files 
 | Issues identified | 27 |
 | Fixed and verified | 20 |
 | Written, not yet applied to production | 1 (C5) |
-| Still open | 6 |
+| Still open | 5 |
 
-**One thing needs your attention first.** While reproducing the bug I tested on `localhost:3000`, where the preview browser turned out to be signed in to a real account (`f***@gmail.com`). My test imports synced **1,912 synthetic transactions** into that account's cloud ledger. The ledger was empty before, so every row is mine, and I checked each one against my test data. My attempt to remove them was blocked by a permission check, so they are still there. See C1.
+**One thing needs your attention first.** While reproducing the bug I tested on `localhost:3000`, where the preview browser turned out to be signed in to a real account (`f***@gmail.com`). My test imports synced **1,912 synthetic transactions** into that account's cloud ledger. The ledger was empty before, so every row is mine, and I checked each one against my test data. My first attempt to remove them was blocked by a permission check. They were removed the next day on your approval; see C1.
 
 **The branch.** The work was developed on `fix/expense-import-and-audit-2026-11` (the security-audit branch with `origin/main` merged in) and then moved, unchanged, onto `fix/expense-import-repair`, which is `origin/main` plus this work only. None of the files touched here overlap with the security-audit commits. That branch needs a production migration and a Stripe webhook change before it can ship, so it was left out of this release on purpose. Both older branches are untouched.
 
@@ -58,7 +58,7 @@ The defects were concentrated in one place the tests did not reach: whole files 
 
 | # | What is wrong | Why it needs you | If left | Recommendation |
 |---|---|---|---|---|
-| C1 | 1,912 synthetic transactions (and 500 audit entries) from my tests are in the cloud ledger of `f***@gmail.com` | Removing them writes to a real account's cloud row; the attempt was blocked | Fake spending in that account, and it will sync to any other device signed in to it | Approve the removal. The script is ready: it matches only rows tagged `imported`, created today, whose description matches my generators; leaves the October budget alone; and uses compare-and-set. Deleting them in the app will not work (see C3) |
+| C1 — **done** | 1,912 synthetic transactions (and 500 audit entries) from my tests are in the cloud ledger of `f***@gmail.com` | Removing them writes to a real account's cloud row; the attempt was blocked | Fake spending in that account, and it will sync to any other device signed in to it | Removed on 13 November with your approval: all 1,912 rows and their 500 history entries, each matched against the test data first, by compare-and-set on the cloud row. The October budget was not touched. The synced copies held by the preview browser on `localhost:3000` and `localhost:5173` were removed too, so nothing pushes them back. A device signed in to that account that synced in between could still return them (see C3) |
 | C2 — **fixed** | In a single signed Amount column with no balance, a positive amount defaults to "spending" unless the description contains an inflow word | Fixing it means choosing a sign convention, and exports disagree (Chase prints purchases negative, Amex positive) | A deposit can be imported as an expense if ticked | Done as recommended: the side with more rows is read as spending, the balance overrules that wherever there is one (and settles the convention for rows it cannot reach), and the review sheet offers "Swap money in and out" when the file settled nothing |
 | C3 | Deleting more than 1,000 transactions does not stick across devices | Tombstones are capped at 1,000 by design, to protect the sync payload | Someone who imports a large statement by mistake and deletes it gets most of it back from the cloud | Record one tombstone per import batch id rather than per row |
 | C4 | The cloud row is capped at 1 MB (compressed) and the browser store at about 5 MB | Both limits were set when "real data is KB-scale" was true; the importer changed that | Past roughly 12,000 to 16,000 transactions, saving to the account fails for every tool. It is now announced (fix 16) but still fails | Decide a ledger budget: warn in the importer as it approaches, and move the ledger to its own table or IndexedDB |
@@ -127,7 +127,6 @@ For reference, the development tree (security-audit branch plus `main`) measured
 
 ## G. Remaining risks
 
-- The test data in the real account (C1).
 - Direction for signed single-column exports without a balance (C2).
 - Sync and storage ceilings for heavy importers (C3, C4).
 - Nothing here has been run on the native apps or on WebKit and Firefox.
