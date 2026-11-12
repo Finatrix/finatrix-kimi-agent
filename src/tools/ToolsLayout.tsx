@@ -17,6 +17,7 @@ import {
 import { CurrencyProvider, useCurrency } from './CurrencyContext';
 import { MarketProvider, useMarket } from './MarketContext';
 import { ToastProvider } from './ui/Toast';
+import { SyncFailureNotice } from './ui/SyncFailureNotice';
 import { IconSprite } from './ui/Icon';
 import { CURRENCY_CODES, currencySym } from './lib/format';
 import { onLocalWrite } from './lib/storage';
@@ -450,6 +451,7 @@ export default function ToolsLayout() {
     <CurrencyProvider>
       <MarketProvider>
       <ToastProvider>
+        {user && <SyncFailureNotice sync={sync} />}
         {/* FinatriX AI wraps the whole shell because any screen inside it can
             open the assistant pointed at what the user is looking at — a
             category, a transaction, a chart. `enabled` is held back until the
