@@ -12,14 +12,14 @@ The defects were concentrated in one place the tests did not reach: whole files 
 |---|---|
 | Issues identified | 27 |
 | Fixed and verified | 20 |
-| Written, not yet applied to production | 1 (C5) |
+| Applied to the production database on 13 November | 1 (C5) |
 | Still open | 5 |
 
 **One thing needs your attention first.** While reproducing the bug I tested on `localhost:3000`, where the preview browser turned out to be signed in to a real account (`f***@gmail.com`). My test imports synced **1,912 synthetic transactions** into that account's cloud ledger. The ledger was empty before, so every row is mine, and I checked each one against my test data. My first attempt to remove them was blocked by a permission check. They were removed the next day on your approval; see C1.
 
 **The branch.** The work was developed on `fix/expense-import-and-audit-2026-11` (the security-audit branch with `origin/main` merged in) and then moved, unchanged, onto `fix/expense-import-repair`, which is `origin/main` plus this work only. None of the files touched here overlap with the security-audit commits. That branch needs a production migration and a Stripe webhook change before it can ship, so it was left out of this release on purpose. Both older branches are untouched.
 
-**Later the same day**, on your instruction to fix the rest: C2, C6 and C7 below are fixed, and the migration for C5 is written but not applied (the deploy workflow does not run SQL).
+**Later the same day**, on your instruction to fix the rest: C2, C6 and C7 below are fixed, and the migration for C5 was written. The deploy workflow does not run SQL, so it was applied separately on 13 November, on your approval; see C5.
 
 ## B. Issues fixed
 
@@ -62,10 +62,10 @@ The defects were concentrated in one place the tests did not reach: whole files 
 | C2 — **fixed** | In a single signed Amount column with no balance, a positive amount defaults to "spending" unless the description contains an inflow word | Fixing it means choosing a sign convention, and exports disagree (Chase prints purchases negative, Amex positive) | A deposit can be imported as an expense if ticked | Done as recommended: the side with more rows is read as spending, the balance overrules that wherever there is one (and settles the convention for rows it cannot reach), and the review sheet offers "Swap money in and out" when the file settled nothing |
 | C3 | Deleting more than 1,000 transactions does not stick across devices | Tombstones are capped at 1,000 by design, to protect the sync payload | Someone who imports a large statement by mistake and deletes it gets most of it back from the cloud | Record one tombstone per import batch id rather than per row |
 | C4 | The cloud row is capped at 1 MB (compressed) and the browser store at about 5 MB | Both limits were set when "real data is KB-scale" was true; the importer changed that | Past roughly 12,000 to 16,000 transactions, saving to the account fails for every tool. It is now announced (fix 16) but still fails | Decide a ledger budget: warn in the importer as it approaches, and move the ledger to its own table or IndexedDB |
-| C5 — **migration written** | `feature_flag_overrides` is readable in full by every signed-in user | Needs a migration and a manual deploy | Any user can list other users' ids and which beta flags they hold | `supabase/migrations/20261112000100_scope_feature_flag_override_reads.sql` is in the repo. It is **not applied**: run it in the Supabase SQL editor, or tell me to |
+| C5 — **applied** | `feature_flag_overrides` is readable in full by every signed-in user | Needs a migration and a manual deploy | Any user can list other users' ids and which beta flags they hold | Applied on 13 November with your approval, using `supabase db push` (`20261112000100` was the only pending migration; the history now shows 14 of 14 applied). Checked on the live database with a probe that rolls itself back: before the change a signed-in test user could read another user's row; after it they read their own row plus the plan and org rows and nothing else, and a signed-out caller reads nothing. No probe rows remain, and the table holds no rows today. **One thing to decide before flags are wired into the app:** `resolveFlag` applies any kill-switch row it can read to everyone, whatever its scope. A kill switch saved under scope `user` now reaches only that user and admins, so save kill switches under `plan` or `org`, or change the resolver. Nothing outside the tests calls `resolveFlag` yet, and only the admin dashboard reads this table, so nothing changes for users today |
 | C6 — **fixed** | A CSV with no header row is refused | Reading columns by position is a guess | Some bank exports (CommBank, for one) have no header | Done where the file settles it: date + description + one amount column, or + a balance proved by its own arithmetic. Anything else is still refused, and the sheet says the columns were worked out |
 | C7 — **fixed** | The picker offers `.xls`, but binary Excel 97 cannot be read | SheetJS's reader is excluded on purpose for its unpatched advisories | A clear message, but a dead end for those files | The picker now says "Excel (.xlsx)"; binary `.xls` is still declined with the same instruction |
-| C8 | The security-audit commits and this work are not on `main` | Deploy prerequisites for the security branch are still open | Production keeps the import defects until this ships | Merge the security branch, then this one |
+| C8 | The security-audit commits are not on `main` (this work is, released as `c424300`) | Deploy prerequisites for the security branch are still open | Production goes without the security-audit fixes until that branch ships | Meet its prerequisites, then merge it. Its migration (`20261105000100`) is dated before C5's, so `supabase db push` will ask for `--include-all` |
 | C9 | Column headers are matched in English only | Product scope | A non-English export is refused with the "no header row" message | Leave until a non-English market is added |
 | C10 | The first press after a failure can fail again in the same page | Browsers may remember a failed module until reload | One extra press: the next one reloads and it works | Accept |
 
@@ -109,7 +109,7 @@ Not tested: the Android and iOS apps, Firefox and Safari, real bank statements (
 - **Performance:** duplicate detection from quadratic to linear.
 - **Accessibility:** focus management and a real button in the import dialog.
 - **Maintainability:** `extractStatement` is now covered end to end. jsdom's `File` has no `text()`, which is why the truncation was never caught.
-- **Security:** structural scan clean (RLS on every table, no definer functions without a pinned search path, every view `security_invoker`). One policy to tighten (C5).
+- **Security:** structural scan clean (RLS on every table, no definer functions without a pinned search path, every view `security_invoker`). One policy was too wide (C5); it is now tightened in production.
 
 ## F. Test results
 
