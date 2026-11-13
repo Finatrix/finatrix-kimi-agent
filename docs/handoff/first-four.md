@@ -60,8 +60,8 @@ A push to `main` starts the Deploy workflow (about 45 minutes: checks, build, al
 
 ## 4. Where things stand (13 November 2026)
 
-- `main` and `fix/expense-import-repair` are at `f0d6cd7` plus the commit that added this file.
-- Deploy run `43333899242` for `f0d6cd7` was still running when this was written. Confirm it finished green before pushing anything else to `main`.
+- `main` holds piece 1 (`16d8efe`, `e46940e`) and the log commits after it. `fix/expense-import-repair` is behind it at `0075ba3`.
+- Deploy run `43379389682` for `e46940e` finished green on 13 November, after a hand deploy the owner asked for. Nothing is waiting to deploy.
 - Untracked files that belong to the owner and must be left alone: `.claude/agents/`, `.claude/skills/`, `docs/E2EE_FINANCE_SYNC_PLAN.md`, `scripts/ops/`.
 - Production database: migration history is 14 of 14, the last being `20261112000100`. `20261105000100_lock_paid_access_writes.sql` (security branch) is **not** applied.
 - Live apps at last check (30 October): Android 1.0.1 (10) published. iOS 1.0.0 (10) was Waiting for Review with release on approval. Neither console has been read since.
@@ -178,8 +178,9 @@ Tick a step only when it is verified. Put a dated line under each step you finis
 - [x] 1.4 Checked by hand on `localhost:4173`, desktop and phone width
   - 2026-11-13: mostly done, NOT ticked. The last edit (`dropAmountEdit`) came after the final build, so rebuild and repeat a short pass. Seen working at 1280 and 1024 wide and at 375×812 with touch: named field, currency, formula preview and keys, Enter and Tab, refusal line, statement line, hold-back and release against a real ledger, keyboard order, contrast in light and dark (all 5.5:1 or better), resume keeps the correction, the storage-full path keeps the review and imports on retry, Import and ✕ pressed without leaving the field. Not checked: a real phone, a screen reader, Safari.
   - 2026-11-13, later: ticked. Repeated on the final build at 1280 wide and at 375×812 with touch: a half-typed amount is dropped when its row leaves the list, a refused amount goes back and says why, and a correction shows the statement figure and is what lands in the ledger. This last pass used scripted input events, because the Browser pane stalled on real key presses; the earlier passes used real typing. Still not checked: a real phone, a screen reader, Safari by hand (WebKit is covered by the new browser test).
-- [ ] 1.5 On `main`, deploy green, change confirmed in the live bundle
+- [x] 1.5 On `main`, deploy green, change confirmed in the live bundle
   - 2026-11-13: on `main` at `e46940e`. The owner then asked for a hand deploy instead of waiting for run `43379389682` ("Deploy by hand"). Built the way the pipeline does (the three client settings from `.env`, `VITE_AUTH_APPLE` blanked) and ran `npx wrangler deploy` at 06:47Z. The first upload also carried a stray `public/.DS_Store` (git-ignored Finder data, so the pipeline's clean checkout never has it). Removed it and deployed again; `/.DS_Store` now answers 404 (a probe one second after the upload still got the file, fifteen seconds later it was gone). Worker version now `a3abc57b-77c1-40ad-8dd8-78d2cee34212`. Confirmed live: the entry script `index-D6NEHEJY.js` matches the build, `/assets/StatementImport-B_pJZPS6.js` holds the change, and `npm run verify:production` passes 12 of 12. NOT ticked: run `43379389682` was still on its browser checks, and its own `wrangler deploy` will replace this upload.
+  - 2026-11-13, later: ticked. Run `43379389682` finished green at 07:23Z (deploy, edge-functions, native-apps), and its own upload replaced the hand deploy: Worker version `845727fc-ec84-4cc1-b1db-1ce80b963e6d`. The live site serves the pipeline's build, entry `index-DV9rKcy6.js`, and its import chunk `StatementImport-f_Xa3xHe.js` holds the change (found through the live entry's own references). `npm run verify:production` run locally now passes 11 of 12. The one failure is release parity, and it is a comparison artefact: the local `dist/` is the hand build, whose vendor chunks (for example `supabase-*.js`) hash differently from the pipeline's build of the same commit. The two entry files are the same size and carry the same three client settings. The pipeline's own production check and the native-apps check both passed. Why the vendor hashes differ was not looked into.
 
 **Piece 2 — app lock**
 - [ ] 2.1 Choose the native bridge (plugin or in-repo) and say why
@@ -216,6 +217,7 @@ Tick a step only when it is verified. Put a dated line under each step you finis
 - 2026-11-13: also noticed, not done: on a phone the formula keys cover a sheet's footer buttons while an amount field has focus (app-wide), so the user presses Done before Import.
 - 2026-11-13: hand deploy done and verified (details under 1.5). Next action: `gh run view 43379389682 --json conclusion,jobs`. If it is green, run `npm run verify:production` again, tick 1.5 and push this file to `main`. Then stop: piece 2 starts in a fresh session.
 - 2026-11-13: for any later hand deploy: delete `public/.DS_Store` first, or add `.DS_Store` to a `public/.assetsignore`.
+- 2026-11-13: piece 1 is finished: on `main`, deployed and verified live. Next action: piece 2, step 2.1, in a fresh session. Do not resume the session that did piece 1: it holds about 530k tokens, and each resume after a pause used about a third of a Pro 5-hour window before any work was done. Local `main` now tracks `origin/main`.
 
 ## 10. Not in scope yet (pieces 5 to 9)
 
