@@ -8,6 +8,7 @@ import { trackPageView } from './lib/analytics'
 import { applySeo } from './lib/seo'
 import { RESET_PASSWORD_PATH } from './shared/routes'
 import NativeShell from './native/NativeShell'
+import AppLock from './native/AppLock'
 import KeyboardBar from './components/KeyboardBar'
 import { canPurchaseInApp, isNativeApp } from './native/platform'
 import { CareersRedirect } from './careers/areas/CareersRedirect'
@@ -135,6 +136,7 @@ export default function App() {
       <RouteMetadata />
       <ScrollManager />
       <NativeShell />
+      <AppLock />
       <KeyboardBar />
       <Suspense fallback={<RouteFallback />}>
         {/* The single `main` landmark for the whole app (WCAG 1.3.1). This was

@@ -17,6 +17,7 @@ class ViewController: CAPBridgeViewController {
     override func capacitorDidLoad() {
         bridge?.registerPluginInstance(FxSystemUiPlugin())
         bridge?.registerPluginInstance(FileExportPlugin())
+        bridge?.registerPluginInstance(FxAppLockPlugin())
     }
 
     override func webView(with frame: CGRect, configuration: WKWebViewConfiguration) -> WKWebView {

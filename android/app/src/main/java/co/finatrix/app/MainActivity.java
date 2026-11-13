@@ -31,6 +31,7 @@ public class MainActivity extends BridgeActivity {
         // App-local plugins register before the bridge starts.
         registerPlugin(SystemUiPlugin.class);
         registerPlugin(FileExportPlugin.class);
+        registerPlugin(AppLockPlugin.class);
         super.onCreate(savedInstanceState);
         // Draw under the status and navigation bars on every Android version,
         // not only 15+ where it is enforced. The page pads itself from the

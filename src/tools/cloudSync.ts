@@ -66,8 +66,13 @@ export const SYNC_KEYS = [
   // bothered to look up should not have to be looked up again on their phone.
   'fx_fx_overrides',
 ];
-/** Sensitive statement drafts stay on this device but belong to its account. */
-export const ACCOUNT_LOCAL_KEYS = ['fx_import_staged'];
+/**
+ * Never synced, but cleared with the account's data on sign-out, an account
+ * switch and account deletion: sensitive statement drafts, and the app lock
+ * setting (`APP_LOCK_KEY` in native/appLock/setting.ts; appLockSetting.test.tsx
+ * holds the two together).
+ */
+export const ACCOUNT_LOCAL_KEYS = ['fx_import_staged', 'fx_app_lock'];
 const LAST_UID_KEY = 'fx_last_uid';
 const PENDING_KEY = 'fx_sync_pending';
 

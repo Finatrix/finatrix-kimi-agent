@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { RemindersCard } from '../ui/Reminders';
+import { AppLockCard } from '../ui/AppLockCard';
 import { isNativeApp } from '../../native/platform';
 import { Link } from 'react-router';
 import { PageHead, ToolFoot } from '../ui/common';
@@ -190,6 +191,13 @@ export default function SettingsPage() {
 
       {/* Data & privacy */}
       <PrivacyControls />
+      {/* App lock: the installed apps only. A browser has no lock, so no switch. */}
+      {isNativeApp() && (
+        <Section title="App lock" desc="Ask for your face, fingerprint or device passcode when FinatriX opens, and when you come back after a minute away. It keeps the app closed to anyone else holding this device. It does not encrypt your data.">
+          <AppLockCard />
+        </Section>
+      )}
+
       <Section tour="settings-records" title="Your finance records" desc="Export a backup of your finance records, including review notes and emergency-fund plans. Backups contain personal information; store them somewhere private.">
         {anyData ? (
           <ul style={{ listStyle: 'none', margin: '0 0 14px', padding: 0 }}>

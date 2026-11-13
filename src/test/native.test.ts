@@ -218,12 +218,25 @@ describe('one app identity across every file that declares it', () => {
     }
   });
 
-  it('asks for exactly one iOS permission, and it is the camera', () => {
+  it('asks for exactly two iOS permissions: the camera, and Face ID for the app lock', () => {
     const plist = read('ios/App/App/Info.plist');
     const asked = keysOf('ios/App/App/Info.plist').filter((k) => /^NS\w*UsageDescription$/.test(k));
-    expect(asked).toEqual(['NSCameraUsageDescription']);
+    // Face ID joined the camera with the optional app lock (FxAppLockPlugin.swift):
+    // iOS terminates an app that asks for Face ID without this string.
+    expect(asked).toEqual(['NSCameraUsageDescription', 'NSFaceIDUsageDescription']);
     // App Review rejects an empty or boilerplate purpose string.
     expect(plist).toMatch(/<key>NSCameraUsageDescription<\/key>\s*<string>[^<]{40,}<\/string>/);
+    expect(plist).toMatch(/<key>NSFaceIDUsageDescription<\/key>\s*<string>[^<]{40,}<\/string>/);
+  });
+
+  it('registers the app lock plugin on both platforms, under one name', () => {
+    expect(read('ios/App/App/ViewController.swift')).toContain('registerPluginInstance(FxAppLockPlugin())');
+    expect(read('ios/App/App/FxAppLockPlugin.swift')).toContain('jsName = "FxAppLock"');
+    // A Swift file that is not in the project's Sources phase is not compiled.
+    expect(read('ios/App/App.xcodeproj/project.pbxproj')).toContain('FxAppLockPlugin.swift in Sources');
+    expect(read('android/app/src/main/java/co/finatrix/app/MainActivity.java')).toContain('registerPlugin(AppLockPlugin.class)');
+    expect(read('android/app/src/main/java/co/finatrix/app/AppLockPlugin.java')).toContain('@CapacitorPlugin(name = "FxAppLock")');
+    expect(read('src/native/appLock/plugin.ts')).toContain("registerPlugin<FxAppLockPlugin>('FxAppLock')");
   });
 
   it('never weakens App Transport Security', () => {

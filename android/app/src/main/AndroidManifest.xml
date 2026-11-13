@@ -84,10 +84,16 @@
         </provider>
     </application>
 
-    <!-- Permissions. Only the network: no location, contacts, SMS, camera or
+    <!-- Permissions. The network, and below it the app lock's prompt: no location, contacts, SMS, camera or
          storage permission is requested, and none is needed — files are chosen
          through the system picker, which grants access per file. -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- The optional app lock (Settings > App lock; AppLockPlugin.java) asks
+         the system to check a fingerprint or face, with the screen lock as the
+         fallback. The prompt is the system's own: the app never sees the
+         biometric, only whether the check passed. -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
     <!-- Reminders (the local-notifications plugin) are scheduled inexactly:
          a nudge a few minutes late is fine. The plugin's manifest also asks
