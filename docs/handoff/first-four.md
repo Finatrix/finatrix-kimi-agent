@@ -156,7 +156,15 @@ Notes to open: `finatrix-mobile-release-state`, `finatrix-play-tracks-and-tester
 Tick a step only when it is verified. Put a dated line under each step you finish or stop in.
 
 **Piece 1 — edit the amount in import review**
-- [ ] 1.1 Read the review sheet and the hook; decide how the amount field behaves
+- [x] 1.1 Read the review sheet and the hook; decide how the amount field behaves
+  - 2026-11-13: read only, no code written. Decision for 1.2 (branch `feat/import-review-amount`):
+    - `StatementImport.tsx` `Row`: replace the read-only amount cell (~line 668) with `AmountInput` (`src/tools/ui/AmountInput.tsx`, text + decimal keypad + formulas), className `fx-imp-input fx-imp-input-sm` (already `max(12.5px, var(--field-min-fs))`), `ariaLabel` "Amount for <label>", keep the balance line under it. Needs a new `sym` prop: `ExpensePage.tsx` already has `sym` from `useCurrency()` (line 126); pass it where `<StatementImport>` is rendered.
+    - Row keeps a local string; commit on blur or Enter via `plainAmount` then `Number`. Empty, zero, negative or unparseable: keep the old amount, show an error (`aria-invalid` + `errorId`, text like "Enter an amount above zero"). The date field has no error pattern to copy, so this is a new, small one.
+    - User types the magnitude; the sign comes from the row's `credit` issue (credit stays negative). Round to cents (`Math.round(x*100)/100`; `evaluateFormula` already rounds).
+    - New hook action `setDraftAmount(id, magnitude)` in `useStatementImport.ts`, next to `swapDirections` (~line 321): set `amount`, drop the `no-amount` issue, then `markDuplicates(current, existing)` like `swapDirections`. Do NOT touch `origin`/`confidence` (nothing learned) or `source` (original text kept). Reuse the auto-tick-on-becoming-importable rule from `updateDraft` (~line 250).
+    - Staging: `saveStaged` already persists drafts, so a reopened review should keep the edit. Confirm in a test.
+    - Tests (in `src/test/importFlow.test.tsx`): edit reaches `onImport`; row becomes and stops being a duplicate; bad input rejected; resume keeps the edit; field has an accessible name.
+  - Stopped here: usage limit. Next: step 1.2. Nothing uncommitted except the owner's untracked files.
 - [ ] 1.2 Build it, with tests
 - [ ] 1.3 All checks in section 3 pass
 - [ ] 1.4 Checked by hand on `localhost:4173`, desktop and phone width
@@ -190,6 +198,7 @@ Tick a step only when it is verified. Put a dated line under each step you finis
 **Log**
 
 - 2026-11-13: brief written. Nothing in this file has been started. Next action: step 1.1.
+- 2026-11-13: step 1.1 done (plan recorded under it). Branch `feat/import-review-amount` made from `0075ba3`; this file is committed there, not on `main`. Deploy run `43333899242` not checked yet. Next action: step 1.2.
 
 ## 10. Not in scope yet (pieces 5 to 9)
 
