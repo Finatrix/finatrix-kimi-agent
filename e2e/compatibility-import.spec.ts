@@ -29,7 +29,7 @@ test('a supported engine loads the lazy PDF reader and shows transactions for re
   await expect(dialog.getByText('Blue Bottle Cafe')).toBeVisible();
 });
 
-test('an amount corrected in the review is the amount that is imported', async ({ page }) => {
+test('an amount corrected in the review is the amount that is imported', async ({ page, hasTouch }) => {
   await page.goto('/tools/expenses');
   await page.getByRole('button', { name: 'Import', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Import a statement' });
@@ -51,9 +51,14 @@ test('an amount corrected in the review is the amount that is imported', async (
   await expect(swiggy).toHaveValue('450');
   await expect(dialog.getByRole('alert')).toContainText(/Enter an amount above zero\. Kept .*450\./);
 
-  // Typed and left in the field: Import takes what the field shows, in every
-  // engine — whether or not pressing the button takes focus from the field.
+  // Typed, then Import. With a mouse the button is pressed straight from the
+  // field, which still has the typed text in it. On a phone the formula keys
+  // sit over the sheet's buttons while a field has focus, so the keyboard is
+  // put away first, as a person there has to.
   await swiggy.fill('900/2+25.25');
+  if (hasTouch) {
+    await page.getByRole('toolbar', { name: 'Formula keys' }).getByRole('button', { name: 'Done' }).click();
+  }
   await dialog.getByRole('button', { name: 'Import 2 transactions' }).click();
   await expect(dialog).toHaveCount(0);
 
