@@ -165,9 +165,17 @@ Tick a step only when it is verified. Put a dated line under each step you finis
     - Staging: `saveStaged` already persists drafts, so a reopened review should keep the edit. Confirm in a test.
     - Tests (in `src/test/importFlow.test.tsx`): edit reaches `onImport`; row becomes and stops being a duplicate; bad input rejected; resume keeps the edit; field has an accessible name.
   - Stopped here: usage limit. Next: step 1.2. Nothing uncommitted except the owner's untracked files.
-- [ ] 1.2 Build it, with tests
+- [x] 1.2 Build it, with tests
+  - 2026-11-13: built on `feat/import-review-amount`, commit `16d8efe`. Verified: `npx tsc -b` clean; `npx eslint` clean on the changed files only; `npx vitest run src/test/importFlow.test.tsx` 69 passed. `statementImport.test.ts` (80) and `importRepair.test.ts` (36) passed before the last two edits and were not re-run after them. NOT run: the full unit suite, any browser test, and the new browser test added to `e2e/compatibility-import.spec.ts` (it runs in all three engines).
+  - Where it differs from the 1.1 plan, and why:
+    - The text being typed is held by the hook (`amountEdit`, `editAmount`, `settleAmount`, `dropAmountEdit`), not by the row. A tap on Import on a phone does not always blur a field, so a row-local draft could import the old amount while the new one was on screen. `confirm` and `stash` settle it; a field that unmounts mid-typing drops it.
+    - A refused entry never stays in the field. The field goes back to the row's amount and a `role="alert"` line says why ("Enter an amount above zero. Kept ₹450."). No `aria-invalid`, because the value on show is valid again.
+    - `amendAmount` in `draft.ts` re-checks duplicates and changes a tick only for a reason: newly flagged rows untick; rows the correction releases return to their default tick; a blocked row given its amount ticks; a flagged row the user ticked back on keeps its tick. The two tick rules now live once each, in `startsTicked` and `becameImportable`.
+    - The `no-amount` issue is dropped once an amount is supplied. `source` is untouched, and the printed figure shows under the field once the two differ ("statement ₹450").
+    - `StatementImport` has a new required `sym` prop.
 - [ ] 1.3 All checks in section 3 pass
 - [ ] 1.4 Checked by hand on `localhost:4173`, desktop and phone width
+  - 2026-11-13: mostly done, NOT ticked. The last edit (`dropAmountEdit`) came after the final build, so rebuild and repeat a short pass. Seen working at 1280 and 1024 wide and at 375×812 with touch: named field, currency, formula preview and keys, Enter and Tab, refusal line, statement line, hold-back and release against a real ledger, keyboard order, contrast in light and dark (all 5.5:1 or better), resume keeps the correction, the storage-full path keeps the review and imports on retry, Import and ✕ pressed without leaving the field. Not checked: a real phone, a screen reader, Safari.
 - [ ] 1.5 On `main`, deploy green, change confirmed in the live bundle
 
 **Piece 2 — app lock**
@@ -199,6 +207,8 @@ Tick a step only when it is verified. Put a dated line under each step you finis
 
 - 2026-11-13: brief written. Nothing in this file has been started. Next action: step 1.1.
 - 2026-11-13: step 1.1 done (plan recorded under it). Branch `feat/import-review-amount` made from `0075ba3`; this file is committed there, not on `main`. Deploy run `43333899242` not checked yet. Next action: step 1.2.
+- 2026-11-13: deploy run `43333899242` for `f0d6cd7` finished green. Step 1.2 built and committed (`16d8efe`). Stopped here: usage limit. Nothing is uncommitted except the owner's untracked files. `dist/` holds an analytics-free build. Next action: step 1.3, in this order: `npx vitest run`; `npx eslint .`; `npm run audit:prod`; `lsof -nP -iTCP:4319 -sTCP:LISTEN` (must be empty); `FX_ALLOW_UNCONFIGURED_BUILD=1 VITE_ANALYTICS_URL= npx playwright test`. Then finish 1.4.
+- 2026-11-13: noticed, not done, outside piece 1: editing a row's date or merchant does not re-check duplicates (`updateDraft`); a date-order flip leaves released rows unticked; the "No date found" badge stays after a date is set; focus is left on `<body>` once a file is read; the review table needs sideways scrolling on a phone.
 
 ## 10. Not in scope yet (pieces 5 to 9)
 
