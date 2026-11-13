@@ -195,8 +195,17 @@ Tick a step only when it is verified. Put a dated line under each step you finis
     - Web side: a pure state machine (`open`, `veiled`, `locked`) under `src/native/appLock/`. Every page load starts locked when the setting is on, so an OAuth return, which reloads the page, asks once more. The page is veiled the moment the app leaves the foreground and locks on return after 60 seconds by the wall clock; a clock that went backwards locks.
     - Setting: `fx_app_lock`, added to `ACCOUNT_LOCAL_KEYS`, so sign-out, an account switch and account deletion clear it. Not in `SYNC_KEYS`, backups or "clear finance data".
     - If the phone's passcode is removed later, nothing can be checked, so the lock switches itself off and the app opens.
-- [ ] 2.2 Lock logic and screen, with tests
-- [ ] 2.3 Settings switch, native-only, with tests
+- [x] 2.2 Lock logic and screen, with tests
+  - 2026-11-14: commits `e414710` and `544b788` on `feat/app-lock`. The rules are in `src/native/appLock/machine.ts` (pure), device events in `controller.ts`, the cover in `AppLockScreen.tsx`, and `src/native/AppLock.tsx` mounts it at the app root beside `NativeShell`. Verified: `npx tsc -b` clean; `npx eslint . --max-warnings 0` clean; `src/test/appLockMachine.test.ts` 15 passed; `src/test/appLock.test.tsx` 14 passed, with the plugin and `@capacitor/app` mocked. Nothing native is covered by these (step 2.5).
+  - How it behaves, beyond the brief:
+    - A browser loads only the small gate in `AppLock.tsx` and renders nothing. In the apps the lock's code is its own chunk, fetched when the lock is on at launch (an opaque hold covers the app until it arrives) or the first time it is switched on.
+    - One automatic prompt each time the lock engages: at launch, on return after a minute, and on return to an app that is already locked. A cancelled prompt waits for the Unlock button. The prompt's own trip through "inactive" is not taken for the user leaving, so it cannot loop.
+    - While locked, the rest of the page is inert, focus sits on Unlock and goes back where it was afterwards, and no key reaches the page behind. Android BACK on the lock screen sends the app to the background.
+    - No animation, so there is nothing to reduce.
+    - The screen's box is laid out inline. It carries `.fx-tools.fx-scope` like every portal root (`portalTokenScope.test.ts` requires it), and `tools.css` can load after it.
+  - Known limits, not fixed: the minute is measured on the wall clock, so someone who sets the phone's clock back to within a minute of when the app was left gets in without a prompt (a clock set further back locks). After a sign-in that reloads the page, the lock asks once more.
+- [x] 2.3 Settings switch, native-only, with tests
+  - 2026-11-14: commit `e414710`. `src/tools/ui/AppLockCard.tsx`, shown in Settings above "Your finance records" only when `isNativeApp()`. Switching on checks that the device has a passcode, then asks for one unlock; a refusal, a cancel or no passcode leaves it off and says why. Switching off does not ask. `fx_app_lock` is in `ACCOUNT_LOCAL_KEYS` and not in `SYNC_KEYS` or `LOCAL_ONLY_KEYS`. Verified: `src/test/appLockSetting.test.tsx` 8 passed, including that `clearSyncedLocal()` removes the setting. Not seen on a device yet.
 - [ ] 2.4 iOS and Android native changes; `verify:native` passes; both apps build
 - [ ] 2.5 Tried on the iOS Simulator and an Android emulator
 - [ ] 2.6 Marketing and help copy say only what is true
@@ -229,6 +238,7 @@ Tick a step only when it is verified. Put a dated line under each step you finis
 - 2026-11-13: hand deploy done and verified (details under 1.5). Next action: `gh run view 43379389682 --json conclusion,jobs`. If it is green, run `npm run verify:production` again, tick 1.5 and push this file to `main`. Then stop: piece 2 starts in a fresh session.
 - 2026-11-13: for any later hand deploy: delete `public/.DS_Store` first, or add `.DS_Store` to a `public/.assetsignore`.
 - 2026-11-13: piece 1 is finished: on `main`, deployed and verified live. Next action: piece 2, step 2.1, in a fresh session. Do not resume the session that did piece 1: it holds about 530k tokens, and each resume after a pause used about a third of a Pro 5-hour window before any work was done. Local `main` now tracks `origin/main`.
+- 2026-11-14: piece 2 started in a fresh session on `feat/app-lock`. Steps 2.1 to 2.3 are done. For 2.4 the native code is written (`FxAppLockPlugin.swift`, `AppLockPlugin.java`, `NSFaceIDUsageDescription`, `USE_BIOMETRIC`, `androidx.biometric` 1.1.0) but not yet built. Next action: `FX_ALLOW_UNCONFIGURED_BUILD=1 VITE_ANALYTICS_URL= scripts/android-build.sh debug` (analytics off, so an emulator run sends nothing to production), then an iOS Simulator build, then step 2.5. Usage when this session started: 5-hour window 48%, weekly 43%, weekly Fable 82%.
 
 ## 10. Not in scope yet (pieces 5 to 9)
 
