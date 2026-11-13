@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import { BrandLogo } from '../../components/BrandLogo';
 import Button from '../../components/Button';
 import { useDialogFocus } from '../../hooks/useDialogFocus';
@@ -17,8 +18,27 @@ interface AppLockScreenProps {
   onLeave: () => void;
 }
 
-/** Clear of the notch and the home indicator, with a floor where there are none. */
-const SAFE_AREA: CSSProperties = {
+/**
+ * Laid out inline rather than with utility classes. The root carries
+ * `.fx-tools.fx-scope` like every portal root, and tools.css is a route's
+ * stylesheet: it can arrive after this screen is up, and its rules then outrank
+ * a utility of equal weight. Nothing may be able to restyle the one element
+ * whose whole job is to be opaque and on top, so its box is not up for grabs.
+ *
+ * The padding keeps the content clear of the notch and the home indicator, with
+ * a floor where there are none.
+ */
+const COVER: CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  zIndex: 2147483000,
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  margin: 0,
+  background: 'var(--surface-base)',
+  textAlign: 'center',
   paddingTop: 'max(24px, env(safe-area-inset-top))',
   paddingRight: 'max(24px, env(safe-area-inset-right))',
   paddingBottom: 'max(24px, env(safe-area-inset-bottom))',
@@ -27,6 +47,9 @@ const SAFE_AREA: CSSProperties = {
 
 /**
  * What covers the app while it is veiled or locked.
+ *
+ * Portalled to `body`, so no ancestor's stacking context or transform can put
+ * anything above it or leave a strip of the page showing.
  *
  * Opaque and unanimated on purpose: a cover that fades in shows what it is
  * covering while it does, so there is no motion here to reduce.
@@ -64,11 +87,11 @@ export default function AppLockScreen({ locked, failed, onUnlock, onLeave }: App
     return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [locked, onLeave]);
 
-  return (
+  return createPortal(
     <div
       ref={coverRef}
-      className="fx-applock fixed inset-0 z-[2147483000] flex flex-col items-center justify-center bg-surface-base text-center"
-      style={SAFE_AREA}
+      className="fx-tools fx-scope fx-applock"
+      style={COVER}
       data-phase={locked ? 'locked' : 'veiled'}
       {...(locked
         ? { role: 'dialog', 'aria-modal': true, 'aria-labelledby': titleId, 'aria-describedby': descId }
@@ -97,6 +120,7 @@ export default function AppLockScreen({ locked, failed, onUnlock, onLeave }: App
           </p>
         </>
       )}
-    </div>
+    </div>,
+    document.body,
   );
 }

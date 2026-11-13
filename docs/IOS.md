@@ -47,6 +47,7 @@ are few and each one is commented with the reason it exists.
 | Text size | No Dynamic Type; pinch-zoom instead | WKWebView has no equivalent of Android's WebView text zoom, and `-webkit-text-size-adjust` with a percentage is ignored by WebKit (measured, not assumed). `ios.zoomEnabled: true` is the app's WCAG 1.4.4 route. |
 | Keyboard appearance | Follows the in-app theme | The iOS keyboard follows the SYSTEM appearance unless told otherwise, so dark-mode-in-app on a light-mode phone would get a white keyboard. Android's keyboard is the user's own IME and is not the app's to restyle. |
 | Window backdrop | `FxSystemUiPlugin.swift` | Same JS contract as Android's `SystemUiPlugin.java`, so `bridge.ts` calls one API on both. |
+| App lock | `FxAppLockPlugin.swift` | Optional and off by default (Settings, App lock). Face ID or Touch ID with the device passcode as the fallback (`.deviceOwnerAuthentication`), and the launch screen over the app in the switcher. Same JS contract as Android's `AppLockPlugin.java`; when to lock and when to ask is shared code in `src/native/appLock/`. Needs `NSFaceIDUsageDescription`. A privacy gate, not encryption. |
 
 Everything else — BACK-closes-overlays policy, splash timing, haptics, external
 links, the purchase gate, the web-only chrome — is shared code and behaves
@@ -398,6 +399,8 @@ If `ios/` is ever regenerated with `npx cap add ios`, re-apply:
   `CODE_SIGN_ENTITLEMENTS` build setting that points at it
 - `App/App/ViewController.swift` — plugin registration + the edge-swipe gesture
 - `App/App/FxSystemUiPlugin.swift` — window colour behind the web view
+- `App/App/FxAppLockPlugin.swift` — the optional app lock: the Face ID or
+  passcode prompt, and the cover in the app switcher
 - `App/App/SceneDelegate.swift` — root view controller is `ViewController`
 - `App/App/PrivacyInfo.xcprivacy` — privacy manifest
 - `App/App/Base.lproj/LaunchScreen.storyboard` — brand background, not

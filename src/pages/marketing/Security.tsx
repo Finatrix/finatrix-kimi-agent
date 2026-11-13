@@ -12,6 +12,7 @@
 import { Link } from 'react-router';
 import MarketingPage from '../../marketing/MarketingPage';
 import { Card, Faq, Grid, P, RelatedPages, Section, UL } from '../../marketing/ui';
+import { isNativeApp } from '../../native/platform';
 import { SUPPORT_EMAIL, SUPPORT_MAILTO } from '../../shared/brand';
 import { publicPageFor } from '../../shared/publicPages';
 
@@ -231,10 +232,25 @@ export default function Security() {
             by our providers, but it can be decrypted on their systems, and people who administer our
             database can technically access it.
           </li>
+          {/* Each wording is shown only where it is true. A build of the app
+              that has the lock says so; a browser, and an app build from
+              before the lock, carry the sentence that is true for them. */}
           <li>
-            <strong className="text-ink">No separate lock on your device.</strong> Data on your device
-            relies on your device&rsquo;s own lock and encryption. FinatriX adds no passcode or
-            biometric lock.
+            {isNativeApp() ? (
+              <>
+                <strong className="text-ink">The app lock is not encryption.</strong> You can make
+                FinatriX ask for your face, fingerprint or device passcode before it opens
+                (Settings, App lock). That decides who can open the app on an unlocked device. It
+                does not encrypt anything: data on your device still relies on your device&rsquo;s
+                own lock and encryption.
+              </>
+            ) : (
+              <>
+                <strong className="text-ink">No separate lock in your browser.</strong> Data on
+                your device relies on your device&rsquo;s own lock and encryption. On the web,
+                FinatriX adds no passcode or biometric lock.
+              </>
+            )}
           </li>
           <li>
             <strong className="text-ink">Backups are limited.</strong> Point-in-time recovery is off
