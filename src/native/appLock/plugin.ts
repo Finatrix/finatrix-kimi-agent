@@ -21,6 +21,14 @@ interface FxAppLockPlugin {
   authenticate(options: { reason: string }): Promise<{ result: UnlockResult }>;
   /** Keep the app's content out of the app switcher while the lock is on. */
   setCover(options: { enabled: boolean }): Promise<void>;
+  /**
+   * Android only. The app stopped or started being the one in front without
+   * being paused, which is what the overview screen does to it.
+   */
+  addListener(
+    event: 'foreground',
+    handler: (state: { active: boolean }) => void,
+  ): Promise<{ remove: () => Promise<void> }>;
 }
 
 const FxAppLock = registerPlugin<FxAppLockPlugin>('FxAppLock');
@@ -58,6 +66,11 @@ export async function unlockWithDevice(reason: string): Promise<UnlockResult> {
   } catch {
     return 'failed';
   }
+}
+
+/** See `addListener` above. Never fires on iOS, where "inactive" already covers it. */
+export function onForegroundChange(handler: (active: boolean) => void): Promise<{ remove: () => Promise<void> }> {
+  return FxAppLock.addListener('foreground', ({ active }) => handler(active === true));
 }
 
 export function setSwitcherCover(enabled: boolean): void {

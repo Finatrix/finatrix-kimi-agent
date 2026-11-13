@@ -42,6 +42,31 @@ public class AppLockPlugin extends Plugin {
     private static final int AUTHENTICATORS =
         BiometricManager.Authenticators.BIOMETRIC_WEAK | BiometricManager.Authenticators.DEVICE_CREDENTIAL;
 
+    /** Whether the lock is on, as last told by the page through setCover. */
+    private volatile boolean lockOn;
+
+    /**
+     * Called by MainActivity when the app stops or starts being the one in
+     * front (Android 10 and later).
+     *
+     * The overview screen keeps the running app drawn live in its card and does
+     * not pause it. So the page's own cover, which waits for a pause, never
+     * goes up there, and the recents setting in setCover is about the saved
+     * thumbnail, not the live card. Telling the page lets it cover itself in
+     * the overview, and count the absence from that moment.
+     *
+     * Not in split screen: there, losing the front spot only means the other
+     * app was touched, and a covered half would make working side by side
+     * impossible.
+     */
+    void onTopResumedChanged(boolean front) {
+        if (!lockOn) return;
+        if (!front && getActivity() != null && getActivity().isInMultiWindowMode()) return;
+        JSObject data = new JSObject();
+        data.put("active", front);
+        notifyListeners("foreground", data);
+    }
+
     @PluginMethod
     public void availability(PluginCall call) {
         boolean biometrics = BiometricManager.from(getContext())
@@ -97,6 +122,7 @@ public class AppLockPlugin extends Plugin {
     @PluginMethod
     public void setCover(PluginCall call) {
         final boolean enabled = Boolean.TRUE.equals(call.getBoolean("enabled", false));
+        lockOn = enabled;
         final AppCompatActivity activity = getActivity();
         activity.runOnUiThread(() -> {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

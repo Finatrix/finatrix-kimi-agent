@@ -235,6 +235,9 @@ describe('one app identity across every file that declares it', () => {
     // A Swift file that is not in the project's Sources phase is not compiled.
     expect(read('ios/App/App.xcodeproj/project.pbxproj')).toContain('FxAppLockPlugin.swift in Sources');
     expect(read('android/app/src/main/java/co/finatrix/app/MainActivity.java')).toContain('registerPlugin(AppLockPlugin.class)');
+    // Android's overview shows the app live without pausing it; only the
+    // activity hears about that, and the lock needs to be told.
+    expect(read('android/app/src/main/java/co/finatrix/app/MainActivity.java')).toContain('onTopResumedChanged(isTopResumedActivity)');
     expect(read('android/app/src/main/java/co/finatrix/app/AppLockPlugin.java')).toContain('@CapacitorPlugin(name = "FxAppLock")');
     expect(read('src/native/appLock/plugin.ts')).toContain("registerPlugin<FxAppLockPlugin>('FxAppLock')");
   });

@@ -2,7 +2,7 @@ import { App } from '@capacitor/app';
 import { onLocalWrite } from '../../tools/lib/storage';
 import { isAndroidApp } from '../platform';
 import type { LockEvent } from './machine';
-import { lockAvailability, setSwitcherCover, unlockWithDevice } from './plugin';
+import { lockAvailability, onForegroundChange, setSwitcherCover, unlockWithDevice } from './plugin';
 import { APP_LOCK_KEY, isAppLockOn, setAppLockOn } from './setting';
 
 /** Shown by the system prompt: the passcode screen on iOS, the title on Android. */
@@ -44,11 +44,19 @@ export function startLockController(dispatch: (event: LockEvent) => void): LockC
   // the system froze the web view. "Shown" is only ever fully active, because
   // an unlock prompt raised while the app is still on its way in is cancelled.
   const hidden = () => send({ type: 'hidden', at: Date.now() });
+  const shown = () => send({ type: 'shown', at: Date.now() });
   listen(App.addListener('appStateChange', ({ isActive }) => {
-    if (isActive) send({ type: 'shown', at: Date.now() });
+    if (isActive) shown();
     else hidden();
   }));
   listen(App.addListener('pause', hidden));
+  // Android's overview keeps the app running in its card and never pauses it,
+  // so neither event above fires there and the content would sit in the card
+  // for anyone to read. The plugin reports that case itself.
+  listen(onForegroundChange((active) => {
+    if (active) shown();
+    else hidden();
+  }));
 
   setSwitcherCover(isAppLockOn());
   disposers.push(onLocalWrite((key) => {

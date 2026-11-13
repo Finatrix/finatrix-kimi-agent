@@ -9,12 +9,18 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { fxAppLock, app, appListeners, platform } = vi.hoisted(() => {
+const { fxAppLock, app, appListeners, pluginListeners, platform } = vi.hoisted(() => {
   const appListeners = new Map<string, (payload: { isActive: boolean }) => void>();
+  const pluginListeners = new Map<string, (payload: { active: boolean }) => void>();
   return {
     appListeners,
+    pluginListeners,
     platform: { native: true, android: false },
     fxAppLock: {
+      addListener: vi.fn(async (event: string, cb: (payload: { active: boolean }) => void) => {
+        pluginListeners.set(event, cb);
+        return { remove: vi.fn(async () => { pluginListeners.delete(event); }) };
+      }),
       availability: vi.fn(async (): Promise<{ available: boolean; biometry: string }> => ({ available: true, biometry: 'face' })),
       authenticate: vi.fn(async (options: { reason: string }): Promise<{ result: string }> => ({ result: options.reason ? 'ok' : 'failed' })),
       setCover: vi.fn(async (options: { enabled: boolean }): Promise<void> => void options),
@@ -74,6 +80,16 @@ function appEvent(event: 'appStateChange' | 'pause', isActive: boolean, ms: numb
 const goAway = (ms: number) => appEvent('appStateChange', false, ms);
 const comeBack = (ms: number) => appEvent('appStateChange', true, ms);
 
+/** Android's overview: the app stops, or starts, being the one in front without a pause. */
+function inFront(active: boolean, ms: number) {
+  const clock = vi.spyOn(Date, 'now').mockReturnValue(ms);
+  try {
+    act(() => pluginListeners.get('foreground')?.({ active }));
+  } finally {
+    clock.mockRestore();
+  }
+}
+
 /** Let promises that are already resolved run their continuations. */
 async function settle() {
   await act(async () => {
@@ -92,6 +108,7 @@ async function unlockedApp() {
 beforeEach(() => {
   localStorage.clear();
   appListeners.clear();
+  pluginListeners.clear();
   platform.native = true;
   platform.android = false;
   vi.clearAllMocks();
@@ -216,6 +233,22 @@ describe('app lock', () => {
     await waitFor(() => expect(fxAppLock.authenticate).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(document.activeElement).toBe(typing);
+  });
+
+  it("covers the app in Android's overview, which shows it live without pausing it", async () => {
+    await unlockedApp();
+
+    inFront(false, T0);
+    expect(document.querySelector('.fx-applock')?.getAttribute('data-phase')).toBe('veiled');
+    inFront(true, T0 + 5_000);
+    expect(document.querySelector('.fx-applock')).toBeNull();
+
+    // Left in the overview for a minute: coming back needs an unlock, even
+    // though the app was never paused.
+    inFront(false, T0 + 10_000);
+    inFront(true, T0 + 10_000 + LOCK_AFTER_MS);
+    await screen.findByRole('dialog', LOCKED);
+    await waitFor(() => expect(fxAppLock.authenticate).toHaveBeenCalledTimes(2));
   });
 
   it('switches itself off and opens when the device no longer has a passcode', async () => {
