@@ -1,7 +1,8 @@
 /**
- * What a draft's state means — the three questions the whole sheet is built on.
+ * What a draft's state means — the questions the whole sheet is built on.
  *
  *   - Can this row be imported at all?          (`isImportable`)
+ *   - Did an edit just make it importable?      (`becameImportable`)
  *   - Should the user look at it first?         (`needsReview`)
  *   - What do the counters at the top say?      (`summarize`)
  *
@@ -29,6 +30,28 @@ export function isImportable(draft: DraftRow): boolean {
     Number.isFinite(draft.amount) &&
     draft.amount !== 0 &&
     Boolean(draft.category)
+  );
+}
+
+/**
+ * True when an edit has just turned a row that could not be imported into one
+ * that can, and nothing else is holding it back.
+ *
+ * Such a row is ticked for the user. Someone who chooses a category for an
+ * uncategorised row, or types the amount the statement left out, has said they
+ * want it; making them also find the checkbox is a second step for a decision
+ * they already made. It is the *transition* that counts, so a row the user
+ * deliberately unticked stays unticked however much they edit it afterwards —
+ * and money in and suspected duplicates are never ticked on anyone's behalf.
+ */
+export function becameImportable(before: DraftRow, after: DraftRow): boolean {
+  return (
+    !before.include &&
+    !isImportable(before) &&
+    isImportable(after) &&
+    !after.issues.includes('credit') &&
+    !after.duplicateOf &&
+    !after.duplicateInBatch
   );
 }
 

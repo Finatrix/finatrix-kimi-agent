@@ -955,6 +955,7 @@ export default function ExpensePage() {
             cats={flatCats}
             existing={items}
             cfmt={cfmt}
+            sym={sym}
             currencyCode={code}
             onImport={importTransactions}
             onClose={() => setImporting(false)}

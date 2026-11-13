@@ -22,9 +22,11 @@
 import { ymdLocal } from '../../../lib/date';
 import { getJSON, setJSON, store } from '../storage';
 import { genExpenseId, type ExpenseItem } from '../expense';
+import { evaluateFormula, roundAmount, type FormulaResult } from '../formula';
 import { resolveLocally } from './categorize';
+import { markDuplicates } from './dedupe';
 import type { LearnedMap } from './learned';
-import { isImportable } from './status';
+import { becameImportable, isImportable } from './status';
 import type { DraftRow, RowIssue, StatementDoc } from './types';
 
 /** Local-only staging key. Never added to SYNC_KEYS — see the note above. */
@@ -99,13 +101,25 @@ export function buildDrafts(
       duplicateInBatch: null,
     };
 
-    // Ticked only when the row is genuinely ready to become a transaction — a
-    // real date, a real amount, a category, and money going out. Everything else
-    // starts off and the user opts it in, which is the safe direction to be
-    // wrong in.
-    draft.include = doc.source !== 'ocr' && row.direction !== 'credit' && isImportable(draft);
+    draft.include = startsTicked(draft);
     return draft;
   });
+}
+
+/**
+ * How a row starts out.
+ *
+ * Ticked only when it is genuinely ready to become a transaction: a real date,
+ * a real amount, a category, money going out, and read from a file rather than
+ * off a picture. Everything else starts unticked and the user opts it in, which
+ * is the safe direction to be wrong in.
+ */
+function startsTicked(draft: DraftRow): boolean {
+  return (
+    !draft.issues.includes('credit') &&
+    !draft.issues.includes('recognised-text') &&
+    isImportable(draft)
+  );
 }
 
 /**
@@ -155,8 +169,130 @@ export function flipDirection(draft: DraftRow): DraftRow {
     issues,
     source: { ...draft.source, direction: wasCredit ? 'debit' : 'credit' },
   };
-  next.include = wasCredit && !issues.includes('recognised-text') && isImportable(next);
+  next.include = startsTicked(next);
   return next;
+}
+
+/* ── Correcting an amount ────────────────────────────────────────────── */
+
+/** What is being typed into one row's amount, until it is settled. */
+export interface AmountEdit {
+  /** The draft whose amount is being typed. */
+  id: string;
+  /** The field's text exactly as typed. */
+  text: string;
+}
+
+const AMOUNT_NEEDED = 'Enter an amount above zero.';
+
+/**
+ * Read what was typed into a row's amount field.
+ *
+ * The field takes the SIZE of the transaction: a number, or arithmetic such as
+ * `1200/2` for a bill that was split. Which way the money moved belongs to the
+ * row, not to this field, so a minus sign is not a way to say "refund" here as
+ * it is in the manual editor. Zero and anything below it are refused, along
+ * with nothing at all and anything the formula grammar cannot read, each with
+ * a sentence the sheet can show. A reading that is accepted is already rounded
+ * to the cent, which is the precision duplicates are matched at.
+ */
+export function readAmountEdit(input: string): FormulaResult {
+  const typed = input.trim();
+  if (!typed) return { ok: false, error: AMOUNT_NEEDED };
+  const parsed = evaluateFormula(typed);
+  if (parsed.ok && parsed.value <= 0) return { ok: false, error: AMOUNT_NEEDED };
+  return parsed;
+}
+
+/**
+ * Correct one row's amount by hand, then check the batch for duplicates again.
+ *
+ * `magnitude` is the size of the transaction. The direction stays whatever the
+ * row already says, so money in stays money in at its new size, under the same
+ * sign convention `buildDrafts` applies.
+ *
+ * Two things are deliberately left alone:
+ *  - `source`. What the statement printed stays beside what the user made of
+ *    it, so the sheet can go on showing both.
+ *  - `origin` and `confidence`. They describe the *category*, and an amount
+ *    says nothing about which merchant belongs where, so nothing is learned
+ *    from this edit.
+ *
+ * Duplicates are re-checked because the amount is half of what a duplicate is,
+ * and a tick changes only where that check, or the correction itself, gives a
+ * reason:
+ *  - Newly flagged rows are unticked, like any suspected duplicate. That is
+ *    the corrected row if it now matches the ledger or an earlier row of this
+ *    file, and a later row that has just started repeating it.
+ *  - Rows the correction releases — flagged before, not flagged now, and never
+ *    ticked back on — return to how such a row starts (`startsTicked`). They
+ *    were held back only by a match that no longer exists, and leaving them
+ *    unticked would drop a real transaction without a word.
+ *  - A blocked row whose missing amount has just been supplied is ticked, by
+ *    the same rule as any other edit that unblocks a row.
+ *  - Every other row keeps the tick it had. That includes a flagged row the
+ *    user ticked back on, which `markDuplicates` alone would quietly untick
+ *    again because an amount changed somewhere else in the file.
+ *
+ * Returns the same array, untouched, when there is nothing to do: an unknown
+ * row, a size that is not above zero, or the amount the row already has.
+ */
+export function amendAmount(
+  drafts: DraftRow[],
+  id: string,
+  magnitude: number,
+  existing: readonly ExpenseItem[],
+): DraftRow[] {
+  const index = drafts.findIndex((draft) => draft.id === id);
+  const size = roundAmount(magnitude);
+  if (index < 0 || !Number.isFinite(size) || size <= 0) return drafts;
+
+  const before = drafts[index];
+  const amount = before.issues.includes('credit') ? -size : size;
+  if (amount === before.amount) return drafts;
+
+  const amended: DraftRow = {
+    ...before,
+    amount,
+    // The row has an amount now. That the statement gave none stays on `source`.
+    issues: before.issues.filter((issue) => issue !== 'no-amount'),
+  };
+
+  const marked = markDuplicates(drafts.map((draft, i) => (i === index ? amended : draft)), existing);
+  return marked.map((draft, i) => {
+    const was = drafts[i];
+    const wasFlagged = Boolean(was.duplicateOf || was.duplicateInBatch);
+    const tick = (on: boolean) => (on && !draft.include ? { ...draft, include: true } : draft);
+
+    if (draft.duplicateOf || draft.duplicateInBatch) {
+      // `markDuplicates` has unticked it. That stands for the corrected row and
+      // for a row that only now repeats it; an older flag the user overrode does not.
+      const startedRepeating = Boolean(draft.duplicateInBatch) && !was.duplicateInBatch;
+      return tick(i !== index && wasFlagged && was.include && !startedRepeating);
+    }
+    if (wasFlagged && !was.include) return tick(startsTicked(draft));
+    return tick(i === index && becameImportable(was, draft));
+  });
+}
+
+/**
+ * Settle an amount that was being typed.
+ *
+ * Taken, it gives the drafts with the correction applied (see `amendAmount`).
+ * Turned away, it gives the drafts exactly as they were and the reason, so the
+ * row keeps the amount it had. With nothing being typed there is nothing to
+ * settle, and the drafts come back unchanged.
+ */
+export function settleAmountEdit(
+  drafts: DraftRow[],
+  edit: AmountEdit | null,
+  existing: readonly ExpenseItem[],
+): { drafts: DraftRow[]; refusal: string } {
+  if (!edit) return { drafts, refusal: '' };
+  const reading = readAmountEdit(edit.text);
+  return reading.ok
+    ? { drafts: amendAmount(drafts, edit.id, reading.value, existing), refusal: '' }
+    : { drafts, refusal: reading.error };
 }
 
 /* ── Staging ─────────────────────────────────────────────────────────── */

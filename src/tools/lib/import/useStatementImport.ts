@@ -29,8 +29,11 @@ import { setAiConsent } from '../../../lib/ai/consent';
 import type { ExpenseItem } from '../expense';
 import { applySuggestions, pendingDescriptions } from './categorize';
 import { markDuplicates } from './dedupe';
-import { buildDrafts, clearStaged, flipDirection, loadStaged, saveStaged, toExpense } from './draft';
-import { isImportable, summarize } from './status';
+import {
+  amendAmount, buildDrafts, clearStaged, flipDirection, loadStaged, readAmountEdit, saveStaged,
+  settleAmountEdit, toExpense, type AmountEdit,
+} from './draft';
+import { becameImportable, isImportable, summarize } from './status';
 import { extractStatement, ImportError, type ExtractedStatement } from './extract';
 import { loadLearned, rememberConfirmed, saveLearned } from './learned';
 import { swapDayMonth } from './fields';
@@ -84,6 +87,27 @@ export interface UseStatementImport {
   start: (file: File) => void;
   submitPassword: (password: string) => void;
   updateDraft: (id: string, patch: Partial<DraftRow>) => void;
+  /**
+   * The amount being typed into a row, until it is settled. One row at a time:
+   * the field shows this text instead of the row's own amount.
+   */
+  amountEdit: AmountEdit | null;
+  /** Why the last amount typed was turned away, and for which row. */
+  amountRefusal: { id: string; reason: string } | null;
+  /** Record what is being typed into a row's amount. Nothing is applied yet. */
+  editAmount: (id: string, text: string) => void;
+  /**
+   * Settle what is being typed: take it as the row's amount if it is one above
+   * zero, or leave the row's amount alone and say why in `amountRefusal`. The
+   * size is all that changes; which way the money moved stays as the row has
+   * it. Does nothing when nothing is being typed.
+   */
+  settleAmount: () => void;
+  /**
+   * Forget what was being typed into a row, unsettled. For a field that has
+   * gone from the screen mid-edit; does nothing for any other row.
+   */
+  dropAmountEdit: (id: string) => void;
   setAllIncluded: (include: boolean) => void;
   resume: () => void;
   discardResumable: () => void;
@@ -92,6 +116,9 @@ export interface UseStatementImport {
    * confirmed choices into learning and drop the staged copy. Returns whether
    * the import went through. When `save` refuses (it returns `false` — storage
    * is full), nothing is learned, nothing is cleared, and `saveError` says why.
+   *
+   * An amount still being typed is settled first, so what is imported is what
+   * the field shows. If it is turned away, nothing is imported on this call.
    */
   confirm: (save: (items: ExpenseItem[]) => boolean | void) => boolean;
   /** Why the last confirm did not go through. Empty otherwise. */
@@ -145,6 +172,15 @@ export function useStatementImport({
      first paint instead of arriving a render later. */
   const [resumable, setResumable] = useState<UseStatementImport['resumable']>(readResumable);
   const [saveError, setSaveError] = useState('');
+  /* An amount being typed lives here rather than in its field, because the
+     field is not the only thing that has to know about it. Leaving the field
+     settles it — but a tap on Import does not always take focus from a field
+     (a phone, a screen reader's activate gesture), and an import that went
+     ahead on the row's old amount while the new one was still on screen would
+     be the one thing this sheet promises never to do. Held here, `confirm` and
+     `stash` can settle it themselves. */
+  const [amountEdit, setAmountEdit] = useState<AmountEdit | null>(null);
+  const [amountRefusal, setAmountRefusal] = useState<UseStatementImport['amountRefusal']>(null);
 
   /** The pending file for the password retry. Never persisted. */
   const pendingFile = useRef<File | null>(null);
@@ -205,6 +241,8 @@ export function useStatementImport({
       setPhase('reading');
       setMessage('');
       setSaveError('');
+      setAmountEdit(null);
+      setAmountRefusal(null);
       setAiPhase('skipped');
       setAiMessage('');
       setAiAsked(0);
@@ -261,25 +299,48 @@ export function useStatementImport({
           next.confidence = 100;
         }
 
-        // An edit that makes a blocked row importable ticks it. Someone who
-        // chooses a category for an uncategorised row has said they want it;
-        // making them also find the checkbox is a second step for a decision
-        // they already made. Guarded on the *transition*, so a row the user
-        // deliberately unticked stays unticked when they edit it further.
-        if (
-          patch.include === undefined &&
-          !draft.include &&
-          !isImportable(draft) &&
-          isImportable(next) &&
-          !next.issues.includes('credit') &&
-          !next.duplicateOf &&
-          !next.duplicateInBatch
-        ) {
-          next.include = true;
-        }
+        // An edit that makes a blocked row importable ticks it — see
+        // `becameImportable` for why, and for what is never ticked this way.
+        if (patch.include === undefined && becameImportable(draft, next)) next.include = true;
         return next;
       }),
     );
+  }, []);
+
+  const editAmount = useCallback((id: string, text: string) => {
+    setAmountEdit({ id, text });
+    // The refusal was about the last attempt; this is the next one.
+    setAmountRefusal(null);
+  }, []);
+
+  /**
+   * Settle the amount being typed.
+   *
+   * Not a patch through `updateDraft`, because an amount is not just another
+   * field: it is half of what makes a row a duplicate, so the batch is checked
+   * again afterwards (`amendAmount`), as it is after a date-order flip or a
+   * swap. That is also why it waits for the field to be left rather than
+   * running on every keystroke — the rows that "475" would flag on the way to
+   * "475.25" are not ones the user ever meant.
+   */
+  const settleAmount = useCallback(() => {
+    if (!amountEdit) return;
+    const reading = readAmountEdit(amountEdit.text);
+    setAmountEdit(null);
+    if (reading.ok) setDrafts((current) => amendAmount(current, amountEdit.id, reading.value, existing));
+    else setAmountRefusal({ id: amountEdit.id, reason: reading.error });
+  }, [amountEdit, existing]);
+
+  /**
+   * Forget an amount whose field has gone.
+   *
+   * A row can leave the list while its amount is half typed: a filter is
+   * pressed, or the model's reply moves it out of "Needs review". What was
+   * typed must go with the field. Left here, it would be settled by the next
+   * Import — "47", on its way to "475.25", applied to a row nobody can see.
+   */
+  const dropAmountEdit = useCallback((id: string) => {
+    setAmountEdit((edit) => (edit?.id === id ? null : edit));
   }, []);
 
   const setAllIncluded = useCallback((include: boolean) => {
@@ -332,6 +393,8 @@ export function useStatementImport({
     setPhase('review');
     setAiPhase('skipped');
     setResumable(null);
+    setAmountEdit(null);
+    setAmountRefusal(null);
   }, [existing]);
 
   const discardResumable = useCallback(() => {
@@ -359,6 +422,8 @@ export function useStatementImport({
     setAiMessage('');
     setAiAsked(0);
     setSaveError('');
+    setAmountEdit(null);
+    setAmountRefusal(null);
     setResumable(readResumable());
   }, []);
 
@@ -376,11 +441,28 @@ export function useStatementImport({
    * behind — or, for a file opened and dismissed at once, not at all.
    */
   const stash = useCallback(() => {
-    if (phase === 'review' && drafts.length) saveStaged(fileName, drafts);
-  }, [phase, drafts, fileName]);
+    if (phase !== 'review' || !drafts.length) return;
+    // With an amount that was being typed, when it is one the row can take:
+    // closing the sheet is "not now", not "throw away what I just typed".
+    saveStaged(fileName, settleAmountEdit(drafts, amountEdit, existing).drafts);
+  }, [phase, drafts, fileName, amountEdit, existing]);
 
   const confirm = useCallback((save: (items: ExpenseItem[]) => boolean | void): boolean => {
-    const chosen = drafts.filter((d) => d.include && isImportable(d));
+    // An amount still being typed is on the screen, so it is part of what is
+    // being confirmed. If it cannot be taken, nothing is imported on this
+    // press: the field goes back to the row's amount, says why, and the next
+    // press imports what is then on show.
+    const settled = settleAmountEdit(drafts, amountEdit, existing);
+    if (amountEdit) {
+      setAmountEdit(null);
+      if (settled.refusal) {
+        setAmountRefusal({ id: amountEdit.id, reason: settled.refusal });
+        return false;
+      }
+      setDrafts(settled.drafts);
+    }
+
+    const chosen = settled.drafts.filter((d) => d.include && isImportable(d));
     if (!chosen.length) return false;
 
     // The ledger first. Learning from a category choice and deleting the
@@ -405,7 +487,7 @@ export function useStatementImport({
     setSaveError('');
     clearStaged();
     return true;
-  }, [drafts]);
+  }, [drafts, amountEdit, existing]);
 
   const summary = useMemo(() => (drafts.length ? summarize(drafts) : EMPTY_SUMMARY), [drafts]);
 
@@ -422,7 +504,8 @@ export function useStatementImport({
     dateOrder, dateOrderAssumed: extraction?.doc.dateOrderAssumed ?? false, flipDateOrder,
     directionsUncertain: extraction?.directionsUncertain ?? false, swapDirections,
     allowAi, declineAi,
-    start, submitPassword, updateDraft, setAllIncluded,
+    start, submitPassword, updateDraft, amountEdit, amountRefusal, editAmount, settleAmount, dropAmountEdit,
+    setAllIncluded,
     resume, discardResumable, confirm, saveError, reset, discard, stash,
   };
 }
