@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type CSSProperties } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { BrandLogo } from '../../components/BrandLogo';
 import Button from '../../components/Button';
@@ -46,6 +46,16 @@ const COVER: CSSProperties = {
 };
 
 /**
+ * While locked, nothing but the cover may be seen or reached. `useDialogFocus`
+ * makes the page `inert` once, when the lock engages, which misses anything
+ * added afterwards (a dialog, a toast, the formula keys) and does not exist
+ * before WebView 102 / iOS 15.5, below the app's floors of 91 / 15.4. This rule
+ * needs neither: whatever sits beside the cover in <body> is hidden, which also
+ * takes it out of the accessibility tree and out of the tab order.
+ */
+const LOCKED_STYLE = 'html.fx-app-locked body > :not(.fx-applock){visibility:hidden !important;}';
+
+/**
  * What covers the app while it is veiled or locked.
  *
  * Portalled to `body`, so no ancestor's stacking context or transform can put
@@ -63,6 +73,14 @@ export default function AppLockScreen({ locked, failed, onUnlock, onLeave }: App
   // Makes the page behind inert, moves focus to Unlock, and puts focus back
   // where it was once the lock opens.
   useDialogFocus({ containerRef: coverRef, open: locked, initialFocusRef: unlockRef });
+
+  // A layout effect, so the rule is in force before the first locked paint.
+  useLayoutEffect(() => {
+    if (!locked) return;
+    const root = document.documentElement;
+    root.classList.add('fx-app-locked');
+    return () => root.classList.remove('fx-app-locked');
+  }, [locked]);
 
   // Nothing behind the lock may hear the keyboard. With a hardware keyboard the
   // app's shortcuts would otherwise open things underneath, and an overlay
@@ -93,10 +111,14 @@ export default function AppLockScreen({ locked, failed, onUnlock, onLeave }: App
       className="fx-tools fx-scope fx-applock"
       style={COVER}
       data-phase={locked ? 'locked' : 'veiled'}
+      // Read by inertOutside: a dialog the page opens later must not make this
+      // cover inert, or Unlock stops responding and taps fall through.
+      data-fx-keep-live=""
       {...(locked
         ? { role: 'dialog', 'aria-modal': true, 'aria-labelledby': titleId, 'aria-describedby': descId }
         : { 'aria-hidden': true })}
     >
+      <style>{LOCKED_STYLE}</style>
       <BrandLogo size={64} />
       {locked && (
         <>

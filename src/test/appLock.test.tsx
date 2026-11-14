@@ -24,6 +24,7 @@ const { fxAppLock, app, appListeners, pluginListeners, platform } = vi.hoisted((
       availability: vi.fn(async (): Promise<{ available: boolean; biometry: string }> => ({ available: true, biometry: 'face' })),
       authenticate: vi.fn(async (options: { reason: string }): Promise<{ result: string }> => ({ result: options.reason ? 'ok' : 'failed' })),
       setCover: vi.fn(async (options: { enabled: boolean }): Promise<void> => void options),
+      setLocked: vi.fn(async (options: { locked: boolean }): Promise<void> => void options),
     },
     app: {
       minimizeApp: vi.fn(async () => {}),
@@ -44,6 +45,7 @@ vi.mock('../native/platform', async (importOriginal) => ({
 }));
 
 import AppLock from '../native/AppLock';
+import { inertOutside } from '../hooks/useInertOutside';
 import { LOCK_AFTER_MS } from '../native/appLock/machine';
 import { APP_LOCK_KEY, isAppLockOn, setAppLockOn } from '../native/appLock/setting';
 import { store } from '../tools/lib/storage';
@@ -318,6 +320,51 @@ describe('app lock', () => {
     } finally {
       window.removeEventListener('keydown', behind);
     }
+  });
+
+  it('switches the iOS swipe-back gesture off while covered, and on again after the unlock', async () => {
+    await unlockedApp();
+    expect(fxAppLock.setLocked).toHaveBeenCalledWith({ locked: true });
+    expect(fxAppLock.setLocked).toHaveBeenLastCalledWith({ locked: false });
+    goAway(T0);
+    expect(fxAppLock.setLocked).toHaveBeenLastCalledWith({ locked: true });
+    comeBack(T0 + 1_000);
+    expect(fxAppLock.setLocked).toHaveBeenLastCalledWith({ locked: false });
+  });
+
+  it('hides everything but the cover while locked, including what the page adds later', async () => {
+    fxAppLock.authenticate.mockImplementation(async () => ({ result: 'cancelled' }));
+    setAppLockOn(true);
+    renderApp();
+    await screen.findByRole('dialog', LOCKED);
+    expect(document.documentElement.classList.contains('fx-app-locked')).toBe(true);
+    const later = document.createElement('div');
+    later.textContent = 'a dialog the page opened behind the cover';
+    document.body.appendChild(later);
+    expect(getComputedStyle(later).visibility).toBe('hidden');
+    expect(getComputedStyle(document.querySelector('.fx-applock') as Element).visibility).not.toBe('hidden');
+    later.remove();
+  });
+
+  it('lifts the hiding rule with the lock', async () => {
+    await unlockedApp();
+    expect(document.documentElement.classList.contains('fx-app-locked')).toBe(false);
+  });
+
+  it('stays usable when the page opens a dialog after it', async () => {
+    fxAppLock.authenticate.mockImplementation(async () => ({ result: 'cancelled' }));
+    setAppLockOn(true);
+    renderApp();
+    await screen.findByRole('dialog', LOCKED);
+    const cover = document.querySelector('.fx-applock') as HTMLElement;
+    const later = document.createElement('div');
+    later.setAttribute('role', 'dialog');
+    document.body.appendChild(later);
+    // What useDialogFocus does for every dialog the page opens.
+    const restore = inertOutside(later);
+    expect(cover.hasAttribute('inert')).toBe(false);
+    restore();
+    later.remove();
   });
 
   it('leaves the app when BACK is pressed on the lock screen on Android', async () => {

@@ -240,6 +240,14 @@ describe('one app identity across every file that declares it', () => {
     expect(read('android/app/src/main/java/co/finatrix/app/MainActivity.java')).toContain('onTopResumedChanged(isTopResumedActivity)');
     expect(read('android/app/src/main/java/co/finatrix/app/AppLockPlugin.java')).toContain('@CapacitorPlugin(name = "FxAppLock")');
     expect(read('src/native/appLock/plugin.ts')).toContain("registerPlugin<FxAppLockPlugin>('FxAppLock')");
+    // The iOS edge-swipe back gesture paints the previous screen under the cover,
+    // so it is switched off while covered; and "unavailable" is reserved for a
+    // missing passcode, because the page answers it by switching the lock off.
+    const swift = read('ios/App/App/FxAppLockPlugin.swift');
+    expect(swift).toContain('CAPPluginMethod(name: "setLocked"');
+    expect(swift).toContain('allowsBackForwardNavigationGestures');
+    expect(swift).toContain('LAError.Code.passcodeNotSet.rawValue');
+    expect(read('android/app/src/main/java/co/finatrix/app/AppLockPlugin.java')).toContain('public void setLocked(PluginCall call)');
   });
 
   it('never weakens App Transport Security', () => {

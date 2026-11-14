@@ -16,6 +16,7 @@ import { track } from '../lib/analytics';
 import { safeInternalPath } from '../lib/safePath';
 import type { OAuthProvider } from '../lib/authProviders';
 import { beginNativePkce, exchangeNativeCode, readNativeAuthCode, stripAuthCodeFromUrl } from '../lib/nativeOAuth';
+import { clearAppLockOnSignOut } from '../native/appLock/setting';
 
 /**
  * `@supabase/supabase-js` is 54 KB gzipped — 38% of the landing page's entire
@@ -607,6 +608,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       /* Clear local state regardless of network/server outcome. */
     }
+    // An explicit sign-out ends the app lock with the account. Only this path
+    // does: ACCOUNT_LOCAL_KEYS is cleared by an account switch and by losing a
+    // session, and a link that carries someone else's tokens causes both, so
+    // the lock must not live there (see cloudSync.ts).
+    clearAppLockOnSignOut();
     // Cleared unconditionally, for the same reason the local state is: if the
     // network call failed, the user still asked to be signed out, and leaving
     // the marker set would make the next load fetch an auth stack for a session

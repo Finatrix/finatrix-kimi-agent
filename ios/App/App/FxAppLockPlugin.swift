@@ -36,7 +36,8 @@ public class FxAppLockPlugin: CAPPlugin, CAPBridgedPlugin {
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "availability", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "authenticate", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "setCover", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "setCover", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setLocked", returnType: CAPPluginReturnPromise)
     ]
 
     private var coverEnabled = false
@@ -63,8 +64,13 @@ public class FxAppLockPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc public func availability(_ call: CAPPluginCall) {
         var error: NSError?
-        let available = LAContext().canEvaluatePolicy(.deviceOwnerAuthentication, error: &error)
-        call.resolve(["available": available, "biometry": Self.biometry()])
+        let canEvaluate = LAContext().canEvaluatePolicy(.deviceOwnerAuthentication, error: &error)
+        // "Unavailable" means one thing to the page: there is no passcode, so
+        // nothing can check anyone, and it switches the lock off. Any other
+        // reason canEvaluatePolicy can say no (a lockout, the app not being
+        // active at that instant) is a reason to ask and see, not to give up.
+        let noPasscode = error?.code == LAError.Code.passcodeNotSet.rawValue
+        call.resolve(["available": canEvaluate || !noPasscode, "biometry": Self.biometry()])
     }
 
     @objc public func authenticate(_ call: CAPPluginCall) {
@@ -90,6 +96,18 @@ public class FxAppLockPlugin: CAPPlugin, CAPBridgedPlugin {
         DispatchQueue.main.async { [weak self] in
             self?.coverEnabled = enabled
             if !enabled { self?.hideCover() }
+            call.resolve()
+        }
+    }
+
+    /// Switches the web view's edge-swipe back gesture off while the app is
+    /// covered. ViewController.swift turns it on so nested screens can be left,
+    /// but WebKit paints a snapshot of the PREVIOUS screen under the page while
+    /// the finger drags, which is exactly what the cover is there to hide.
+    @objc public func setLocked(_ call: CAPPluginCall) {
+        let locked = call.getBool("locked") ?? false
+        DispatchQueue.main.async { [weak self] in
+            self?.bridge?.webView?.allowsBackForwardNavigationGestures = !locked
             call.resolve()
         }
     }

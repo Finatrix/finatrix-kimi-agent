@@ -193,7 +193,7 @@ export default function SettingsPage() {
       <PrivacyControls />
       {/* App lock: the installed apps only. A browser has no lock, so no switch. */}
       {isNativeApp() && (
-        <Section title="App lock" desc="Ask for your face, fingerprint or device passcode when FinatriX opens, and when you come back after a minute away. It keeps the app closed to anyone else holding this device. It does not encrypt your data.">
+        <Section title="App lock" desc="Ask for your face, fingerprint or device passcode when FinatriX opens, and when you come back after a minute away, so someone who picks up your unlocked phone cannot open it. It uses this device’s own unlock, so anyone who can unlock the device can unlock FinatriX, and it does not encrypt your data.">
           <AppLockCard />
         </Section>
       )}

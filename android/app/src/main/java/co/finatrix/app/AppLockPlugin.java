@@ -139,6 +139,16 @@ public class AppLockPlugin extends Plugin {
         });
     }
 
+    /**
+     * Android has no edge-swipe gesture that previews the previous screen: BACK
+     * goes through the page, which handles it on the lock screen. Present so the
+     * one JS API works on both platforms.
+     */
+    @PluginMethod
+    public void setLocked(PluginCall call) {
+        call.resolve();
+    }
+
     private boolean isDeviceSecure() {
         KeyguardManager keyguard = (KeyguardManager) getContext().getSystemService(Context.KEYGUARD_SERVICE);
         return keyguard != null && keyguard.isDeviceSecure();

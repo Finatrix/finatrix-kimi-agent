@@ -11,20 +11,26 @@ interface Note {
 }
 
 const NO_PASSCODE: Note = {
-  text: 'Set a passcode or screen lock on this device first. App lock uses it to check that it is you.',
+  text: 'Set a passcode or screen lock on this device first. App lock uses this device’s own unlock to open FinatriX.',
   problem: true,
 };
 const UNSUPPORTED: Note = { text: 'App lock is not available on this device.', problem: true };
 const FAILED: Note = { text: 'That could not be checked, so app lock is still off.', problem: true };
 const CANCELLED: Note = { text: 'App lock is still off. Unlock once to switch it on.', problem: false };
+const NOT_SAVED: Note = { text: 'App lock could not be saved on this device, so it is still off.', problem: true };
+const STILL_ON_CANCELLED: Note = { text: 'App lock is still on. Unlock to switch it off.', problem: false };
+const STILL_ON_FAILED: Note = { text: 'That could not be checked, so app lock is still on.', problem: true };
 
 /**
  * The switch for the app lock (src/native/AppLock.tsx). Only the installed
  * apps have a lock, so a browser gets nothing.
  *
- * Switching it on asks the device to unlock once first. A lock that this
- * device cannot open would shut its owner out, so the proof comes before the
- * setting is saved, and a device with no passcode is told why it stays off.
+ * Both directions ask the device to unlock first. On: a lock that this device
+ * cannot open would shut its owner out, so the proof comes before the setting
+ * is saved, and a device with no passcode is told why it stays off. Off:
+ * someone handed the open app for a minute must not be able to remove the lock
+ * for good. Where the device can no longer check anyone (its passcode was
+ * removed), there is nothing to ask and it simply goes off.
  */
 export function AppLockCard() {
   const [on, setOn] = useState(isAppLockOn);
@@ -42,24 +48,36 @@ export function AppLockCard() {
   const change = async (next: boolean) => {
     if (busy) return;
     setNote(null);
-    if (!next) {
-      setAppLockOn(false);
-      return;
-    }
     setBusy(true);
     try {
       const { lockAvailability, unlockWithDevice } = await import('../../native/appLock/plugin');
       const availability = await lockAvailability();
+      if (!next) {
+        if (availability.state === 'ready') {
+          const proof = await unlockWithDevice('Turn off app lock');
+          if (proof === 'cancelled') {
+            setNote(STILL_ON_CANCELLED);
+            return;
+          }
+          if (proof === 'failed') {
+            setNote(STILL_ON_FAILED);
+            return;
+          }
+        }
+        setAppLockOn(false);
+        return;
+      }
       if (availability.state !== 'ready') {
         setNote(availability.state === 'no-passcode' ? NO_PASSCODE : UNSUPPORTED);
         return;
       }
       const result = await unlockWithDevice('Turn on app lock');
-      if (result === 'ok') setAppLockOn(true);
-      else if (result === 'cancelled') setNote(CANCELLED);
+      if (result === 'ok') {
+        if (!setAppLockOn(true)) setNote(NOT_SAVED);
+      } else if (result === 'cancelled') setNote(CANCELLED);
       else setNote(result === 'unavailable' ? NO_PASSCODE : FAILED);
     } catch {
-      setNote(FAILED);
+      setNote(next ? FAILED : STILL_ON_FAILED);
     } finally {
       setBusy(false);
     }

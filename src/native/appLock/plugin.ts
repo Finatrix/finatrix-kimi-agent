@@ -22,6 +22,12 @@ interface FxAppLockPlugin {
   /** Keep the app's content out of the app switcher while the lock is on. */
   setCover(options: { enabled: boolean }): Promise<void>;
   /**
+   * iOS: switch the web view's edge-swipe back gesture off while the app is
+   * covered, because WebKit paints a snapshot of the PREVIOUS screen under the
+   * page while the finger drags. Android: nothing to do.
+   */
+  setLocked(options: { locked: boolean }): Promise<void>;
+  /**
    * Android only. The app stopped or started being the one in front without
    * being paused, which is what the overview screen does to it.
    */
@@ -75,4 +81,13 @@ export function onForegroundChange(handler: (active: boolean) => void): Promise<
 
 export function setSwitcherCover(enabled: boolean): void {
   void FxAppLock.setCover({ enabled }).catch(() => {});
+}
+
+/** See `setLocked` above. */
+export function setGesturesLocked(locked: boolean): void {
+  try {
+    void FxAppLock.setLocked({ locked }).catch(() => {});
+  } catch {
+    /* a shell built before this method existed */
+  }
 }

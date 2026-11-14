@@ -2,6 +2,7 @@ import { useCallback, useEffect, useReducer, useRef } from 'react';
 import AppLockScreen from './AppLockScreen';
 import { startLockController, type LockController } from './controller';
 import { initialLockState, lockReducer, type LockState } from './machine';
+import { setGesturesLocked } from './plugin';
 
 function startState(startLocked: boolean): LockState {
   // Switched on from Settings while the app is running: the unlock that turned
@@ -35,6 +36,15 @@ export default function AppLockRuntime({ startLocked }: { startLocked: boolean }
   useEffect(() => {
     if (locked) controller.current?.unlock();
   }, [locked, state.engagement]);
+
+  // While anything covers the app, iOS's edge-swipe back gesture is off: it
+  // paints a snapshot of the previous screen as the finger drags, which is the
+  // thing the cover is there to hide.
+  const covered = state.phase !== 'open';
+  useEffect(() => {
+    setGesturesLocked(covered);
+    return () => setGesturesLocked(false);
+  }, [covered]);
 
   const unlock = useCallback(() => controller.current?.unlock(), []);
   const leave = useCallback(() => controller.current?.leave(), []);

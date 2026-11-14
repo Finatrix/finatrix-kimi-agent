@@ -67,12 +67,16 @@ export const SYNC_KEYS = [
   'fx_fx_overrides',
 ];
 /**
- * Never synced, but cleared with the account's data on sign-out, an account
- * switch and account deletion: sensitive statement drafts, and the app lock
- * setting (`APP_LOCK_KEY` in native/appLock/setting.ts; appLockSetting.test.tsx
- * holds the two together).
+ * Sensitive statement drafts stay on this device but belong to its account.
+ *
+ * The app lock setting (`fx_app_lock`, native/appLock/setting.ts) is NOT here,
+ * on purpose. This list is cleared on an account switch and whenever a session
+ * is lost, and a link that carries someone else's sign-in tokens causes both:
+ * with the lock in this list, that link switched the lock off without any
+ * unlock. The lock ends with an explicit sign-out only (`clearAppLockOnSignOut`,
+ * called from AuthContext.signOut); appLockSetting.test.tsx holds this in place.
  */
-export const ACCOUNT_LOCAL_KEYS = ['fx_import_staged', 'fx_app_lock'];
+export const ACCOUNT_LOCAL_KEYS = ['fx_import_staged'];
 const LAST_UID_KEY = 'fx_last_uid';
 const PENDING_KEY = 'fx_sync_pending';
 
