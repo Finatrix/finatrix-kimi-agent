@@ -129,8 +129,8 @@ assistant is one more reason not to claim 4+.
 
 ## 7. App Review notes
 
-**Current text (3,973 characters; the field holds 4,000) — saved in App Store
-Connect 2026-10-30 for build 10.** It answers every request Apple has made so
+**Draft text for version 1.1.0, build 11 (3,985 characters; the field holds 4,000) — NOT yet
+saved in App Store Connect; the text saved on 2026-10-30 for build 10 was 3,973 characters.** It answers every request Apple has made so
 far, in the Notes field itself, as 2.1 asks:
 
 - TestFlight beta, 2026-10-02, 2.1(a): demo access (Sign-In Information).
@@ -148,9 +148,9 @@ header button on iPhone and the bottom-right button on iPad. The sample files
 are `docs/launch/finatrix-review-samples.zip`, attached to the version.
 
 ```
-THIS SUBMISSION: BUILD 10
-Build 10 replaces build 6. It changes design and accessibility only: one tab bar on iPhone, larger touch targets, Light/Dark/System appearance, visible keyboard focus. No change to features, data use or business model.
-Earlier feedback: TestFlight 2.1(a) demo access is in Sign-In Information; the 4 Oct 2.1 request is answered below; on the 21 Oct 2.1(b) question, there is no paid content (next section).
+THIS SUBMISSION: VERSION 1.1.0 (BUILD 11)
+Adds an optional app lock (Tools > Settings > App lock). It is off by default, so Face ID is never requested unless a user switches it on; it then uses Face ID, Touch ID or the device passcode as a privacy screen only and does not encrypt data. Also lets a user correct an imported transaction's amount before adding it. No change to data use or business model.
+Earlier 2.1 requests are answered below.
 
 BUSINESS MODEL (2.1(b), 3.1.1)
 FinatriX is free. It has no in-app purchases, subscriptions, ads, prices, paywalls or links to any purchase, and nothing in it is unlocked by buying anything anywhere. Every feature works for every user, with or without an account. Our website sells nothing either. If we ever sell features in the app, we will use In-App Purchase.
@@ -304,13 +304,19 @@ Six, matching the Play listing so the two stores tell one story:
 
 | Field | Value |
 |---|---|
-| Version | `1.0.0` (`MARKETING_VERSION`) |
+| Version | `1.1.0` (`MARKETING_VERSION`) |
 | Build | increments every upload (`CURRENT_PROJECT_VERSION`) |
 | Copyright | `2026 FinatriX` |
 | Contact email | `finatrix.hub@gmail.com` |
 | Release | Manually release this version |
 
-"What's New in This Version" for 1.0.0:
+"What's New in This Version" for 1.1.0:
+
+```
+New: an optional app lock. Switch it on in Settings and FinatriX asks for Face ID or your passcode when it opens. Also new: when you import a statement, you can now correct an amount in the review before the transaction is added.
+```
+
+"What's New in This Version" for 1.0.0 (kept for the record):
 
 ```
 FinatriX comes to iPhone. Budget by 50/30/20, log spending in one line, photograph a statement and have its figures read on-device, and plan goals you can actually hit — with the working shown behind every number.
