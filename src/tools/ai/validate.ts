@@ -103,8 +103,10 @@ const INDIC_DIGIT = /[०-९০-৯੦-੯૦-૯୦-୯௦-௯౦-౯೦-೯�
  * Indian-script digits as 0–9. The assistant answers in the language it was
  * asked in, and a Hindi answer may write ₹४,५०० — which the grounding check,
  * reading 0–9, would not see as an amount at all. Converting before the check
- * keeps every figure checked, whatever the language; the prompt asks for 0–9
- * too, and this holds when a model forgets.
+ * keeps every figure checked, whatever the language. Enforced here rather than
+ * asked for in the prompt: the prompt is pinned by hash on the server
+ * (supabase/functions/_shared/aiTasks.ts), and a guard in code holds whatever
+ * the model does.
  */
 export function asciiDigits(text: string): string {
   return text.replace(INDIC_DIGIT, (d) => {
