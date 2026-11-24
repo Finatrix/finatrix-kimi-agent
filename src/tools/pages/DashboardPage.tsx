@@ -8,6 +8,7 @@ import { onLocalWrite } from '../lib/storage';
 import DashboardPlanning, { DashboardGuide } from '../ui/DashboardPlanning';
 import { Disclosure } from '../ui/Disclosure';
 import { ReminderPrompt } from '../ui/Reminders';
+import { MoneyStoryEntry } from '../ui/MoneyStory';
 import { monthLabel, currentMonth } from '../lib/month';
 import {
   DASH_SECTIONS, getDashPrefs, toggleSection, moveSection, resetDashPrefs,
@@ -315,6 +316,7 @@ export default function DashboardPage() {
 
       <InviteSlot />
       <ReminderPrompt />
+      <MoneyStoryEntry />
       <WorkspaceNavigator />
       <DashboardGuide
         hasData={snap.hasAnyData}
