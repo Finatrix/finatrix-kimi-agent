@@ -28,6 +28,7 @@ const TOOLS = [
   ...TOOL_IDS.map((id) => `/tools/${id}`),
   '/tools/reports',
   '/tools/calendar',
+  '/tools/subscriptions',
   '/tools/settings',
   // The reference page carries the only data tables under /tools. They scroll
   // inside their own container by design, and this is what proves the page
