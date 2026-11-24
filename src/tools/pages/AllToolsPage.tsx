@@ -155,6 +155,7 @@ export default function AllToolsPage() {
         {toolRows(EVERYDAY).map((r) => <LinkRow key={r.to} {...r} />)}
         <LinkRow to="/tools/reports" label="Reports" detail="Print or export a month or a year." icon="reports" />
         <LinkRow to="/tools/calendar" label="Calendar" detail="Bills and scheduled spending by day." icon="calendar" />
+        <LinkRow to="/tools/moneycalendar" label="Money calendar" detail="Your estimated balance, day by day, for 30–90 days." icon="calendar" />
         <LinkRow to="/tools/subscriptions" label="Subscriptions" detail="What they cost a year, and reminders." icon="calendar" />
       </Group>
 

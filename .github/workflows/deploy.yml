@@ -263,6 +263,16 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      # group-join verifies the caller in-function like account-delete
+      # (auth.getUser), limits every room-code lookup per person and per IP in
+      # the shared quota table, and only then asks Postgres, through the
+      # service-role-only group_join_by_code. Its tables come from migration
+      # 20261124000100_groups.sql, which must be applied first.
+      - name: Deploy group join by room code (verifies the caller in-function)
+        run: npx --yes supabase@3.0.0 functions deploy group-join --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF" --yes
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
       # careers-billing-webhook MUST be --no-verify-jwt for the same structural
       # reason as analytics-collect: Stripe calls it server-to-server and cannot
       # present a Supabase JWT, so with the gateway check on, every payment

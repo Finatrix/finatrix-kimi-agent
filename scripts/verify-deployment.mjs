@@ -63,6 +63,15 @@ const REQUIRED_RELATIONS = [
   // only, so the anon probe gets a permission error when it exists and
   // PGRST205 when it does not — which is the distinction this check needs.
   'apple_auth_tokens',
+  // Groups (migration 20261124000100). Revoked from anon, so the probe gets a
+  // permission error when they exist and PGRST205 when the SQL was never run.
+  'groups',
+  'group_members',
+  'group_invites',
+  'group_expenses',
+  'group_settlements',
+  'group_budgets',
+  'group_age_confirmations',
 ];
 
 /**
@@ -85,6 +94,7 @@ const FUNCTIONS = [
   'account-delete',
   'apple-token',
   'careers-scan',
+  'group-join',
 ];
 
 const results = [];
@@ -138,7 +148,8 @@ async function checkRelations() {
     missing.length === 0,
     missing.length
       ? `${missing.length}/${REQUIRED_RELATIONS.length} missing: ${missing.join(', ')}\n`
-        + '     → apply supabase/careers_provider_infrastructure.sql and supabase/analytics_schema.sql'
+        + '     → apply supabase/careers_provider_infrastructure.sql and supabase/analytics_schema.sql,\n'
+        + '       and any pending migration (supabase migration list --linked)'
       : `all ${REQUIRED_RELATIONS.length} present`,
   );
 }
