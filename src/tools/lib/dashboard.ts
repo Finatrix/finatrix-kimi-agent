@@ -21,7 +21,7 @@ import { computeInvestMatch, IM_RL, type ImAnswers } from './investmatch';
 import { investAnswerError } from './comparisonAssist';
 import { buildProfile, calcWealth } from './lifemap';
 import { readActivity } from './activity';
-import { changeBetween, computeNetWorth, loadAccounts, netWorthSeries, type Change } from './netWorth';
+import { changeBetween, computeNetWorth, hasForeignAccounts, loadAccounts, netWorthSeries, type Change } from './netWorth';
 import { loadMarket, marketFor } from './markets';
 import { converterTo, effectiveRates } from './fx';
 import { lifeMapReadiness } from './planningAutomation';
@@ -93,6 +93,8 @@ export interface DashboardSnapshot {
     liabilities: number;
     /** Against the previous month, when there is one to compare with. */
     change: Change | null;
+    /** Some balances are in another currency, so the figure depends on exchange rates. */
+    converted: boolean;
   } | null;
   invest: {
     profile: string; monthly: number; projected: number; years: number;
@@ -406,6 +408,7 @@ export function readDashboard(): DashboardSnapshot {
         assets: snapshot.assets,
         liabilities: snapshot.liabilities,
         change: prior ? changeBetween(prior.net, snapshot.net) : null,
+        converted: hasForeignAccounts(accounts, currency),
       };
     } catch {
       return null;

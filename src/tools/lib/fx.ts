@@ -10,38 +10,37 @@
  * screen even described amounts as "converted for display only", which was the
  * one thing they were not.
  *
- * WHAT THIS IS, AND WHAT IT IS NOT
- * --------------------------------
- * This is a DATED, STATIC baseline table plus a per-user override. It is not a
- * live feed, and it does not pretend to be:
+ * WHERE THE RATES COME FROM
+ * -------------------------
+ * Three layers, later ones winning:
  *
- *   • `FX_AS_OF` is shipped with the table and rendered next to converted
- *     totals, so a rate is never presented as current when it is not.
- *   • `isStale` goes true after `STALE_AFTER_DAYS`, and the UI says so rather
- *     than quietly reporting figures from last year.
- *   • Any rate can be overridden by the user and the override is synced, which
- *     is the honest answer for someone who knows the rate they actually got.
+ *   1. `BASELINE_RATES`, a dated table built into the app. Only for a device
+ *      that has never fetched live rates, and for any code a fetch lacked.
+ *   2. Live rates, fetched at most once a day through this app's own Worker
+ *      (`fxLive.ts`, `worker/fxLatest.ts`) and saved with their date, so the
+ *      app keeps working offline on the last rates it saw.
+ *   3. The user's own overrides, synced, which is the honest answer for someone
+ *      who knows the rate they actually got.
  *
- * A cron-refreshed dataset is the real fix and this module is shaped for it:
- * swap `BASELINE_RATES` for fetched values and everything above keeps working.
- * Until then a stale, visible, correctable rate beats no conversion at all.
+ * Whatever is in use, its date is shown next to converted totals (`ratesAsOf`),
+ * and `isStale` goes true after `STALE_AFTER_DAYS`, so a rate is never
+ * presented as current when it is not.
  *
  * WHY USD IS THE PIVOT
  * --------------------
  * Every rate is "units of this currency per 1 USD" — one column of numbers
  * rather than a 40×40 matrix, and the convention every published table already
- * uses, so replacing the baseline later is a copy rather than a transform.
+ * uses, so a fetched table is a copy rather than a transform.
  *
- * Pure apart from the override load/save pair at the bottom.
+ * Pure apart from the load/save pairs for overrides and live rates.
  */
 
+import { BASELINE_RATES, FX_AS_OF, FX_SOURCE, isValidRate, parseFeed } from '../../shared/fxFeed';
 import { getJSON, setJSON } from './storage';
 
-/** When `BASELINE_RATES` was captured. ISO date. */
-export const FX_AS_OF = '2026-06-01';
-
-/** The pivot. Every rate below is units of that currency per 1 USD. */
-export const FX_BASE = 'USD';
+// The table and its date live in src/shared so the edge Worker reads the same
+// forty codes. Re-exported here, where every caller already imports them from.
+export { BASELINE_RATES, FX_AS_OF, FX_BASE } from '../../shared/fxFeed';
 
 /** After this long, conversions are labelled stale in the UI. */
 export const STALE_AFTER_DAYS = 120;
@@ -49,26 +48,58 @@ export const STALE_AFTER_DAYS = 120;
 export const FX_OVERRIDES_KEY = 'fx_fx_overrides';
 
 /**
- * Indicative mid-market rates as of `FX_AS_OF`, units per 1 USD.
- *
- * Pegged currencies (AED, SAR, QAR, HKD) barely move and are the most reliable
- * entries here; free-floating ones drift and are exactly why the staleness
- * warning exists. These are mid-market rates — the rate a bank or card actually
- * gives you is worse, typically by 0.5–3%.
+ * This device's last live rates. A cache, not the user's data: it is not
+ * synced, because every device can fetch its own.
  */
-export const BASELINE_RATES: Readonly<Record<string, number>> = {
-  USD: 1,
-  INR: 88, EUR: 0.92, GBP: 0.79, JPY: 150, CNY: 7.2,
-  AUD: 1.52, CAD: 1.38, CHF: 0.88, SGD: 1.34, HKD: 7.8,
-  NZD: 1.66, AED: 3.6725, SAR: 3.75, QAR: 3.64, KWD: 0.307,
-  ZAR: 18.2, BRL: 5.4, MXN: 18.5, RUB: 92, KRW: 1350,
-  TRY: 38, IDR: 16000, MYR: 4.4, THB: 34.5, PHP: 57,
-  VND: 25000, PKR: 278, BDT: 120, LKR: 300, NPR: 141,
-  NGN: 1500, EGP: 48, ILS: 3.7, SEK: 10.5, NOK: 10.8,
-  DKK: 6.85, PLN: 3.95, CZK: 23, HUF: 360,
-};
+export const FX_LIVE_KEY = 'fx_fx_live';
 
 export type RateTable = Readonly<Record<string, number>>;
+
+/** Live rates as saved on this device. */
+export interface LiveRates {
+  /** The day the rates were published, `YYYY-MM-DD`. */
+  asOf: string;
+  /** Which feed they came from (`FX_SOURCE.id`). */
+  source: string;
+  /** Units per 1 USD. */
+  rates: Record<string, number>;
+  /** The local day this device last checked for newer rates, `YYYY-MM-DD`. */
+  checkedOn: string;
+}
+
+/** The saved live rates, or null when this device has never fetched any. */
+export function loadLiveRates(): LiveRates | null {
+  const raw = getJSON<Record<string, unknown> | null>(FX_LIVE_KEY, null);
+  if (!raw || typeof raw !== 'object') return null;
+  // Saved data is re-checked like a response: storage is just another input.
+  const feed = parseFeed({ base: 'USD', asOf: raw.asOf, source: raw.source, rates: raw.rates });
+  if (!feed) return null;
+  const checkedOn = typeof raw.checkedOn === 'string' ? raw.checkedOn : '';
+  return { asOf: feed.asOf, source: feed.source, rates: feed.rates, checkedOn };
+}
+
+export function saveLiveRates(live: LiveRates): void {
+  const rates: Record<string, number> = {};
+  for (const [code, value] of Object.entries(live.rates)) if (isValidRate(value)) rates[code] = value;
+  setJSON(FX_LIVE_KEY, { ...live, rates });
+}
+
+/** The date of the rates in use: the live date once fetched, the built-in table's before. */
+export function ratesAsOf(live: LiveRates | null = loadLiveRates()): string {
+  return live?.asOf ?? FX_AS_OF;
+}
+
+/** "24 November 2026", for a rates date (`YYYY-MM-DD`, a UTC publication day). */
+export function ratesDateLabel(asOf: string): string {
+  return new Date(`${asOf}T00:00:00Z`).toLocaleDateString('en', {
+    day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
+  });
+}
+
+/** True when the rates in use came from the live feed (so its attribution must be shown). */
+export function ratesAreLive(live: LiveRates | null = loadLiveRates()): boolean {
+  return live?.source === FX_SOURCE.id;
+}
 
 /** A rate the user typed in themselves, per currency code. */
 export function loadRateOverrides(): Record<string, number> {
@@ -91,9 +122,17 @@ export function saveRateOverride(code: string, rate: number | null): void {
   setJSON(FX_OVERRIDES_KEY, current);
 }
 
-/** The baseline with the user's own rates layered on top. */
-export function effectiveRates(overrides = loadRateOverrides()): RateTable {
-  return { ...BASELINE_RATES, ...overrides };
+/**
+ * The rates in use: the built-in table, then live rates, then the user's own.
+ *
+ * The table sits underneath rather than being dropped once live rates exist,
+ * so a code a fetch lacked still converts instead of silently not converting.
+ */
+export function effectiveRates(
+  overrides = loadRateOverrides(),
+  live: LiveRates | null = loadLiveRates(),
+): RateTable {
+  return { ...BASELINE_RATES, ...(live?.rates ?? {}), ...overrides };
 }
 
 export function hasRate(code: string, rates: RateTable = BASELINE_RATES): boolean {
@@ -124,15 +163,18 @@ export function convert(
   return (amount / fromRate) * toRate;
 }
 
-/** Whole days between `FX_AS_OF` and `now`. Negative before the capture date. */
-export function rateAgeDays(now: Date = new Date()): number {
-  const asOf = Date.parse(`${FX_AS_OF}T00:00:00Z`);
-  if (!Number.isFinite(asOf)) return 0;
-  return Math.floor((now.getTime() - asOf) / 86_400_000);
+/**
+ * Whole days between the rates' date and `now`. Negative before that date.
+ * Defaults to the rates in use, so it follows the live date once there is one.
+ */
+export function rateAgeDays(now: Date = new Date(), asOf: string = ratesAsOf()): number {
+  const captured = Date.parse(`${asOf}T00:00:00Z`);
+  if (!Number.isFinite(captured)) return 0;
+  return Math.floor((now.getTime() - captured) / 86_400_000);
 }
 
-export function isStale(now: Date = new Date()): boolean {
-  return rateAgeDays(now) > STALE_AFTER_DAYS;
+export function isStale(now: Date = new Date(), asOf: string = ratesAsOf()): boolean {
+  return rateAgeDays(now, asOf) > STALE_AFTER_DAYS;
 }
 
 /**

@@ -48,6 +48,9 @@ import {
 
 export const EXPENSES_KEY = 'fx_expenses';
 
+/** Travel mode's trips (`trips.ts` takes the key from here, so the two cannot drift). */
+export const TRIPS_KEY = 'fx_trips';
+
 type Row = Record<string, unknown>;
 
 function parseArray(raw: string | null | undefined): Row[] | null {
@@ -335,6 +338,41 @@ export function mergeLearnedMerchants(
   return JSON.stringify(result);
 }
 
+/**
+ * Union two devices' trips (travel mode, `trips.ts`).
+ *
+ * A trip is known by its id. When both devices changed the same trip, the later
+ * `updatedAt` wins, as for transactions. Deleting a trip is a change like any
+ * other: the record stays, marked `deletedAt`, so the deletion reaches the
+ * other device rather than the trip being merged back from it. Trips are few
+ * (a handful a year), so the marked records cost nothing to keep.
+ */
+export function mergeTrips(localRaw: string | null, remoteRaw: string | null): string | null {
+  const local = parseArray(localRaw);
+  const remote = parseArray(remoteRaw);
+  if (!local) return remoteRaw ?? null;
+  if (!remote) return localRaw ?? null;
+
+  const byId = new Map<string, Row>();
+  const order: string[] = [];
+  for (const row of [...local, ...remote]) {
+    if (!row || typeof row !== 'object') continue;
+    const id = stableId(row);
+    if (!id) continue;
+    const existing = byId.get(id);
+    if (!existing) {
+      byId.set(id, row);
+      order.push(id);
+    } else if (rowStamp(row) > rowStamp(existing)) {
+      // On a tie this device's copy stands, so a merge that changes nothing rewrites nothing.
+      byId.set(id, row);
+    }
+  }
+  const merged = order.map((id) => byId.get(id)!);
+  if (sameMembers(merged, remote)) return remoteRaw;
+  return JSON.stringify(merged);
+}
+
 export interface BlobMergeOptions {
   /**
    * Keys this device changed and the cloud has not accepted yet. Its answer
@@ -409,6 +447,8 @@ export function mergeCloudBlob(
       value = auditRaw;
     } else if (key === LEARNED_KEY) {
       value = mergeLearnedMerchants(localRaw, remoteRaw);
+    } else if (key === TRIPS_KEY) {
+      value = mergeTrips(localRaw, remoteRaw);
     } else {
       value = pending.has(key) ? localRaw : (remoteRaw ?? localRaw);
     }
