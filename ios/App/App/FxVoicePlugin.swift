@@ -129,16 +129,21 @@ public class FxVoicePlugin: CAPPlugin, CAPBridgedPlugin, AVSpeechSynthesizerDele
             call.resolve(["outcome": "unsupported-language"])
             return
         }
-        guard recognizer.isAvailable else {
-            call.resolve(["outcome": "unavailable"])
-            return
-        }
+        // Deliberately not gated on `isAvailable`: it reports false for the
+        // first recogniser after launch and for about a second after each turn
+        // ends (seen every time on iOS 26.5), which would end a hands-free
+        // conversation for nothing. If recognition really cannot run, the task
+        // fails at once and `finishListening` reports "unavailable".
+        beginListening(call, recognizer: recognizer)
+    }
 
+    private func beginListening(_ call: CAPPluginCall, recognizer: SFSpeechRecognizer) {
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .duckOthers])
             try session.setActive(true, options: .notifyOthersOnDeactivation)
         } catch {
+            CAPLog.print("FxVoice: listen unavailable (audio session)")
             call.resolve(["outcome": "unavailable"])
             return
         }
@@ -148,6 +153,7 @@ public class FxVoicePlugin: CAPPlugin, CAPBridgedPlugin, AVSpeechSynthesizerDele
         // No microphone (a Simulator without one, say) reports a zero format.
         guard format.sampleRate > 0, format.channelCount > 0 else {
             deactivateSession()
+            CAPLog.print("FxVoice: listen unavailable (no microphone input)")
             call.resolve(["outcome": "unavailable"])
             return
         }
@@ -173,6 +179,7 @@ public class FxVoicePlugin: CAPPlugin, CAPBridgedPlugin, AVSpeechSynthesizerDele
         } catch {
             removeTap()
             deactivateSession()
+            CAPLog.print("FxVoice: listen unavailable (audio engine did not start)")
             call.resolve(["outcome": "unavailable"])
             return
         }
@@ -200,6 +207,7 @@ public class FxVoicePlugin: CAPPlugin, CAPBridgedPlugin, AVSpeechSynthesizerDele
                     // pause; anything else, with nothing heard, is unavailable.
                     let code = (error as NSError?)?.code ?? 0
                     let silent = [203, 216, 1110].contains(code)
+                    if !silent { CAPLog.print("FxVoice: recognition error \((error as NSError?)?.domain ?? "") \(code)") }
                     self.finishListening(!self.transcript.isEmpty ? "heard" : (silent ? "silence" : "unavailable"))
                 }
             }

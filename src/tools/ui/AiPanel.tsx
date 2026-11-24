@@ -1071,6 +1071,7 @@ const PANEL_STYLES = `
 .fx-ai-voice-lang:focus-visible{outline:2px solid var(--gold);outline-offset:1px;}
 .fx-ai-voice-heard{margin:6px 0 0;font-size:13px;line-height:1.45;color:var(--ink);overflow-wrap:anywhere;}
 .fx-ai-voice-note{margin:6px 0 0;font-size:11px;line-height:1.45;color:var(--ink3);}
+.fx-ai-voice-dismiss{margin-top:4px;min-height:44px;padding-left:0;}
 .fx-ai-report{align-self:flex-start;min-height:24px;padding:2px 4px;border:none;background:none;
   color:var(--ink3);font:inherit;font-size:11px;cursor:pointer;text-decoration:underline;text-underline-offset:2px;}
 @media (hover: hover) and (pointer: fine){
