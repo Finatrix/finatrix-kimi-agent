@@ -25,7 +25,18 @@ You Saved Rs. 35.00
 Thank you, visit again
 `;
 
+/** What the app's own Tesseract (eng, public/careers-ocr/lang) read from a rendered, slightly tilted bill: note `@` for 0. */
+const RECOGNISED = "SRI LAKSHMI SUPERMARKET\n12, 4th Cross, Jayanagar\nBengaluru 560011\nPh: @80-2654 1122\nGSTIN: 29ABCDE1234F1Z5\nTAX INVOICE\nBill No: 4417 Date: 14/08/26\nItem Qty Amt\nToor Dal 1kg 1 165.00\nAmul Butter 500g 2 570.00\nSub Total 735.00\nCGST 2.5% 18.38\nSGST 2.5% 18.38\nRound Off @.24\nTotal Qty: 3\nGRAND TOTAL 772.00\nCash Tendered 1000.00\nChange 228.00\nThank you, visit again";
+
 describe('parseReceipt', () => {
+  it('reads real recognition output, misread digits and all', () => {
+    expect(parseReceipt(RECOGNISED, NOW)).toEqual({
+      amount: 772,
+      merchant: 'SRI LAKSHMI SUPERMARKET',
+      date: '2026-08-14',
+    });
+  });
+
   it('reads the shop, the day-first date and the grand total, not the subtotal or the cash given', () => {
     expect(parseReceipt(SUPERMARKET, NOW)).toEqual({
       amount: 772,
