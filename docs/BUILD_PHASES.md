@@ -26,7 +26,7 @@ If these two docs aren't in your checkout, they were untracked files in `/Users/
 | 2.4 | Groups: Split costs, settle up, your share in your tracker | 2.3 | ☐ |
 | 2.5 | Splits with people not on FinatriX | 2.4 | ☐ |
 | 2.6 | Subscription radar and bill reminders | — | ☑ [PR 27](https://github.com/Finatrix/finatrix-kimi-agent/pull/27) |
-| 2.7 | Monthly money story | — | ☐ |
+| 2.7 | Monthly money story | — | ☑ [PR 26](https://github.com/Finatrix/finatrix-kimi-agent/pull/26) |
 | 2.8 | Money calendar | 2.6 | ☐ |
 | 3.1 | Voice assistant: mic, read-aloud and hands-free in 11 languages | — | ☐ |
 | 3.2 | Voice assistant: safe actions with confirm cards | 3.1, 1.2 | ☐ |
