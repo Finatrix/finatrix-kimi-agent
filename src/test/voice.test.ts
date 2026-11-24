@@ -3,7 +3,7 @@ import {
   VOICE_LANGUAGES, isStopPhrase, preferredVoiceLang, speechLangFor, loadVoiceLang, saveVoiceLang, VOICE_LANG_KEY,
 } from '../lib/voice/languages';
 import { speechTextFor, speechChunks } from '../lib/voice/speechText';
-import { startConversation, type VoiceReply, type VoiceSnapshot } from '../lib/voice/conversation';
+import { LISTEN_LIMIT_MS, startConversation, type VoiceReply, type VoiceSnapshot } from '../lib/voice/conversation';
 import type { ListenOutcome, SpeakOutcome, VoiceEngine } from '../lib/voice/engine';
 import { outcomeForError, pickVoice, webVoiceEngine } from '../lib/voice/webEngine';
 import { toListenOutcome } from '../lib/voice/nativeEngine';
@@ -207,6 +207,22 @@ describe('hands-free conversation', () => {
     expect(engine.cancelListening).toHaveBeenCalled();
     expect(engine.cancelSpeaking).toHaveBeenCalled();
     expect(last()).toMatchObject({ phase: 'idle', ended: 'hidden' });
+  });
+
+  it('never lets a stuck recogniser hold the microphone', async () => {
+    vi.useFakeTimers();
+    try {
+      const { engine } = fakeEngine([]);
+      startConversation({ engine, lang: () => 'en-IN', ask: vi.fn(), onChange: (s) => states.push(s) });
+      await settle();
+      expect(last().phase).toBe('listening');
+      await vi.advanceTimersByTimeAsync(LISTEN_LIMIT_MS);
+      await settle();
+      expect(engine.cancelListening).toHaveBeenCalled();
+      expect(last()).toMatchObject({ phase: 'idle', ended: 'silence' });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('starts the turn again in a newly chosen language', async () => {

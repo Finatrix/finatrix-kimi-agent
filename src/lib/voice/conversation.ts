@@ -35,6 +35,13 @@ export interface VoiceSnapshot {
   muted: VoiceLangCode | null;
 }
 
+/**
+ * No turn listens longer than this, whatever the engine does. Each engine ends
+ * its own turns sooner; this is the backstop that keeps a stuck recogniser
+ * from holding the microphone (an Android recogniser held it five minutes).
+ */
+export const LISTEN_LIMIT_MS = 45_000;
+
 export const IDLE: VoiceSnapshot = { phase: 'idle', partial: '', ended: null, muted: null };
 
 export interface VoiceReply {
@@ -79,10 +86,20 @@ export function startConversation({ engine, lang, ask, onChange }: ConversationO
   const run = async () => {
     while (!stopped) {
       set({ phase: 'listening', partial: '', ended: null });
+      let timedOut = false;
+      const limit = setTimeout(() => {
+        timedOut = true;
+        engine.cancelListening();
+      }, LISTEN_LIMIT_MS);
       const heard = await engine.listen(lang(), (text) => {
         if (!stopped) set({ partial: text });
       });
+      clearTimeout(limit);
       if (stopped) return;
+      if (timedOut) {
+        end('silence');
+        return;
+      }
 
       if (heard.kind === 'aborted') {
         if (restart) {

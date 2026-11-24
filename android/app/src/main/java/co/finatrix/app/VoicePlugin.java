@@ -50,7 +50,24 @@ public class VoicePlugin extends Plugin {
     private static final int ERROR_LANGUAGE_NOT_SUPPORTED = 12;
     private static final int ERROR_LANGUAGE_UNAVAILABLE = 13;
 
+    /** Nothing heard this long after listening starts: the pause that ends hands-free. */
+    private static final long NO_SPEECH_MS = 8000;
+    /** This long after the last word heard, the user has finished speaking. */
+    private static final long END_OF_SPEECH_MS = 2500;
+    /** No turn holds the microphone longer than this, whatever the recogniser does. */
+    private static final long TURN_LIMIT_MS = 30000;
+
     private final Handler main = new Handler(Looper.getMainLooper());
+
+    /*
+     * The phone's recogniser has its own end-pointing, but it cannot be trusted
+     * alone: on an emulator with no network, background noise counted as the
+     * start of speech and the recogniser then held the microphone for five
+     * minutes before failing. These timers end every turn on FinatriX's terms.
+     */
+    private final Runnable endTurn = () -> finishListening(this.transcript.isEmpty() ? "silence" : "heard");
+    /** A separate runnable, so a new word resets `endTurn` without lifting the limit. */
+    private final Runnable turnLimit = () -> finishListening(this.transcript.isEmpty() ? "silence" : "heard");
 
     private SpeechRecognizer recognizer;
     private PluginCall listenCall;
@@ -113,8 +130,10 @@ public class VoicePlugin extends Plugin {
             @Override
             public void onPartialResults(Bundle partial) {
                 String text = firstResult(partial);
-                if (text.isEmpty()) return;
+                if (text.isEmpty() || listenCall == null) return;
                 transcript = text;
+                main.removeCallbacks(endTurn);
+                main.postDelayed(endTurn, END_OF_SPEECH_MS);
                 JSObject data = new JSObject();
                 data.put("text", text);
                 notifyListeners("partial", data);
@@ -144,7 +163,10 @@ public class VoicePlugin extends Plugin {
             recognizer.startListening(intent);
         } catch (RuntimeException e) {
             finishListening("unavailable");
+            return;
         }
+        main.postDelayed(endTurn, NO_SPEECH_MS);
+        main.postDelayed(turnLimit, TURN_LIMIT_MS);
     }
 
     private String outcomeFor(int error) {
@@ -172,6 +194,8 @@ public class VoicePlugin extends Plugin {
 
     /** Ends the current turn once, whatever ended it, and answers the page. Main thread only. */
     private void finishListening(String outcome) {
+        main.removeCallbacks(endTurn);
+        main.removeCallbacks(turnLimit);
         if (recognizer != null) {
             SpeechRecognizer r = recognizer;
             recognizer = null;
