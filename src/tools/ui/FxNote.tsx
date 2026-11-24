@@ -1,8 +1,44 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
+import { FX_SOURCE } from '../../shared/fxFeed';
 import {
-  BASELINE_RATES, FX_AS_OF, convert, effectiveRates, hasRate, isStale,
-  loadRateOverrides, saveRateOverride,
+  BASELINE_RATES, convert, effectiveRates, hasRate, isStale,
+  loadLiveRates, loadRateOverrides, ratesAreLive, ratesAsOf, ratesDateLabel, saveRateOverride,
 } from '../lib/fx';
+
+/**
+ * The credit the live source's terms require wherever its rates are used.
+ * Renders nothing while the built-in table is in use.
+ */
+export function FxAttribution({ live = ratesAreLive() }: { live?: boolean }) {
+  if (!live) return null;
+  return (
+    <a
+      className="fx-inline-link"
+      href={FX_SOURCE.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{ color: 'var(--ink2)' }}
+    >
+      {FX_SOURCE.label}
+    </a>
+  );
+}
+
+/**
+ * One line naming the rates behind a converted figure: their date, whether
+ * they are live, and the source's credit.
+ */
+export function FxRatesLine({ style }: { style?: CSSProperties }) {
+  const live = loadLiveRates();
+  const isLive = ratesAreLive(live);
+  const date = ratesDateLabel(ratesAsOf(live));
+  return (
+    <p className="note" style={{ margin: 0, ...style }}>
+      {isLive ? `Converted at live rates from ${date}` : `Converted at built-in rates from ${date}`}
+      {isLive && <> · <FxAttribution live /></>}
+    </p>
+  );
+}
 
 
 /**
@@ -19,15 +55,15 @@ export function FxNote({ displayCode, currencies }: { displayCode: string; curre
   const [, bump] = useState(0);
   const [editing, setEditing] = useState(false);
   const overrides = loadRateOverrides();
-  const rates = effectiveRates(overrides);
+  const live = loadLiveRates();
+  const rates = effectiveRates(overrides, live);
   const foreign = currencies.filter((c) => c !== displayCode);
   if (!foreign.length) return null;
 
-  const stale = isStale();
+  const isLive = ratesAreLive(live);
+  const stale = isStale(new Date(), ratesAsOf(live));
   const missing = foreign.filter((c) => !hasRate(c, rates)).concat(hasRate(displayCode, rates) ? [] : [displayCode]);
-  const asOf = new Date(`${FX_AS_OF}T00:00:00Z`).toLocaleDateString('en', {
-    day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
-  });
+  const asOf = ratesDateLabel(ratesAsOf(live));
 
   return (
     <aside
@@ -49,10 +85,11 @@ export function FxNote({ displayCode, currencies }: { displayCode: string; curre
           </>
         ) : (
           <>
-            Mid-market rates as of {asOf}. The rate your bank or card actually gives you is worse,
-            typically by 0.5–3%.
+            {isLive ? 'Live mid-market rates' : 'Built-in mid-market rates'} as of {asOf}. The rate
+            your bank or card actually gives you is worse, typically by 0.5–3%.
           </>
         )}
+        {isLive && <> <FxAttribution live />.</>}
       </p>
 
       {missing.length > 0 && (
@@ -107,8 +144,8 @@ export function FxNote({ displayCode, currencies }: { displayCode: string; curre
                 />
                 <p id={`${id}-help`} className="note" style={{ marginTop: 4 }}>
                   {overrides[c] != null
-                    ? 'Your own rate. Clear the field to go back to the shipped one.'
-                    : `Shipped rate, ${asOf}.`}
+                    ? `Your own rate. Clear the field to go back to the ${isLive ? 'live' : 'built-in'} one.`
+                    : `${isLive ? 'Live' : 'Built-in'} rate, ${asOf}.`}
                 </p>
               </div>
             );

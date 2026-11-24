@@ -3,6 +3,7 @@ import { ymdLocal } from '../../lib/date';
 import { getJSON, setJSON } from './storage';
 import { getUpcomingEvents } from './calendar';
 import { readDashboard } from './dashboard';
+import { currentRadarEvents, dropMutedBills } from './subscriptions';
 import type { ExpenseItem } from './expense';
 import {
   REMINDER_HORIZON_DAYS, alwaysOn, loadReminderPrefs, planReminders, type PlannedReminder,
@@ -19,9 +20,12 @@ export type ReminderPermission = 'granted' | 'denied' | 'prompt' | 'unsupported'
 export function currentPlan(now = new Date()): PlannedReminder[] {
   const snap = readDashboard();
   const saved = loadReminderPrefs();
+  const radar = currentRadarEvents(now);
   return planReminders(now, isNativeApp() ? alwaysOn(saved) : saved, {
     expenses: getJSON<ExpenseItem[]>('fx_expenses', []),
-    upcoming: getUpcomingEvents(now, REMINDER_HORIZON_DAYS + 1),
+    // A bill whose reminder is switched off drops out of "due tomorrow" too.
+    upcoming: dropMutedBills(getUpcomingEvents(now, REMINDER_HORIZON_DAYS + 1), radar.muted),
+    radar: radar.events,
     overspent: snap.netCashflow != null && snap.netCashflow < 0,
   });
 }

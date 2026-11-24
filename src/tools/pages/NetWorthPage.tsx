@@ -7,7 +7,7 @@ import { AmountInput } from '../ui/AmountInput';
 import { useOptionalToast } from '../ui/Toast';
 import { useCurrency } from '../CurrencyContext';
 import { useMarket } from '../MarketContext';
-import { converterTo, effectiveRates, FX_OVERRIDES_KEY } from '../lib/fx';
+import { converterTo, effectiveRates, FX_LIVE_KEY, FX_OVERRIDES_KEY } from '../lib/fx';
 import { FxNote } from '../ui/FxNote';
 import { NetWorthSmartReview } from '../ui/NetWorthSmartReview';
 import { CURRENCY_CODES, currencySym, cfmt as cfmtDisplay } from '../lib/format';
@@ -73,11 +73,11 @@ export default function NetWorthPage() {
   useEffect(() => {
     const off = onLocalWrite((key) => {
       if (key === NET_WORTH_KEY) setAccounts(loadAccounts());
-      if (key === FX_OVERRIDES_KEY) setRates(effectiveRates());
+      if (key === FX_OVERRIDES_KEY || key === FX_LIVE_KEY) setRates(effectiveRates());
     });
     const onStorage = (e: StorageEvent) => {
       if (e.key === NET_WORTH_KEY || e.key === null) setAccounts(loadAccounts());
-      if (e.key === FX_OVERRIDES_KEY || e.key === null) setRates(effectiveRates());
+      if (e.key === FX_OVERRIDES_KEY || e.key === FX_LIVE_KEY || e.key === null) setRates(effectiveRates());
     };
     window.addEventListener('storage', onStorage);
     return () => {
