@@ -75,6 +75,43 @@ export interface ExpenseItem {
   updatedAt?: string;
   /** Number of times the transaction has been edited. */
   editCount?: number;
+  /* ── Travel mode (lib/trips.ts) — descriptive only, never affects totals ──
+     `amount` above is always the home-currency amount; these record how it was
+     reached from a spend in another currency. */
+  /** The amount as paid, in `fxCurrency`. */
+  fxAmount?: number;
+  /** The currency it was paid in, e.g. AED. */
+  fxCurrency?: string;
+  /** Home units per 1 `fxCurrency`: the trip's fixed rate when this was saved. */
+  fxRate?: number;
+  /** The card fee % added on top. Absent when there was none, or it was paid in cash. */
+  fxFee?: number;
+  /** The trip this spend belongs to. */
+  tripId?: string;
+}
+
+/**
+ * The travel-mode fields, kept only as a complete set: a foreign amount without
+ * its currency and rate could not be shown or re-priced, so it is dropped.
+ */
+function normalizeTravel(raw: Partial<ExpenseItem>): Partial<ExpenseItem> {
+  const out: Partial<ExpenseItem> = {};
+  const fxAmount = Number(raw.fxAmount);
+  const fxRate = Number(raw.fxRate);
+  const fxCurrency = typeof raw.fxCurrency === 'string' ? raw.fxCurrency.toUpperCase() : '';
+  if (
+    raw.fxAmount != null && Number.isFinite(fxAmount)
+    && /^[A-Z]{3}$/.test(fxCurrency)
+    && Number.isFinite(fxRate) && fxRate > 0
+  ) {
+    out.fxAmount = fxAmount;
+    out.fxCurrency = fxCurrency;
+    out.fxRate = fxRate;
+    const fee = Number(raw.fxFee);
+    if (raw.fxFee != null && Number.isFinite(fee) && fee > 0) out.fxFee = fee;
+  }
+  if (typeof raw.tripId === 'string' && raw.tripId) out.tripId = raw.tripId;
+  return out;
 }
 
 /** Selectable payment methods surfaced in the editor. */
@@ -127,6 +164,7 @@ export function normalizeExpense(raw: Partial<ExpenseItem> & { id?: string | num
     ...(raw.createdAt ? { createdAt: String(raw.createdAt) } : {}),
     ...(raw.updatedAt ? { updatedAt: String(raw.updatedAt) } : {}),
     ...(typeof raw.editCount === 'number' && raw.editCount > 0 ? { editCount: raw.editCount } : {}),
+    ...normalizeTravel(raw),
   };
 }
 

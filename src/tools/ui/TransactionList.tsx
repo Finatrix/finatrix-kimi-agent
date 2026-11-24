@@ -6,6 +6,7 @@ import { useAskAi } from './AiAssistant';
 import { focusAriaLabel } from '../ai/focus';
 import type { FlatCat } from './TransactionModal';
 import { PAYMENT_METHODS, migrateCategory, type ExpenseItem } from '../lib/expense';
+import { fmtForeign } from '../lib/trips';
 import { SECTION_LABEL } from '../lib/budget';
 import { SECTION_COLOR } from '../lib/sectionColors';
 import { store } from '../lib/storage';
@@ -443,6 +444,7 @@ function TxRow({
   const color = cat ? SECTION_COLOR[cat.section] : 'var(--ink2)';
   const primary = e.merchant || e.note || cat?.l || 'Uncategorised';
   const initial = (e.merchant || cat?.l || '?').trim().charAt(0).toUpperCase();
+  const foreign = e.fxCurrency && typeof e.fxAmount === 'number' ? fmtForeign(e.fxAmount, e.fxCurrency) : null;
 
   // Null outside the tools shell, and disabled until the cloud seed lands — in
   // either case the row simply has one fewer action rather than a dead button.
@@ -534,7 +536,7 @@ function TxRow({
           type="button"
           className="tx-main"
           onClick={() => (selectMode ? onToggle() : onEdit())}
-          aria-label={`${selectMode ? 'Toggle selection for' : 'Edit'} ${primary}, ${cfmt(e.amount)} on ${e.date}`}
+          aria-label={`${selectMode ? 'Toggle selection for' : 'Edit'} ${primary}, ${cfmt(e.amount)}${foreign ? ` (${foreign})` : ''} on ${e.date}`}
         >
           <span className="tx-avatar" style={{ background: `color-mix(in srgb, ${color} 18%, transparent)`, color }}>
             {e.merchant ? initial : <Icon name={cat?.ic ?? 'other'} size={16} style={{ color }} />}
@@ -552,7 +554,16 @@ function TxRow({
               <span className="tx-meta">{fmtDate(e.date)}</span>
             </span>
           </span>
-          <span className="tx-amt">{cfmt(e.amount)}</span>
+          {/* Travel mode: a spend paid abroad shows what was paid as well as
+              what it cost at home ("AED 120 · ₹2,981"). */}
+          {foreign ? (
+            <span className="tx-amt tx-amt-fx">
+              <span>{cfmt(e.amount)}</span>
+              <span className="tx-fx">{foreign}</span>
+            </span>
+          ) : (
+            <span className="tx-amt">{cfmt(e.amount)}</span>
+          )}
         </button>
         {!selectMode && (
           <div className="tx-actions">
@@ -775,6 +786,8 @@ const TX_STYLES = `
 .fx-tools .tx-pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:980px;border:1px solid;white-space:nowrap;}
 .fx-tools .tx-meta{font-size:11px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .fx-tools .tx-amt{font-size:14px;font-weight:700;flex-shrink:0;padding-left:8px;}
+.fx-tools .tx-amt-fx{display:flex;flex-direction:column;align-items:flex-end;line-height:1.25;}
+.fx-tools .tx-fx{font-size:11px;font-weight:600;color:var(--ink3);white-space:nowrap;}
 .fx-tools .tx-actions{display:flex;align-items:center;gap:2px;flex-shrink:0;}
 .fx-tools .tx-act{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;background:none;border:none;
   border-radius:8px;cursor:pointer;color:var(--ink3);

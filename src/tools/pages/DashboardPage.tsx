@@ -8,6 +8,7 @@ import { onLocalWrite } from '../lib/storage';
 import DashboardPlanning, { DashboardGuide } from '../ui/DashboardPlanning';
 import { Disclosure } from '../ui/Disclosure';
 import { ReminderPrompt } from '../ui/Reminders';
+import { MoneyStoryEntry } from '../ui/MoneyStory';
 import { monthLabel, currentMonth } from '../lib/month';
 import {
   DASH_SECTIONS, getDashPrefs, toggleSection, moveSection, resetDashPrefs,
@@ -15,6 +16,7 @@ import {
 } from '../lib/dashboardPrefs';
 import { useCareersAccess } from '../../lib/careersAccess';
 import { InviteSlot } from '../../components/InlineInvite';
+import { FxRatesLine } from '../ui/FxNote';
 
 /* ─────────────────────────── motion helpers ─────────────────────────── */
 function timeAgo(ts: number): string {
@@ -314,6 +316,7 @@ export default function DashboardPage() {
 
       <InviteSlot />
       <ReminderPrompt />
+      <MoneyStoryEntry />
       <WorkspaceNavigator />
       <DashboardGuide
         hasData={snap.hasAnyData}
@@ -438,6 +441,8 @@ export default function DashboardPage() {
                 {cfmtSh(Math.abs(snap.netWorth.change.abs))} since last month
               </div>
             )}
+            {/* Balances in another currency are only as current as the rates. */}
+            {snap.netWorth.converted && <FxRatesLine style={{ marginTop: 10 }} />}
           </CardShell>
         ) : (
           <SetupCard eyebrow="Net worth" title="Track what you own" desc="Record your accounts and your debts, and watch the one number that moves slowly and matters most." href="/tools/networth" cta="Open Net Worth" />

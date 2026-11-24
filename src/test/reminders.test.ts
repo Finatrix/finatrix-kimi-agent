@@ -63,6 +63,54 @@ describe('planReminders: the evening reminder', () => {
   });
 });
 
+describe('planReminders: the subscription radar shares the evening slot', () => {
+  const eveningOf = (plan: ReturnType<typeof planReminders>, day: number) =>
+    plan.find((p) => p.at.getDate() === day && p.at.getHours() === 20)!;
+  const radar = (r: NonNullable<ReminderContext['radar']>): ReminderContext => ({ ...nothing, radar: r });
+
+  it('names a renewal three days ahead and sends it to the subscriptions screen', () => {
+    const plan = planReminders(now, evening, radar([{ date: '2026-10-12', title: 'Netflix', kind: 'renews' }]));
+    expect(eveningOf(plan, 9)).toMatchObject({ title: 'Netflix renews in 3 days', href: '/tools/subscriptions' });
+    expect(eveningOf(plan, 8).title).not.toContain('Netflix');
+  });
+
+  it('asks "paid it?" the day after, and stops once the event is gone', () => {
+    const events = [{ date: '2026-10-09', title: 'Spotify', kind: 'renews' as const }];
+    expect(eveningOf(planReminders(now, evening, radar(events)), 10).title).toBe('Paid Spotify? Log it');
+    expect(eveningOf(planReminders(now, evening, radar([])), 10).title).not.toContain('Spotify');
+  });
+
+  it('warns about a trial three days out, and once today for a trial added late', () => {
+    const plan = planReminders(now, evening, radar([{ date: '2026-10-10', title: 'Hotstar', kind: 'trial' }]));
+    expect(eveningOf(plan, 7).title).toBe('Hotstar free trial ends in 3 days');
+    const late = planReminders(now, evening, radar([{ date: '2026-10-08', title: 'Hotstar', kind: 'trial' }]));
+    expect(eveningOf(late, 7).title).toBe('Hotstar free trial ends tomorrow');
+    expect(eveningOf(late, 8).title).not.toContain('Hotstar');
+  });
+
+  it('is still one notification a day when several things coincide, and counts them', () => {
+    const ctx: ReminderContext = {
+      ...nothing,
+      upcoming: [{ date: '2026-10-10', title: 'Rent', type: 'bill' }],
+      radar: [{ date: '2026-10-12', title: 'Netflix', kind: 'renews' }, { date: '2026-10-12', title: 'Spotify', kind: 'renews' }],
+    };
+    const plan = planReminders(now, evening, ctx);
+    expect(plan).toHaveLength(7);
+    expect(eveningOf(plan, 9)).toMatchObject({ title: '3 payments and renewals to look at', body: 'Open FinatriX to see them all.' });
+  });
+
+  it('keeps the old wording when there is nothing from the radar', () => {
+    const plan = planReminders(now, evening, { ...nothing, upcoming: [{ date: '2026-10-10', title: 'Rent', type: 'bill' }] });
+    expect(eveningOf(plan, 9)).toMatchObject({ title: 'Rent is due tomorrow', href: '/tools/calendar' });
+  });
+
+  it('puts no amount in any radar notification and honours the "upcoming" switch', () => {
+    const r = radar([{ date: '2026-10-12', title: 'Netflix', kind: 'renews' }]);
+    expect(planReminders(now, evening, r).some((p) => /[₹$£€]|\d{3,}/.test(p.title + p.body))).toBe(false);
+    expect(planReminders(now, { ...evening, upcoming: false }, r).some((p) => p.title.includes('Netflix'))).toBe(false);
+  });
+});
+
 describe('planReminders: the morning and midday lines', () => {
   const plan = planReminders(now, on, nothing);
   const ofKind = (kind: string, p = plan) => p.filter((r) => r.kind === kind);

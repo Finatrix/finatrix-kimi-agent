@@ -372,6 +372,7 @@ const PRIVATE_TITLES: Record<string, string> = {
   '/tools/dashboard': 'Dashboard',
   '/tools/reports': 'Reports',
   '/tools/calendar': 'Calendar',
+  '/tools/subscriptions': 'Subscriptions',
   '/tools/settings': 'Settings',
   '/tools/all': 'All Tools',
   '/tools/reference': 'Reference Data',

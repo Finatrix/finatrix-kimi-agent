@@ -25,8 +25,8 @@ If these two docs aren't in your checkout, they were untracked files in `/Users/
 | 2.3 | Groups: create and join, Budget together, live feed | 1.2, 2.2 | ☐ |
 | 2.4 | Groups: Split costs, settle up, your share in your tracker | 2.3 | ☐ |
 | 2.5 | Splits with people not on FinatriX | 2.4 | ☐ |
-| 2.6 | Subscription radar and bill reminders | — | ☐ |
-| 2.7 | Monthly money story | — | ☐ |
+| 2.6 | Subscription radar and bill reminders | — | ☑ [PR 27](https://github.com/Finatrix/finatrix-kimi-agent/pull/27) |
+| 2.7 | Monthly money story | — | ☑ [PR 26](https://github.com/Finatrix/finatrix-kimi-agent/pull/26) |
 | 2.8 | Money calendar | 2.6 | ☐ |
 | 3.1 | Voice assistant: mic, read-aloud and hands-free in 11 languages | — | ☑ [PR 28](https://github.com/Finatrix/finatrix-kimi-agent/pull/28) |
 | 3.2 | Voice assistant: safe actions with confirm cards | 3.1, 1.2 | ☐ |
@@ -158,15 +158,15 @@ Items 4 and 5. An iOS share extension, an Android share target, and the web shar
 
 ### 3.4 Home-screen widget
 
-Item 3. WidgetKit on iPhone and app widgets on Android, showing the daily safe-to-spend figure. Add opens the form, and the widget follows Hide amounts. **Decide first:** show the amount on the lock screen by default, or only after the user turns it on.
+Item 3. WidgetKit on iPhone and app widgets on Android, showing the daily safe-to-spend figure. Add opens the form, and the widget follows Hide amounts. **Decided (24 Nov 2026):** the lock screen shows the amount only after the user turns it on; until then it shows it hidden.
 
 ### 3.5 Warranty and bill locker
 
-Item 10. **Decide first:** device-only to start (suggested), or synced photos.
+Item 10. **Decided (24 Nov 2026):** photos stay on the device to start; synced photos can come later.
 
 ### 3.6 Indian-language app
 
-Item 15. No translation system exists yet, so build one first, then add languages in the voice assistant's order. A fluent speaker reviews the finance terms in each language. Run it when no other UI step is open, because it touches every screen. **Decide first:** which languages ship first.
+Item 15. No translation system exists yet, so build one first, then add languages in the decided order. A fluent speaker reviews the finance terms in each language. Run it when no other UI step is open, because it touches every screen. **Decided (24 Nov 2026):** Tamil first, then Malayalam, Telugu, Kannada and Hindi.
 
 ### 3.7 Private on-device AI
 

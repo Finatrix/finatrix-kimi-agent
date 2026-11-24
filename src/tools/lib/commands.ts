@@ -136,6 +136,7 @@ const WORKSPACE: readonly { id: string; title: string; subtitle: string; icon: I
   { id: 'dashboard', title: 'Dashboard', subtitle: 'Everything at a glance', icon: 'pie', keywords: ['home', 'hub', 'overview', 'summary'] },
   { id: 'reports', title: 'Reports', subtitle: 'Export a full financial report', icon: 'layers', keywords: ['pdf', 'export', 'download', 'statement', 'summary'] },
   { id: 'calendar', title: 'Calendar', subtitle: 'Bills, SIPs and goal dates', icon: 'clock', keywords: ['bills', 'due', 'upcoming', 'month', 'schedule'] },
+  { id: 'subscriptions', title: 'Subscriptions', subtitle: 'Yearly cost, renewals and free trials', icon: 'subs', keywords: ['subscription', 'renewal', 'trial', 'netflix', 'recurring', 'cancel', 'yearly'] },
   { id: 'settings', title: 'Settings', subtitle: 'Data, sync and preferences', icon: 'shield', keywords: ['preferences', 'privacy', 'reset', 'delete data', 'sync'] },
 ];
 

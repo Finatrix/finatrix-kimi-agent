@@ -3,6 +3,7 @@ import { getJSON, setJSON } from './storage';
 import type { ExpenseItem } from './expense';
 import type { FinEvent } from './calendar';
 import { MIDDAY_LINES, MORNING_LINES, dayNumber, lineForDay } from './dailyLines';
+import { RENEWAL_LEAD_DAYS, daysBetween, type RadarEvent } from './subscriptions';
 
 /**
  * Reminders — what to tell someone, and when.
@@ -141,6 +142,47 @@ export interface ReminderContext {
   upcoming: ReadonlyArray<Pick<FinEvent, 'date' | 'title' | 'type'>>;
   /** True when recorded spending is above income this month (lib/dashboard). */
   overspent: boolean;
+  /**
+   * Subscription renewals and free-trial ends (lib/subscriptions). They share
+   * the evening slot with everything else, so they never add a notification.
+   */
+  radar?: ReadonlyArray<RadarEvent>;
+}
+
+interface RadarLine {
+  text: string;
+  body: string;
+}
+
+const plural = (n: number) => (n === 1 ? 'day' : 'days');
+
+/**
+ * What the subscription radar has to say on the evening of `day`:
+ *  • a renewal three days out,
+ *  • the day after a renewal date that has no matching entry ("Paid it?"),
+ *  • a free trial three days from ending — or, for a trial added late, once
+ *    today if it ends within the next three days.
+ * No amounts: a lock screen is a public place, and the app has the figure.
+ */
+function radarLinesFor(day: Date, offset: number, ctx: ReminderContext): RadarLine[] {
+  const today = ymdLocal(day);
+  const lines: RadarLine[] = [];
+  for (const e of ctx.radar ?? []) {
+    const ahead = daysBetween(today, e.date);
+    if (e.kind === 'renews') {
+      if (ahead === RENEWAL_LEAD_DAYS) {
+        lines.push({ text: `${e.title} renews in ${RENEWAL_LEAD_DAYS} days`, body: 'Open FinatriX to check it, or switch this reminder off.' });
+      } else if (ahead === -1) {
+        lines.push({ text: `Paid ${e.title}? Log it`, body: 'One tap in FinatriX logs it with the usual amount.' });
+      }
+    } else if (ahead === RENEWAL_LEAD_DAYS || (offset === 0 && ahead >= 1 && ahead < RENEWAL_LEAD_DAYS)) {
+      lines.push({
+        text: `${e.title} free trial ends ${ahead === 1 ? 'tomorrow' : `in ${ahead} ${plural(ahead)}`}`,
+        body: 'Decide before it turns into a paid plan.',
+      });
+    }
+  }
+  return lines;
 }
 
 function morningFor(day: Date, offset: number, now: Date, prefs: ReminderPrefs): PlannedReminder | undefined {
@@ -178,11 +220,22 @@ function eveningFor(
   tomorrow.setDate(tomorrow.getDate() + 1);
   const tomorrowKey = ymdLocal(tomorrow);
   const due = prefs.upcoming ? ctx.upcoming.filter((e) => e.date === tomorrowKey && e.type !== 'goal') : [];
-  if (due.length > 0) {
+  const radar = prefs.upcoming ? radarLinesFor(day, offset, ctx) : [];
+  if (radar.length === 0 && due.length > 0) {
     return {
       id, kind: 'upcoming', at, href: '/tools/calendar',
       title: due.length === 1 ? `${due[0].title} is due tomorrow` : `${due.length} payments are due tomorrow`,
       body: 'From your calendar. Check the date and amount with your provider.',
+    };
+  }
+  if (radar.length > 0) {
+    // One notification however many things are waiting: a single item is named,
+    // several are counted and the list is in the app.
+    const count = radar.length + due.length;
+    return {
+      id, kind: 'upcoming', at, href: '/tools/subscriptions',
+      title: count === 1 ? radar[0].text : `${count} payments and renewals to look at`,
+      body: count === 1 ? radar[0].body : 'Open FinatriX to see them all.',
     };
   }
 

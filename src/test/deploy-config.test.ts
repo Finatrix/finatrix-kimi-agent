@@ -229,7 +229,10 @@ describe('deploy configuration', () => {
       // The backend is named, not wildcarded: `*.supabase.co` would let a script
       // that ever ran here send data to ANY Supabase project, an attacker's included.
       expect(policy).not.toMatch(/\*\.supabase\.co/);
-      expect(policy).toMatch(/connect-src 'self' https:\/\/[a-z0-9]{20}\.supabase\.co wss:\/\/[a-z0-9]{20}\.supabase\.co;/);
+      // The public site by name, for the installed apps: their pages load from a
+      // bundle on the device, so 'self' there is not this site, and the exchange
+      // rate feed (/api/fx/latest, worker/fxLatest.ts) would be blocked.
+      expect(policy).toMatch(/connect-src 'self' https:\/\/[a-z0-9]{20}\.supabase\.co wss:\/\/[a-z0-9]{20}\.supabase\.co https:\/\/finatrix\.co;/);
     }
   });
 

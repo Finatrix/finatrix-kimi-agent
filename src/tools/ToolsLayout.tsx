@@ -34,6 +34,7 @@ import { AiProvider, AiLauncher, AiHeaderButton } from './ui/AiAssistant';
 import { warnIfOverdue } from '../reference/review';
 import { isNativeApp } from '../native/platform';
 import { useReminderSync } from './lib/useReminderSync';
+import { refreshLiveRates } from './lib/fxLive';
 import WalkthroughGate from '../walkthrough/WalkthroughGate';
 import TourGate from '../tour/TourGate';
 import { TourPageButton } from '../tour/TourPageButton';
@@ -162,7 +163,7 @@ function ToolTabs() {
    for navigation between top-level destinations). */
 const BOTTOM_NAV_TOOLS = ['budget', 'expenses', 'goals'] as const;
 /** Pages that belong to the All tools tab rather than one of the other four. */
-const HUB_PATHS = new Set(['all', 'settings', 'reports', 'calendar', 'reference', 'networth', 'investmatch', 'parksmart', 'peercompare', 'lifemap']);
+const HUB_PATHS = new Set(['all', 'settings', 'reports', 'calendar', 'subscriptions', 'reference', 'networth', 'investmatch', 'parksmart', 'peercompare', 'lifemap']);
 const BOTTOM_NAV_ICONS: Record<string, ReactElement> = {
   dashboard: (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -295,6 +296,13 @@ export default function ToolsLayout() {
    */
   useEffect(() => {
     if (import.meta.env.DEV) warnIfOverdue();
+  }, []);
+
+  // Today's exchange rates, at most once a day (lib/fxLive.ts). Screens that
+  // convert re-read on the `fx:write` the save dispatches; until then, and
+  // offline, the last saved rates are used with their own date on show.
+  useEffect(() => {
+    void refreshLiveRates();
   }, []);
 
   // Seed localStorage from the cloud (or clear it) before mounting the tools.
@@ -534,7 +542,7 @@ export default function ToolsLayout() {
                 from it: "Tour this page" (the breadcrumb and Back are
                 website chrome; the system BACK replaces them there). */}
             <div className="fx-crumbrow">
-              <Breadcrumb parent={{ label: 'Money tools', to: '/tools' }} current={activeTool === 'dashboard' ? 'Dashboard' : activeTool === 'reports' ? 'Reports' : activeTool === 'calendar' ? 'Calendar' : activeTool === 'settings' ? 'Settings' : activeTool === 'all' ? 'All tools' : (TOOLS.find((t) => t.id === activeTool)?.name ?? 'Tools')} />
+              <Breadcrumb parent={{ label: 'Money tools', to: '/tools' }} current={activeTool === 'dashboard' ? 'Dashboard' : activeTool === 'reports' ? 'Reports' : activeTool === 'calendar' ? 'Calendar' : activeTool === 'subscriptions' ? 'Subscriptions' : activeTool === 'settings' ? 'Settings' : activeTool === 'all' ? 'All tools' : (TOOLS.find((t) => t.id === activeTool)?.name ?? 'Tools')} />
               <div className="fx-crumbrow-end">
                 {ready && <TourPageButton />}
                 <span data-web-only className="fx-crumbrow-back"><BackButton /></span>
