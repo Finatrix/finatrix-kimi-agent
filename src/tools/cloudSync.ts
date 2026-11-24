@@ -76,7 +76,7 @@ export const SYNC_KEYS = [
  * unlock. The lock ends with an explicit sign-out only (`clearAppLockOnSignOut`,
  * called from AuthContext.signOut); appLockSetting.test.tsx holds this in place.
  */
-export const ACCOUNT_LOCAL_KEYS = ['fx_import_staged'];
+export const ACCOUNT_LOCAL_KEYS = ['fx_import_staged', 'fx_sub_radar'];
 const LAST_UID_KEY = 'fx_last_uid';
 const PENDING_KEY = 'fx_sync_pending';
 

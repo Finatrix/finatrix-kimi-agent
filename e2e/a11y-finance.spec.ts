@@ -26,6 +26,7 @@ const TOOLS = [
   ...TOOL_IDS.map((id) => `/tools/${id}`),
   '/tools/reports',
   '/tools/calendar',
+  '/tools/subscriptions',
   '/tools/settings',
   // Not a calculator, so not in TOOL_IDS — but it is a real reading surface
   // with tables, a select and several dozen external links, and it is held to
