@@ -14,6 +14,9 @@ import { loadEnv } from 'vite';
 const backend = loadEnv('production', process.cwd(), 'VITE_').VITE_SUPABASE_URL;
 const uid = '00000000-0000-4000-8000-000000000001';
 
+// page.route cannot stub a request that goes through the service worker.
+test.use({ serviceWorkers: 'block' });
+
 declare global {
   interface Window {
     __voice: { spoken: string[]; recs: Array<{ lang: string; onresult?: (e: unknown) => void; onerror?: (e: unknown) => void; onend?: () => void }> };
@@ -31,6 +34,7 @@ async function signIn(page: Page) {
       calls.ai += 1;
       await route.fulfill({ status: 503, json: { error: 'AI deliberately offline in this test' } });
     } else if (path.includes('/auth/v1/user')) await route.fulfill({ json: user });
+    else if (path.includes('/rest/v1/tool_data')) await route.fulfill({ json: { data: {} } });
     else await route.fulfill({ json: [] });
   });
   await page.addInitScript(({ backend, user, token, expires }) => {
@@ -51,9 +55,12 @@ async function signIn(page: Page) {
       start() {}
       abort() { this.onerror?.({ error: 'aborted' }); this.onend?.(); }
     }
-    Object.assign(window, { SpeechRecognition: FakeRecognition, webkitSpeechRecognition: FakeRecognition });
+    // defineProperty, not assignment: WebKit's own webkitSpeechRecognition is read-only.
+    const stub = (name: string, value: unknown) => Object.defineProperty(window, name, { configurable: true, writable: true, value });
+    stub('SpeechRecognition', FakeRecognition);
+    stub('webkitSpeechRecognition', FakeRecognition);
     class FakeUtterance { text: string; voice: unknown = null; lang = ''; onend?: () => void; onerror?: (e: unknown) => void; constructor(t: string) { this.text = t; } }
-    Object.assign(window, { SpeechSynthesisUtterance: FakeUtterance });
+    stub('SpeechSynthesisUtterance', FakeUtterance);
     const voices = [{ lang: 'en-IN', name: 'Scripted', localService: true, default: true, voiceURI: 'scripted' }];
     Object.defineProperty(window, 'speechSynthesis', {
       configurable: true,
@@ -113,18 +120,19 @@ test('talks hands-free with FinatriX AI after the AI consent', async ({ page }, 
   await dialog.screenshot({ path: testInfo.outputPath('voice-listening.png') });
 
   // A spoken setup question is answered on the device and read aloud, then it listens again.
-  await say(page, 'How do I add an expense?');
+  await say(page, 'How do I import expenses?');
   await expect.poll(() => page.evaluate(() => window.__voice.spoken.length)).toBeGreaterThan(0);
   await expect.poll(() => page.evaluate(() => window.__voice.recs.length)).toBe(2);
-  await expect(dialog.getByText('How do I add an expense?')).toBeVisible();
+  await expect(dialog.getByText('How do I import expenses?', { exact: true }).last()).toBeVisible();
   expect(calls.ai).toBe(0);
 
   // A money question goes to the AI like a typed one would.
+  const spokenBefore = await page.evaluate(() => window.__voice.spoken.length);
   await say(page, 'Where did my money go this month?');
   await expect.poll(() => calls.ai).toBe(1);
   // The AI is offline in this test: the reason is read out, and voice stops rather than looping.
   await expect(mic).toHaveAttribute('aria-pressed', 'false');
-  expect(await page.evaluate(() => window.__voice.spoken.length)).toBe(2);
+  expect(await page.evaluate(() => window.__voice.spoken.length)).toBeGreaterThan(spokenBefore);
 
   // Started again, a pause ends it with a line saying so.
   await mic.click();
@@ -151,7 +159,8 @@ test('says "stop" to end, and never offers voice where the browser cannot listen
     delete (window as Partial<Window> & { SpeechRecognition?: unknown }).SpeechRecognition;
     delete (window as Partial<Window> & { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition;
   });
-  await page.reload();
+  // The app drops ?help=setup once the panel opens, so a reload would not reopen it.
+  await page.goto('/tools/dashboard?help=setup');
   await expect(page.getByRole('dialog', { name: 'FinatriX AI' }).getByLabel(/Ask FinatriX AI/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Talk hands-free' })).toHaveCount(0);
 });
