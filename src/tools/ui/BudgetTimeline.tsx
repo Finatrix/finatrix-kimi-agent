@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Chart from 'chart.js/auto';
 import { getChartTheme } from '../lib/chartTheme';
+import { useAmountsHidden } from '../lib/hideAmounts';
 import { Icon } from './Icon';
 import { AskAiButton } from './AskAiButton';
 import { monthLabel } from '../lib/month';
@@ -183,6 +184,8 @@ function TimelineChart({ timeline, cfmt, code, theme }: {
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const chartRef = useRef<Chart | null>(null);
+  // Hide amounts rebuilds the chart without its value axis.
+  const hidden = useAmountsHidden();
   // `cfmt` is rebuilt on every CurrencyProvider render, so putting it in the
   // chart effect's deps would tear down and re-create the chart continuously.
   // The tooltip callbacks read it through a ref instead; the currency `code` is
@@ -293,7 +296,8 @@ function TimelineChart({ timeline, cfmt, code, theme }: {
           x: { ticks: { color: ct.tick, font: { size: 10 }, maxRotation: 0, autoSkipPadding: 14 }, grid: { display: false } },
           y: {
             beginAtZero: true,
-            ticks: { color: ct.tick, font: { size: 10 }, callback: (v) => fmtRef.current(v as number) },
+            // Hide amounts: the line keeps its shape, the axis loses its figures.
+            ticks: { display: !hidden, color: ct.tick, font: { size: 10 }, callback: (v) => fmtRef.current(v as number) },
             grid: { color: ct.grid },
           },
         },
@@ -302,7 +306,7 @@ function TimelineChart({ timeline, cfmt, code, theme }: {
     return () => { chartRef.current?.destroy(); chartRef.current = null; };
     // Rebuilt (not mutated) when the shape of the chart changes: adding or
     // removing the budget/projection series changes the dataset list itself.
-  }, [code, theme, datasets, points]);
+  }, [code, theme, datasets, points, hidden]);
 
   // Text alternative, built from the same points the canvas is drawn from, so
   // the two can never describe different numbers (WCAG 1.1.1).

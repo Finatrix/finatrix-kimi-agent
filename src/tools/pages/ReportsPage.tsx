@@ -6,11 +6,15 @@ import { ExportMenu } from '../ui/ExportMenu';
 import { MonthNav } from '../ui/MonthNav';
 import { useToast } from '../ui/Toast';
 import { onLocalWrite } from '../lib/storage';
+import { maskedAmount } from '../lib/format';
+import { AMOUNT_MASK, useAmountsHidden } from '../lib/hideAmounts';
 import { currentMonth, monthLabel } from '../lib/month';
 import { type ExportFormat, type ReportId } from '../lib/reports';
 import { exportReviewedReports, readReportReview, reportPeriods } from '../lib/reportsSmartReview';
 
 export default function ReportsPage() {
+  // Hide amounts: the backup preview prints its figures itself.
+  const hidden = useAmountsHidden();
   const { notify } = useToast();
   const [revision, setRevision] = useState(0);
   const [selMonth, setSelMonth] = useState(currentMonth());
@@ -85,7 +89,7 @@ export default function ReportsPage() {
         {latestComplete && latestComplete !== selMonth && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSelMonth(latestComplete)}>Use latest month with both sources: {monthLabel(latestComplete)}</button>}
         <ul className="fx-checklist">
           {review.transactionCount > 0 && <li className="is-ok">{review.transactionCount} transactions dated {review.firstDate} to {review.lastDate}. This is recorded activity; missing days do not prove there was no spending.</li>}
-          {review.budget && <li className="is-ok">Budget preview: {review.budget.currency} {review.budget.spent.toLocaleString()} allocated; {review.budget.free.toLocaleString()} left from recorded income.</li>}
+          {review.budget && <li className="is-ok">Budget preview: {hidden ? maskedAmount(review.budget.currency) : `${review.budget.currency} ${review.budget.spent.toLocaleString()}`} allocated; {hidden ? AMOUNT_MASK : review.budget.free.toLocaleString()} left from recorded income.</li>}
           {review.checks.length > 0
             ? review.checks.map((check) => <li key={check.message} className="is-warn">{check.message}{' '}<Link to={check.href}>Review source</Link></li>)
             : <li className={anyAvailable ? 'is-ok' : 'is-none'}>{anyAvailable ? 'No issues found in the available saved amounts, dates and budget split. Completeness still depends on what you entered.' : 'Save a budget or transactions for this month to prepare a report.'}</li>}

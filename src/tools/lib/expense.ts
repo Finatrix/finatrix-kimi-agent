@@ -86,6 +86,12 @@ export interface ExpenseItem {
   fxRate?: number;
   /** The card fee % added on top. Absent when there was none, or it was paid in cash. */
   fxFee?: number;
+  /**
+   * The home `amount` was typed from the bank statement ("Charged a different
+   * amount?"), so `fxRate` is the implied rate with every fee folded in and
+   * re-pricing the trip leaves this spend alone.
+   */
+  fxCharged?: boolean;
   /** The trip this spend belongs to. */
   tripId?: string;
 }
@@ -109,6 +115,7 @@ function normalizeTravel(raw: Partial<ExpenseItem>): Partial<ExpenseItem> {
     out.fxRate = fxRate;
     const fee = Number(raw.fxFee);
     if (raw.fxFee != null && Number.isFinite(fee) && fee > 0) out.fxFee = fee;
+    if (raw.fxCharged === true) out.fxCharged = true;
   }
   if (typeof raw.tripId === 'string' && raw.tripId) out.tripId = raw.tripId;
   return out;

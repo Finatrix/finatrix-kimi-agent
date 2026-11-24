@@ -1,6 +1,6 @@
 import type { ExpenseItem } from '../lib/expense';
 import {
-  daysLeft, fmtForeign, fmtRate, fmtTripDay, isHomeTrip, paidInTripCurrency, summarizeTrip, tripLabel, type Trip,
+  daysLeft, fmtForeign, fmtRate, fmtTripDay, isHomeTrip, paidInTripCurrency, summarizeTrip, tripBudgetProgress, tripLabel, type Trip,
 } from '../lib/trips';
 import { ToolSheet } from '../ui/ToolSheet';
 
@@ -29,6 +29,7 @@ export function TripSummarySheet({
   trip, items, today, homeSym, cfmt, labelOf, onEdit, onEndNow, onExtend, onNextStop, onClose,
 }: TripSummarySheetProps) {
   const s = summarizeTrip(trip, items, today);
+  const budget = tripBudgetProgress(s.homeTotal, trip.budget);
   const home = isHomeTrip(trip);
   const left = daysLeft(trip, today);
   const active = left !== null;
@@ -69,6 +70,13 @@ export function TripSummarySheet({
             {s.paidInHome > 0 && <>, plus {cfmt(s.paidInHome)} paid in {homeSym}</>}
           </div>
         )}
+        {budget && (
+          <div className="note" style={{ marginTop: 2 }}>
+            {budget.over
+              ? <><b className="fx-tsum-over">{cfmt(-budget.left)} over</b> the {cfmt(trip.budget!)} trip budget</>
+              : <>{cfmt(budget.left)} left of the {cfmt(trip.budget!)} trip budget</>}
+          </div>
+        )}
       </div>
 
       <dl className="fx-tsum-facts">
@@ -93,6 +101,7 @@ export function TripSummarySheet({
       {s.count === 0 ? (
         <p className="note" style={{ margin: '4px 0 0' }}>
           Nothing logged for this trip yet. Spends dated inside it are added in {trip.currency} as you log them.
+          A booking made earlier, such as the flight, joins the trip when you tick “Part of the {tripLabel(trip)} trip” as you add it.
         </p>
       ) : (
         <>
@@ -122,6 +131,7 @@ export function TripSummarySheet({
 
 const SUMMARY_STYLES = `
 .fx-tsum-total{padding:4px 0 14px;}
+.fx-tsum-over{color:var(--red);}
 .fx-tsum-big{font-size:28px;font-weight:700;letter-spacing:-.02em;}
 .fx-tsum-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin:0 0 16px;}
 .fx-tsum-facts div{padding:10px 12px;border:1px solid var(--hair2);border-radius:12px;}
