@@ -50,6 +50,19 @@ function worker() {
   return { cache, caches, fetch, get, dispatch, message };
 }
 
+describe('the Worker API routes', () => {
+  // /api/fx/latest changes daily. Answered from the runtime cache, the app's
+  // once-a-day check would always read the previous day's rates.
+  it('are left to the network, never answered or stored by the worker', () => {
+    const w = worker();
+    const event = w.get('/api/fx/latest');
+    // No respondWith at all: the browser fetches it as if no worker existed.
+    expect(event.response()).toBeUndefined();
+    expect(w.caches.open).not.toHaveBeenCalled();
+    expect(w.fetch).not.toHaveBeenCalled();
+  });
+});
+
 describe('service worker storage failures', () => {
   it.each([
     ['/tools/budget', true],

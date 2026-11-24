@@ -18,8 +18,8 @@ If these two docs aren't in your checkout, they were untracked files in `/Users/
 
 | Step | What | Wait for | Status |
 | --- | --- | --- | --- |
-| 1.1 | Live exchange-rate feed | — | ☐ |
-| 1.2 | Travel mode, stage 1 | 1.1 | ☐ |
+| 1.1 | Live exchange-rate feed | — | ☑ [PR 25](https://github.com/Finatrix/finatrix-kimi-agent/pull/25) |
+| 1.2 | Travel mode, stage 1 | 1.1 | ☑ [PR 25](https://github.com/Finatrix/finatrix-kimi-agent/pull/25) |
 | 2.1 | Travel mode stage 2, and Hide amounts | 1.2 | ☐ |
 | 2.2 | Groups: server tables, security, join by code | — | ☐ |
 | 2.3 | Groups: create and join, Budget together, live feed | 1.2, 2.2 | ☐ |
@@ -87,6 +87,8 @@ Feature: `NEW_FEATURES.md` item 2. Read all of it, including Decided.
 ### 2.1 Travel mode stage 2, and Hide amounts
 
 - **Travel (item 2, stage 2):** an optional trip budget with progress in the trip strip; "Charged a different amount?", which takes the real ₹ from the statement while keeping the foreign amount and storing the implied rate; and adding expenses dated before the trip, such as flights, to it.
+- **Also open from item 2:** the budget screen's "Includes ₹29,760 from the Dubai trip" line (item 2, Budgets and totals). No step covered it, so stage 1 did not build it.
+- **What stage 1 left in place (PR 25):** trips and all their maths are in `src/tools/lib/trips.ts` (`spendMoney` prices every entry route; `tripDefaults` decides the currency). The UI is in `src/tools/travel/`, on the shared `ToolSheet` (`src/tools/ui/ToolSheet.tsx`). Each expense already stores `fxAmount`, `fxCurrency`, `fxRate`, `fxFee` and `tripId`, so a statement amount only needs a new `amount` and the implied `fxRate` (amount ÷ fxAmount, fee folded in). The stays-in-₹ defaults resolve through `migrateCategory` and include the whole Savings section (`defaultHomeCats`).
 - **Hide amounts (item 11):** one eye toggle that turns every amount into "₹ ••••" and removes chart labels, remembered on the device. Build it into the shared money formatting, then sweep the screens that format amounts themselves.
 - **Done when:** tests, e2e and the design audit pass; build passes; PR open.
 

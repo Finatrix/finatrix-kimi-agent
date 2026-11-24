@@ -44,9 +44,16 @@ interface Props {
    * the user.
    */
   seed?: { text: string; nonce: number };
+  /**
+   * How the preview shows the amount, given the category it will be filed
+   * under. Travel mode passes one that shows both currencies for a trip spend
+   * ("AED 120 = ₹2,981"), so the line never looks like ₹120 when it is not.
+   * Defaults to `cfmt`.
+   */
+  amountLabel?: (parsed: QuickAddResult, category: string) => string;
 }
 
-export function QuickAddBar({ cats, learned, cfmt, now, onAdd, fallbackCategory, seed }: Props) {
+export function QuickAddBar({ cats, learned, cfmt, now, onAdd, fallbackCategory, seed, amountLabel }: Props) {
   const [text, setText] = useState('');
   const [flash, setFlash] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -141,7 +148,7 @@ export function QuickAddBar({ cats, learned, cfmt, now, onAdd, fallbackCategory,
           <>Type an amount and a few words — the date, category and payment method are picked up automatically.</>
         ) : parsed.ok ? (
           <span className="fx-qa-chips">
-            <span className="fx-qa-chip fx-qa-amt">{cfmt(parsed.amount)}</span>
+            <span className="fx-qa-chip fx-qa-amt">{amountLabel ? amountLabel(parsed, catKey) : cfmt(parsed.amount)}</span>
             {cat && (
               <span className="fx-qa-chip">
                 <Icon name={cat.ic} size={12} style={{ color: SECTION_COLOR[cat.section] }} aria-hidden="true" />

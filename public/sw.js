@@ -24,7 +24,8 @@
  * ---------------------------------
  * Anything that is not a same-origin GET. That excludes every Supabase call by
  * construction (cross-origin) and every mutation. A finance app must never
- * answer "is this payment saved?" from a cache.
+ * answer "is this payment saved?" from a cache. The Worker's own `/api/` routes
+ * are left to the network too: they serve data that changes daily.
  *
  * UPDATES
  * -------
@@ -319,6 +320,11 @@ self.addEventListener('fetch', (event) => {
   // partial-content request, and answering one with the whole body breaks media.
   if (request.headers.has('range')) return;
   if (url.pathname === '/healthz') return;
+  // The Worker's API routes (today: /api/fx/latest) answer with data that
+  // changes. Stale-while-revalidate would hand the page yesterday's answer and
+  // keep today's for tomorrow, so the app's once-a-day rate check would always
+  // be a day behind. The page keeps its own copy for offline use (fxLive.ts).
+  if (url.pathname.startsWith('/api/')) return;
 
   if (request.mode === 'navigate') {
     event.respondWith(navigationHandler(event, request));

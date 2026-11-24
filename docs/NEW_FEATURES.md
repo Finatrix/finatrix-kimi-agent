@@ -5,7 +5,7 @@ The list of new features we are planning, with what was decided for each. The bu
 | # | Feature | Status |
 | --- | --- | --- |
 | 1 | [FinatriX AI voice assistant](#1-finatrix-ai-voice-assistant) | All decided, not started |
-| 2 | [Travel mode in the Expense Tracker](#2-travel-mode-in-the-expense-tracker) | All decided, not started |
+| 2 | [Travel mode in the Expense Tracker](#2-travel-mode-in-the-expense-tracker) | Stage 1 built ([PR 25](https://github.com/Finatrix/finatrix-kimi-agent/pull/25)); stage 2 is step 2.1 |
 | 3 | [Home-screen widget](#3-home-screen-widget) | Suggested, not discussed |
 | 4 | [Share to FinatriX](#4-share-to-finatrix) | Suggested, not discussed |
 | 5 | [Receipt scan](#5-receipt-scan) | Suggested, not discussed |
