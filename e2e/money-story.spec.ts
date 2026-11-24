@@ -54,6 +54,11 @@ test('opens the story, pages through five cards and closes with focus returned',
 });
 
 test('shares a PNG picture, amounts hidden by default', async ({ page }) => {
+  // WebKit offers Web Share with files; remove it so every engine takes the save path.
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'canShare', { value: undefined, configurable: true });
+    Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
+  });
   await page.goto('/tools/dashboard');
   await page.getByRole('button', { name: 'View story' }).click();
   const dialog = page.getByRole('dialog');
