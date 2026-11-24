@@ -66,7 +66,10 @@
   # codebase before being listed — an entry here for something the app DOES use
   # is an outage, not a hardening. `camera` stays disabled despite the resume
   # OCR flow: Tesseract reads uploaded files, never a live capture.
-  Permissions-Policy: accelerometer=(), autoplay=(), bluetooth=(), browsing-topics=(), camera=(), display-capture=(), encrypted-media=(), geolocation=(), gyroscope=(), hid=(), idle-detection=(), magnetometer=(), microphone=(), midi=(), payment=(), serial=(), usb=(), xr-spatial-tracking=()
+  # `microphone=(self)` is the one exception: FinatriX AI's voice conversation
+  # (src/lib/voice/) listens through the browser's SpeechRecognition, on this
+  # origin only and never in any embedded frame.
+  Permissions-Policy: accelerometer=(), autoplay=(), bluetooth=(), browsing-topics=(), camera=(), display-capture=(), encrypted-media=(), geolocation=(), gyroscope=(), hid=(), idle-detection=(), magnetometer=(), microphone=(self), midi=(), payment=(), serial=(), usb=(), xr-spatial-tracking=()
   # Asks for a dedicated agent cluster — origin-keyed rather than site-keyed —
   # so this origin gets its own process where the browser can manage it. Cheap
   # Spectre-class isolation for a page that holds a signed-in session, and inert

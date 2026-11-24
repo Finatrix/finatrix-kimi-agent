@@ -95,6 +95,25 @@ export interface AiAnswer {
  * Prose is preserved, not flattened: `sanitizeProse` keeps newlines (markdown
  * needs them) while removing markup and control characters.
  */
+/** The first code point of the digit block in each Indian script the voice assistant speaks. */
+const INDIC_ZEROS = [0x0966, 0x09E6, 0x0A66, 0x0AE6, 0x0B66, 0x0BE6, 0x0C66, 0x0CE6, 0x0D66];
+const INDIC_DIGIT = /[०-९০-৯੦-੯૦-૯୦-୯௦-௯౦-౯೦-೯൦-൯]/g;
+
+/**
+ * Indian-script digits as 0–9. The assistant answers in the language it was
+ * asked in, and a Hindi answer may write ₹४,५०० — which the grounding check,
+ * reading 0–9, would not see as an amount at all. Converting before the check
+ * keeps every figure checked, whatever the language; the prompt asks for 0–9
+ * too, and this holds when a model forgets.
+ */
+export function asciiDigits(text: string): string {
+  return text.replace(INDIC_DIGIT, (d) => {
+    const code = d.codePointAt(0)!;
+    const zero = INDIC_ZEROS.find((z) => code >= z && code <= z + 9)!;
+    return String(code - zero);
+  });
+}
+
 export function parseAiAnswer(content: string): AiAnswer | null {
   const dict = extractJson(content);
 
@@ -104,7 +123,7 @@ export function parseAiAnswer(content: string): AiAnswer | null {
     ? dict.answer
     : Object.keys(dict).length === 0 ? content : '';
 
-  const answer = sanitizeProse(raw, MAX_ANSWER_CHARS);
+  const answer = asciiDigits(sanitizeProse(raw, MAX_ANSWER_CHARS));
   if (!answer) return null;
 
   // Anything that is not explicitly "general" is treated as an answer about the
@@ -115,7 +134,7 @@ export function parseAiAnswer(content: string): AiAnswer | null {
 
   // A headline that merely repeats the answer's opening line adds nothing but
   // height, so it is dropped rather than shown twice.
-  const headline = sanitizeField(dict.headline, MAX_HEADLINE_CHARS);
+  const headline = asciiDigits(sanitizeField(dict.headline, MAX_HEADLINE_CHARS));
   const firstLine = answer.split('\n')[0].replace(/[*_#>`-]/g, '').trim();
 
   return {

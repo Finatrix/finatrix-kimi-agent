@@ -146,6 +146,15 @@ export default function Privacy() {
         in Settings &rarr; Privacy, after which it asks again before sending anything.
       </P>
       <P>
+        Voice is part of the same permission. If you talk to FinatriX AI, your speech is turned
+        into text by your phone or browser&rsquo;s own speech service, and answers are read aloud
+        by your device&rsquo;s voices. On iPhone that service is Apple&rsquo;s, on Android it is
+        Google&rsquo;s or your phone maker&rsquo;s, and on the web it is your browser&rsquo;s (Chrome
+        sends audio to Google, Safari to Apple). FinatriX never receives or stores the audio: only
+        the text of your question is sent, exactly as if you had typed it. The microphone is used
+        only while a voice conversation is running in the open app, never in the background.
+      </P>
+      <P>
         What we keep: a copy of each answer is stored with your account so that the same
         question asked again within 15 minutes is answered without a second AI request (the
         question itself is kept only as a one-way fingerprint for that match). Old copies are

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useInertOutside } from '../../hooks/useInertOutside';
 import { useAuth } from '../../context/AuthContext';
@@ -27,6 +27,9 @@ import { setupHelp, SETUP_QUESTIONS } from '../ai/setupHelp';
 import { readPlanContext } from '../ai/planContext';
 import { AI_RECIPIENT, hasAiConsent, setAiConsent } from '../../lib/ai/consent';
 import { BRIEFING_QUESTION } from '../ai/briefing';
+import { useVoiceConversation } from '../../lib/voice/useVoiceConversation';
+import { speechTextFor } from '../../lib/voice/speechText';
+import { MicIcon, VoiceBar } from './VoiceBar';
 
 /**
  * FinatriX AI — the conversation surface.
@@ -70,7 +73,7 @@ export default function AiPanel(props: AiPanelProps) {
 
 function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedAt = 0 }: AiPanelProps) {
   const { user, configured } = useAuth();
-  const { code } = useCurrency();
+  const { code, cfmt } = useCurrency();
   const uid = user?.id ?? '';
 
   // The subject the panel is pointed at. Tracked as state keyed on `openedAt`
@@ -106,7 +109,8 @@ function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedA
   const [confirmClear, setConfirmClear] = useState(false);
   // A question held back until the user says whether it may go to a
   // third-party AI (lib/ai/consent). Nothing has been sent while this is set.
-  const [consentFor, setConsentFor] = useState<{ text: string; kind: 'chat' | 'review' } | null>(null);
+  // `voice` holds no question: it is the mic, asking before it starts.
+  const [consentFor, setConsentFor] = useState<{ text: string; kind: 'chat' | 'review' | 'voice' } | null>(null);
   const allowRef = useRef<HTMLButtonElement>(null);
 
   const cardRef = useRef<HTMLDivElement>(null);
@@ -188,7 +192,16 @@ function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedA
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, busy, primerOpen]);
 
+  // The transcript as last written. A voice conversation asks its next question
+  // straight after the previous answer, before React has re-rendered `send`
+  // with the new transcript; reading this instead of the render's `messages`
+  // means that question can never be appended to a stale copy and erase the
+  // turn before it.
+  const messagesRef = useRef<ChatMessage[]>([]);
+  useLayoutEffect(() => { messagesRef.current = messages; }, [messages]);
+
   const persist = useCallback((next: ChatMessage[]) => {
+    messagesRef.current = next;
     setMessages(next);
     if (uid) saveHistory(uid, next);
   }, [uid]);
@@ -209,22 +222,23 @@ function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedA
     };
   }, [code, focusMonth]);
 
-  const send = useCallback(async (question: string, kind: 'chat' | 'review' = 'chat') => {
+  /** Resolves with the reply it added, or null when nothing was asked. */
+  const send = useCallback(async (question: string, kind: 'chat' | 'review' = 'chat'): Promise<ChatMessage | null> => {
     const text = question.trim();
-    if (!text || busy || pending.current) return;
+    if (!text || busy || pending.current) return null;
     // Explicit permission before the first question leaves for a third-party
     // AI (App Review 5.1.2(i)). Setup help is answered on the device and a
     // guest's question never leaves it, so neither needs asking.
     if (uid && !hasAiConsent() && !(kind === 'chat' && setupHelp(text))) {
       setConsentFor({ text, kind });
-      return;
+      return null;
     }
     pending.current = true;
 
     const asked: ChatMessage = {
       id: newMessageId(), role: 'user', text, at: new Date().toISOString(),
     };
-    const withQuestion = [...messages, asked];
+    const withQuestion = [...messagesRef.current, asked];
     persist(withQuestion);
     setDraft('');
     setBusy(true);
@@ -241,11 +255,12 @@ function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedA
 
     const help = kind === 'chat' ? setupHelp(text) : null;
     if (help || !uid) {
-      persist([...withQuestion, { id: newMessageId(), role: 'assistant', text: help || 'I can help you find your way around FinatriX without an account. Try one of the setup questions above. Sign in for AI answers about your finances.', at: new Date().toISOString(), model: 'FinatriX setup guide' }]);
+      const guide: ChatMessage = { id: newMessageId(), role: 'assistant', text: help || 'I can help you find your way around FinatriX without an account. Try one of the setup questions above. Sign in for AI answers about your finances.', at: new Date().toISOString(), model: 'FinatriX setup guide' };
+      persist([...withQuestion, guide]);
       pending.current = false;
       setBusy(false);
       inputRef.current?.focus();
-      return;
+      return guide;
     }
     let result: AskResult;
     try {
@@ -263,7 +278,7 @@ function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedA
 
     // A response may arrive after closing, clearing the session or switching
     // accounts. It must not recreate a transcript that was deliberately removed.
-    if (!active.current) return;
+    if (!active.current) return null;
     pending.current = false;
 
     const reply: ChatMessage = result.ok
@@ -301,7 +316,36 @@ function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedA
     persist([...withQuestion, reply]);
     setBusy(false);
     inputRef.current?.focus();
-  }, [busy, messages, persist, readData, focus, subject, uid]);
+    return reply;
+  }, [busy, persist, readData, focus, subject, uid]);
+
+  // Voice: the same `send`, with the reply turned into speech. Every figure
+  // read aloud is one on screen, formatted the way the screen shows it.
+  const voice = useVoiceConversation(async (question) => {
+    const reply = await send(question);
+    if (!reply) return null;
+    const tiles = (reply.highlights ?? []).map((h) => `${h.label}: ${formatValue(h.value, h.unit, cfmt)}`);
+    return {
+      spoken: speechTextFor({ headline: reply.headline, tiles, text: reply.text }),
+      failed: reply.failed === true,
+    };
+  });
+  // Voice is offered to signed-in users only: a guest gets setup help, which
+  // is quicker to tap than to say, and the consent below is about AI answers.
+  const canTalk = voice.canListen && !!uid && configured;
+
+  const startVoice = () => {
+    if (voice.active) {
+      voice.stop('user');
+      return;
+    }
+    // The existing AI consent covers voice, and is asked before the mic opens.
+    if (!hasAiConsent()) {
+      setConsentFor({ text: '', kind: 'voice' });
+      return;
+    }
+    voice.start();
+  };
 
   useEffect(() => {
     if (consentFor) allowRef.current?.focus();
@@ -311,7 +355,8 @@ function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedA
     const held = consentFor;
     setAiConsent(true);
     setConsentFor(null);
-    if (held) void send(held.text, held.kind);
+    if (held?.kind === 'voice') voice.start();
+    else if (held) void send(held.text, held.kind);
   };
 
   const declineAi = () => {
@@ -444,19 +489,31 @@ function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedA
 
         {consentFor && (
           <div className="fx-ai-consent" role="group" aria-labelledby={`${id}-consent`}>
-            <p id={`${id}-consent`} className="fx-ai-consent-head">Send this to an AI provider?</p>
+            <p id={`${id}-consent`} className="fx-ai-consent-head">
+              {consentFor.kind === 'voice' ? 'Talk to FinatriX AI?' : 'Send this to an AI provider?'}
+            </p>
+            {consentFor.kind === 'voice' && (
+              <p className="fx-ai-consent-body">
+                Your phone or browser’s speech service turns what you say into text, and reads the answers aloud.
+                FinatriX never receives the audio.
+              </p>
+            )}
             <p className="fx-ai-consent-body">
-              To answer, FinatriX sends your question{consentFor.kind === 'chat' ? ', the recent conversation' : ''} and
+              To answer, FinatriX sends your question{consentFor.kind !== 'review' ? ', the recent conversation' : ''} and
               the figures from your tools that it needs to {AI_RECIPIENT}. Your name, email address and account ID are
               not sent. Answers are educational, not financial advice.
             </p>
             <div className="fx-ai-consent-actions">
-              <button ref={allowRef} type="button" className="fx-ai-review" onClick={allowAi}>Allow and send</button>
+              <button ref={allowRef} type="button" className="fx-ai-review" onClick={allowAi}>
+                {consentFor.kind === 'voice' ? 'Allow and start talking' : 'Allow and send'}
+              </button>
               <button type="button" className="fx-ai-ghost" onClick={declineAi}>Not now</button>
             </div>
             <p className="fx-ai-consent-note">You can withdraw this at any time in Settings → Privacy.</p>
           </div>
         )}
+
+        {canTalk && <VoiceBar voice={voice} id={id} />}
 
         <form
           className="fx-ai-composer"
@@ -480,6 +537,19 @@ function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedA
               }
             }}
           />
+          {canTalk && (
+            <button
+              type="button"
+              className={`fx-ai-mic${voice.active ? ' is-on' : ''}`}
+              onClick={startVoice}
+              disabled={busy && !voice.active}
+              aria-pressed={voice.active}
+              aria-label="Talk hands-free"
+              title={voice.active ? 'Stop talking' : 'Talk hands-free'}
+            >
+              <MicIcon />
+            </button>
+          )}
           <button type="submit" className="fx-ai-send" disabled={!canSend} aria-label="Send question">
             <Icon name="arrow-up" size={17} />
           </button>
@@ -982,6 +1052,25 @@ const PANEL_STYLES = `
 .fx-ai-send{flex-shrink:0;width:42px;height:42px;border-radius:12px;border:1px solid #B8962E;background:var(--gold);
   color:#1a1400;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s,opacity .15s;}
 .fx-ai-send:disabled{opacity:.4;cursor:default;}
+.fx-ai-mic{flex-shrink:0;width:42px;height:42px;border-radius:12px;border:1px solid var(--fill-13);background:var(--fill-04);
+  color:var(--ink2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s,color .15s,border-color .15s;}
+@media (hover: hover) and (pointer: fine){
+.fx-ai-mic:hover:not(:disabled){background:var(--fill-06);color:var(--ink);}}
+.fx-ai-mic.is-on{background:var(--gold-bg);border-color:var(--gold);color:var(--gold);}
+.fx-ai-mic:disabled{opacity:.4;cursor:default;}
+.fx-ai-mic:focus-visible,.fx-ai-send:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+.fx-ai-voice{margin:0 12px;padding:10px 12px 8px;border-top:1px solid var(--hair2);flex-shrink:0;}
+.fx-ai-voice-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.fx-ai-voice-status{display:flex;align-items:center;gap:8px;margin:0;font-size:12.5px;font-weight:600;color:var(--ink2);min-width:0;}
+.fx-ai-voice-dot{width:8px;height:8px;border-radius:50%;background:var(--ink3);flex-shrink:0;}
+.fx-ai-voice-dot.is-listening{background:var(--red);animation:fxAiBlink 1.4s infinite ease-in-out both;}
+.fx-ai-voice-dot.is-thinking,.fx-ai-voice-dot.is-speaking{background:var(--gold);}
+@media (prefers-reduced-motion: reduce){.fx-ai-voice-dot.is-listening{animation:none;}}
+.fx-ai-voice-lang{flex-shrink:0;max-width:52%;min-height:44px;padding:0 10px;border-radius:10px;border:1px solid var(--fill-13);
+  background:var(--fill-04);color:var(--ink);font-family:inherit;font-size:max(12.5px, var(--field-min-fs));}
+.fx-ai-voice-lang:focus-visible{outline:2px solid var(--gold);outline-offset:1px;}
+.fx-ai-voice-heard{margin:6px 0 0;font-size:13px;line-height:1.45;color:var(--ink);overflow-wrap:anywhere;}
+.fx-ai-voice-note{margin:6px 0 0;font-size:11px;line-height:1.45;color:var(--ink3);}
 .fx-ai-report{align-self:flex-start;min-height:24px;padding:2px 4px;border:none;background:none;
   color:var(--ink3);font:inherit;font-size:11px;cursor:pointer;text-decoration:underline;text-underline-offset:2px;}
 @media (hover: hover) and (pointer: fine){
