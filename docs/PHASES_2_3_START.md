@@ -106,9 +106,9 @@ Add the line for the step from this table:
 | 3.1 | — | Check each language on real phones and fall back to typing where one is missing. Voice must sit behind the existing AI consent (fx_ai_consent). |
 | 3.2 | 3.1, PR 25 | The AI fills in only what I said; the app does all maths; every write gets a confirm card and an undo. Travel entries go through spendMoney in src/tools/lib/trips.ts. |
 | 3.3 | — | Both share paths go through the existing screenshot import (src/tools/lib/import/) and its review step. Receipt photos are read on the device. |
-| 3.4 | 2.1 | Decide first with me: show the amount on the lock screen by default, or only after I turn it on. |
-| 3.5 | 3.3 | Decide first with me: device-only to start (suggested), or synced photos. |
-| 3.6 | No other UI step open | Decide first with me which languages ship first. Build the translation system before adding any language. |
+| 3.4 | 2.1 | Decided: the lock screen shows the amount only after the user turns it on. |
+| 3.5 | 3.3 | Decided: photos stay on the device to start. |
+| 3.6 | No other UI step open | Decided: Tamil first, then Malayalam, Telugu, Kannada and Hindi. Build the translation system before adding any language. |
 | 3.7 | 3.2 | Same consent and grounding rules as the cloud AI, with the cloud AI as the fallback. |
 | 3.8 | 3.4 | — |
 | 3.9 | 3.2, 2.4 | Split into one PR per feature if it grows past one session. |

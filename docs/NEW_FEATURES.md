@@ -6,19 +6,19 @@ The list of new features we are planning, with what was decided for each. The bu
 | --- | --- | --- |
 | 1 | [FinatriX AI voice assistant](#1-finatrix-ai-voice-assistant) | All decided, not started |
 | 2 | [Travel mode in the Expense Tracker](#2-travel-mode-in-the-expense-tracker) | Stage 1 built ([PR 25](https://github.com/Finatrix/finatrix-kimi-agent/pull/25)); stage 2 is step 2.1 |
-| 3 | [Home-screen widget](#3-home-screen-widget) | Suggested, not discussed |
+| 3 | [Home-screen widget](#3-home-screen-widget) | Lock-screen amount decided: hidden until the user turns it on (24 Nov 2026). Step 3.4 |
 | 4 | [Share to FinatriX](#4-share-to-finatrix) | Suggested, not discussed |
 | 5 | [Receipt scan](#5-receipt-scan) | Suggested, not discussed |
 | 6 | [Subscription radar](#6-subscription-radar) | Suggested, not discussed |
 | 7 | [Bill reminders](#7-bill-reminders) | Suggested, not discussed |
 | 8 | [Monthly money story](#8-monthly-money-story) | Suggested, not discussed |
 | 9 | [Splits and money lent](#9-splits-and-money-lent) | Suggested, not discussed |
-| 10 | [Warranty and bill locker](#10-warranty-and-bill-locker) | Suggested, not discussed |
+| 10 | [Warranty and bill locker](#10-warranty-and-bill-locker) | Storage decided: device-only to start (24 Nov 2026). Step 3.5 |
 | 11 | [Hide amounts](#11-hide-amounts) | Suggested, not discussed |
 | 12 | [Family budget and groups](#12-family-budget-and-groups) | All decided, not started |
 | 13 | [Money calendar](#13-money-calendar) | Suggested, not discussed |
 | 14 | [Private on-device AI](#14-private-on-device-ai) | Suggested, not discussed |
-| 15 | [Indian languages](#15-indian-languages) | Suggested, not discussed |
+| 15 | [Indian languages](#15-indian-languages) | Languages decided: Tamil first, then Malayalam, Telugu, Kannada, Hindi (24 Nov 2026). Step 3.6 |
 | 16 | [Watch app](#16-watch-app) | Suggested, not discussed |
 
 ---
