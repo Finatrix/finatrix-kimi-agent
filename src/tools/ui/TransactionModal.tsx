@@ -17,7 +17,8 @@ import { AmountInput } from './AmountInput';
 import { suggestExpenseCategory } from '../lib/quickAdd';
 import { validRecordDate } from '../lib/recordReview';
 import {
-  feeApplies, fmtExact, fmtRate, spendMoney, tripDefaults, tripLabel, tripOn, type FxContext, type Trip,
+  chargedMoney, contextOf, feeApplies, fmtExact, fmtRate, fmtTripDay, isHomeTrip, nextTripAfter,
+  spendMoney, tripDefaults, tripLabel, tripOn, type FxContext, type Trip,
 } from '../lib/trips';
 import { useAskAi } from './AiAssistant';
 
@@ -138,25 +139,60 @@ export default function TransactionModal({
    * edited, even if its trip was deleted since; a spend that was entered in
    * the home currency is never silently re-read as foreign.
    */
+  /*
+   * Booked ahead (travel stage 2): a spend dated before a trip, such as the
+   * flight, can be added to it with one tick. It is entered in the home
+   * currency unless switched, and counts as the trip's whatever its category.
+   */
+  const editingTrip = editing?.tripId ? trips.find((t) => t.id === editing.tripId) ?? null : null;
+  const datedTrip = tripOn(trips, draft.date);
+  const aheadTrip = datedTrip ? null
+    : editingTrip && draft.date < editingTrip.start ? editingTrip
+      : nextTripAfter(trips, draft.date);
+  const [aheadOn, setAheadOn] = useState(
+    !!editing && !!editingTrip && editing.date < editingTrip.start,
+  );
   const travel = useMemo(() => {
-    const editingTrip = editing?.tripId ? trips.find((t) => t.id === editing.tripId) ?? null : null;
+    // A spend whose home amount came from the statement keeps the trip's own
+    // rate and fee for re-entry; its saved rate is the implied one, fee inside.
     const editingCtx: FxContext | null = editing?.fxAmount != null && editing.fxCurrency && editing.fxRate
-      ? {
-        tripId: editing.tripId ?? null,
-        currency: editing.fxCurrency,
-        rate: editing.fxRate,
-        feePct: editing.fxFee ?? editingTrip?.feePct,
-      }
+      ? editing.fxCharged && editingTrip
+        ? contextOf(editingTrip)
+        : {
+          tripId: editing.tripId ?? null,
+          currency: editing.fxCurrency,
+          rate: editing.fxRate,
+          feePct: editing.fxCharged ? undefined : editing.fxFee ?? editingTrip?.feePct,
+        }
       : null;
-    const trip = editingTrip ?? tripOn(trips, draft.date);
+    if (aheadTrip) {
+      if (!aheadOn) return { trip: null, ctx: null, defaults: tripDefaults(null, selectedCategory, draft.recurring) };
+      const ctx = isHomeTrip(aheadTrip) ? null : contextOf(aheadTrip);
+      return { trip: aheadTrip, ctx: editingCtx ?? ctx, defaults: { ctx, paidInTrip: false, tripId: aheadTrip.id } };
+    }
+    const trip = editingTrip ?? datedTrip;
     const defaults = tripDefaults(trip, selectedCategory, draft.recurring);
     return { trip, ctx: editingCtx ?? defaults.ctx, defaults };
-  }, [editing, trips, draft.date, draft.recurring, selectedCategory]);
+  }, [editing, editingTrip, datedTrip, aheadTrip, aheadOn, draft.recurring, selectedCategory]);
   const { trip, ctx } = travel;
   const [currencyPick, setCurrencyPick] = useState<'trip' | 'home' | null>(
     editing ? (editing.fxAmount != null ? 'trip' : 'home') : null,
   );
   const { paidInTrip } = entryCurrency(travel, currencyPick);
+  /*
+   * "Charged a different amount?" The bank's home figure from the statement,
+   * kept with the foreign amount; the rate saved is the one it implies
+   * (lib/trips.ts `chargedMoney`). Empty means the trip's rate applies.
+   */
+  const [chargedOpen, setChargedOpen] = useState(!!editing?.fxCharged);
+  const [charged, setCharged] = useState(editing?.fxCharged ? String(Math.abs(editing.amount)) : '');
+  const { chargedValue, chargedError } = useMemo(() => {
+    const parsed = paidInTrip && chargedOpen && charged.trim() ? evaluateFormula(charged) : null;
+    if (!parsed) return { chargedValue: null, chargedError: undefined };
+    if (!parsed.ok) return { chargedValue: null, chargedError: parsed.error };
+    if (parsed.value === 0) return { chargedValue: null, chargedError: 'Enter what the statement shows, or use the trip rate.' };
+    return { chargedValue: parsed.value, chargedError: undefined };
+  }, [paidInTrip, chargedOpen, charged]);
   // What will be saved in the home currency, shown under the amount as it is typed.
   const fxPreview = (() => {
     if (!paidInTrip || !ctx) return null;
@@ -165,9 +201,12 @@ export default function TransactionModal({
     const withFee = feeApplies(ctx.feePct, draft.paymentMethod);
     const home = typed === null ? null
       : spendMoney(typed, { ctx, paidInTrip: true, tripId: null, paymentMethod: draft.paymentMethod }).amount;
-    return { home, withFee };
+    const statement = typed !== null && chargedValue !== null
+      ? chargedMoney(spendMoney(typed, { ctx, paidInTrip: true, tripId: null }), chargedValue)
+      : null;
+    return { home, withFee, statement, typed };
   })();
-  const [errors, setErrors] = useState<{ amount?: string; category?: string; date?: string }>({});
+  const [errors, setErrors] = useState<{ amount?: string; charged?: string; category?: string; date?: string }>({});
   /** A date the user has pushed forward: a plan, not a record. */
   const scheduled = !!todayKey && draft.date > todayKey;
   const [submitted, setSubmitted] = useState(false);
@@ -223,6 +262,7 @@ export default function TransactionModal({
   const dragRef = useRef<HTMLDivElement>(null);
   useSheetDrag(cardRef, dragRef, onClose);
   const amountRef = useRef<HTMLInputElement>(null);
+  const chargedRef = useRef<HTMLInputElement>(null);
   const dateRef = useRef<HTMLInputElement>(null);
   const confirmRef = useRef<HTMLDivElement>(null);
   const cancelDeleteRef = useRef<HTMLButtonElement>(null);
@@ -290,11 +330,12 @@ export default function TransactionModal({
     const nowIso = new Date().toISOString();
     const created = editing?.createdAt ?? nowIso;
     const editCount = editing ? (editing.editCount ?? 0) + 1 : 0;
+    const money = spendMoney(formulaSignedAmount(draft.amount), {
+      ctx: travel.ctx, ...entryCurrency(travel, currencyPick), paymentMethod: draft.paymentMethod,
+    });
     return {
       id: editing ? editing.id : genExpenseId(),
-      ...spendMoney(formulaSignedAmount(draft.amount), {
-        ctx: travel.ctx, ...entryCurrency(travel, currencyPick), paymentMethod: draft.paymentMethod,
-      }),
+      ...(chargedValue !== null ? chargedMoney(money, chargedValue) : money),
       category: selectedCategory,
       date: draft.date,
       ...(draft.note.trim() ? { note: draft.note.trim() } : {}),
@@ -307,20 +348,22 @@ export default function TransactionModal({
       updatedAt: nowIso,
       ...(editCount > 0 ? { editCount } : {}),
     };
-  }, [draft, editing, selectedCategory, travel, currencyPick]);
+  }, [draft, editing, selectedCategory, travel, currencyPick, chargedValue]);
 
   const submit = useCallback(() => {
     setSubmitted(true);
     const e = validate({ ...draft, category: selectedCategory });
+    if (chargedError) e.charged = chargedError;
     setErrors(e);
     if (Object.keys(e).length > 0) {
       // Move focus to the first offending field for keyboard/AT users.
       if (e.amount) amountRef.current?.focus();
+      else if (e.charged) chargedRef.current?.focus();
       else if (e.date) dateRef.current?.focus();
       return;
     }
     onSave(buildItem());
-  }, [draft, selectedCategory, validate, onSave, buildItem]);
+  }, [draft, selectedCategory, validate, onSave, buildItem, chargedError]);
 
   // Body scroll lock — reference-counted, safe under overlapping overlays.
   // The parent mounts this component only while the modal is open.
@@ -450,6 +493,10 @@ export default function TransactionModal({
           border:1.5px solid color-mix(in srgb, var(--blue) 45%, transparent);background:color-mix(in srgb, var(--blue) 8%, var(--card));
           color:var(--ink);font:inherit;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:6px;}
         .fx-tx-fx{margin-top:5px;}
+        .fx-tx-link{display:inline-flex;align-items:center;min-height:var(--ctl-h-sm,34px);padding:0;border:none;background:none;
+          color:var(--ink);font:inherit;font-size:13px;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer;}
+        .fx-tx-charged{margin-top:8px;}
+        .fx-tx-ahead{padding:8px 0 0;font-size:13px;font-weight:600;}
         /* Sticky to the card's EDGE, not to its padding: a sticky box stops at the
            scrollport inset by the card's bottom padding, which left an 18px
            strip under Save where the form scrolled visibly past. Pulling it
@@ -568,7 +615,13 @@ export default function TransactionModal({
                 describedBy={paidInTrip ? 'tx-amount-fx' : undefined}
               />
               {err('amount') && <div className="fx-tx-err" id="tx-amount-err" role="alert">{errors.amount}</div>}
-              {paidInTrip && ctx && fxPreview && (
+              {paidInTrip && ctx && fxPreview && (fxPreview.statement ? (
+                <p id="tx-amount-fx" className="note fx-tx-fx">
+                  <b>= {fmtExact(fxPreview.statement.amount, homeCode)}</b> from your statement
+                  {' · '}1 {ctx.currency} = {sym}{fmtRate(fxPreview.statement.fxRate!)} with fees
+                  {trip && <> · {tripLabel(trip)}</>}
+                </p>
+              ) : (
                 <p id="tx-amount-fx" className="note fx-tx-fx">
                   {fxPreview.home !== null && <b>= {fmtExact(fxPreview.home, homeCode)}</b>}
                   {fxPreview.home !== null && ' · '}
@@ -576,7 +629,43 @@ export default function TransactionModal({
                   {fxPreview.withFee ? ` + ${ctx.feePct}% card fee` : ctx.feePct ? ' · no card fee on cash' : ''}
                   {trip && <> · {tripLabel(trip)}</>}
                 </p>
-              )}
+              ))}
+              {/* Travel stage 2: the bank's own figure, when it differs. */}
+              {paidInTrip && ctx && (chargedOpen ? (
+                <div className="fx-tx-charged">
+                  <label className="fl" htmlFor="tx-charged">Charged in {sym.trim() || homeCode}, from your statement</label>
+                  <AmountInput
+                    id="tx-charged"
+                    inputRef={chargedRef}
+                    sym={sym}
+                    placeholder={fxPreview?.home != null ? String(Math.abs(fxPreview.home)) : '0'}
+                    value={charged}
+                    onChange={(v) => { setCharged(v); if (submitted) setErrors((prev) => ({ ...prev, charged: undefined })); }}
+                    invalid={!!err('charged')}
+                    errorId={err('charged') ? 'tx-charged-err' : undefined}
+                    describedBy="tx-charged-help"
+                  />
+                  {err('charged') && <div className="fx-tx-err" id="tx-charged-err" role="alert">{errors.charged}</div>}
+                  <p id="tx-charged-help" className="note fx-tx-fx">
+                    Totals use what you actually paid. The {ctx.currency} amount stays as typed.{' '}
+                    <button
+                      type="button"
+                      className="fx-tx-link"
+                      onClick={() => { setChargedOpen(false); setCharged(''); setErrors((prev) => ({ ...prev, charged: undefined })); }}
+                    >
+                      Use the trip rate
+                    </button>
+                  </p>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="fx-tx-link"
+                  onClick={() => { setChargedOpen(true); requestAnimationFrame(() => chargedRef.current?.focus()); }}
+                >
+                  Charged a different amount?
+                </button>
+              ))}
             </div>
             <div className="fg" style={{ marginBottom: 10 }}>
               <label className="fl" htmlFor="tx-date">Date</label>
@@ -601,6 +690,24 @@ export default function TransactionModal({
                 <p id="tx-date-hint" className="note" style={{ marginTop: 5 }}>
                   Scheduled — it will be waiting on that date, not counted as spent today.
                 </p>
+              )}
+              {aheadTrip && (
+                <label className="fx-checkrow fx-tx-ahead">
+                  <input
+                    type="checkbox"
+                    className="fx-check"
+                    checked={aheadOn}
+                    onChange={(e) => {
+                      setAheadOn(e.target.checked);
+                      // Off the trip, nothing is in its currency any more.
+                      if (!e.target.checked) { setCurrencyPick(null); setChargedOpen(false); setCharged(''); }
+                    }}
+                  />
+                  <span>
+                    Part of the {tripLabel(aheadTrip)} trip
+                    <span className="note"> · starts {fmtTripDay(aheadTrip.start)}</span>
+                  </span>
+                </label>
               )}
             </div>
           </div>

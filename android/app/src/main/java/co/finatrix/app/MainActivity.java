@@ -33,6 +33,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SystemUiPlugin.class);
         registerPlugin(FileExportPlugin.class);
         registerPlugin(AppLockPlugin.class);
+        registerPlugin(VoicePlugin.class);
         registerPlugin(SharePlugin.class);
         super.onCreate(savedInstanceState);
         // Draw under the status and navigation bars on every Android version,

@@ -95,7 +95,8 @@
         </provider>
     </application>
 
-    <!-- Permissions. The network, and below it the app lock's prompt: no location, contacts, SMS, camera or
+    <!-- Permissions. The network, the app lock's prompt and the microphone for
+         voice: no location, contacts, SMS, camera or
          storage permission is requested, and none is needed — files are chosen
          through the system picker, which grants access per file. -->
     <uses-permission android:name="android.permission.INTERNET" />
@@ -105,6 +106,23 @@
          fallback. The prompt is the system's own: the app never sees the
          biometric, only whether the check passed. -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+
+    <!-- FinatriX AI's voice conversation (VoicePlugin.java). Asked for the
+         first time the mic button is tapped, and used only while a voice
+         conversation runs in the open app: the plugin stops listening when the
+         app is paused. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Android 11+ hides other apps' services unless declared: the phone's
+         speech recogniser and its text-to-speech engine. -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
 
     <!-- Reminders (the local-notifications plugin) are scheduled inexactly:
          a nudge a few minutes late is fine. The plugin's manifest also asks

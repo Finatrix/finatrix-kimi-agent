@@ -30,6 +30,7 @@ import AppearanceMenu from '../components/AppearanceMenu';
 import { CommandPaletteTrigger } from '../components/CommandPaletteTrigger';
 import { useCommandPalette } from '../hooks/useCommandPalette';
 import { NotificationsBell } from './ui/NotificationsBell';
+import { HideAmountsButton } from './ui/HideAmountsButton';
 import { AiProvider, AiLauncher, AiHeaderButton } from './ui/AiAssistant';
 import { warnIfOverdue } from '../reference/review';
 import { isNativeApp } from '../native/platform';
@@ -163,7 +164,7 @@ function ToolTabs() {
    for navigation between top-level destinations). */
 const BOTTOM_NAV_TOOLS = ['budget', 'expenses', 'goals'] as const;
 /** Pages that belong to the All tools tab rather than one of the other four. */
-const HUB_PATHS = new Set(['all', 'settings', 'reports', 'calendar', 'subscriptions', 'reference', 'networth', 'investmatch', 'parksmart', 'peercompare', 'lifemap']);
+const HUB_PATHS = new Set(['all', 'settings', 'reports', 'calendar', 'moneycalendar', 'subscriptions', 'reference', 'networth', 'investmatch', 'parksmart', 'peercompare', 'lifemap']);
 const BOTTOM_NAV_ICONS: Record<string, ReactElement> = {
   dashboard: (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -486,6 +487,7 @@ export default function ToolsLayout() {
             <div className="fx-appbar-actions">
               <CommandPaletteTrigger onOpen={openPalette} />
               {ready && <AiHeaderButton className="fx-phone-only" />}
+              <HideAmountsButton />
               <NotificationsBell />
               {/* Display currency sits with the other global display controls,
                   not in the navigation row; on a phone the All tools page has
@@ -542,7 +544,7 @@ export default function ToolsLayout() {
                 from it: "Tour this page" (the breadcrumb and Back are
                 website chrome; the system BACK replaces them there). */}
             <div className="fx-crumbrow">
-              <Breadcrumb parent={{ label: 'Money tools', to: '/tools' }} current={activeTool === 'dashboard' ? 'Dashboard' : activeTool === 'reports' ? 'Reports' : activeTool === 'calendar' ? 'Calendar' : activeTool === 'subscriptions' ? 'Subscriptions' : activeTool === 'settings' ? 'Settings' : activeTool === 'all' ? 'All tools' : (TOOLS.find((t) => t.id === activeTool)?.name ?? 'Tools')} />
+              <Breadcrumb parent={{ label: 'Money tools', to: '/tools' }} current={activeTool === 'dashboard' ? 'Dashboard' : activeTool === 'reports' ? 'Reports' : activeTool === 'calendar' ? 'Calendar' : activeTool === 'moneycalendar' ? 'Money calendar' : activeTool === 'subscriptions' ? 'Subscriptions' : activeTool === 'settings' ? 'Settings' : activeTool === 'all' ? 'All tools' : (TOOLS.find((t) => t.id === activeTool)?.name ?? 'Tools')} />
               <div className="fx-crumbrow-end">
                 {ready && <TourPageButton />}
                 <span data-web-only className="fx-crumbrow-back"><BackButton /></span>
