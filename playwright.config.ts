@@ -15,7 +15,9 @@ const IOS_SPEC = /ios-webkit\.spec\.ts/;
 // Run the shared create/edit/delete, persistence, validation, navigation and
 // market-selection journeys in WebKit too. Layout-only checks cannot catch
 // engine-specific failures in the flows people use to save their records.
-const IOS_SHARED_FLOWS = /(?:expense|travel|networth|smart-entry|auth-navigation|seven-markets|sitewide-automation|finance-upgrade|command-palette|export-downloads|dialog-inert|compatibility-import|compact-tools)\.spec\.ts/;
+// `release-smoke` is the Deploy workflow's browser gate, so Safari's engine
+// checks the shipped bundle too.
+const IOS_SHARED_FLOWS = /(?:expense|travel|networth|smart-entry|auth-navigation|seven-markets|sitewide-automation|finance-upgrade|command-palette|export-downloads|dialog-inert|compatibility-import|compact-tools|release-smoke)\.spec\.ts/;
 
 export default defineConfig({
   testDir: './e2e',
@@ -48,7 +50,12 @@ export default defineConfig({
     { name: 'ios-webkit', testMatch: [IOS_SPEC, IOS_SHARED_FLOWS], use: { ...devices['iPhone 16 Pro'] } },
   ],
   webServer: {
-    command: 'npm run build && npx vite preview --port 4319 --strictPort',
+    // FX_E2E_PREBUILT=1 serves the dist/ already on disk instead of building a
+    // new one. The Deploy workflow sets it so the browsers drive the very bundle
+    // `wrangler deploy` uploads next, not a second build of the same commit.
+    command: process.env.FX_E2E_PREBUILT === '1'
+      ? 'npx vite preview --port 4319 --strictPort'
+      : 'npm run build && npx vite preview --port 4319 --strictPort',
     url: 'http://localhost:4319',
     timeout: 180_000,
     reuseExistingServer: !process.env.CI,
