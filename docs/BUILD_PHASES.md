@@ -28,7 +28,7 @@ If these two docs aren't in your checkout, they were untracked files in `/Users/
 | 2.6 | Subscription radar and bill reminders | — | ☑ [PR 27](https://github.com/Finatrix/finatrix-kimi-agent/pull/27) |
 | 2.7 | Monthly money story | — | ☑ [PR 26](https://github.com/Finatrix/finatrix-kimi-agent/pull/26) |
 | 2.8 | Money calendar | 2.6 | ☑ [PR 32](https://github.com/Finatrix/finatrix-kimi-agent/pull/32) |
-| 3.1 | Voice assistant: mic, read-aloud and hands-free in 11 languages | — | ☐ |
+| 3.1 | Voice assistant: mic, read-aloud and hands-free in 11 languages | — | ☑ [PR 28](https://github.com/Finatrix/finatrix-kimi-agent/pull/28) |
 | 3.2 | Voice assistant: safe actions with confirm cards | 3.1, 1.2 | ☐ |
 | 3.3 | Share to FinatriX, and receipt scan | — | ☐ |
 | 3.4 | Home-screen widget | 2.1 | ☐ |

@@ -255,11 +255,14 @@ describe('deploy configuration', () => {
       .split('\n')
       .find((l) => l.includes('Permissions-Policy:')) ?? '';
     for (const feature of [
-      'camera', 'microphone', 'geolocation', 'payment', 'usb', 'bluetooth',
+      'camera', 'geolocation', 'payment', 'usb', 'bluetooth',
       'serial', 'midi', 'display-capture', 'idle-detection',
     ]) {
       expect(policy, `${feature} must be disabled`).toContain(`${feature}=()`);
     }
+    // Voice in FinatriX AI needs the microphone, for this origin and no frame.
+    expect(policy).toContain('microphone=(self)');
+    expect(policy).not.toMatch(/microphone=\((?!self\))/);
   });
 
   /**
