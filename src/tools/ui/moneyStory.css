@@ -1,0 +1,43 @@
+/* Monthly money story — dashboard entry row and the card sheet.
+   Overlay is portalled to <body> inside `.fx-tools.fx-scope` (see MoneyStory.tsx),
+   so the tools colour tokens resolve. Hit areas are 44px; hover is gated. */
+.fx-tools .fx-story-entry { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin: 18px 0; padding: 16px 18px; border: 1px solid var(--hair); border-radius: 18px; background: var(--card); }
+.fx-tools .fx-story-entry-h { margin: 0; font-size: 16px; font-weight: 650; letter-spacing: -.01em; color: var(--ink); }
+.fx-tools .fx-story-entry-p { margin: 4px 0 0; font-size: 13.5px; line-height: 1.5; color: var(--ink2); max-width: 460px; }
+.fx-tools .fx-story-entry-btn { min-height: 44px; }
+
+.fx-tools .fx-story-overlay { position: fixed; inset: 0; z-index: var(--z-modal); display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(0,0,0,.55); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); animation: fxStoryFade .2s ease both; }
+.fx-tools .fx-story-sheet { width: 100%; max-width: 460px; max-height: min(94dvh, 820px); overflow-y: auto; padding: 18px 18px 16px; border: 1px solid var(--hair2); border-radius: 24px; background: var(--card-solid, var(--card)); color: var(--ink); box-shadow: 0 40px 90px -30px rgba(0,0,0,.7); animation: fxStoryIn 300ms cubic-bezier(0.23, 1, 0.32, 1) both; outline: none; }
+.fx-tools .fx-story-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.fx-tools .fx-story-title { margin: 0; font-size: 15px; font-weight: 650; color: var(--ink2); letter-spacing: .02em; }
+.fx-tools .fx-story-close, .fx-tools .fx-story-step { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border: 1px solid var(--hair2); border-radius: 12px; background: var(--fill-03); color: var(--ink); cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.fx-tools .fx-story-close:focus-visible, .fx-tools .fx-story-step:focus-visible, .fx-tools .fx-story-track:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.fx-tools .fx-story-step:disabled { opacity: .35; cursor: default; }
+@media (hover: hover) and (pointer: fine) {
+  .fx-tools .fx-story-close:hover, .fx-tools .fx-story-step:not(:disabled):hover { background: var(--fill-06); }
+}
+
+.fx-tools .fx-story-track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; border-radius: 18px; }
+.fx-tools .fx-story-track::-webkit-scrollbar { display: none; }
+.fx-tools .fx-story-card { flex: 0 0 100%; scroll-snap-align: center; min-height: 300px; display: flex; flex-direction: column; justify-content: center; gap: 10px; padding: 28px 24px; border: 1px solid var(--hair); border-radius: 18px; background: var(--bg); }
+.fx-tools .fx-story-card.is-good { border-color: color-mix(in srgb, var(--green) 45%, var(--hair)); }
+.fx-tools .fx-story-kicker { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 12.5px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--ink2); }
+.fx-tools .fx-story-headline { margin: 0; font-size: clamp(26px, 7vw, 34px); line-height: 1.15; font-weight: 700; letter-spacing: -.02em; color: var(--ink); overflow-wrap: anywhere; }
+.fx-tools .fx-story-detail { margin: 0; font-size: 16px; line-height: 1.5; color: var(--ink2); }
+
+.fx-tools .fx-story-nav { display: flex; align-items: center; justify-content: space-between; margin: 12px 0; }
+.fx-tools .fx-story-count { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink2); }
+.fx-tools .fx-story-share { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.fx-tools .fx-story-share-btn { width: auto; min-height: 44px; padding: 0 22px; }
+.fx-tools .fx-story-note { margin: 10px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--ink2); }
+
+@media (max-width: 560px) {
+  .fx-tools .fx-story-overlay { padding: 0; align-items: flex-end; }
+  .fx-tools .fx-story-sheet { max-width: none; max-height: 94dvh; border-radius: 22px 22px 0 0; padding-bottom: calc(16px + var(--fx-safe-bottom)); animation-name: fxStorySheet; }
+}
+@keyframes fxStoryFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fxStoryIn { from { opacity: 0; transform: translateY(18px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes fxStorySheet { from { transform: translateY(100%); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .fx-tools .fx-story-overlay, .fx-tools .fx-story-sheet { animation: none !important; }
+}
