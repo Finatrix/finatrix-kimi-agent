@@ -21,7 +21,7 @@ If these two docs aren't in your checkout, they were untracked files in `/Users/
 | 1.1 | Live exchange-rate feed | — | ☑ [PR 25](https://github.com/Finatrix/finatrix-kimi-agent/pull/25) |
 | 1.2 | Travel mode, stage 1 | 1.1 | ☑ [PR 25](https://github.com/Finatrix/finatrix-kimi-agent/pull/25) |
 | 2.1 | Travel mode stage 2, and Hide amounts | 1.2 | ☐ |
-| 2.2 | Groups: server tables, security, join by code | — | ☐ |
+| 2.2 | Groups: server tables, security, join by code | — | ☑ [PR 29](https://github.com/Finatrix/finatrix-kimi-agent/pull/29) |
 | 2.3 | Groups: create and join, Budget together, live feed | 1.2, 2.2 | ☐ |
 | 2.4 | Groups: Split costs, settle up, your share in your tracker | 2.3 | ☐ |
 | 2.5 | Splits with people not on FinatriX | 2.4 | ☐ |
