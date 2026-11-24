@@ -194,6 +194,21 @@ as $$
   where m.user_id = (select auth.uid()) and m.left_at is null and m.role = 'admin'
 $$;
 
+-- The caller's own member row in each of their current groups, so the app can
+-- tell which member is "you". Members can't read group_members.user_id (that
+-- is the person's account id, which would let members of different groups
+-- tell that they share someone), so this is the only way to find it.
+create or replace function public.my_group_memberships()
+returns table (group_id uuid, member_id uuid, role text)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select m.group_id, m.id, m.role from public.group_members m
+  where m.user_id = (select auth.uid()) and m.left_at is null
+$$;
+
 -- ── Room codes ───────────────────────────────────────────────────────────
 
 create or replace function public.group_new_code()
@@ -282,10 +297,9 @@ begin
     new.created_at := now();
   end if;
   if auth.uid() is not null then
-    -- Read as the caller: a non-member finds nothing here, and RLS then
-    -- rejects the row anyway.
-    select m.id into v_member from public.group_members m
-    where m.group_id = new.group_id and m.user_id = auth.uid() and m.left_at is null;
+    -- A non-member finds nothing here, and RLS then rejects the row anyway.
+    select mm.member_id into v_member from public.my_group_memberships() mm
+    where mm.group_id = new.group_id;
     if tg_op = 'INSERT' then
       new.created_by := v_member;
     end if;
@@ -647,9 +661,14 @@ begin
       values (v_group.id, p_user, 'member', btrim(p_display_name));
       v_status := 'joined';
       v_count := v_count + 1;
-    exception when raise_exception then
-      -- 'group_full' (someone took the last place first) or 'too_many_groups'.
-      v_status := sqlerrm;
+    exception
+      when raise_exception then
+        -- 'group_full' (someone took the last place first) or 'too_many_groups'.
+        v_status := sqlerrm;
+      when unique_violation then
+        -- The same person's other join (a double tap) got in first.
+        v_status := 'already_member';
+        select count(*) into v_count from public.group_members where group_id = v_group.id and left_at is null;
     end;
   end if;
 
@@ -749,9 +768,13 @@ revoke all on table
 from anon, authenticated;
 
 grant select on table
-  public.groups, public.group_members, public.group_invites, public.group_expenses,
+  public.groups, public.group_invites, public.group_expenses,
   public.group_settlements, public.group_budgets, public.group_age_confirmations
 to authenticated;
+-- Every column but user_id, the person's account id: members see each other by
+-- name, never by account (Realtime leaves out columns the subscriber can't
+-- select, too). my_group_memberships() tells the app which row is "you".
+grant select (id, group_id, role, display_name, joined_at, left_at) on public.group_members to authenticated;
 
 grant update (name, emoji, budget_together, split_costs) on public.groups to authenticated;
 grant delete on public.groups to authenticated;
@@ -774,11 +797,14 @@ grant all on table
   public.group_settlements, public.group_budgets, public.group_age_confirmations
 to service_role;
 
--- Functions: the app's four, the policy helpers, and nothing else for users.
+-- Functions: the app's four, the policy helpers (my_group_memberships is also
+-- the app's way to find its own member rows), and nothing else for users.
 revoke execute on function public.my_group_ids() from public, anon;
 revoke execute on function public.my_admin_group_ids() from public, anon;
 grant execute on function public.my_group_ids() to authenticated, service_role;
 grant execute on function public.my_admin_group_ids() to authenticated, service_role;
+revoke execute on function public.my_group_memberships() from public, anon;
+grant execute on function public.my_group_memberships() to authenticated, service_role;
 
 revoke execute on function public.create_group(text, text, text, text, text, boolean) from public, anon;
 revoke execute on function public.reset_group_code(uuid) from public, anon;

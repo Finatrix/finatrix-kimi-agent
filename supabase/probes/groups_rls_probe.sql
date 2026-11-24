@@ -42,12 +42,12 @@ declare
   v_exp   uuid;
   v_tables text[] := array['groups', 'group_members', 'group_invites', 'group_expenses',
                            'group_settlements', 'group_budgets', 'group_age_confirmations'];
-  v_functions text[] := array['my_group_ids', 'my_admin_group_ids', 'group_new_code', 'group_issue_code',
+  v_functions text[] := array['my_group_ids', 'my_admin_group_ids', 'my_group_memberships', 'group_new_code', 'group_issue_code',
                               'group_adult_confirmed', 'group_rows_stamp', 'group_expenses_validate_shares',
                               'groups_before_update', 'group_members_before_insert',
                               'group_members_before_update', 'group_members_after_leave', 'create_group',
                               'reset_group_code', 'leave_group', 'remove_group_member', 'group_join_by_code'];
-  v_user_callable text[] := array['my_group_ids', 'my_admin_group_ids', 'create_group', 'reset_group_code',
+  v_user_callable text[] := array['my_group_ids', 'my_admin_group_ids', 'my_group_memberships', 'create_group', 'reset_group_code',
                                   'leave_group', 'remove_group_member'];
 begin
   -- Accounts, as the auth server would add them.
@@ -76,7 +76,8 @@ begin
   v_res := v_res || jsonb_build_object('check', 'a family group starts in Budget together', 'ok', coalesce(v_ok, false));
 
   select m.id, m.role = 'admin' and m.display_name = 'Asha' into v_ma, v_ok
-  from public.group_members m where m.group_id = v_g and m.user_id = v_a;
+  from public.my_group_memberships() mm join public.group_members m on m.id = mm.member_id
+  where mm.group_id = v_g and mm.role = 'admin';
   v_res := v_res || jsonb_build_object('check', 'the creator is its admin, under the name they gave', 'ok', coalesce(v_ok, false));
 
   v_r := public.create_group('Probe flat', '🏢', 'home', 'Asha');
@@ -85,7 +86,23 @@ begin
   select g.split_costs and not g.budget_together into v_ok from public.groups g where g.id = v_g2;
   v_res := v_res || jsonb_build_object('check', 'the 18+ confirmation is remembered, and a flatmates group starts in Split costs',
     'ok', coalesce(v_ok, false));
-  select m.id into v_ma2 from public.group_members m where m.group_id = v_g2 and m.user_id = v_a;
+  select mm.member_id into v_ma2 from public.my_group_memberships() mm where mm.group_id = v_g2;
+  select count(*) = 2 into v_ok from public.my_group_memberships();
+  v_res := v_res || jsonb_build_object('check', 'my_group_memberships lists the caller''s own member row in each group', 'ok', coalesce(v_ok and v_ma2 is not null, false));
+
+  begin
+    perform m.user_id from public.group_members m where m.group_id = v_g;
+    v_ok := false;
+  exception when insufficient_privilege then v_ok := true;
+  end;
+  v_res := v_res || jsonb_build_object('check', 'members cannot read anyone''s account id from group_members', 'ok', v_ok);
+
+  begin
+    perform 1 from public.group_members m where m.user_id = v_a;
+    v_ok := false;
+  exception when insufficient_privilege then v_ok := true;
+  end;
+  v_res := v_res || jsonb_build_object('check', 'members cannot filter group_members by account id either', 'ok', v_ok);
 
   begin
     perform public.group_join_by_code(v_a, v_code);
@@ -469,7 +486,7 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', v_e, 'role', 'authenticated')::text, true);
   set local role authenticated;
   insert into public.group_expenses (group_id, amount, category, spent_on, paid_by)
-  select v_g2, 500, 'rent', current_date, m.id from public.group_members m where m.group_id = v_g2 and m.user_id = v_e
+  select v_g2, 500, 'rent', current_date, mm.member_id from public.my_group_memberships() mm where mm.group_id = v_g2
   returning id into v_exp;
   reset role;
 
@@ -536,7 +553,7 @@ begin
   into v_ok
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'public' and p.proname = any (v_functions);
-  v_res := v_res || jsonb_build_object('check', 'signed-in users can run exactly the six functions meant for them; signed-out visitors none',
+  v_res := v_res || jsonb_build_object('check', 'signed-in users can run exactly the seven functions meant for them; signed-out visitors none',
     'ok', coalesce(v_ok, false));
 
   -- Realtime sends every subscriber a deleted row's primary key, unchecked.

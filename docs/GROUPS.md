@@ -9,13 +9,14 @@ Row Level Security lets only a group's **current** members read or write its row
 | Table | Holds | Members can | Admins can also |
 | --- | --- | --- | --- |
 | `groups` | name, emoji, type, currency, `budget_together`, `split_costs` | read | change name, emoji and the two modes; delete the group |
-| `group_members` | role, `display_name`, `joined_at`, `left_at` | read everyone; change their own `display_name` | remove someone (function below) |
+| `group_members` | role, `display_name`, `joined_at`, `left_at` (and `user_id`, which members can't read) | read everyone except `user_id`; change their own `display_name` | remove someone (function below) |
 | `group_invites` | the room code and `expires_at` | read, to share it | reset it (function below) |
 | `group_expenses` | amount, category, note, `spent_on`, `paid_by`, `split_rule`, `shares`, `deleted_at` | add, edit, soft-delete, undelete | — |
 | `group_settlements` | `from_member`, `to_member`, amount, `settled_on`, note, `deleted_at` | add, edit, soft-delete | — |
 | `group_budgets` | Budget together: amount per `month` (`YYYY-MM`) and category | add, edit (upsert), delete | — |
 | `group_age_confirmations` | when the person confirmed they're 18 or over | read their own | — |
 
+- Members never see each other's **account id**. `group_members.user_id` isn't readable or filterable, and Realtime leaves it out, so people in two groups can't be linked. Find your own row with `my_group_memberships()` (below).
 - A group's **currency never changes**, and rows never move between groups.
 - `created_by` and `updated_by` are **member ids**, stamped by the database from the session, so "Edited by Priya" can't be forged. The app never sends them.
 - Expenses and settlements are **never hard-deleted**. Set `deleted_at` to delete, so the feed can say who deleted what, and clear it to undo.
@@ -24,7 +25,7 @@ Row Level Security lets only a group's **current** members read or write its row
 
 ## Former members
 
-Leaving, being removed and deleting the account all end the same way. The member row's `user_id` and `display_name` become null and `left_at` is set. The row stays, so past expenses still have a payer. **Show a member row with `user_id` null as "Former member".**
+Leaving, being removed and deleting the account all end the same way. The member row's `user_id` and `display_name` become null and `left_at` is set. The row stays, so past expenses still have a payer. **Show a member row with `left_at` set as "Former member".**
 
 - When the last admin goes, the longest-standing member becomes admin.
 - When the last member goes, the group and everything in it is deleted.
@@ -37,6 +38,7 @@ Call these with `supabase.rpc(name, args)`. On failure, `error.message` is the c
 
 | Function | Arguments | Returns | Fails with |
 | --- | --- | --- | --- |
+| `my_group_memberships` | none | `[{ group_id, member_id, role }]`, your own row in each current group: "you" | — |
 | `create_group` | `p_name`, `p_emoji`, `p_type` (`family`, `couple`, `home`, `trip`, `friends`), `p_display_name`, `p_currency` (default `INR`), `p_confirm_adult` | `{ group_id, code, expires_at }` | `adult_confirmation_required`, `too_many_groups` |
 | `reset_group_code` | `p_group_id` | `{ code, expires_at }` | `not_group_admin` |
 | `leave_group` | `p_group_id` | nothing | `not_group_member` |
