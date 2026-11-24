@@ -16,6 +16,9 @@ import { evaluateFormula, formulaSignedAmount } from '../lib/formula';
 import { AmountInput } from './AmountInput';
 import { suggestExpenseCategory } from '../lib/quickAdd';
 import { validRecordDate } from '../lib/recordReview';
+import {
+  feeApplies, fmtExact, fmtRate, spendMoney, tripDefaults, tripLabel, tripOn, type FxContext, type Trip,
+} from '../lib/trips';
 import { useAskAi } from './AiAssistant';
 
 
@@ -47,6 +50,10 @@ interface Props {
   history?: AuditEntry[];
   /** Formats an amount in the active currency, for the history's diffs. */
   cfmt?: (n: number) => string;
+  /** Travel mode: the user's trips, so a spend dated inside one is entered in its currency. */
+  trips?: readonly Trip[];
+  /** The home currency code (`fx_currency`) that `amount` is kept in. */
+  homeCode?: string;
 }
 
 interface Draft {
@@ -68,7 +75,8 @@ const emptyDraft = (defaultCat: string): Draft => ({
 
 function draftFromItem(it: ExpenseItem): Draft {
   return {
-    amount: String(it.amount ?? ''),
+    // A spend paid abroad is edited in the currency it was paid in.
+    amount: String(it.fxAmount ?? it.amount ?? ''),
     category: it.category,
     date: it.date || etToday(),
     merchant: it.merchant ?? '',
@@ -81,6 +89,20 @@ function draftFromItem(it: ExpenseItem): Draft {
 }
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
+/**
+ * Travel mode: which currency this entry is typed in, and which trip it counts
+ * towards. The trip's default (`tripDefaults`) unless the user tapped to switch.
+ * Paid abroad is trip spending whatever the category; in the home currency it
+ * is the trip's unless it stays home.
+ */
+function entryCurrency(
+  travel: { ctx: FxContext | null; defaults: { paidInTrip: boolean; tripId: string | null } },
+  pick: 'trip' | 'home' | null,
+): { paidInTrip: boolean; tripId: string | null } {
+  const paidInTrip = !!travel.ctx && (pick ? pick === 'trip' : travel.defaults.paidInTrip);
+  return { paidInTrip, tripId: paidInTrip ? (travel.ctx?.tripId ?? null) : travel.defaults.tripId };
+}
 
 /**
  * Premium, fully accessible add/edit sheet for a transaction.
@@ -96,7 +118,7 @@ const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:n
  */
 export default function TransactionModal({
   editing, cats, sym, defaultCat, recentCats = [], learned, todayKey, scheduleLimit,
-  onSave, onClose, onDelete, onDuplicate, history = [], cfmt,
+  onSave, onClose, onDelete, onDuplicate, history = [], cfmt, trips = [], homeCode = 'INR',
 }: Props) {
   const isEdit = !!editing;
   const [draft, setDraft] = useState<Draft>(() => (editing ? draftFromItem(editing) : emptyDraft(defaultCat)));
@@ -106,6 +128,45 @@ export default function TransactionModal({
   ), [draft.merchant, draft.note, cats, learned]);
   const selectedCategory = manualCategory ? draft.category : suggestion?.category ?? defaultCat;
   const categoryLabel = cats.find((c) => c.k === selectedCategory)?.l;
+
+  /*
+   * Travel mode (lib/trips.ts). A spend dated inside a trip is entered in the
+   * trip's currency, unless it stays home (rent, bills, recurring...). One tap
+   * switches a single spend. `amount` is still saved in the home currency.
+   *
+   * An expense already paid abroad keeps its own saved rate and fee when
+   * edited, even if its trip was deleted since; a spend that was entered in
+   * the home currency is never silently re-read as foreign.
+   */
+  const travel = useMemo(() => {
+    const editingTrip = editing?.tripId ? trips.find((t) => t.id === editing.tripId) ?? null : null;
+    const editingCtx: FxContext | null = editing?.fxAmount != null && editing.fxCurrency && editing.fxRate
+      ? {
+        tripId: editing.tripId ?? null,
+        currency: editing.fxCurrency,
+        rate: editing.fxRate,
+        feePct: editing.fxFee ?? editingTrip?.feePct,
+      }
+      : null;
+    const trip = editingTrip ?? tripOn(trips, draft.date);
+    const defaults = tripDefaults(trip, selectedCategory, draft.recurring);
+    return { trip, ctx: editingCtx ?? defaults.ctx, defaults };
+  }, [editing, trips, draft.date, draft.recurring, selectedCategory]);
+  const { trip, ctx } = travel;
+  const [currencyPick, setCurrencyPick] = useState<'trip' | 'home' | null>(
+    editing ? (editing.fxAmount != null ? 'trip' : 'home') : null,
+  );
+  const { paidInTrip } = entryCurrency(travel, currencyPick);
+  // What will be saved in the home currency, shown under the amount as it is typed.
+  const fxPreview = (() => {
+    if (!paidInTrip || !ctx) return null;
+    const parsed = evaluateFormula(draft.amount);
+    const typed = parsed.ok && parsed.value !== 0 ? parsed.value : null;
+    const withFee = feeApplies(ctx.feePct, draft.paymentMethod);
+    const home = typed === null ? null
+      : spendMoney(typed, { ctx, paidInTrip: true, tripId: null, paymentMethod: draft.paymentMethod }).amount;
+    return { home, withFee };
+  })();
   const [errors, setErrors] = useState<{ amount?: string; category?: string; date?: string }>({});
   /** A date the user has pushed forward: a plan, not a record. */
   const scheduled = !!todayKey && draft.date > todayKey;
@@ -185,7 +246,9 @@ export default function TransactionModal({
     const editCount = editing ? (editing.editCount ?? 0) + 1 : 0;
     return {
       id: editing ? editing.id : genExpenseId(),
-      amount: formulaSignedAmount(draft.amount),
+      ...spendMoney(formulaSignedAmount(draft.amount), {
+        ctx: travel.ctx, ...entryCurrency(travel, currencyPick), paymentMethod: draft.paymentMethod,
+      }),
       category: selectedCategory,
       date: draft.date,
       ...(draft.note.trim() ? { note: draft.note.trim() } : {}),
@@ -198,7 +261,7 @@ export default function TransactionModal({
       updatedAt: nowIso,
       ...(editCount > 0 ? { editCount } : {}),
     };
-  }, [draft, editing, selectedCategory]);
+  }, [draft, editing, selectedCategory, travel, currencyPick]);
 
   const submit = useCallback(() => {
     setSubmitted(true);
@@ -335,6 +398,12 @@ export default function TransactionModal({
 .fx-tx-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px;position:relative;}
         .fx-tx-grab{display:none;}
         .fx-tx-err{color:var(--red);font-size:11.5px;margin-top:5px;font-weight:600;}
+        .fx-tx-amtrow{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+        .fx-tx-amtrow .fl{margin-bottom:0;}
+        .fx-tx-cur{display:inline-flex;align-items:center;min-height:var(--ctl-h-xs,28px);padding:0 10px;border-radius:980px;
+          border:1.5px solid color-mix(in srgb, var(--blue) 45%, transparent);background:color-mix(in srgb, var(--blue) 8%, var(--card));
+          color:var(--ink);font:inherit;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:6px;}
+        .fx-tx-fx{margin-top:5px;}
         /* Sticky to the card's EDGE, not to its padding: a sticky box stops at the
            scrollport inset by the card's bottom padding, which left an 18px
            strip under Save where the form scrolled visibly past. Pulling it
@@ -394,7 +463,20 @@ export default function TransactionModal({
         >
           <div className="grid2">
             <div className="fg" style={{ marginBottom: 10 }}>
-              <label className="fl" htmlFor="tx-amount">Amount ({sym})</label>
+              <div className="fx-tx-amtrow">
+                <label className="fl" htmlFor="tx-amount">Amount ({paidInTrip && ctx ? ctx.currency : sym})</label>
+                {/* Travel mode: one tap enters this one spend in the other
+                    currency, e.g. a hotel booked in ₹ during a trip. */}
+                {ctx && (
+                  <button
+                    type="button"
+                    className="fx-tx-cur"
+                    onClick={() => setCurrencyPick(paidInTrip ? 'home' : 'trip')}
+                  >
+                    Enter in {paidInTrip ? sym : ctx.currency}
+                  </button>
+                )}
+              </div>
               {/* Accepts arithmetic as well as a number, with a live preview of
                   what will be saved. The placeholder is the only place this is
                   advertised — the capability existed for months behind a bare
@@ -403,14 +485,24 @@ export default function TransactionModal({
               <AmountInput
                 id="tx-amount"
                 inputRef={amountRef}
-                sym={sym}
+                sym={paidInTrip && ctx ? `${ctx.currency} ` : sym}
                 placeholder="0  or  =10+5+3"
                 value={draft.amount}
                 onChange={(v) => set('amount', v)}
                 invalid={!!err('amount')}
                 errorId={err('amount') ? 'tx-amount-err' : undefined}
+                describedBy={paidInTrip ? 'tx-amount-fx' : undefined}
               />
               {err('amount') && <div className="fx-tx-err" id="tx-amount-err" role="alert">{errors.amount}</div>}
+              {paidInTrip && ctx && fxPreview && (
+                <p id="tx-amount-fx" className="note fx-tx-fx">
+                  {fxPreview.home !== null && <b>= {fmtExact(fxPreview.home, homeCode)}</b>}
+                  {fxPreview.home !== null && ' · '}
+                  1 {ctx.currency} = {sym}{fmtRate(ctx.rate)}
+                  {fxPreview.withFee ? ` + ${ctx.feePct}% card fee` : ctx.feePct ? ' · no card fee on cash' : ''}
+                  {trip && <> · {tripLabel(trip)}</>}
+                </p>
+              )}
             </div>
             <div className="fg" style={{ marginBottom: 10 }}>
               <label className="fl" htmlFor="tx-date">Date</label>

@@ -1,7 +1,7 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { runRemoteApply, store } from './lib/storage';
 import { TOMBSTONE_KEY } from './lib/expenseTombstones';
-import { mergeCloudBlob } from './lib/syncMerge';
+import { mergeCloudBlob, TRIPS_KEY } from './lib/syncMerge';
 
 /**
  * Cloud sync bridge for the tools.
@@ -65,6 +65,11 @@ export const SYNC_KEYS = [
   // Exchange rates the user corrected by hand. Small, and a rate someone
   // bothered to look up should not have to be looked up again on their phone.
   'fx_fx_overrides',
+  // Travel mode's trips (lib/trips.ts). Merged by id with the later edit
+  // winning, and a deleted trip keeps a `deletedAt` record so the deletion
+  // travels too (`mergeTrips` in lib/syncMerge.ts). Fetched live rates
+  // (`fx_fx_live`) are NOT here: every device fetches its own.
+  TRIPS_KEY,
 ];
 /**
  * Sensitive statement drafts stay on this device but belong to its account.

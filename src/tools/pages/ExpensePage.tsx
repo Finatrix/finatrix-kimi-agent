@@ -26,7 +26,7 @@ import { getJSON, setJSON, onLocalWrite, store } from '../lib/storage';
 import { reloadIfBuildIsStale } from '../../lib/chunkRecovery';
 import {
   loadExpenses, saveExpenses, etToday, etMonthsWithData, computeDashboard, genExpenseId,
-  isSpendingCategory, migrateCategory,
+  isSpendingCategory, migrateCategory, ET_CATS,
   type ExpenseItem, type DashResult, type DashCategory, type BudgetWarning,
   type SectionSplit,
 } from '../lib/expense';
@@ -68,6 +68,14 @@ import { computeExecutionScore, type ScoreResult } from '../lib/score';
 import {
   loadPanelPrefs, savePanelPrefs, togglePanel, type PanelKey, type PanelPrefs,
 } from '../lib/panelPrefs';
+import {
+  TRIP_CARD_HIDDEN_KEY, addDays, fmtForeign, overlappingTrip, repriceTripExpenses, repriceableCount, spendMoney,
+  tripDefaults, tripLabel, tripOn, type Trip,
+} from '../lib/trips';
+import { TravelBar } from '../travel/TravelBar';
+import { TripSheet } from '../travel/TripSheet';
+import { TripSummarySheet } from '../travel/TripSummarySheet';
+import { useTrips } from '../travel/useTrips';
 
 /* ── Design tokens ── */
 
@@ -177,6 +185,19 @@ export default function ExpensePage() {
     flatCats.forEach((c) => m.set(c.k, c));
     return m;
   }, [flatCats]);
+
+  /* ── Travel mode (lib/trips.ts, ../travel) ── */
+  const { trips, saveTrip, deleteTrip } = useTrips();
+  /** The setup/edit sheet: a trip to edit, or null (with optional prefill) for a new one. */
+  const [tripSheet, setTripSheet] = useState<{ trip: Trip | null; prefill?: Partial<Trip> } | null>(null);
+  const [summaryId, setSummaryId] = useState<string | null>(null);
+  const summaryTrip = summaryId ? trips.find((t) => t.id === summaryId) ?? null : null;
+  /** The ended trip whose card was closed. Device-only. */
+  const [hiddenTripCard, setHiddenTripCard] = useState<string | null>(() => store.get(TRIP_CARD_HIDDEN_KEY, '') || null);
+  const labelOf = useCallback(
+    (k: string) => catMeta.get(k)?.l ?? ET_CATS[k]?.l ?? k,
+    [catMeta],
+  );
 
   // Most-used categories, for the one-tap "Recent" shortcut in the add forms.
   const recentCatKeys = useMemo(
@@ -394,9 +415,12 @@ export default function ExpensePage() {
       return false;
     }
     const nowIso = new Date().toISOString();
+    // On a trip, the typed amount is in the trip's currency unless the
+    // category stays home — the same rule, and the same pricing, as the form.
+    const travel = tripDefaults(tripOn(trips, parsed.date), category, false);
     const item: ExpenseItem = {
       id: genExpenseId(),
-      amount: parsed.amount,
+      ...spendMoney(parsed.amount, { ...travel, paymentMethod: parsed.paymentMethod }),
       category,
       date: parsed.date,
       ...(parsed.note ? { note: parsed.note } : {}),
@@ -424,6 +448,80 @@ export default function ExpensePage() {
     setEditing(null);
     const m = item.date.slice(0, 7);
     if (m !== selMonth) switchMonth(m);
+  };
+
+  /* ── Travel mode actions ── */
+
+  /**
+   * Save a trip from the sheet. A changed rate or fee re-prices the trip's
+   * foreign spends only when the user said yes, through `commit` like any
+   * other edit, so the history records every amount that moved.
+   */
+  const saveTripFromSheet = (trip: Trip, { reprice }: { reprice: boolean }) => {
+    if (reprice) {
+      const { next, changes } = repriceTripExpenses(items, trip, trip.rate, trip.feePct, new Date().toISOString());
+      if (changes.length) {
+        const batch = changes.length > 1 ? newBatchId() : undefined;
+        const events = changes
+          .map(({ before, after }) => auditEdit(before, after, { batch }))
+          .filter((e): e is AuditEntry => e !== null);
+        commit(next, events);
+      }
+    }
+    saveTrip(trip);
+    setTripSheet(null);
+    notify(trip.start > todayKey
+      ? `${tripLabel(trip)} trip saved. Travel mode turns on by itself on the first day.`
+      : `Travel mode is on for ${tripLabel(trip)}.`, 'ok');
+  };
+
+  /** Coming back early: the trip ends today, and its summary opens. */
+  const endTripNow = (trip: Trip) => {
+    saveTrip({ ...trip, end: todayKey, updatedAt: new Date().toISOString() });
+    setTripSheet(null);
+    setSummaryId(trip.id);
+  };
+
+  /** "Still travelling?": one more day, unless the next trip starts then. */
+  const extendTrip = (trip: Trip) => {
+    const next = { ...trip, end: addDays(trip.end, 1), updatedAt: new Date().toISOString() };
+    const clash = overlappingTrip(trips, next);
+    if (clash) {
+      notify(`Your ${tripLabel(clash)} trip starts the next day, so this one can't run longer.`, 'error');
+      return;
+    }
+    saveTrip(next);
+    notify(`${tripLabel(trip)} now ends a day later.`, 'ok');
+  };
+
+  /** "Next stop?": the next leg of a multi-country trip, starting the day after this one ends. */
+  const nextStop = (trip: Trip) => {
+    setSummaryId(null);
+    const start = addDays(trip.end, 1);
+    setTripSheet({
+      trip: null,
+      prefill: { start, end: addDays(start, 6), feePct: trip.feePct, homeCats: trip.homeCats },
+    });
+  };
+
+  const removeTrip = (trip: Trip) => {
+    deleteTrip(trip);
+    setTripSheet(null);
+    setSummaryId(null);
+    notify('Trip deleted. Its expenses stay in your tracker.', 'ok');
+  };
+
+  const hideTripCard = (trip: Trip) => {
+    store.set(TRIP_CARD_HIDDEN_KEY, trip.id);
+    setHiddenTripCard(trip.id);
+  };
+
+  /** The quick-add preview's amount: both currencies when the line is a trip spend. */
+  const quickAddAmountLabel = (parsed: QuickAddResult, category: string): string => {
+    const travel = tripDefaults(tripOn(trips, parsed.date), category, false);
+    if (!travel.ctx || !travel.paidInTrip) return cfmt(parsed.amount);
+    const home = spendMoney(parsed.amount, { ...travel, paymentMethod: parsed.paymentMethod }).amount;
+    return `${fmtForeign(parsed.amount, travel.ctx.currency)} = ${cfmt(home)}`;
   };
 
   const duplicateTransaction = (src: ExpenseItem) => {
@@ -879,6 +977,22 @@ export default function ExpensePage() {
         Categories and budgets flow from Budget Builder — log a spend and watch your Needs, Wants and Savings update live. Explore analytics to discover spending patterns.
       </PageHead>
 
+      {tab !== 'history' && (
+        <TravelBar
+          trips={trips}
+          items={items}
+          today={todayKey}
+          cfmt={cfmt}
+          dismissedEnded={hiddenTripCard}
+          onSetUp={() => setTripSheet({ trip: null })}
+          onOpenTrip={(t) => setTripSheet({ trip: t })}
+          onSummary={(t) => setSummaryId(t.id)}
+          onExtend={extendTrip}
+          onNextStop={nextStop}
+          onDismissEnded={hideTripCard}
+        />
+      )}
+
       {tab === 'overview' && <ExpenseRecordReview items={monthTx} validKeys={validKeys} onEdit={openEdit} cfmt={cfmt} />}
 
       {/* Tab bar — WAI-ARIA tablist with roving tabindex + arrow-key nav. */}
@@ -971,7 +1085,7 @@ export default function ExpensePage() {
             r={r} items={items} monthTx={monthTx} selMonth={selMonth} flatCats={flatCats}
             defaultCatKey={defaultCatKey} learnedWords={learnedWords}
             cfmt={cfmt} sym={sym} now={now} catMeta={catMeta}
-            addFromQuickAdd={addFromQuickAdd} quickSeed={quickSeed}
+            addFromQuickAdd={addFromQuickAdd} quickAddAmountLabel={quickAddAmountLabel} quickSeed={quickSeed}
             openAdd={openAdd} openEdit={openEdit}
             duplicateTransaction={duplicateTransaction} deleteTransaction={deleteTransaction}
             bulkDelete={bulkDelete} bulkDuplicate={bulkDuplicate} bulkCategory={bulkCategory}
@@ -1035,6 +1149,45 @@ export default function ExpensePage() {
           onClose={() => { setModalOpen(false); setEditing(null); }}
           onDelete={deleteTransaction}
           onDuplicate={duplicateTransaction}
+          trips={trips}
+          homeCode={code}
+        />
+      )}
+
+      {tripSheet && (
+        <TripSheet
+          key={tripSheet.trip?.id ?? `new-${tripSheet.prefill?.start ?? ''}`}
+          trip={tripSheet.trip}
+          prefill={tripSheet.prefill}
+          trips={trips}
+          homeCode={code}
+          homeSym={sym}
+          cats={flatCats}
+          today={todayKey}
+          repriceCount={(id) => {
+            const t = trips.find((x) => x.id === id);
+            return t ? repriceableCount(items, t) : 0;
+          }}
+          onSave={saveTripFromSheet}
+          onEndNow={endTripNow}
+          onDelete={removeTrip}
+          onClose={() => setTripSheet(null)}
+        />
+      )}
+
+      {summaryTrip && (
+        <TripSummarySheet
+          trip={summaryTrip}
+          items={items}
+          today={todayKey}
+          homeSym={sym}
+          cfmt={cfmt}
+          labelOf={labelOf}
+          onEdit={(t) => { setSummaryId(null); setTripSheet({ trip: t }); }}
+          onEndNow={endTripNow}
+          onExtend={extendTrip}
+          onNextStop={nextStop}
+          onClose={() => setSummaryId(null)}
         />
       )}
 
@@ -1136,6 +1289,8 @@ interface OverviewProps {
   catMeta: Map<string, CatMeta>;
   /** Commit a parsed one-line entry. False when it could not be logged. */
   addFromQuickAdd: (parsed: QuickAddResult) => boolean;
+  /** The quick-add preview's amount: both currencies for a trip spend. */
+  quickAddAmountLabel: (parsed: QuickAddResult, category: string) => string;
   /** A line handed over by the ⌘K palette, to be typed into the quick-add field. */
   quickSeed: { text: string; nonce: number } | null;
   openAdd: () => void; openEdit: (item: ExpenseItem) => void;
@@ -1164,7 +1319,7 @@ interface OverviewProps {
 function OverviewTab({
   r, items, monthTx, selMonth, flatCats, defaultCatKey, learnedWords,
   cfmt, sym, now, catMeta,
-  addFromQuickAdd, quickSeed, openAdd, openEdit, duplicateTransaction, deleteTransaction,
+  addFromQuickAdd, quickAddAmountLabel, quickSeed, openAdd, openEdit, duplicateTransaction, deleteTransaction,
   bulkDelete, bulkDuplicate, bulkCategory, bulkAddTags, exportTransactions,
   code, listApi, panels, onFlipPanel, score, validKeys, todayKey, onGoToMonth,
 }: OverviewProps) {
@@ -1209,6 +1364,7 @@ function OverviewTab({
               cfmt={cfmt}
               now={now}
               onAdd={addFromQuickAdd}
+              amountLabel={quickAddAmountLabel}
               fallbackCategory={defaultCatKey}
               seed={quickSeed ?? undefined}
             />
