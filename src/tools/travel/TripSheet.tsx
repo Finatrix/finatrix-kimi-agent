@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CURRENCY_CODES } from '../lib/format';
-import { effectiveRates, loadLiveRates, ratesAreLive, ratesAsOf } from '../lib/fx';
+import { effectiveRates, loadLiveRates, ratesAreLive, ratesAsOf, ratesDateLabel } from '../lib/fx';
 import { refreshLiveRates } from '../lib/fxLive';
 import { PLACES } from '../lib/travelPlaces';
 import {
   addDays, daysInclusive, defaultHomeCats, fmtRate, fmtTripDay, genTripId, overlappingTrip, rateWithFee,
   tripLabel, tripRateFor, type Trip,
 } from '../lib/trips';
-import { FxAttribution, ratesDateLabel } from '../ui/FxNote';
+import { FxAttribution } from '../ui/FxNote';
 import { PercentField } from '../ui/MoneyField';
 import { ToolSheet } from '../ui/ToolSheet';
 import type { FlatCat } from '../ui/TransactionModal';

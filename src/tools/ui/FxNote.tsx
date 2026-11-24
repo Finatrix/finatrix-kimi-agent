@@ -2,15 +2,8 @@ import { useState, type CSSProperties } from 'react';
 import { FX_SOURCE } from '../../shared/fxFeed';
 import {
   BASELINE_RATES, convert, effectiveRates, hasRate, isStale,
-  loadLiveRates, loadRateOverrides, ratesAreLive, ratesAsOf, saveRateOverride,
+  loadLiveRates, loadRateOverrides, ratesAreLive, ratesAsOf, ratesDateLabel, saveRateOverride,
 } from '../lib/fx';
-
-/** "24 November 2026", for a rates date (`YYYY-MM-DD`). */
-export function ratesDateLabel(asOf: string): string {
-  return new Date(`${asOf}T00:00:00Z`).toLocaleDateString('en', {
-    day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
-  });
-}
 
 /**
  * The credit the live source's terms require wherever its rates are used.

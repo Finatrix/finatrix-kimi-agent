@@ -87,6 +87,27 @@ function stampServiceWorker(): Plugin {
   };
 }
 
+/**
+ * The dev and preview servers have no Worker, so the exchange-rate feed
+ * (`/api/fx/latest`, worker/fxLatest.ts) does not exist there. Answer 204
+ * rather than a 404 (or the SPA shell): the app reads it as "no rates today"
+ * and keeps its saved or built-in rates (src/tools/lib/fxLive.ts), and the
+ * console stays clean for the e2e crawl. Never shipped: production is the Worker.
+ */
+function noWorkerFeed(): Plugin {
+  const answer = (req: { url?: string }, res: { statusCode: number; setHeader: (k: string, v: string) => void; end: () => void }, next: () => void) => {
+    if (req.url?.split('?')[0] !== '/api/fx/latest') return next();
+    res.statusCode = 204;
+    res.setHeader('Cache-Control', 'no-store');
+    res.end();
+  };
+  return {
+    name: 'finatrix-no-worker-feed',
+    configureServer(server) { server.middlewares.use(answer); },
+    configurePreviewServer(server) { server.middlewares.use(answer); },
+  };
+}
+
 function stripIndexHtmlComments(): Plugin {
   return {
     name: "fx-strip-html-comments",
@@ -104,7 +125,7 @@ export default defineConfig(({ command, mode }) => {
 
   return {
     base: '/',
-    plugins: [react(), stampServiceWorker(), stripIndexHtmlComments()],
+    plugins: [react(), stampServiceWorker(), stripIndexHtmlComments(), noWorkerFeed()],
     server: {
       // Honour an externally assigned port (e.g. preview harnesses); default 3000.
       port: Number(process.env.PORT) || 3000,

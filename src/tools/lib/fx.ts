@@ -89,6 +89,13 @@ export function ratesAsOf(live: LiveRates | null = loadLiveRates()): string {
   return live?.asOf ?? FX_AS_OF;
 }
 
+/** "24 November 2026", for a rates date (`YYYY-MM-DD`, a UTC publication day). */
+export function ratesDateLabel(asOf: string): string {
+  return new Date(`${asOf}T00:00:00Z`).toLocaleDateString('en', {
+    day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
+  });
+}
+
 /** True when the rates in use came from the live feed (so its attribution must be shown). */
 export function ratesAreLive(live: LiveRates | null = loadLiveRates()): boolean {
   return live?.source === FX_SOURCE.id;
