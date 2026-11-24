@@ -29,7 +29,7 @@ Leaving, being removed and deleting the account all end the same way. The member
 - When the last admin goes, the longest-standing member becomes admin.
 - When the last member goes, the group and everything in it is deleted.
 - Someone who left can rejoin with a valid code, as a new member row.
-- After removing someone, offer "Reset the code too", or they can rejoin with the old one.
+- Removing someone also resets the room code, so the code they knew stops working. `remove_group_member` returns the new one for the admin to share.
 
 ## Functions the app calls
 
@@ -40,7 +40,7 @@ Call these with `supabase.rpc(name, args)`. On failure, `error.message` is the c
 | `create_group` | `p_name`, `p_emoji`, `p_type` (`family`, `couple`, `home`, `trip`, `friends`), `p_display_name`, `p_currency` (default `INR`), `p_confirm_adult` | `{ group_id, code, expires_at }` | `adult_confirmation_required`, `too_many_groups` |
 | `reset_group_code` | `p_group_id` | `{ code, expires_at }` | `not_group_admin` |
 | `leave_group` | `p_group_id` | nothing | `not_group_member` |
-| `remove_group_member` | `p_member_id` | nothing | `not_group_admin`, `use_leave_group` |
+| `remove_group_member` | `p_member_id` | `{ code, expires_at }`, the new room code (null if they had already gone) | `not_group_admin`, `use_leave_group` |
 
 The type sets the starting mode: `family` and `couple` start in Budget together; `home`, `trip` and `friends` start in Split costs. `p_confirm_adult` is needed only the first time a person creates or joins a group.
 
@@ -95,7 +95,9 @@ The database checks the shape, that everyone is in the group (former members inc
 
 ## Live updates
 
-`group_members`, `group_expenses`, `group_settlements` and `group_budgets` are in the `supabase_realtime` publication. Realtime applies the same SELECT policies, so each person only hears about their own groups.
+`group_members`, `group_expenses`, `group_settlements` and `group_budgets` are in the `supabase_realtime` publication. Realtime applies the SELECT policies to inserts and updates, so each person only hears about their own groups.
+
+Deletes are different: Realtime can't check a policy against a row that's gone, so **every subscriber of a table receives every delete, with the row's primary key**. That's why every published table is keyed by a random `id`, and why expenses and settlements are soft-deleted (an update, which is checked). Never publish a table whose key carries meaning, and ignore delete events for ids you don't have.
 
 ## Limits
 

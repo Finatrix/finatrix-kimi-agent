@@ -22,6 +22,8 @@ declare
   v_d     uuid := gen_random_uuid();  -- joins the family, ends up its last member
   v_e     uuid := gen_random_uuid();  -- joins the flat, then deletes their account
   v_f     uuid := gen_random_uuid();  -- creates a group that fills up
+  v_x     uuid := gen_random_uuid();  -- joins the family and is removed by the admin
+  v_mx    uuid;                       -- X's member id
   v_res   jsonb := '[]';
   v_ok    boolean;
   v_n     int;
@@ -50,7 +52,7 @@ declare
 begin
   -- Accounts, as the auth server would add them.
   insert into auth.users (id, email)
-  select u, 'probe-' || u || '@groups.invalid' from unnest(array[v_a, v_b, v_c, v_d, v_e, v_f]) as u;
+  select u, 'probe-' || u || '@groups.invalid' from unnest(array[v_a, v_b, v_c, v_d, v_e, v_f, v_x]) as u;
 
   -- ── A creates two groups ───────────────────────────────────────────────
   perform set_config('request.jwt.claims', json_build_object('sub', v_a, 'role', 'authenticated')::text, true);
@@ -374,6 +376,25 @@ begin
   v_code := v_r ->> 'code';
   reset role;
 
+  -- ── Removing someone ───────────────────────────────────────────────────
+  set local role service_role;
+  v_r := public.group_join_by_code(v_x, v_code, 'Xavier', true);
+  reset role;
+  select m.id into v_mx from public.group_members m where m.group_id = v_g and m.user_id = v_x;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_a, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  v_r := public.remove_group_member(v_mx);
+  reset role;
+  select m.user_id is null and m.display_name is null and m.left_at is not null into v_ok
+  from public.group_members m where m.id = v_mx;
+  set local role service_role;
+  v_res := v_res || jsonb_build_object('check', 'removing someone clears them and resets the code, so the one they knew stops working',
+    'ok', coalesce(v_ok and v_r ->> 'code' <> v_code
+                   and public.group_join_by_code(v_x, v_code, 'Xavier', true) ->> 'status' = 'not_found'
+                   and public.group_join_by_code(v_c, v_r ->> 'code', 'Chitra', true, true) ->> 'status' = 'ok', false));
+  reset role;
+  v_code := v_r ->> 'code';
+
   -- ── Signed-out visitors ────────────────────────────────────────────────
   perform set_config('request.jwt.claims', json_build_object('role', 'anon')::text, true);
   set local role anon;
@@ -517,6 +538,17 @@ begin
   where n.nspname = 'public' and p.proname = any (v_functions);
   v_res := v_res || jsonb_build_object('check', 'signed-in users can run exactly the six functions meant for them; signed-out visitors none',
     'ok', coalesce(v_ok, false));
+
+  -- Realtime sends every subscriber a deleted row's primary key, unchecked.
+  select count(*) into v_n
+  from pg_index i
+  join pg_class c on c.oid = i.indrelid
+  join pg_namespace n on n.oid = c.relnamespace
+  join pg_attribute a on a.attrelid = c.oid and a.attnum = i.indkey[0]
+  where i.indisprimary and n.nspname = 'public' and i.indnatts = 1 and a.attname = 'id'
+    and c.relname in ('group_members', 'group_expenses', 'group_settlements', 'group_budgets');
+  v_res := v_res || jsonb_build_object('check', 'every table Realtime publishes is keyed by a random id, so a delete event carries nothing else',
+    'ok', v_n = 4);
 
   if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
     select count(*) into v_n from pg_publication_tables

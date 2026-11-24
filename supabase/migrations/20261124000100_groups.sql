@@ -139,6 +139,10 @@ create table if not exists public.group_settlements (
 create index if not exists group_settlements_group_changed_idx on public.group_settlements (group_id, updated_at);
 
 create table if not exists public.group_budgets (
+  -- A random key rather than (group, month, category). Realtime sends a
+  -- deleted row's key to every subscriber, because no policy can be checked
+  -- against a row that's gone, and a category name is the household's own words.
+  id          uuid primary key default gen_random_uuid(),
   group_id    uuid not null references public.groups (id) on delete cascade,
   month       text not null check (month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'),
   category    text not null check (char_length(category) between 1 and 60),
@@ -147,7 +151,9 @@ create table if not exists public.group_budgets (
   created_at  timestamptz not null default now(),
   updated_by  uuid,
   updated_at  timestamptz not null default now(),
-  primary key (group_id, month, category),
+  -- A plain unique constraint, not a partial index, so PostgREST's upsert can
+  -- target it: on_conflict=group_id,month,category.
+  constraint group_budgets_one_per_category unique (group_id, month, category),
   constraint group_budgets_created_by_member foreign key (group_id, created_by)
     references public.group_members (group_id, id),
   constraint group_budgets_updated_by_member foreign key (group_id, updated_by)
@@ -559,14 +565,17 @@ begin
 end $$;
 
 -- Remove someone from a group (admins only). To go yourself, leave instead.
+-- The removed person knew the room code, so it is reset too, and the new one
+-- is returned for the admin to share with anyone still to join.
 create or replace function public.remove_group_member(p_member_id uuid)
-returns void
+returns jsonb
 language plpgsql
 security definer
 set search_path = ''
 as $$
 declare
   v_target public.group_members;
+  v_invite public.group_invites;
 begin
   select * into v_target from public.group_members where id = p_member_id;
   -- Same answer for "no such member" and "not your group", so member ids
@@ -581,9 +590,11 @@ begin
     raise exception 'use_leave_group' using errcode = 'P0001';
   end if;
   if v_target.user_id is null then
-    return;
+    return null;  -- already a Former member: nothing changes
   end if;
   update public.group_members set user_id = null where id = p_member_id;
+  v_invite := public.group_issue_code(v_target.group_id);
+  return jsonb_build_object('code', v_invite.code, 'expires_at', v_invite.expires_at);
 end $$;
 
 -- Look a room code up, and join with it. Service role only: the `group-join`
@@ -792,8 +803,12 @@ revoke execute on function public.group_members_before_update() from public, ano
 revoke execute on function public.group_members_after_leave() from public, anon, authenticated;
 
 -- ── Live updates ─────────────────────────────────────────────────────────
--- The activity feed listens to these through Supabase Realtime, which applies
--- the same SELECT policies to every change it sends.
+-- The activity feed listens to these through Supabase Realtime. Realtime
+-- applies the SELECT policies to inserts and updates, but it can't check a
+-- delete against a row that's gone, so every subscriber of a table hears every
+-- delete, with the row's primary key. So every table here has a random id as
+-- its key, and expenses and settlements are soft-deleted: an update, which is
+-- checked.
 do $$
 declare
   v_table text;
