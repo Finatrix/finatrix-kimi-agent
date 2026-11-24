@@ -34,7 +34,7 @@ import {
   settleAmountEdit, toExpense, type AmountEdit,
 } from './draft';
 import { becameImportable, isImportable, summarize } from './status';
-import { extractStatement, ImportError, type ExtractedStatement } from './extract';
+import { extractStatement, extractStatements, ImportError, type ExtractedStatement } from './extract';
 import { loadLearned, rememberConfirmed, saveLearned } from './learned';
 import { swapDayMonth } from './fields';
 import type { DateOrder, DraftRow, ImportSummary } from './types';
@@ -84,7 +84,8 @@ export interface UseStatementImport {
   /** Keep this import on the device: categorise by hand. */
   declineAi: () => void;
 
-  start: (file: File) => void;
+  /** Read one file, or several at once (screenshots shared together) into one review. */
+  start: (files: File | readonly File[]) => void;
   submitPassword: (password: string) => void;
   updateDraft: (id: string, patch: Partial<DraftRow>) => void;
   /**
@@ -234,10 +235,12 @@ export function useStatementImport({
   );
 
   const read = useCallback(
-    (file: File, password?: string) => {
+    (files: readonly File[], password?: string) => {
       const id = ++runId.current;
-      pendingFile.current = file;
-      setFileName(file.name);
+      // A password is asked for only when one file was chosen: in a batch a
+      // locked PDF is skipped with a note instead.
+      pendingFile.current = files.length === 1 ? files[0] : null;
+      setFileName(files.length === 1 ? files[0].name : `${files.length} files`);
       setPhase('reading');
       setMessage('');
       setSaveError('');
@@ -249,7 +252,8 @@ export function useStatementImport({
 
       // The layout assist only ever sees digit-masked lines, and only when the
       // assistant is enabled for this import at all.
-      void extractStatement(file, { password, layout: aiEnabled ? readStatementLayout : undefined })
+      const layout = aiEnabled ? readStatementLayout : undefined;
+      void (files.length === 1 ? extractStatement(files[0], { password, layout }) : extractStatements(files, { layout }))
         .then((result) => {
           if (runId.current !== id) return;
           const learned = loadLearned();
@@ -275,12 +279,18 @@ export function useStatementImport({
     [aiEnabled, existing, runAi, validKeys],
   );
 
-  const start = useCallback((file: File) => read(file), [read]);
+  const start = useCallback(
+    (files: File | readonly File[]) => {
+      const list = Array.isArray(files) ? (files as readonly File[]) : [files as File];
+      if (list.length) read(list);
+    },
+    [read],
+  );
 
   const submitPassword = useCallback(
     (password: string) => {
       const file = pendingFile.current;
-      if (file) read(file, password);
+      if (file) read([file], password);
     },
     [read],
   );

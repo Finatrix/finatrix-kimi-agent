@@ -57,6 +57,12 @@ interface Props {
   onClose: () => void;
   /** False when the assistant should not be called at all. */
   aiEnabled?: boolean;
+  /**
+   * Files to read the moment the sheet opens: screenshots shared to FinatriX
+   * from another app. They go through the same review as a chosen file, and
+   * nothing is saved until Import is pressed.
+   */
+  initialFiles?: readonly File[];
 }
 
 type Filter = 'all' | 'review' | 'duplicates' | 'credits';
@@ -72,7 +78,7 @@ const ORIGIN_LABEL: Record<CategoryOrigin, string> = {
 };
 
 export default function StatementImport({
-  cats, existing, cfmt, sym, currencyCode, onImport, onClose, aiEnabled = true,
+  cats, existing, cfmt, sym, currencyCode, onImport, onClose, aiEnabled = true, initialFiles,
 }: Props) {
   const categories = useMemo(
     () => cats.map((c) => ({ key: c.k, label: c.l, section: c.section })),
@@ -164,13 +170,23 @@ export default function StatementImport({
     setShown(PAGE_SIZE);
   }, []);
 
-  const onFile = useCallback((file: File | undefined | null) => {
-    if (!file) return;
+  const onFiles = useCallback((list: FileList | readonly File[] | undefined | null) => {
+    const files = list ? Array.from(list) : [];
+    if (!files.length) return;
     setFilter('all');
     setShown(PAGE_SIZE);
     setPassword('');
-    start(file);
+    start(files);
   }, [start]);
+
+  // Shared files are read once, on open. The ref keeps a second effect run
+  // (React's development double-mount) from starting a second recognition.
+  const startedShared = useRef(false);
+  useEffect(() => {
+    if (startedShared.current || !initialFiles?.length) return;
+    startedShared.current = true;
+    start(initialFiles);
+  }, [initialFiles, start]);
 
   // Closes only when the transactions were actually written. A refused write
   // leaves the sheet open with the reason shown beside the button.
@@ -208,7 +224,7 @@ export default function StatementImport({
               <IdlePane
                 dragging={dragging}
                 setDragging={setDragging}
-                onFile={onFile}
+                onFiles={onFiles}
                 resumable={resumable}
                 onResume={resume}
                 onDiscard={discardResumable}
@@ -301,6 +317,17 @@ export default function StatementImport({
                       Swap money in and out
                     </button>
                   </p>
+                )}
+
+                {extraction?.skipped && extraction.skipped.length > 0 && (
+                  <div className="fx-imp-banner fx-imp-warn" role="status">
+                    <span>
+                      {extraction.skipped.length === 1 ? 'One file was' : `${extraction.skipped.length} files were`} not read:
+                      <ul className="fx-imp-skipped">
+                        {extraction.skipped.map((s, i) => <li key={i}><b>{s.name}</b>: {s.reason}</li>)}
+                      </ul>
+                    </span>
+                  </div>
                 )}
 
                 {currencyMismatch && (
@@ -453,11 +480,11 @@ export default function StatementImport({
 /* ── Panes ───────────────────────────────────────────────────────────── */
 
 function IdlePane({
-  dragging, setDragging, onFile, resumable, onResume, onDiscard,
+  dragging, setDragging, onFiles, resumable, onResume, onDiscard,
 }: {
   dragging: boolean;
   setDragging: (v: boolean) => void;
-  onFile: (f: File | null | undefined) => void;
+  onFiles: (files: FileList | null | undefined) => void;
   resumable: { fileName: string; savedAt: string; count: number } | null;
   onResume: () => void;
   onDiscard: () => void;
@@ -483,11 +510,11 @@ function IdlePane({
         className={`fx-imp-drop${dragging ? ' is-dragging' : ''}`}
         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
-        onDrop={(e) => { e.preventDefault(); setDragging(false); onFile(e.dataTransfer.files?.[0]); }}
+        onDrop={(e) => { e.preventDefault(); setDragging(false); onFiles(e.dataTransfer.files); }}
       >
         <p className="fx-imp-state-title">Drop a bank or credit card statement</p>
         <p className="fx-imp-note">
-          CSV, Excel (.xlsx){pdfUnavailable ? '' : ', PDF'} — or a screenshot or photo of one.
+          CSV, Excel (.xlsx){pdfUnavailable ? '' : ', PDF'} — or a screenshot or photo of one. Several screenshots can be chosen at once.
           {!pdfUnavailable && ' Password-protected PDFs are supported.'}
         </p>
         {pdfUnavailable && <p className="fx-imp-note" role="status">{pdfUnavailable}</p>}
@@ -508,10 +535,11 @@ function IdlePane({
           className="fx-imp-sr"
           type="file"
           accept={ACCEPT_ATTRIBUTE}
+          multiple
           aria-label="Statement file"
           aria-hidden="true"
           tabIndex={-1}
-          onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ''; }}
+          onChange={(e) => { onFiles(e.target.files); e.target.value = ''; }}
         />
       </div>
 
@@ -852,6 +880,7 @@ const STYLES = `
   font-variant-numeric:tabular-nums;}
 .fx-imp-amber{color:var(--orange);}
 
+.fx-imp-skipped{margin:4px 0 0;padding-left:18px;}
 .fx-imp-banner{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:space-between;
   font-size:12.5px;line-height:1.5;border:1px solid var(--hair2);background:var(--fill-03);
   border-radius:12px;padding:9px 12px;margin:0 0 10px;}

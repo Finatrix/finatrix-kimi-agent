@@ -12,6 +12,16 @@
   "background_color": "#060607",
   "theme_color": "#060607",
   "categories": ["finance", "productivity", "education"],
+  "share_target": {
+    "action": "/share-target",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "files": [
+        { "name": "files", "accept": ["image/png", "image/jpeg", "image/webp", ".png", ".jpg", ".jpeg", ".webp"] }
+      ]
+    }
+  },
   "shortcuts": [
     {
       "name": "Log a spend",
