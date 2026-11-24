@@ -1,5 +1,6 @@
 /**
- * FinatriX edge Worker. Three jobs:
+ * FinatriX edge Worker. Three jobs, plus one small API route (`/api/fx/latest`,
+ * today's exchange rates for the app; see `fxLatest.ts`):
  *
  * 1. Canonical host + HTTPS. Everything that is not `https://finatrix.co` —
  *    `www`, the retired finatrix.online / finatrix.space domains, any plain
@@ -48,6 +49,9 @@ import { crawlableBodyFor } from '../src/lib/crawlable';
 import { buildLlmsTxt } from '../src/shared/llms';
 import { buildAssetLinks, parseFingerprints } from '../src/shared/assetLinks';
 import { buildAppleAppSiteAssociation } from '../src/shared/appleAppSite';
+import { FX_FEED_PATH } from '../src/shared/fxFeed';
+import { handleFxLatest } from './fxLatest';
+import { SECURITY_HEADERS } from './securityHeaders';
 
 interface Env {
   ASSETS: { fetch: (input: Request | URL | string) => Promise<Response> };
@@ -66,18 +70,6 @@ interface Env {
   APPLE_APP_ID_PREFIX?: string;
 }
 
-/**
- * Security headers for responses the Worker generates itself. Asset responses
- * get theirs from `public/_headers`, but redirects and `/healthz` never touch
- * the assets runtime, so without this they would ship bare — including the
- * 301 that every visitor to a legacy domain receives, which is precisely the
- * response that most needs to carry HSTS.
- */
-const SECURITY_HEADERS: Record<string, string> = {
-  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
-  'X-Content-Type-Options': 'nosniff',
-  'Referrer-Policy': 'strict-origin-when-cross-origin',
-};
 
 /**
  * Minimal local typing for the Workers `HTMLRewriter` global.
@@ -324,6 +316,9 @@ export default {
         },
       });
     }
+
+    // Today's exchange rates for the app. See worker/fxLatest.ts.
+    if (url.pathname === FX_FEED_PATH) return handleFxLatest(request);
 
     // A plain-text map of the site for AI answer engines — the llms.txt
     // convention — generated from the same registries as sitemap.xml, so the

@@ -34,6 +34,7 @@ import { AiProvider, AiLauncher, AiHeaderButton } from './ui/AiAssistant';
 import { warnIfOverdue } from '../reference/review';
 import { isNativeApp } from '../native/platform';
 import { useReminderSync } from './lib/useReminderSync';
+import { refreshLiveRates } from './lib/fxLive';
 import WalkthroughGate from '../walkthrough/WalkthroughGate';
 import TourGate from '../tour/TourGate';
 import { TourPageButton } from '../tour/TourPageButton';
@@ -295,6 +296,13 @@ export default function ToolsLayout() {
    */
   useEffect(() => {
     if (import.meta.env.DEV) warnIfOverdue();
+  }, []);
+
+  // Today's exchange rates, at most once a day (lib/fxLive.ts). Screens that
+  // convert re-read on the `fx:write` the save dispatches; until then, and
+  // offline, the last saved rates are used with their own date on show.
+  useEffect(() => {
+    void refreshLiveRates();
   }, []);
 
   // Seed localStorage from the cloud (or clear it) before mounting the tools.
