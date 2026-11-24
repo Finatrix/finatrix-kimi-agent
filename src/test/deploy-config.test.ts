@@ -624,4 +624,35 @@ describe('edge function deploy coverage', () => {
   it('careers-billing-checkout keeps the JWT gate — it derives the buyer from the caller', () => {
     expect(workflow).not.toMatch(/functions deploy careers-billing-checkout --no-verify-jwt/);
   });
+
+  /**
+   * A group's room code is all that stands between a stranger and a family's
+   * shared spending, so the join function's guess limits must be real: shared
+   * across isolates, keyed by person and by a hash of the IP, and closed when
+   * they can't be checked.
+   */
+  it('group-join verifies the caller itself and limits code lookups without storing IPs', () => {
+    expect(workflow).toMatch(/functions deploy group-join --no-verify-jwt/);
+    const src = read('supabase/functions/group-join/index.ts');
+    expect(src).toMatch(/auth\.getUser\(\)/);
+    expect(src).toMatch(/return json\(401/);
+    // The person joining comes from the verified token, never the request body.
+    expect(src).not.toMatch(/body\.(uid|user_?id|userId)/i);
+    expect(src).toContain("sharedQuotaState(admin, 'group-join:user:hour', uid,");
+    expect(src).toContain('privateQuotaKey(ip, serviceKey)');
+    expect(src).not.toMatch(/sharedQuotaState\(admin, '[^']+', ip\b/);
+    expect(src).toMatch(/includes\('unavailable'\)\) return json\(503/);
+  });
+
+  it('every quota scope group-join counts in is pruned', () => {
+    const src = read('supabase/functions/group-join/index.ts');
+    const scopes = [...new Set([...src.matchAll(/'(group-join:[a-z]+:[a-z]+)'/g)].map((m) => m[1]))];
+    expect(scopes.sort()).toEqual(['group-join:ip:hour', 'group-join:user:hour']);
+    const migrations = readdirSync(join(root, 'supabase/migrations')).filter((f) => f.endsWith('.sql')).sort();
+    const latestPrune = migrations
+      .map((f) => read(`supabase/migrations/${f}`))
+      .filter((sql) => sql.includes('function public.prune_quota_windows'))
+      .pop() ?? '';
+    for (const scope of scopes) expect(latestPrune).toContain(`'${scope}'`);
+  });
 });
