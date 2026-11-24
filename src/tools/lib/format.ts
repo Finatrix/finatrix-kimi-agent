@@ -2,6 +2,10 @@
  * Currency + number formatting — a verbatim port of the formatters that lived
  * in public/tools-app.html (`CURRENCIES`, `fmt`, `cfmt`, `cfmtSh`).
  *
+ * Hide amounts: `cfmt` and `cfmtSh` return `maskedAmount(code)` while the
+ * device's switch is on (lib/hideAmounts.ts). With it off (the default) the
+ * output is unchanged.
+ *
  * The ONLY structural change: the original read a module-global `FXC` for the
  * active currency; these pure functions take the currency `code` as an argument
  * so they can be unit-tested and driven by React state. The arithmetic and
@@ -11,6 +15,8 @@
  * they are covered by parity tests anyway because tool output strings depend on
  * them.
  */
+
+import { AMOUNT_MASK, amountsHidden } from './hideAmounts';
 
 export interface CurrencyDef {
   sym: string;
@@ -35,6 +41,15 @@ export function currencySym(code: string): string {
   return (CURRENCIES[code] || { sym: '' }).sym;
 }
 
+/**
+ * A hidden amount in `code`: "₹ ••••", "AED ••••". Hide amounts
+ * (lib/hideAmounts.ts) shows this in place of every formatted amount.
+ */
+export function maskedAmount(code = 'INR'): string {
+  const sym = currencySym(code).trim() || code;
+  return `${sym} ${AMOUNT_MASK}`;
+}
+
 /** INR Lakh/Crore formatter (original `fmt`). */
 export function fmt(n: number): string {
   n = Math.round(Number(n) || 0);
@@ -48,6 +63,7 @@ export function fmt(n: number): string {
 
 /** Currency-aware formatter (original `cfmt`). INR uses Lakh/Crore. */
 export function cfmt(n: number, code = 'INR'): string {
+  if (amountsHidden()) return maskedAmount(code);
   n = Math.round(Number(n) || 0);
   if (code === 'INR') return fmt(n);
   const neg = n < 0 ? '−' : '';
@@ -64,6 +80,7 @@ export function cfmt(n: number, code = 'INR'): string {
 
 /** Short currency formatter (original `cfmtSh`). */
 export function cfmtSh(n: number, code = 'INR'): string {
+  if (amountsHidden()) return maskedAmount(code);
   if (code === 'INR') {
     if (Math.abs(n) >= 1e7) return '₹' + (n / 1e7).toFixed(1) + 'Cr';
     if (Math.abs(n) >= 1e5) return '₹' + Math.round(n / 1e5) + 'L';

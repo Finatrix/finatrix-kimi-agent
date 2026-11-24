@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState, type RefObject } from 'react';
 import { AmountInput } from './AmountInput';
 import { evaluateFormula } from '../lib/formula';
+import { AMOUNT_MASK, useAmountsHidden } from '../lib/hideAmounts';
 
 /**
  * A money field whose owner keeps a NUMBER but whose user types a STRING.
@@ -74,7 +75,10 @@ export function MoneyField({
   // nothing renders from it — it only decides whether blur should clear.
   const focused = useRef(false);
 
-  const shown = draft ?? display(value);
+  // Hide amounts: a saved figure is masked until the field is focused, so the
+  // number someone is typing is always readable (lib/hideAmounts.ts).
+  const hidden = useAmountsHidden();
+  const shown = draft ?? (hidden && display(value) ? AMOUNT_MASK : display(value));
 
   const handleChange = useCallback((raw: string) => {
     setDraft(raw);
@@ -99,7 +103,10 @@ export function MoneyField({
       ariaLabel={ariaLabel}
       value={shown}
       onChange={handleChange}
-      onFocus={() => { focused.current = true; }}
+      onFocus={() => {
+        focused.current = true;
+        if (hidden) setDraft(display(value));
+      }}
       onBlur={() => {
         focused.current = false;
         // Drop the draft so the field re-renders from the committed number.

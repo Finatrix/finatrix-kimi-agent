@@ -30,7 +30,9 @@
 import { ymdLocal } from '../../lib/date';
 import { EXPENSE_CAT_MIGRATION, migrateCategory, type ExpenseItem } from './expense';
 import { roundAmount } from './formula';
+import { maskedAmount } from './format';
 import { convert, hasRate, type RateTable } from './fx';
+import { AMOUNT_MASK, amountsHidden } from './hideAmounts';
 import { getJSON, setJSON } from './storage';
 import { TRIPS_KEY } from './syncMerge';
 
@@ -69,6 +71,12 @@ export interface Trip {
   feePct?: number;
   /** Category keys that stay in the home currency. Recurring spends always do. */
   homeCats: string[];
+  /**
+   * Optional spending budget for the whole trip, in the home currency, so
+   * bookings paid in ₹ before leaving count against it too. Display only: it
+   * never changes an amount or a monthly budget.
+   */
+  budget?: number;
   createdAt: string;
   updatedAt: string;
   /** Set when deleted. Kept so a deletion reaches other devices instead of being merged back. */
@@ -110,6 +118,7 @@ export function normalizeTrip(raw: unknown): Trip | null {
     ? t.homeCats.filter((k): k is string => typeof k === 'string' && k !== '')
     : [...DEFAULT_HOME_CATS];
   const created = str(t.createdAt);
+  const budget = Number(t.budget);
   return {
     id,
     ...(str(t.name) ? { name: str(t.name) } : {}),
@@ -124,6 +133,7 @@ export function normalizeTrip(raw: unknown): Trip | null {
     ...(t.rateRefreshed === true ? { rateRefreshed: true } : {}),
     ...(Number.isFinite(fee) && fee > 0 ? { feePct: fee } : {}),
     homeCats,
+    ...(t.budget != null && Number.isFinite(budget) && budget > 0 ? { budget: roundAmount(budget) } : {}),
     createdAt: created,
     updatedAt: str(t.updatedAt) || created,
     ...(str(t.deletedAt) ? { deletedAt: str(t.deletedAt) } : {}),
@@ -158,6 +168,17 @@ export function upsertTrip(all: readonly Trip[], trip: Trip): Trip[] {
 /** A trip's display name: its own name, else the country, else the currency. */
 export function tripLabel(trip: Pick<Trip, 'name' | 'place' | 'currency'>): string {
   return trip.name || trip.place?.replace(/\s*\(.*\)$/, '') || trip.currency;
+}
+
+/**
+ * The trip a spend dated before every trip could be booked for: the next one
+ * to start after `ymd`. Null when `ymd` falls inside a trip (that trip already
+ * applies) or no trip starts later. Flights and hotels are booked ahead, so
+ * there is no limit on how far ahead.
+ */
+export function nextTripAfter(trips: readonly Trip[], ymd: string): Trip | null {
+  if (!ymd || tripOn(trips, ymd)) return null;
+  return liveTrips(trips).find((t) => t.start > ymd) ?? null;
 }
 
 /** True for a trip in the home currency, where nothing is converted. */
@@ -282,6 +303,45 @@ export function defaultHomeCats(cats: ReadonlyArray<{ k: string; section?: strin
   return [...new Set(keys)].filter((k) => valid.has(k));
 }
 
+/**
+ * The rate a bank actually charged: home units per 1 foreign unit, with every
+ * fee it added folded in, worked out from the statement's home amount.
+ *
+ *     implied rate = charged home amount ÷ foreign amount
+ *
+ * so that, like every trip spend, home = foreign × rate × (1 + fee ÷ 100) with
+ * a fee of 0 gives back exactly the charged amount. Kept unrounded: rounding
+ * it would make that product drift from the statement on large amounts.
+ * Null when it would not be a rate (no foreign amount, or opposite signs).
+ */
+export function impliedRate(chargedHome: number, foreign: number): number | null {
+  if (!Number.isFinite(chargedHome) || !Number.isFinite(foreign) || foreign === 0 || chargedHome === 0) return null;
+  const rate = chargedHome / foreign;
+  return rate > 0 ? rate : null;
+}
+
+/**
+ * "Charged a different amount?": the money fields of a spend paid in the trip
+ * currency, with the home amount replaced by the statement's figure.
+ *
+ * The foreign amount and currency stay as typed. `amount` becomes the charged
+ * figure (rounded like every amount, `roundAmount`), signed like the foreign
+ * amount so a refund stays a refund however it was typed. `fxRate` becomes
+ * the implied rate, the card fee is dropped (it is inside the charged figure)
+ * and `fxCharged` marks the amount as the bank's, so re-pricing the trip at a
+ * new rate or fee leaves it alone. Returns `money` unchanged when it was not
+ * paid in a foreign currency or `charged` is not a usable amount.
+ */
+export function chargedMoney(money: SpendMoney, charged: number): SpendMoney {
+  if (typeof money.fxAmount !== 'number' || !money.fxCurrency) return money;
+  const amount = roundAmount(Math.abs(charged) * Math.sign(money.fxAmount));
+  const rate = impliedRate(amount, money.fxAmount);
+  if (rate === null) return money;
+  const out: SpendMoney = { ...money, amount, fxRate: rate, fxCharged: true };
+  delete out.fxFee;
+  return out;
+}
+
 /** What a spend is priced against: a trip, or an edited spend's own saved rate and fee. */
 export interface FxContext {
   /** The trip to tag the spend with, or null when that trip no longer exists. */
@@ -295,7 +355,7 @@ export function contextOf(trip: Trip): FxContext {
   return { tripId: trip.id, currency: trip.currency, rate: trip.rate, feePct: trip.feePct };
 }
 
-type SpendMoney = Pick<ExpenseItem, 'amount' | 'fxAmount' | 'fxCurrency' | 'fxRate' | 'fxFee' | 'tripId'>;
+export type SpendMoney = Pick<ExpenseItem, 'amount' | 'fxAmount' | 'fxCurrency' | 'fxRate' | 'fxFee' | 'fxCharged' | 'tripId'>;
 
 /**
  * The money fields of a spend typed as `typed`.
@@ -352,6 +412,15 @@ export function tripDefaults(
 
 export function tripExpenses(items: readonly ExpenseItem[], tripId: string): ExpenseItem[] {
   return items.filter((e) => e.tripId === tripId);
+}
+
+/**
+ * True for a trip expense a new trip rate or fee would re-price: paid in the
+ * trip currency at the trip's rate. One whose home amount was typed from the
+ * statement (`fxCharged`) is what the bank took, so it is never re-priced.
+ */
+function repriceable(e: ExpenseItem, trip: Pick<Trip, 'id' | 'currency'>): boolean {
+  return e.tripId === trip.id && paidInTripCurrency(e, trip) && !e.fxCharged;
 }
 
 /** True for a trip expense entered in the trip currency (it has a foreign amount). */
@@ -412,7 +481,7 @@ export function repriceTripExpenses(
 ): { next: ExpenseItem[]; changes: Array<{ before: ExpenseItem; after: ExpenseItem }> } {
   const changes: Array<{ before: ExpenseItem; after: ExpenseItem }> = [];
   const next = items.map((e) => {
-    if (e.tripId !== trip.id || !paidInTripCurrency(e, trip)) return e;
+    if (!repriceable(e, trip)) return e;
     const amount = tripHomeAmount(e.fxAmount!, rate, feePct, e.paymentMethod);
     const fee = feeApplies(feePct, e.paymentMethod) ? feePct : undefined;
     const after: ExpenseItem = { ...e, amount, fxRate: rate, updatedAt: nowIso, editCount: (e.editCount ?? 0) + 1 };
@@ -427,7 +496,7 @@ export function repriceTripExpenses(
 
 /** How many of a trip's expenses a new rate or fee would re-price. */
 export function repriceableCount(items: readonly ExpenseItem[], trip: Pick<Trip, 'id' | 'currency'>): number {
-  return items.filter((e) => e.tripId === trip.id && paidInTripCurrency(e, trip)).length;
+  return items.filter((e) => repriceable(e, trip)).length;
 }
 
 /* ── Summary ───────────────────────────────────────────────────────────── */
@@ -479,10 +548,65 @@ export function summarizeTrip(trip: Trip, items: readonly ExpenseItem[], today: 
   };
 }
 
+/* ── Trip budget ───────────────────────────────────────────────────────── */
+
+export interface TripBudgetProgress {
+  /** Spent as a share of the budget, in % (may pass 100). */
+  pct: number;
+  /** Budget minus spent, home currency; negative once over. */
+  left: number;
+  over: boolean;
+}
+
+/**
+ * How a trip's spending stands against its budget. `spent` is the trip's
+ * home-currency total (`summarizeTrip().homeTotal`). Null with no budget.
+ */
+export function tripBudgetProgress(spent: number, budget: number | undefined): TripBudgetProgress | null {
+  if (!budget || !(budget > 0)) return null;
+  const left = roundAmount(budget - spent);
+  return { pct: (spent / budget) * 100, left, over: left < 0 };
+}
+
+/* ── A month's share of trip spending ──────────────────────────────────── */
+
+/**
+ * How much of a month's spending came from each trip, for the line under the
+ * month's budget figures ("Includes ₹29,760 from the Dubai trip").
+ *
+ * Sums `amount` over the month's expenses tagged with a trip, using the same
+ * month filter as `computeDashboard`'s `monthlySpent`, so the line is a part
+ * of that figure and never a different number. Deleted trips are skipped:
+ * their expenses still count in the month, but there is no trip to name.
+ * Largest first; trips that net to 0 are left out.
+ */
+export function tripSpendInMonth(
+  items: readonly ExpenseItem[],
+  trips: readonly Trip[],
+  month: string,
+): Array<{ trip: Trip; home: number }> {
+  const byId = new Map(liveTrips(trips).map((t) => [t.id, t]));
+  const sums = new Map<string, number>();
+  for (const e of items) {
+    if (!e.tripId || (e.date || '').slice(0, 7) !== month || !byId.has(e.tripId)) continue;
+    sums.set(e.tripId, (sums.get(e.tripId) ?? 0) + e.amount);
+  }
+  return [...sums.entries()]
+    .map(([id, home]) => ({ trip: byId.get(id)!, home: roundAmount(home) }))
+    .filter((x) => x.home !== 0)
+    .sort((a, b) => b.home - a.home);
+}
+
 /* ── Formatting ────────────────────────────────────────────────────────── */
+
+/*
+ * Both follow Hide amounts (lib/hideAmounts.ts), like `cfmt`. `fmtRate` does
+ * not: a rate is public market data, not the user's money.
+ */
 
 /** "AED 120" or "AED 12.50": the trip currency by its code, which no symbol can confuse. */
 export function fmtForeign(n: number, code: string): string {
+  if (amountsHidden()) return `${code} ${AMOUNT_MASK}`;
   const abs = Math.abs(n);
   const digits = Number.isInteger(abs) ? 0 : 2;
   const body = abs.toLocaleString('en', { minimumFractionDigits: digits, maximumFractionDigits: 2 });
@@ -491,6 +615,7 @@ export function fmtForeign(n: number, code: string): string {
 
 /** An exact home amount with paise, e.g. "₹2,980.80", for previews of what will be saved. */
 export function fmtExact(n: number, code: string): string {
+  if (amountsHidden()) return maskedAmount(code);
   try {
     return new Intl.NumberFormat(code === 'INR' ? 'en-IN' : 'en', {
       style: 'currency', currency: code, minimumFractionDigits: 2, maximumFractionDigits: 2,

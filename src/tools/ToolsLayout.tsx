@@ -30,6 +30,7 @@ import AppearanceMenu from '../components/AppearanceMenu';
 import { CommandPaletteTrigger } from '../components/CommandPaletteTrigger';
 import { useCommandPalette } from '../hooks/useCommandPalette';
 import { NotificationsBell } from './ui/NotificationsBell';
+import { HideAmountsButton } from './ui/HideAmountsButton';
 import { AiProvider, AiLauncher, AiHeaderButton } from './ui/AiAssistant';
 import { warnIfOverdue } from '../reference/review';
 import { isNativeApp } from '../native/platform';
@@ -486,6 +487,7 @@ export default function ToolsLayout() {
             <div className="fx-appbar-actions">
               <CommandPaletteTrigger onOpen={openPalette} />
               {ready && <AiHeaderButton className="fx-phone-only" />}
+              <HideAmountsButton />
               <NotificationsBell />
               {/* Display currency sits with the other global display controls,
                   not in the navigation row; on a phone the All tools page has

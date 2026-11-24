@@ -1,7 +1,7 @@
 import { Icon } from '../ui/Icon';
 import type { ExpenseItem } from '../lib/expense';
 import {
-  addDays, daysLeft, fmtForeign, fmtTripDay, isHomeTrip, summarizeTrip, tripLabel, type Trip,
+  addDays, daysLeft, fmtForeign, fmtTripDay, isHomeTrip, summarizeTrip, tripBudgetProgress, tripLabel, type Trip,
 } from '../lib/trips';
 
 /**
@@ -45,6 +45,9 @@ export function TravelBar({
     const amounts = isHomeTrip(active)
       ? cfmt(s.homeTotal)
       : `${fmtForeign(s.foreignTotal, active.currency)} (${cfmt(s.homeTotal)})`;
+    // Optional trip budget (travel stage 2): what is left, with a bar whose
+    // length is the share spent. The words carry the meaning; the bar is extra.
+    const budget = tripBudgetProgress(s.homeTotal, active.budget);
     return (
       <section className="fx-travel" aria-label="Travel mode">
         <style>{TRAVEL_STYLES}</style>
@@ -56,6 +59,20 @@ export function TravelBar({
             {lastDay ? 'Last day' : `${left} days left`}
             {' · '}
             {amounts}
+            {budget && (
+              <>
+                {' · '}
+                <span className={budget.over ? 'fx-travel-over' : undefined}>
+                  {budget.over ? `${cfmt(-budget.left)} over budget` : `${cfmt(budget.left)} left`}
+                </span>
+                <span className="fx-travel-meter" aria-hidden="true">
+                  <span
+                    className={budget.over ? 'is-over' : budget.pct >= 80 ? 'is-near' : undefined}
+                    style={{ width: `${Math.min(100, budget.pct)}%` }}
+                  />
+                </span>
+              </>
+            )}
           </span>
           <span className="fx-travel-more">Summary</span>
         </button>
@@ -119,6 +136,11 @@ const TRAVEL_STYLES = `
 @media (hover: hover) and (pointer: fine){.fx-travel-strip:hover{border-color:color-mix(in srgb, var(--blue) 60%, transparent);}}
 .fx-travel-strip svg{color:var(--blue);flex-shrink:0;}
 .fx-travel-text{flex:1;min-width:0;line-height:1.4;}
+.fx-travel-over{color:var(--red);font-weight:600;}
+.fx-travel-meter{display:block;height:4px;margin-top:6px;border-radius:4px;background:color-mix(in srgb, var(--blue) 16%, transparent);overflow:hidden;}
+.fx-travel-meter > span{display:block;height:100%;border-radius:inherit;background:var(--blue);}
+.fx-travel-meter > span.is-near{background:var(--orange);}
+.fx-travel-meter > span.is-over{background:var(--red);}
 .fx-travel-more{flex-shrink:0;font-size:13px;font-weight:600;color:var(--ink2);}
 .fx-travel-ask{flex:1 1 100%;display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:14px;font-weight:600;}
 .fx-travel-ask .btn{width:auto;}
