@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Add pill: brand gold, the one primary action on the widget. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/fx_gold" />
+    <corners android:radius="999dp" />
+</shape>

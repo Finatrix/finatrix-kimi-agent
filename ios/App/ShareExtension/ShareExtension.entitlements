@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  The App Group the Share Extension shares with the app: it leaves shared
+  images in this group's container, and FxSharePlugin.swift in the app picks
+  them up. The same group is in App/App.entitlements. It must be registered on
+  BOTH App IDs (co.finatrix.app and co.finatrix.app.ShareExtension) in the
+  Developer portal; docs/IOS.md lists it with the other capabilities.
+-->
+<plist version="1.0">
+<dict>
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.co.finatrix.app</string>
+	</array>
+</dict>
+</plist>
