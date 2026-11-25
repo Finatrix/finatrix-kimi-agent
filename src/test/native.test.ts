@@ -253,6 +253,69 @@ describe('one app identity across every file that declares it', () => {
     expect(java).toContain('protected void handleOnPause()');
   });
 
+  it('registers the widget plugin on both platforms and builds the widget on both', () => {
+    const pbx = read('ios/App/App.xcodeproj/project.pbxproj');
+    expect(read('ios/App/App/ViewController.swift')).toContain('registerPluginInstance(FxWidgetPlugin())');
+    expect(read('ios/App/App/FxWidgetPlugin.swift')).toContain('jsName = "FxWidget"');
+    expect(pbx).toContain('FxWidgetPlugin.swift in Sources');
+    // The extension target exists, compiles both files and is embedded in the app.
+    expect(pbx).toContain('FinatriXWidget.swift in Sources');
+    expect(pbx).toContain('WidgetPayload.swift in Sources');
+    expect(pbx).toContain('FinatriXWidget.appex in Embed Foundation Extensions');
+    expect(pbx).toContain('PRODUCT_BUNDLE_IDENTIFIER = co.finatrix.app.widget;');
+    expect(read('ios/App/FinatriXWidget/Info.plist')).toContain('com.apple.widgetkit-extension');
+    expect(read('android/app/src/main/java/co/finatrix/app/MainActivity.java')).toContain('registerPlugin(co.finatrix.app.widget.WidgetPlugin.class)');
+    expect(read('android/app/src/main/java/co/finatrix/app/widget/WidgetPlugin.java')).toContain('@CapacitorPlugin(name = "FxWidget")');
+    expect(read('src/native/widget.ts')).toContain("registerPlugin<FxWidgetPlugin>('FxWidget')");
+    const manifest = read('android/app/src/main/AndroidManifest.xml');
+    expect(manifest).toContain('android:name=".widget.SafeSpendSmallWidget"');
+    expect(manifest).toContain('android:name=".widget.SafeSpendMediumWidget"');
+  });
+
+  it('wires the watch app: plugin, paired bundle ids, embedding and one wire format (step 3.8)', () => {
+    const pbx = read('ios/App/App.xcodeproj/project.pbxproj');
+    expect(read('ios/App/App/ViewController.swift')).toContain('registerPluginInstance(FxWatchPlugin())');
+    expect(read('ios/App/App/FxWatchPlugin.swift')).toContain('jsName = "FxWatch"');
+    expect(read('src/native/watch.ts')).toContain("registerPlugin<FxWatchPlugin>('FxWatch')");
+    // The session starts at launch: a watch can wake the app before the web layer exists.
+    expect(read('ios/App/App/AppDelegate.swift')).toContain('WatchBridge.shared.activate()');
+    // The watch app is embedded in the iPhone app, and its complication in the watch app.
+    expect(pbx).toContain('FinatriXWatch.app in Embed Watch Content');
+    expect(pbx).toContain('FinatriXWatchWidget.appex in Embed Foundation Extensions');
+    // Bundle ids nest under the iPhone app's, and the watch names its companion.
+    expect(pbx).toContain('PRODUCT_BUNDLE_IDENTIFIER = co.finatrix.app.watchkitapp;');
+    expect(pbx).toContain('PRODUCT_BUNDLE_IDENTIFIER = co.finatrix.app.watchkitapp.widget;');
+    expect(read('ios/App/FinatriXWatch/Info.plist')).toContain(`<string>${APP_ID}</string>`);
+    // The complication reads the same document, by the same reader, as the iPhone widget.
+    expect(pbx.match(/WidgetPayload\.swift in Sources/g)).toHaveLength(6); // three targets: one line in the file list, one in the phase
+    for (const f of ['ios/App/FinatriXWatch/FinatriXWatch.entitlements', 'ios/App/FinatriXWatchWidget/FinatriXWatchWidget.entitlements']) {
+      expect(read(f)).toContain('<string>group.co.finatrix.app</string>');
+    }
+    // No network from the watch.
+    for (const f of ['WatchSession', 'ContentView', 'QuickAddView', 'WatchLogic']) {
+      expect(read(`ios/App/FinatriXWatch/${f}.swift`)).not.toMatch(/URLSession|URLRequest/);
+    }
+  });
+
+  it('keeps the widget document in one App Group and under one key everywhere', () => {
+    const group = 'group.co.finatrix.app';
+    for (const f of ['ios/App/App/App.entitlements', 'ios/App/FinatriXWidget/FinatriXWidget.entitlements']) {
+      expect(read(f)).toContain(`<string>${group}</string>`);
+    }
+    for (const f of ['ios/App/App/FxWidgetPlugin.swift', 'ios/App/FinatriXWidget/WidgetPayload.swift']) {
+      const swift = read(f);
+      expect(swift).toContain(`appGroup = "${group}"`);
+      expect(swift).toContain('key = "fx_widget"');
+    }
+    expect(read('android/app/src/main/java/co/finatrix/app/widget/WidgetData.java')).toContain('PREFS = "fx_widget"');
+    // The links the widgets open are the ones the bridge handles.
+    for (const f of ['ios/App/FinatriXWidget/FinatriXWidget.swift', 'android/app/src/main/java/co/finatrix/app/widget/SafeSpendWidget.java']) {
+      const src = read(f);
+      expect(src).toContain(`${APP_ID}://widget/add`);
+      expect(src).toContain(`${APP_ID}://widget/open`);
+    }
+  });
+
   it('registers the app lock plugin on both platforms, under one name', () => {
     expect(read('ios/App/App/ViewController.swift')).toContain('registerPluginInstance(FxAppLockPlugin())');
     expect(read('ios/App/App/FxAppLockPlugin.swift')).toContain('jsName = "FxAppLock"');
@@ -428,6 +491,22 @@ describe('deep links', () => {
   it('does not mistake words inside a normal query value for authentication', () => {
     handleOpenUrl('https://finatrix.co/learn?search=access_token=example', navigate);
     expect(navigate).toHaveBeenCalledWith('/learn?search=access_token=example');
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('opens the add-expense form from the widget\'s Add, and the Expenses page from its figure', () => {
+    handleOpenUrl(`${APP_ID}://widget/add`, navigate);
+    expect(navigate).toHaveBeenLastCalledWith('/tools/expenses?new=1');
+    handleOpenUrl(`${APP_ID}://widget/open`, navigate);
+    expect(navigate).toHaveBeenLastCalledWith('/tools/expenses');
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('carries nothing from a widget link into the app', () => {
+    handleOpenUrl(`${APP_ID}://widget/add?next=https%3A%2F%2Fevil.example#access_token=a`, navigate);
+    handleOpenUrl(`${APP_ID}://widget/../../login`, navigate);
+    expect(navigate).toHaveBeenNthCalledWith(1, '/tools/expenses?new=1');
+    expect(navigate).toHaveBeenNthCalledWith(2, '/tools/expenses');
     expect(replace).not.toHaveBeenCalled();
   });
 

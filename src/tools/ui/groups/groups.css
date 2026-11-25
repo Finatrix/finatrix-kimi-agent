@@ -1,0 +1,26 @@
+/* Groups (step 2.3). Scoped to .fx-tools; :hover is gated by postcss-hover-gate. */
+.fx-tools .fx-grp-choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; border: none; margin: 0 0 14px; padding: 0; }
+.fx-tools .fx-grp-choice { position: relative; display: flex; flex-direction: column; gap: 2px; min-height: 44px; padding: 10px 12px; border: var(--ctl-bw, 1px) solid var(--hair2); border-radius: 12px; background: var(--card); cursor: pointer; }
+.fx-tools .fx-grp-choice:hover { border-color: var(--hair); }
+.fx-tools .fx-grp-choice input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.fx-tools .fx-grp-choice:has(input:checked) { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
+.fx-tools .fx-grp-choice:has(input:focus-visible) { outline: 2px solid hsl(var(--accent)); outline-offset: 2px; }
+.fx-tools .fx-grp-choice b { font-size: 14px; }
+.fx-tools .fx-grp-choice span { font-size: 13px; color: var(--ink2); line-height: 1.35; }
+.fx-tools .fx-grp-emojis { display: flex; flex-wrap: wrap; gap: 6px; border: none; margin: 0 0 14px; padding: 0; }
+.fx-tools .fx-grp-emoji { position: relative; display: grid; place-items: center; width: 44px; height: 44px; border: var(--ctl-bw, 1px) solid var(--hair2); border-radius: 12px; background: var(--card); font-size: 22px; cursor: pointer; }
+.fx-tools .fx-grp-emoji input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.fx-tools .fx-grp-emoji:has(input:checked) { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
+.fx-tools .fx-grp-emoji:has(input:focus-visible) { outline: 2px solid hsl(var(--accent)); outline-offset: 2px; }
+.fx-tools .fx-grp-badge { display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0; border-radius: 12px; background: var(--fill-06); font-size: 22px; }
+.fx-tools .fx-grp-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--hair2); }
+.fx-tools .fx-grp-row:first-child { border-top: none; }
+.fx-tools .fx-grp-card { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 12px 14px; border: var(--ctl-bw, 1px) solid var(--hair2); border-radius: 14px; background: var(--card); color: inherit; text-align: left; font: inherit; text-decoration: none; cursor: pointer; }
+.fx-tools .fx-grp-card:hover { border-color: var(--hair); }
+.fx-tools .fx-grp-code { font-size: 28px; font-weight: 800; letter-spacing: .06em; font-variant-numeric: tabular-nums; }
+.fx-tools .fx-grp-bar { height: 6px; border-radius: 3px; background: var(--fill-06); overflow: hidden; margin-top: 6px; }
+.fx-tools .fx-grp-bar > span { display: block; height: 100%; border-radius: 3px; }
+.fx-tools .fx-grp-name { display: block; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fx-tools .fx-grp-sub { display: block; font-size: 13px; color: var(--ink2); }
+.fx-tools .fx-grp-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.fx-tools .fx-grp-err { color: var(--red); font-size: 13px; font-weight: 600; margin: 0 0 8px; }

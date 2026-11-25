@@ -136,6 +136,7 @@ const WORKSPACE: readonly { id: string; title: string; subtitle: string; icon: I
   { id: 'dashboard', title: 'Dashboard', subtitle: 'Everything at a glance', icon: 'pie', keywords: ['home', 'hub', 'overview', 'summary'] },
   { id: 'reports', title: 'Reports', subtitle: 'Export a full financial report', icon: 'layers', keywords: ['pdf', 'export', 'download', 'statement', 'summary'] },
   { id: 'calendar', title: 'Calendar', subtitle: 'Bills, SIPs and goal dates', icon: 'clock', keywords: ['bills', 'due', 'upcoming', 'month', 'schedule'] },
+  { id: 'groups', title: 'Groups', subtitle: 'Budget together with family, a partner or flatmates', icon: 'users', keywords: ['family', 'household', 'shared', 'couple', 'flatmates', 'together', 'invite', 'join', 'room code'] },
   { id: 'moneycalendar', title: 'Money calendar', subtitle: 'Your balance over the next 30–90 days', icon: 'clock', keywords: ['cash flow', 'cashflow', 'forecast', 'balance', 'payday', 'salary', 'projection', 'short'] },
   { id: 'subscriptions', title: 'Subscriptions', subtitle: 'Yearly cost, renewals and free trials', icon: 'subs', keywords: ['subscription', 'renewal', 'trial', 'netflix', 'recurring', 'cancel', 'yearly'] },
   { id: 'locker', title: 'Bill locker', subtitle: 'Bills, photos and warranty end dates', icon: 'shield', keywords: ['warranty', 'bill', 'receipt', 'invoice', 'guarantee', 'claim', 'photo', 'proof of purchase'] },

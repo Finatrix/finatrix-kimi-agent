@@ -1,5 +1,6 @@
 import { AiMonthScope } from '../ui/AiMonthScope';
-import { hasBudgetEvidence } from '../lib/budgetEvidence';
+import { readBudgetMonth } from '../lib/budgetEvidence';
+import { NEW_EXPENSE_PARAM } from '../lib/widgetLinks';
 import {
   Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type RefObject,
 } from 'react';
@@ -50,7 +51,7 @@ import { SECTION_COLOR, SECTION_FILL } from '../lib/sectionColors';
 import { useOptionalToast } from '../ui/Toast';
 import { AskAiButton } from '../ui/AskAiButton';
 import { BudgetTimeline } from '../ui/BudgetTimeline';
-import TransactionModal from '../ui/TransactionModal';
+import TransactionModal, { type GroupEntry } from '../ui/TransactionModal';
 import { AddExpenseFab } from '../ui/AddExpenseFab';
 import { takeShared } from '../../lib/shareInbox';
 import TransactionList, { type ExportKind, type TransactionListHandle } from '../ui/TransactionList';
@@ -78,6 +79,7 @@ import { TravelBar } from '../travel/TravelBar';
 import { TripSheet } from '../travel/TripSheet';
 import { TripSummarySheet } from '../travel/TripSummarySheet';
 import { useTrips } from '../travel/useTrips';
+import { useGroupExpenseAdd } from '../lib/useGroupExpenseAdd';
 
 /* ── Design tokens ── */
 
@@ -118,15 +120,6 @@ const TAB_ITEMS: ReadonlyArray<TabItem<Tab>> = [
   { key: 'recurring', label: 'Recurring', icon: 'refresh' },
   { key: 'history', label: 'History', icon: 'clock' },
 ];
-
-/** That month's Budget Builder plan — per-category allocations and total income. */
-function readBudgetMonth(store: BudgetStore, m: string): { vals: Record<string, number>; income: number } {
-  const d = store[m];
-  const vals = d?.vals ?? {};
-  const allocated = Object.values(vals).reduce((sum, value) => sum + (Number(value) || 0), 0);
-  const income = hasBudgetEvidence(d?.income, allocated) ? Math.max(0, Number(d?.income) || 0) : 0;
-  return { vals, income };
-}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Main component
@@ -235,7 +228,7 @@ export default function ExpensePage() {
     const off = onLocalWrite((key, origin) => {
       // Sync merged in rows from another device. Without re-reading, this page
       // would write its older list back on the next edit and drop them.
-      if (origin === 'remote') {
+      if (origin === 'remote' || origin === 'device') {
         if (key === 'fx_expenses') setItems(loadExpenses());
         if (key === AUDIT_KEY) setAudit(loadAuditLog());
       }
@@ -588,7 +581,7 @@ export default function ExpensePage() {
   };
 
   const openEdit = (item: ExpenseItem) => { setEditing(item); setModalOpen(true); };
-  const openAdd = () => { setEditing(null); setModalOpen(true); };
+  const openAdd = () => { setEditing(null); setAddToGroup(undefined); setModalOpen(true); };
 
   /**
    * A spend handed over from the ⌘K palette as `?add=<line>`.
@@ -605,6 +598,18 @@ export default function ExpensePage() {
   const seedNonce = useRef(0);
   useEffect(() => {
     const params = new URLSearchParams(location.search);
+    // `?new=1` is the home-screen widget's Add (src/tools/lib/widgetLinks.ts,
+    // WIDGET_ADD_PATH): straight to the add-expense form, consumed the same
+    // way so a refresh does not open it again.
+    if (params.has(NEW_EXPENSE_PARAM)) {
+      setTab('overview');
+      setEditing(null);
+      setModalOpen(true);
+      params.delete(NEW_EXPENSE_PARAM);
+      const q = params.toString();
+      navigate({ pathname: location.pathname, search: q ? `?${q}` : '' }, { replace: true });
+      return;
+    }
     if (!params.has('add')) return;
     const text = params.get('add') ?? '';
     seedNonce.current += 1;
@@ -614,6 +619,33 @@ export default function ExpensePage() {
     const q = params.toString();
     navigate({ pathname: location.pathname, search: q ? `?${q}` : '' }, { replace: true });
   }, [location.search, location.pathname, navigate]);
+
+  /*
+   * Groups (step 2.3): the add form can send a new spend to a group instead,
+   * and `?group=<id>` (a group's own "Add an expense") opens it preselected.
+   * Personal stays the default, and `saveTransaction` is unchanged.
+   */
+  const groupAdd = useGroupExpenseAdd(notify);
+  const [addToGroup, setAddToGroup] = useState<string | undefined>();
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const groupId = params.get('group');
+    if (!groupId) return;
+    setEditing(null);
+    setAddToGroup(groupId);
+    setModalOpen(true);
+    params.delete('group');
+    const q = params.toString();
+    navigate({ pathname: location.pathname, search: q ? `?${q}` : '' }, { replace: true });
+  }, [location.search, location.pathname, navigate]);
+  const saveToGroup = (groupId: string, entry: GroupEntry) => {
+    void groupAdd.save(groupId, entry).then((ok) => {
+      if (!ok) return;
+      haptic('success');
+      setModalOpen(false);
+      setEditing(null);
+    });
+  };
 
   /**
    * Images shared to FinatriX from another app (src/lib/shareInbox.ts) open the
@@ -1192,6 +1224,9 @@ export default function ExpensePage() {
           onDuplicate={duplicateTransaction}
           trips={trips}
           homeCode={code}
+          groups={groupAdd.choices}
+          initialGroupId={addToGroup}
+          onSaveToGroup={saveToGroup}
         />
       )}
 

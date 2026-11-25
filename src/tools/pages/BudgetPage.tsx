@@ -138,6 +138,18 @@ export default function BudgetPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // A budget set from FinatriX AI can land while this page is open. This page's
+  // own autosave writes exactly what `allRef` holds, so that is ignored; any
+  // other write reloads the month on screen, so the next autosave cannot put
+  // the old amount back.
+  useEffect(() => onLocalWrite((key, origin) => {
+    if (key !== 'fx_bb_data' || origin !== 'user') return;
+    const fresh = getJSON<BudgetStore>('fx_bb_data', {});
+    if (JSON.stringify(fresh) === JSON.stringify(allRef.current)) return;
+    allRef.current = fresh;
+    loadMonth(monthRef.current);
+  }), [loadMonth]);
+
   // Auto-persist the month being edited (mirrors bbUpdate → bbSave). A month
   // still waiting for a start choice is never written, so navigating to next
   // month doesn't silently create an empty budget.

@@ -15,6 +15,8 @@ export interface EmployerScanResult {
   droppedByTitle: number;
   duplicatesInScan: number;
   truncation?: Truncation;
+  /** The provider paused part-way (FetchContext.resume): pass this back to carry on. */
+  cursor?: unknown;
   error?: string;
   durationMs: number;
 }
@@ -108,6 +110,7 @@ export async function scanEmployers(entries: EmployerEntry[], options: ScanOptio
         result.truncation = fetched.truncation;
         result.status = 'truncated';
       }
+      if (fetched.cursor !== undefined) result.cursor = fetched.cursor;
       const seen = new Set<string>();
       const kept: Job[] = [];
       for (const job of fetched.jobs) {

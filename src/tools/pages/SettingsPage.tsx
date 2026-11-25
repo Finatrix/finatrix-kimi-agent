@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { RemindersCard } from '../ui/Reminders';
 import { AppLockCard } from '../ui/AppLockCard';
+import { WidgetCard } from '../ui/WidgetCard';
 import { isNativeApp } from '../../native/platform';
 import { Link } from 'react-router';
 import { PageHead, ToolFoot } from '../ui/common';
@@ -195,6 +196,13 @@ export default function SettingsPage() {
       {isNativeApp() && (
         <Section title="App lock" desc="Ask for your face, fingerprint or device passcode when FinatriX opens, and when you come back after a minute away, so someone who picks up your unlocked phone cannot open it. It uses this device’s own unlock, so anyone who can unlock the device can unlock FinatriX, and it does not encrypt your data.">
           <AppLockCard />
+        </Section>
+      )}
+
+      {/* Home-screen widget: the installed apps only. */}
+      {isNativeApp() && (
+        <Section title="Widget" desc="Today's safe-to-spend figure on your home screen, with an Add button that opens straight to a new expense.">
+          <WidgetCard />
         </Section>
       )}
 

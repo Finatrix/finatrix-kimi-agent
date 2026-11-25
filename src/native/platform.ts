@@ -93,6 +93,14 @@ export const APP_ID = 'co.finatrix.app';
  */
 export const NATIVE_AUTH_CALLBACK = `${APP_ID}://auth/callback`;
 
+/**
+ * The home-screen widgets' links (src/tools/lib/widgetData.ts):
+ * `co.finatrix.app://widget/add` opens the add-expense form and
+ * `co.finatrix.app://widget/open` the Expenses page. Same scheme as the OAuth
+ * return, so neither app needs another URL type registered.
+ */
+export const NATIVE_WIDGET_HOST = 'widget';
+
 /** The public website. Also the host App Links / Universal Links are verified for. */
 export const PUBLIC_ORIGIN = 'https://finatrix.co';
 

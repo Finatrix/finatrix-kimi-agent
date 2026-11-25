@@ -81,8 +81,13 @@ export const SYNC_KEYS = [
  * with the lock in this list, that link switched the lock off without any
  * unlock. The lock ends with an explicit sign-out only (`clearAppLockOnSignOut`,
  * called from AuthContext.signOut); appLockSetting.test.tsx holds this in place.
+ *
+ * `fx_groups` and `fx_group_outbox` (lib/groups.ts) are the account's list of
+ * groups and its queue of group changes waiting to upload. Neither is synced:
+ * groups live in their own server tables. The queue is also tagged with the
+ * account that made each change, and only that account's session sends it.
  */
-export const ACCOUNT_LOCAL_KEYS = ['fx_import_staged', 'fx_sub_radar', 'fx_money_cal', 'fx_locker'];
+export const ACCOUNT_LOCAL_KEYS = ['fx_import_staged', 'fx_sub_radar', 'fx_money_cal', 'fx_groups', 'fx_group_outbox', 'fx_group_share_cursor', 'fx_locker'];
 const LAST_UID_KEY = 'fx_last_uid';
 const PENDING_KEY = 'fx_sync_pending';
 

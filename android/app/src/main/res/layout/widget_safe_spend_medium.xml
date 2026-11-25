@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Medium widget: the figure on the left, Add on the right. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/fx_widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/fx_widget_bg"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/fx_widget_label"
+            android:textColor="@color/fx_widget_ink2"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/fx_widget_amount"
+            android:text="@string/fx_widget_preview_amount"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:gravity="center_vertical"
+            android:maxLines="1"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="18sp"
+            android:autoSizeMaxTextSize="36sp"
+            android:textColor="@color/fx_widget_ink"
+            android:textSize="34sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/fx_widget_prompt"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:maxLines="2"
+            android:textColor="@color/fx_widget_ink"
+            android:textSize="15sp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/fx_widget_add"
+        android:layout_width="wrap_content"
+        android:layout_height="44dp"
+        android:layout_marginStart="12dp"
+        android:background="@drawable/fx_widget_add_bg"
+        android:contentDescription="@string/fx_widget_add_a11y"
+        android:gravity="center"
+        android:minWidth="88dp"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:text="@string/fx_widget_add"
+        android:textColor="#0A0A0A"
+        android:textSize="15sp"
+        android:textStyle="bold" />
+</LinearLayout>
