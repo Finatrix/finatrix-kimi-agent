@@ -17,7 +17,7 @@ The list of new features we are planning, with what was decided for each. The bu
 | 11 | [Hide amounts](#11-hide-amounts) | Suggested, not discussed |
 | 12 | [Family budget and groups](#12-family-budget-and-groups) | All decided, not started |
 | 13 | [Money calendar](#13-money-calendar) | Suggested, not discussed |
-| 14 | [Private on-device AI](#14-private-on-device-ai) | Built in step 3.7; decisions below (25 Nov 2026) |
+| 14 | [Private on-device AI](#14-private-on-device-ai) | Built in step 3.7 ([PR 44](https://github.com/Finatrix/finatrix-kimi-agent/pull/44)); decisions below (25 Nov 2026) |
 | 15 | [Indian languages](#15-indian-languages) | **Dropped** by the owner (25 Nov 2026). Was step 3.6 |
 | 16 | [Watch app](#16-watch-app) | Suggested, not discussed |
 
@@ -387,7 +387,7 @@ Newer iPhones and some Android phones have AI built in. FinatriX could use it to
 
 ### Decided
 
-Decided by the building session under the owner's delegation (25 Nov 2026), safest and simplest option each time. The reasons are in the step 3.7 PR.
+Decided by the building session under the owner's delegation (25 Nov 2026), safest and simplest option each time. The reasons are in [PR 44](https://github.com/Finatrix/finatrix-kimi-agent/pull/44).
 
 - **One path, inside the transport.** `requestCompletion` tries the phone's model first (`src/lib/ai/onDevice.ts`), after the same consent gate, and every caller's own checks (the money chat's grounding and same-line rule, the action resolver, category validation) run on its answer unchanged.
 - **Consent still applies.** `fx_ai_consent` gates the on-device path too, even though nothing leaves the phone, so there is one permission and one set of rules.

@@ -34,7 +34,7 @@ If these two docs aren't in your checkout, they were untracked files in `/Users/
 | 3.4 | Home-screen widget | 2.1 | ☑ [PR 36](https://github.com/Finatrix/finatrix-kimi-agent/pull/36) |
 | 3.5 | Warranty and bill locker | 3.3 | ☐ |
 | 3.6 | ~~Indian-language app~~ | — | Dropped by the owner, 25 Nov 2026 |
-| 3.7 | Private on-device AI | 3.2 | ☐ |
+| 3.7 | Private on-device AI | 3.2 | ☑ [PR 44](https://github.com/Finatrix/finatrix-kimi-agent/pull/44) (built; real-phone checks owed, listed in the PR) |
 | 3.8 | Watch app | 3.4 | ☑ [PR 41](https://github.com/Finatrix/finatrix-kimi-agent/pull/41) (watchOS only; Wear OS is designed in docs/WATCH.md, not built) |
 | 3.9 | Later stages: voice from Siri and Google's assistant, group notifications, children as names, group goals, trip groups | 3.2, 2.4 | ☐ |
 
