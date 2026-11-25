@@ -91,3 +91,13 @@ export function subscribeStage3(groupId: string, onChange: () => void): () => vo
   channel.subscribe();
   return () => { void supabase.removeChannel(channel); };
 }
+
+/**
+ * How many expenses and payments other members added or changed after `since`
+ * (for the Groups list's "new" badge). Counts only; nothing is downloaded.
+ */
+export async function countNewActivity(groupId: string, since: string, meId: string): Promise<number> {
+  const counts = await Promise.all(['group_expenses', 'group_settlements'].map((table) => supabase.from(table)
+    .select('id', { count: 'exact', head: true }).eq('group_id', groupId).gt('updated_at', since).neq('updated_by', meId)));
+  return counts.reduce((n, r) => n + (r.error ? 0 : r.count ?? 0), 0);
+}

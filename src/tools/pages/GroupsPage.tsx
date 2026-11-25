@@ -4,6 +4,7 @@ import { PageHead, ToolFoot } from '../ui/common';
 import { Icon } from '../ui/Icon';
 import { useAuth } from '../../context/AuthContext';
 import { useOptionalCurrency } from '../CurrencyContext';
+import { groupSeenAt, markGroupSeen, newBadge } from '../lib/groupSeen';
 import { useOptionalToast } from '../ui/Toast';
 import { joinCodeFromSearch } from '../../lib/groupCode';
 import { groupErrorMessage, groupTypeLabel, loadGroupsCache, type GroupChoice } from '../lib/groups';
@@ -41,13 +42,26 @@ export default function GroupsPage() {
   const [sheet, setSheet] = useState<null | 'create' | 'join'>(null);
   const [created, setCreated] = useState<CreatedGroup | null>(null);
 
+  // "3 new": other members' changes since this phone last opened each group.
+  const [fresh, setFresh] = useState<Record<string, number>>({});
+  const uid = user?.id ?? '';
   const refresh = useCallback(() => fetchMyGroups().then((list) => {
     setGroups(list);
     setState('ready');
+    void import('../lib/groupGoalsApi').then(async ({ countNewActivity }) => {
+      const next: Record<string, number> = {};
+      await Promise.all(list.map(async (g) => {
+        const since = groupSeenAt(uid, g.id);
+        // A group never opened here starts counting now, not from its first day.
+        if (!since) { markGroupSeen(uid, g.id); return; }
+        next[g.id] = await countNewActivity(g.id, since, g.memberId).catch(() => 0);
+      }));
+      setFresh(next);
+    });
   }, () => {
     // Offline or refused: the list this phone last saw stays on screen.
     setState('error');
-  }), []);
+  }), [uid]);
 
   useEffect(() => {
     if (!user) return;
@@ -56,6 +70,12 @@ export default function GroupsPage() {
   }, [user, refresh]);
 
   const go = (id: string | null) => {
+    // Opening a group, or coming back from one, counts as having seen it.
+    const seen = id ?? openId;
+    if (uid && seen) {
+      markGroupSeen(uid, seen);
+      setFresh((prev) => ({ ...prev, [seen]: 0 }));
+    }
     const next = new URLSearchParams(params);
     next.delete('join');
     if (id) next.set('g', id); else next.delete('g');
@@ -141,6 +161,7 @@ export default function GroupsPage() {
                         {groupTypeLabel(g.type)} · {g.members} {g.members === 1 ? 'member' : 'members'}{g.role === 'admin' ? ' · Admin' : ''}
                       </span>
                     </span>
+                    {newBadge(fresh[g.id]) && <span className="fx-grp-new">{newBadge(fresh[g.id])}<span className="sr-only"> since you last looked</span></span>}
                     <span aria-hidden="true" style={{ color: 'var(--ink3)' }}>›</span>
                   </button>
                 </li>

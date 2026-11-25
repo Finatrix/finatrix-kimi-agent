@@ -77,3 +77,20 @@ describe('children', () => {
     expect(monthBounds('2028-02')).toEqual(['2028-02-01', '2028-02-29']);
   });
 });
+
+describe('new since you last looked (step 3.9)', async () => {
+  const { groupSeenAt, markGroupSeen, newBadge } = await import('../tools/lib/groupSeen');
+  it('remembers per account when each group was last opened', () => {
+    localStorage.clear();
+    expect(groupSeenAt('u1', 'g')).toBeNull();
+    markGroupSeen('u1', 'g', new Date('2026-11-25T10:00:00Z'));
+    expect(groupSeenAt('u1', 'g')).toBe('2026-11-25T10:00:00.000Z');
+    expect(groupSeenAt('u2', 'g')).toBeNull();
+  });
+  it('badge words', () => {
+    expect(newBadge(0)).toBeNull();
+    expect(newBadge(undefined)).toBeNull();
+    expect(newBadge(3)).toBe('3 new');
+    expect(newBadge(25)).toBe('20+ new');
+  });
+});

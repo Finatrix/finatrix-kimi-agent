@@ -24,3 +24,4 @@
 .fx-tools .fx-grp-sub { display: block; font-size: 13px; color: var(--ink2); }
 .fx-tools .fx-grp-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .fx-tools .fx-grp-err { color: var(--red); font-size: 13px; font-weight: 600; margin: 0 0 8px; }
+.fx-tools .fx-grp-new { flex-shrink: 0; padding: 2px 8px; border-radius: 999px; background: var(--fill-06); color: var(--ink); font-size: 12px; font-weight: 700; white-space: nowrap; }
