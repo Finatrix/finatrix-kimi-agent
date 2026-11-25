@@ -656,7 +656,7 @@ const LAUNCH_PAGES: readonly PublicPage[] = [
     description:
       'How FinatriX handles your data: what is stored locally in your browser, what syncs to your account, what is never collected, and how to delete it all.',
     ogKey: 'privacy',
-    updated: '2026-11-06',
+    updated: '2026-11-25',
     priority: 0.3,
     changefreq: 'yearly',
   },

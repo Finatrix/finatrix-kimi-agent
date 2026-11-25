@@ -51,7 +51,7 @@ import { SECTION_COLOR, SECTION_FILL } from '../lib/sectionColors';
 import { useOptionalToast } from '../ui/Toast';
 import { AskAiButton } from '../ui/AskAiButton';
 import { BudgetTimeline } from '../ui/BudgetTimeline';
-import TransactionModal from '../ui/TransactionModal';
+import TransactionModal, { type GroupEntry } from '../ui/TransactionModal';
 import { AddExpenseFab } from '../ui/AddExpenseFab';
 import { takeShared } from '../../lib/shareInbox';
 import TransactionList, { type ExportKind, type TransactionListHandle } from '../ui/TransactionList';
@@ -79,6 +79,7 @@ import { TravelBar } from '../travel/TravelBar';
 import { TripSheet } from '../travel/TripSheet';
 import { TripSummarySheet } from '../travel/TripSummarySheet';
 import { useTrips } from '../travel/useTrips';
+import { useGroupExpenseAdd } from '../lib/useGroupExpenseAdd';
 
 /* ── Design tokens ── */
 
@@ -580,7 +581,7 @@ export default function ExpensePage() {
   };
 
   const openEdit = (item: ExpenseItem) => { setEditing(item); setModalOpen(true); };
-  const openAdd = () => { setEditing(null); setModalOpen(true); };
+  const openAdd = () => { setEditing(null); setAddToGroup(undefined); setModalOpen(true); };
 
   /**
    * A spend handed over from the ⌘K palette as `?add=<line>`.
@@ -618,6 +619,33 @@ export default function ExpensePage() {
     const q = params.toString();
     navigate({ pathname: location.pathname, search: q ? `?${q}` : '' }, { replace: true });
   }, [location.search, location.pathname, navigate]);
+
+  /*
+   * Groups (step 2.3): the add form can send a new spend to a group instead,
+   * and `?group=<id>` (a group's own "Add an expense") opens it preselected.
+   * Personal stays the default, and `saveTransaction` is unchanged.
+   */
+  const groupAdd = useGroupExpenseAdd(notify);
+  const [addToGroup, setAddToGroup] = useState<string | undefined>();
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const groupId = params.get('group');
+    if (!groupId) return;
+    setEditing(null);
+    setAddToGroup(groupId);
+    setModalOpen(true);
+    params.delete('group');
+    const q = params.toString();
+    navigate({ pathname: location.pathname, search: q ? `?${q}` : '' }, { replace: true });
+  }, [location.search, location.pathname, navigate]);
+  const saveToGroup = (groupId: string, entry: GroupEntry) => {
+    void groupAdd.save(groupId, entry).then((ok) => {
+      if (!ok) return;
+      haptic('success');
+      setModalOpen(false);
+      setEditing(null);
+    });
+  };
 
   /**
    * Images shared to FinatriX from another app (src/lib/shareInbox.ts) open the
@@ -1196,6 +1224,9 @@ export default function ExpensePage() {
           onDuplicate={duplicateTransaction}
           trips={trips}
           homeCode={code}
+          groups={groupAdd.choices}
+          initialGroupId={addToGroup}
+          onSaveToGroup={saveToGroup}
         />
       )}
 

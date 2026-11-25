@@ -21,6 +21,8 @@ import {
   spendMoney, tripDefaults, tripLabel, tripOn, type FxContext, type Trip,
 } from '../lib/trips';
 import { useAskAi } from './AiAssistant';
+import { currencySym } from '../lib/format';
+import type { GroupChoice } from '../lib/groups';
 
 
 export interface FlatCat { k: string; l: string; ic: IconName; section: CatKey }
@@ -55,6 +57,25 @@ interface Props {
   trips?: readonly Trip[];
   /** The home currency code (`fx_currency`) that `amount` is kept in. */
   homeCode?: string;
+  /**
+   * Groups (step 2.3): the groups a new spend can be added to instead of the
+   * personal tracker. "Personal" stays the default; editing never moves a spend.
+   */
+  groups?: readonly GroupChoice[];
+  /** Preselect a group, from that group's own "Add an expense". */
+  initialGroupId?: string;
+  /** Called instead of `onSave` when a group was chosen. */
+  onSaveToGroup?: (groupId: string, entry: GroupEntry) => void;
+}
+
+/** A spend for a group: only what a group expense holds (docs/GROUPS.md). */
+export interface GroupEntry {
+  amount: number;
+  category: string;
+  categoryLabel?: string;
+  date: string;
+  merchant: string;
+  note: string;
 }
 
 interface Draft {
@@ -120,8 +141,17 @@ function entryCurrency(
 export default function TransactionModal({
   editing, cats, sym, defaultCat, recentCats = [], learned, todayKey, scheduleLimit,
   onSave, onClose, onDelete, onDuplicate, history = [], cfmt, trips = [], homeCode = 'INR',
+  groups = [], initialGroupId, onSaveToGroup,
 }: Props) {
   const isEdit = !!editing;
+  // '' is Personal. Only a new spend can go to a group.
+  const [dest, setDest] = useState(() => (
+    !editing && initialGroupId && groups.some((g) => g.id === initialGroupId) ? initialGroupId : ''
+  ));
+  const destGroup = !isEdit && onSaveToGroup ? groups.find((g) => g.id === dest) ?? null : null;
+  const toGroup = !!destGroup;
+  // A group has one currency; its amount is never converted (travel mode stays personal).
+  const groupSym = destGroup ? (destGroup.currency === homeCode ? sym : `${currencySym(destGroup.currency).trim() || destGroup.currency} `) : sym;
   const [draft, setDraft] = useState<Draft>(() => (editing ? draftFromItem(editing) : emptyDraft(defaultCat)));
   const [manualCategory, setManualCategory] = useState(!!editing);
   const suggestion = useMemo(() => suggestExpenseCategory(
@@ -178,7 +208,7 @@ export default function TransactionModal({
   const [currencyPick, setCurrencyPick] = useState<'trip' | 'home' | null>(
     editing ? (editing.fxAmount != null ? 'trip' : 'home') : null,
   );
-  const { paidInTrip } = entryCurrency(travel, currencyPick);
+  const paidInTrip = entryCurrency(travel, currencyPick).paidInTrip && !toGroup;
   /*
    * "Charged a different amount?" The bank's home figure from the statement,
    * kept with the foreign amount; the rate saved is the one it implies
@@ -309,12 +339,13 @@ export default function TransactionModal({
     if (!d.amount.trim()) e.amount = 'Enter an amount. Use a minus sign for a refund.';
     else if (!parsed.ok) e.amount = parsed.error;
     else if (parsed.value === 0) e.amount = 'Enter an amount other than 0.';
+    else if (toGroup && parsed.value < 0) e.amount = 'A group expense is more than 0. Refunds stay personal.';
     if (!cats.some((c) => c.k === d.category)) e.category = 'Choose an active category.';
     if (!d.date) e.date = 'Pick a date.';
     else if (!validRecordDate(d.date)) e.date = 'Pick a valid calendar date.';
     else if (scheduleLimit && d.date > scheduleLimit) e.date = `Choose a date on or before ${scheduleLimit}.`;
     return e;
-  }, [cats, scheduleLimit]);
+  }, [cats, scheduleLimit, toGroup]);
 
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => {
     if (k === 'category') setManualCategory(true);
@@ -362,8 +393,19 @@ export default function TransactionModal({
       else if (e.date) dateRef.current?.focus();
       return;
     }
+    if (destGroup && onSaveToGroup) {
+      onSaveToGroup(destGroup.id, {
+        amount: formulaSignedAmount(draft.amount),
+        category: selectedCategory,
+        categoryLabel: cats.find((c) => c.k === selectedCategory)?.l,
+        date: draft.date,
+        merchant: draft.merchant,
+        note: draft.note,
+      });
+      return;
+    }
     onSave(buildItem());
-  }, [draft, selectedCategory, validate, onSave, buildItem, chargedError]);
+  }, [draft, selectedCategory, validate, onSave, buildItem, chargedError, destGroup, onSaveToGroup, cats]);
 
   // Body scroll lock — reference-counted, safe under overlapping overlays.
   // The parent mounts this component only while the modal is open.
@@ -582,13 +624,28 @@ export default function TransactionModal({
           onSubmit={(e) => { e.preventDefault(); submit(); }}
           noValidate
         >
+          {!isEdit && onSaveToGroup && groups.length > 0 && (
+            <div className="fg" style={{ marginBottom: 10 }}>
+              <label className="fl" htmlFor="tx-dest">Add to</label>
+              <select className="fs" id="tx-dest" value={dest} onChange={(e) => setDest(e.target.value)}
+                aria-describedby={toGroup ? 'tx-dest-help' : undefined}>
+                <option value="">Personal</option>
+                {groups.map((g) => <option key={g.id} value={g.id}>{g.emoji} {g.name}</option>)}
+              </select>
+              {destGroup && (
+                <p id="tx-dest-help" className="note" style={{ marginTop: 5 }}>
+                  Everyone in {destGroup.name} sees it. It counts toward the group budget, not your personal one.
+                </p>
+              )}
+            </div>
+          )}
           <div className="grid2">
             <div className="fg" style={{ marginBottom: 10 }}>
               <div className="fx-tx-amtrow">
-                <label className="fl" htmlFor="tx-amount">Amount ({paidInTrip && ctx ? ctx.currency : sym})</label>
+                <label className="fl" htmlFor="tx-amount">Amount ({paidInTrip && ctx ? ctx.currency : groupSym.trim() || sym})</label>
                 {/* Travel mode: one tap enters this one spend in the other
                     currency, e.g. a hotel booked in ₹ during a trip. */}
-                {ctx && (
+                {ctx && !toGroup && (
                   <button
                     type="button"
                     className="fx-tx-cur"
@@ -606,7 +663,7 @@ export default function TransactionModal({
               <AmountInput
                 id="tx-amount"
                 inputRef={amountRef}
-                sym={paidInTrip && ctx ? `${ctx.currency} ` : sym}
+                sym={paidInTrip && ctx ? `${ctx.currency} ` : groupSym}
                 placeholder="0  or  =10+5+3"
                 value={draft.amount}
                 onChange={(v) => set('amount', v)}
@@ -691,7 +748,7 @@ export default function TransactionModal({
                   Scheduled — it will be waiting on that date, not counted as spent today.
                 </p>
               )}
-              {aheadTrip && (
+              {aheadTrip && !toGroup && (
                 <label className="fx-checkrow fx-tx-ahead">
                   <input
                     type="checkbox"
@@ -718,13 +775,13 @@ export default function TransactionModal({
               <input className="fi" id="tx-merchant" aria-describedby="tx-category-help" type="text" placeholder="e.g. Blue Bottle" maxLength={80}
                 value={draft.merchant} onChange={(e) => set('merchant', e.target.value)} />
             </div>
-            <div className="fg" style={{ marginBottom: 10 }}>
+            {!toGroup && <div className="fg" style={{ marginBottom: 10 }}>
               <label className="fl" htmlFor="tx-pay">Payment method</label>
               <select className="fs" id="tx-pay" value={draft.paymentMethod} onChange={(e) => set('paymentMethod', e.target.value)}>
                 <option value="">Not set</option>
                 {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
               </select>
-            </div>
+            </div>}
           </div>
 
           <div className="fg" style={{ marginBottom: 10 }}>
@@ -794,6 +851,7 @@ export default function TransactionModal({
             {err('category') && <div className="fx-tx-err" role="alert">{errors.category}</div>}
           </fieldset>
 
+          {!toGroup && <>
           <div className="fg" style={{ marginBottom: 10 }}>
             <label className="fl" htmlFor="tx-tags">Tags</label>
             <input className="fi" id="tx-tags" type="text" placeholder="Comma separated, e.g. work, reimbursable"
@@ -815,6 +873,7 @@ export default function TransactionModal({
               Recurring transaction
             </span>
           </label>
+          </>}
 
           {isEdit && (editing?.createdAt || editing?.updatedAt) && (
             <div className="note" style={{ marginBottom: 10, paddingTop: 10, borderTop: '1px solid var(--hair2)', display: 'flex', flexWrap: 'wrap', gap: '2px 14px' }}>
@@ -850,7 +909,7 @@ export default function TransactionModal({
               <div style={{ flex: 1 }} />
               <button type="button" className="fx-tx-iconbtn" onClick={onClose}>Cancel</button>
               <button type="submit" className="btn btn-sm" style={{ width: 'auto', minWidth: 120 }}>
-                {isEdit ? 'Save changes' : 'Add transaction'}
+                {isEdit ? 'Save changes' : toGroup ? 'Add to group' : 'Add transaction'}
               </button>
             </div>
             <p className="note" style={{ margin: '8px 0 0', textAlign: 'right' }}>

@@ -84,11 +84,49 @@ export default function Privacy() {
 
       <H2 id="access">Who can see your data</H2>
       <P>
-        Other accounts cannot read your data. It is not end-to-end encrypted, however, so people
+        Other accounts cannot read your data, except what you choose to share in a group (see
+        below). It is not end-to-end encrypted, however, so people
         who administer our database, and our infrastructure providers&rsquo; systems, can
         technically access it. The Service&rsquo;s own admin role has no access to your tool data or
         resumes.
       </P>
+
+      <H2 id="groups">Groups</H2>
+      <P>
+        A group is a shared space, such as a family budget, that you create or join with a room
+        code or an invite link. It is the one part of FinatriX where other people see something you
+        entered. Groups need an account and are for people aged 18 or over.
+      </P>
+      <UL>
+        <li>
+          <strong>What a group shares:</strong> the expenses you add to that group (amount,
+          category, date and description), the budget the group sets together, the name you choose
+          to show in the group, and who added or changed each item and when.
+        </li>
+        <li>
+          <strong>With whom:</strong> only the people who are members of that group at the time.
+          They never see your email, your account, your personal expenses, budgets or goals, or
+          which other groups you are in. Anyone with a valid room code can join while it lasts (7
+          days), so share it only with people you mean to invite. The group&rsquo;s admin can
+          remove members and reset the code at any time.
+        </li>
+        <li>
+          <strong>When someone leaves:</strong> leaving or being removed takes away that
+          person&rsquo;s name and their access straight away. The expenses they added stay for the
+          others, shown as &ldquo;Former member&rdquo;, so the group&rsquo;s history still adds up.
+          When the last member leaves, the group and everything in it is deleted.
+        </li>
+        <li>
+          <strong>When someone deletes their account:</strong> it works the same way as leaving
+          every group they were in. Their name is removed and their past group expenses stay as
+          &ldquo;Former member&rdquo;.
+        </li>
+        <li>
+          <strong>On your phone:</strong> while you are offline, expenses you add to a group wait
+          on your device and upload when you reconnect. Signing out clears them, with the rest of
+          your account&rsquo;s data on that device.
+        </li>
+      </UL>
 
       <H2>How we use your information</H2>
       <UL>
@@ -231,8 +269,11 @@ export default function Privacy() {
         open <b>Profile</b>, choose <b>Delete account</b> and confirm by typing your email
         address (or DELETE, if you signed in with Apple and hid your address). This
         immediately and permanently deletes your login, your synced tool data, your
-        Careers records and any files you uploaded, and, if you signed in with Apple,
-        revokes FinatriX&rsquo;s access to your Apple Account. We keep nothing for later recovery,
+        Careers records and any files you uploaded, and your name in any groups you were in,
+        and, if you signed in with Apple,
+        revokes FinatriX&rsquo;s access to your Apple Account. Expenses you added to a group stay
+        for its other members, shown as &ldquo;Former member&rdquo; (see Groups above). We keep
+        nothing for later recovery,
         though deleted database records can remain in our database provider&rsquo;s routine backups
         until those expire, for up to 30 days. Deletion does not recall anything an AI provider has
         already received. Payment records held by our payment processor are retained by that
