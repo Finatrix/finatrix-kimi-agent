@@ -29,6 +29,7 @@ export function SplitFields({ people, meId, state, onChange, amountPaise, money,
 }) {
   const uid = useId();
   const nameOf = (p: SplitPerson) => (p.id === meId ? 'You' : p.name);
+  const possessive = (p: SplitPerson) => (p.id === meId ? 'Your' : `${p.name}’s`);
   const check = amountPaise ? checkSplit(splitDraftOf(state), amountPaise, money) : null;
   const preview = check?.ok ? check.preview : null;
   const status = check && !check.ok ? check.reason : null;
@@ -68,13 +69,13 @@ export function SplitFields({ people, meId, state, onChange, amountPaise, money,
                 <span className="fx-grp-name">{nameOf(p)}</span>
               </label>
               {on && state.rule === 'shares' && (
-                <input className="fi" style={{ width: 72, textAlign: 'right' }} type="text" inputMode="decimal" aria-label={`${nameOf(p)}’s share`}
+                <input className="fi" style={{ width: 72, textAlign: 'right' }} type="text" inputMode="decimal" aria-label={`${possessive(p)} share`}
                   placeholder="1" value={state.weights[p.id] ?? ''}
                   onChange={(e) => set({ weights: { ...state.weights, [p.id]: e.target.value } })} />
               )}
               {on && state.rule === 'exact' && (
                 <span style={{ width: 120 }}>
-                  <MoneyField id={`${uid}-x-${p.id}`} className="fi" sym={sym} ariaLabel={`${nameOf(p)}’s part`} min0
+                  <MoneyField id={`${uid}-x-${p.id}`} className="fi" sym={sym} ariaLabel={`${possessive(p)} part`} min0
                     value={state.exact[p.id] ?? 0}
                     onCommit={(v) => set({ exact: { ...state.exact, [p.id]: v } })} />
                 </span>

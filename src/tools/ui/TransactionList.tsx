@@ -547,6 +547,9 @@ function TxRow({
               {e.recurring && (
                 <span className="tx-badge"><Icon name="refresh" size={10} /> Recurring</span>
               )}
+              {e.groupShare && (
+                <span className="tx-badge" title={`Your share of a ${e.groupShare.name} expense`}><Icon name="users" size={10} /> {e.groupShare.name}</span>
+              )}
             </span>
             <span className="tx-line2">
               <span className="tx-pill" style={{ color, borderColor: `color-mix(in srgb, ${color} 40%, transparent)` }}>{cat?.l ?? 'Uncategorised'}</span>

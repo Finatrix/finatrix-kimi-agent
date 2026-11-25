@@ -108,11 +108,11 @@ function MarkPaidSheet({ payment, currency, from, to, onSave, onClose }: {
   const valid = paise > 0 && paise < 1e14;
   const who = `${from} paid ${to === 'You' ? 'you' : to}`;
   return (
-    <ToolSheet title="Mark as paid" description={`${who} ${formatPaise(payment.amount, currency)}? Everyone in the group sees it.`} onClose={onClose}
+    <ToolSheet title="Mark as paid" description={`${who} ${formatPaise(payment.amount, currency)}? Everyone in the group sees it.`} onClose={onClose} initialFocus="#grp-paid-ok"
       footer={(
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
-          <button type="button" className="btn btn-sm" disabled={busy || !valid}
+          <button type="button" id="grp-paid-ok" className="btn btn-sm" disabled={busy || !valid}
             onClick={async () => { setBusy(true); try { await onSave(paise); } finally { setBusy(false); } }}>
             {busy ? 'Saving…' : 'Mark as paid'}
           </button>

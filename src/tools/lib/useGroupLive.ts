@@ -75,7 +75,16 @@ export function useGroupLive(groupId: string, month: string, meId: string | null
     window.addEventListener('online', online);
     const offline = () => setLive(false);
     window.addEventListener('offline', offline);
-    const offWrite = onLocalWrite((key) => { if (key === GROUP_OUTBOX_KEY) setOutboxRev((n) => n + 1); });
+    // A queued change that uploaded leaves the queue: read the group again so it shows
+    // from the server's copy even if Realtime is down (the server's rows win).
+    let queued = loadOutbox().length;
+    const offWrite = onLocalWrite((key) => {
+      if (key !== GROUP_OUTBOX_KEY) return;
+      setOutboxRev((n) => n + 1);
+      const now = loadOutbox().length;
+      if (now < queued) void load();
+      queued = now;
+    });
     flush();
     return () => {
       stop();
