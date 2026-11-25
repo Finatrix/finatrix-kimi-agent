@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { loadExpenses, saveExpenses, type ExpenseItem } from '../tools/lib/expense';
 import { loadTombstones, recordDeletions } from '../tools/lib/expenseTombstones';
 import { loadAuditLog } from '../tools/lib/expenseAudit';
-import { planShareCopies, reconcileGroupShares, shareCopyId, type ShareGroup } from '../tools/lib/groupShare';
+import { planShareCopies, reconcileGroupShares, shareCopyId, shareRateFor, type ShareGroup } from '../tools/lib/groupShare';
+import { saveAllTrips, type Trip } from '../tools/lib/trips';
 import type { GroupExpenseRow } from '../tools/lib/groups';
 
 /**
@@ -141,5 +142,86 @@ describe('reconcileGroupShares (through the ledger)', () => {
     // Leaving means no further reconcile calls; the ledger row is a plain expense.
     const copy = loadExpenses()[0];
     expect(copy.amount).toBe(333.34);
+  });
+});
+
+/**
+ * Step 3.9: trip groups and members in other countries. The worked examples
+ * are the ones in the PR description.
+ */
+describe('a group in another currency', () => {
+  const aed: ShareGroup = { id: G, name: 'Dubai trip', currency: 'AED', memberId: 'me' };
+  const usd: ShareGroup = { id: G, name: 'Friends', currency: 'USD', memberId: 'me' };
+  const DUBAI: Trip = {
+    id: 'trip-dxb', name: 'Dubai', currency: 'AED', homeCurrency: 'INR', start: '2026-11-18', end: '2026-11-22',
+    rate: 24, rateSource: 'live', feePct: 3.5, homeCats: [], createdAt: '', updatedAt: '',
+  };
+  const RATES = { USD: 1, INR: 88.42, AED: 3.6725 };
+  const foreign = (g: ShareGroup, expenses: GroupExpenseRow[], ledger: ExpenseItem[] = [], trips: Trip[] = []) => planShareCopies({
+    group: g, expenses, ledger, tombstones: {}, homeCurrency: 'INR', resolveCategory,
+    rateFor: shareRateFor(g.currency, 'INR', trips, RATES), now: new Date('2026-11-21T08:00:00Z'),
+  });
+
+  it('trip group: AED 400 at the trip’s fixed 24.0 is ₹9,600.00, with no card fee, tagged with the trip', () => {
+    const copy = foreign(aed, [row('e1', 1200)], [], [DUBAI]).upsert[0];
+    expect(copy).toMatchObject({ amount: 9600, fxAmount: 400, fxCurrency: 'AED', fxRate: 24, tripId: 'trip-dxb' });
+    expect(copy.fxFee).toBeUndefined();
+  });
+
+  it('member abroad: USD 33.34 at the live 88.42 is ₹2,947.92, and an edit keeps that rate', () => {
+    const usdRow = row('e1', 100.02, { shares: [{ member: 'me', value: 1 }, { member: 'other', value: 1 }, { member: 'third', value: 1 }] });
+    const first = foreign(usd, [usdRow]).upsert;
+    expect(first[0]).toMatchObject({ amount: 2947.92, fxAmount: 33.34, fxCurrency: 'USD', fxRate: 88.42 });
+    expect(first[0].tripId).toBeUndefined();
+    // Edited to USD 40.00 for me, on a day the live rate has moved: same rate as before.
+    const edited = row('e1', 40, { split_rule: 'exact', shares: [{ member: 'me', value: 40 }], updated_at: '2026-11-22T10:00:00Z' });
+    const moved = planShareCopies({
+      group: usd, expenses: [edited], ledger: first, tombstones: {}, homeCurrency: 'INR', resolveCategory,
+      rateFor: shareRateFor('USD', 'INR', [], { USD: 1, INR: 90 }), now: new Date('2026-11-22T11:00:00Z'),
+    }).upsert[0];
+    expect(moved).toMatchObject({ amount: 3536.8, fxAmount: 40, fxRate: 88.42 });
+  });
+
+  it('outside the trip’s days, the live rate is used instead of the trip’s', () => {
+    const copy = foreign(aed, [row('e1', 1200, { spent_on: '2026-11-25' })], [], [DUBAI]).upsert[0];
+    expect(copy.tripId).toBeUndefined();
+    expect(copy.fxRate).toBe(24.08); // tripRateFor: 88.42 / 3.6725 fixed the way travel mode fixes it
+  });
+
+  it('no rate: no copy, counted so the group can say so, and never a guess', () => {
+    const p = planShareCopies({
+      group: { ...usd, currency: 'VND' }, expenses: [row('e1', 300000)], ledger: [], tombstones: {}, homeCurrency: 'INR',
+      resolveCategory, rateFor: shareRateFor('VND', 'INR', [], RATES), now: new Date('2026-11-21T08:00:00Z'),
+    });
+    expect(p.upsert).toEqual([]);
+    expect(p.remove).toEqual([]);
+    expect(p.noRate).toBe(1);
+  });
+
+  it('reconcileGroupShares prices with the phone’s trips and rates', () => {
+    localStorage.setItem('fx_currency', 'INR');
+    saveAllTrips([DUBAI]);
+    reconcileGroupShares(aed, [row('e1', 1200)]);
+    expect(loadExpenses()[0]).toMatchObject({ amount: 9600, fxCurrency: 'AED', tripId: 'trip-dxb' });
+  });
+});
+
+describe('group currency helpers (step 3.9)', async () => {
+  const { approxInHome, groupTripCurrency } = await import('../tools/lib/groupCurrency');
+  const trip = (over: Partial<Trip>): Trip => ({
+    id: 't', name: 'Dubai', currency: 'AED', homeCurrency: 'INR', start: '2026-12-01', end: '2026-12-05',
+    rate: 24, rateSource: 'live', homeCats: [], createdAt: '', updatedAt: '', ...over,
+  });
+
+  it('a new Trip group starts in your current or next trip’s currency, never a home trip’s', () => {
+    expect(groupTripCurrency('INR', [trip({})], '2026-11-25')).toEqual({ currency: 'AED', name: 'Dubai' });
+    expect(groupTripCurrency('INR', [trip({ currency: 'INR' })], '2026-11-25')).toBeNull();
+    expect(groupTripCurrency('INR', [], '2026-11-25')).toBeNull();
+  });
+
+  it('≈ home amount uses the same rate as the copy, and nothing without a rate or in your own currency', () => {
+    expect(approxInHome(400, 'AED', 'INR', '2026-12-02', [trip({})], { USD: 1, INR: 88.42, AED: 3.6725 })).toBe(9600);
+    expect(approxInHome(400, 'INR', 'INR')).toBeNull();
+    expect(approxInHome(400, 'VND', 'INR', '2026-12-02', [], { USD: 1, INR: 88.42 })).toBeNull();
   });
 });

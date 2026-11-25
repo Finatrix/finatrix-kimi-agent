@@ -3,6 +3,8 @@ import { ToolSheet } from '../ToolSheet';
 import { MoneyField } from '../MoneyField';
 import { currencySym } from '../../lib/format';
 import { fmtExact } from '../../lib/trips';
+import { useOptionalCurrency } from '../../CurrencyContext';
+import { GroupCurrencyNote } from './GroupCurrencyNote';
 import { currentMembers, memberName, type GroupExpenseRow, type GroupMemberRow, type GroupSettlementRow } from '../../lib/groups';
 import {
   computeBalances, formatPaise, reminderText, suggestPayments, toPaise, whatsappLink, type Payment,
@@ -29,6 +31,7 @@ export function SplitCosts({ groupName, currency, members, expenses, settlements
   const [paying, setPaying] = useState<Payment | null>(null);
   const name = useCallback((id: string) => (id === meId ? 'You' : memberName(byId.get(id))), [byId, meId]);
   const show = (paise: number) => fmtExact(paise / 100, currency);
+  const home = useOptionalCurrency()?.code ?? currency;
 
   // Everyone with a balance, plus every current member (at zero), biggest first.
   const people = useMemo(() => {
@@ -84,6 +87,7 @@ export function SplitCosts({ groupName, currency, members, expenses, settlements
           </li>
         ))}
       </ul>
+      <GroupCurrencyNote groupCurrency={currency} home={home} myBalancePaise={balances.get(meId) ?? 0} />
 
       {paying && (
         <MarkPaidSheet payment={paying} currency={currency} from={name(paying.from)} to={name(paying.to)}
