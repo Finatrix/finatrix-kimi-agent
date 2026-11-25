@@ -14,7 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "test:e2e:release": "playwright test e2e/release-smoke.spec.ts e2e/ai-intelligence.spec.ts e2e/ai-voice.spec.ts e2e/groups.spec.ts",
+    "test:e2e:release": "playwright test e2e/release-smoke.spec.ts e2e/ai-intelligence.spec.ts e2e/ai-voice.spec.ts e2e/ai-actions.spec.ts e2e/groups.spec.ts",
     "sitemap": "node scripts/generate-sitemap.mjs",
     "audit:prod": "node scripts/audit-production-deps.mjs",
     "verify:deploy": "node scripts/verify-deployment.mjs",
