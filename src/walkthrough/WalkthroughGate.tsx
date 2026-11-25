@@ -1,6 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
-import { currentClientHints, passesFirstRunPrecheck, safeRead, shouldAutoShowWalkthrough } from './gating';
+import { currentClientHints, markWalkthroughSeen, passesFirstRunPrecheck, safeRead, shouldAutoShowWalkthrough } from './gating';
+import { InlineInvite } from '../components/InlineInvite';
 import { WALKTHROUGH_REPLAY_EVENT } from './replay';
 import { tourRequestFromState } from '../tour/launch';
 import type { WalkthroughMode } from './Walkthrough';
@@ -22,6 +23,9 @@ export default function WalkthroughGate() {
   const { pathname, state } = useLocation();
   const navigate = useNavigate();
   const [mode, setMode] = useState<WalkthroughMode | null>(null);
+  // A new person is *invited* to the intro, in the page; it no longer opens
+  // over the dashboard on its own (see components/InlineInvite).
+  const [invited, setInvited] = useState(false);
   // The path the shell was entered on. Only that first landing counts: moving
   // to the dashboard later in the session is not a first run.
   const [entryPath] = useState(pathname);
@@ -42,7 +46,12 @@ export default function WalkthroughGate() {
       .then(({ hasAnyData }) => {
         // The full rule again, now with the data check — storage may also have
         // changed while the chunk loaded (another tab finished setup).
-        if (!cancelled && shouldAutoShowWalkthrough({ ...input, hasData: hasAnyData })) setMode('first-run');
+        if (!cancelled && shouldAutoShowWalkthrough({ ...input, hasData: hasAnyData })) {
+          // Offered once: marked seen as soon as the invitation shows, exactly
+          // as the intro used to be when it opened by itself.
+          markWalkthroughSeen();
+          setInvited(true);
+        }
       })
       .catch(() => { /* offline chunk fetch — skip the intro rather than block */ });
     return () => { cancelled = true; };
@@ -60,7 +69,18 @@ export default function WalkthroughGate() {
     navigate('/welcome');
   }, [navigate]);
 
-  if (!mode) return null;
+  if (!mode) {
+    if (!invited) return null;
+    return (
+      <InlineInvite
+        title="New to FinatriX?"
+        body="Watch a one-minute intro to how it works, or just start with your month below."
+        yesLabel="Watch the intro"
+        onYes={() => { setInvited(false); setMode('first-run'); }}
+        onLater={() => setInvited(false)}
+      />
+    );
+  }
   return (
     <Suspense fallback={null}>
       <Walkthrough mode={mode} onClose={close} onSetup={setup} />

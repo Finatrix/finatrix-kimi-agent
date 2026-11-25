@@ -48,7 +48,7 @@ export function CompareIndex() {
           same on all of them.
         </P>
         <div className="mt-6 rounded-[16px] border border-hairline bg-surface-2 p-5">
-          <h3 className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent-text">
+          <h3 className="font-mono text-[11px] uppercase tracking-[0.14em] text-accent-text">
             The limitation, stated once
           </h3>
           <p className="mt-3 max-w-[68ch] text-[14.5px] leading-[1.7] text-ink-2">
@@ -123,7 +123,7 @@ function Column({
   const id = `col-${eyebrow.toLowerCase().replace(/\W+/g, '-')}`;
   return (
     <section aria-labelledby={id} className="fx-glass rounded-[18px] p-6">
-      <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent-text">
+      <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-accent-text">
         {eyebrow}
       </span>
       <h3 id={id} className="mt-2 text-[17px] font-semibold tracking-[-0.01em] text-ink">
@@ -176,7 +176,7 @@ export default function CompareAlternative() {
                   <th
                     key={i}
                     scope="col"
-                    className="px-4 py-3 font-mono text-[10.5px] uppercase tracking-[0.1em] text-ink-3"
+                    className="px-4 py-3 font-mono text-[11px] uppercase tracking-[0.1em] text-ink-3"
                   >
                     {h}
                   </th>
@@ -278,18 +278,18 @@ export default function CompareAlternative() {
         <div className="flex flex-wrap items-center gap-3">
           <Link
             to="/tools/budget"
-            className="fx-btn-gold inline-flex items-center gap-2 rounded-full px-7 py-3.5 font-mono text-[12px] uppercase tracking-[0.1em]"
+            className="fx-btn-gold inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-[14px] font-semibold"
           >
             Open Budget Builder <span aria-hidden="true">→</span>
           </Link>
           <Link
             to="/learn"
-            className="fx-btn-ghost inline-flex items-center rounded-full px-6 py-3.5 font-mono text-[12px] uppercase tracking-[0.1em]"
+            className="fx-btn-ghost inline-flex items-center rounded-full px-6 py-3.5 text-[14px] font-medium"
           >
             Read the guides
           </Link>
         </div>
-        <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.14em] text-ink-3">
+        <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.14em] text-ink-3">
           Free · no account needed · nothing stored until you sync
         </p>
       </Section>

@@ -12,6 +12,7 @@
  * -----------------------------
  *   csv / tsv / txt   → the delimited parser
  *   .xlsx             → read to a grid, then the SAME delimited parser
+ *   .xls              → whatever it really is (see `readLegacyWorkbook`)
  *   pdf (with text)   → the text-layer parser
  *   pdf (scanned)     → rendered to images, recognised, then the text parser
  *   png / jpg / webp  → recognised, then the text parser
@@ -42,11 +43,36 @@ import { parseCsvStatement, parseStatementMatrix, StatementParseError } from './
 import { parseTextStatement } from './statement';
 import { maskedLines, parseLooseList, rowsFromLayout, type LayoutItem } from './looseList';
 import { readWorkbookGrid } from './xlsx';
+import { receiptStatement } from './receipt';
 import { reconcile, resolveDirections, type Reconciliation } from './reconcile';
 import type { StatementDoc } from './types';
 
 /** Statements are small documents; anything larger is not one. */
 export const MAX_FILE_BYTES = 15 * 1024 * 1024;
+
+/**
+ * The most statement text one import will read, in characters.
+ *
+ * `sanitizeText` shortens anything over its limit, and its default limit
+ * (200,000 characters) was chosen for a CV. Applied to a statement it cut a
+ * 5,000-row export off at row 4,425 without a word: the missing rows were
+ * simply never offered, the row at the cut was read from half a line, and the
+ * balance check still passed because it only compares the rows it was given.
+ *
+ * So statement text is never shortened. This ceiling equals the file ceiling —
+ * decoded text cannot be longer than the bytes it came from, so no accepted
+ * delimited file can reach it — and anything that somehow does is refused by
+ * name, the way the spreadsheet reader refuses rather than reads in part.
+ */
+const MAX_STATEMENT_CHARS = MAX_FILE_BYTES;
+
+const TOO_LONG = 'This statement is too long to read in one go. Please download a shorter date range from your bank.';
+
+/** Clean statement text. Never shortens it: over the ceiling is a refusal. */
+function statementText(raw: string): string {
+  if (raw.length > MAX_STATEMENT_CHARS) throw new ImportError('too-large', TOO_LONG);
+  return sanitizeText(raw, MAX_STATEMENT_CHARS);
+}
 
 /** Below this many characters, a PDF has no usable text layer. */
 const MIN_PDF_TEXT_CHARS = 200;
@@ -84,7 +110,11 @@ export async function readRecognisedText(text: string, now: Date, layout?: Layou
       if (assisted.rows.length >= local.rows.length && assisted.rows.length > 0) return assisted;
     }
   }
-  return local.rows.length > 0 ? local : statement;
+  if (local.rows.length > 0) return local;
+  // Neither a statement nor a payments list: a photo of a paper bill reads as
+  // one purchase, or as nothing at all when it prints no total.
+  const receipt = receiptStatement(text, now);
+  return receipt.rows.length > 0 ? receipt : statement;
 }
 
 export const ACCEPTED_EXTENSIONS = [
@@ -132,13 +162,53 @@ export interface ExtractedStatement {
   directionsProved: number;
   /** Rows whose direction fell back to a hint or the default. */
   directionsAssumed: number;
+  /**
+   * True when nothing in the file settled which way any row moved: no balance
+   * step proved one and the bank stated none. Every direction is then a reading
+   * of a sign convention, and the review sheet offers to swap the lot.
+   */
+  directionsUncertain?: boolean;
   /** Pages read, for PDFs. */
   pages: number | null;
+  /** Files in a batch that could not be read, and why. Absent for one file. */
+  skipped?: { name: string; reason: string }[];
 }
 
 function extensionOf(name: string): string {
   const m = /\.([a-z0-9]+)$/i.exec((name || '').trim());
   return m ? m[1].toLowerCase() : '';
+}
+
+/** What a browser calls each accepted format, for a file whose name does not say. */
+const EXTENSION_OF_TYPE: Readonly<Record<string, string>> = {
+  'text/csv': 'csv',
+  'text/comma-separated-values': 'csv',
+  'application/csv': 'csv',
+  'text/tab-separated-values': 'tsv',
+  'text/plain': 'txt',
+  'application/pdf': 'pdf',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+  'application/vnd.ms-excel': 'xls',
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/webp': 'webp',
+  'image/bmp': 'bmp',
+};
+
+/**
+ * The format to read a file as: its extension, or — when the name carries none
+ * we accept — the type the browser reports.
+ *
+ * A statement shared out of a banking app on a phone often arrives as
+ * `statement` or `document:1000012345`, with a perfectly good `text/csv` type
+ * and no extension at all. Refusing it as "unsupported" was refusing a CSV for
+ * the way it was named. The content checks below still apply either way.
+ */
+function kindOf(file: File): string {
+  const extension = extensionOf(file.name);
+  if ((ACCEPTED_EXTENSIONS as readonly string[]).includes(extension)) return extension;
+  const type = (file.type || '').split(';')[0].trim().toLowerCase();
+  return EXTENSION_OF_TYPE[type] ?? extension;
 }
 
 /** `%PDF` — checked rather than trusting the extension. */
@@ -180,6 +250,72 @@ async function readWorkbook(file: File, now: Date): Promise<StatementDoc> {
   }
 }
 
+/** Delimited text → statement, with parser failures turned into typed ones. */
+function readDelimited(raw: string, now: Date): StatementDoc {
+  try {
+    return parseCsvStatement(statementText(raw), now);
+  } catch (e) {
+    if (e instanceof ImportError) throw e;
+    if (e instanceof StatementParseError) throw new ImportError('unreadable', e.message);
+    throw new ImportError('unreadable', 'Could not read this file as a statement.');
+  }
+}
+
+/** Cells of the largest table in an HTML document, as the grid the parser reads. */
+function htmlTableGrid(html: string): string[][] {
+  // A parsed document is inert: its scripts never run and nothing in it is
+  // fetched. Only text is taken from it.
+  const parsed = new DOMParser().parseFromString(html, 'text/html');
+  let best: string[][] = [];
+  // Banks wrap the statement in layout tables; the one with the most rows of
+  // its own is the statement.
+  for (const table of Array.from(parsed.querySelectorAll('table'))) {
+    const grid = Array.from(table.rows, (row) =>
+      Array.from(row.cells, (cell) => (cell.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 2_000)));
+    if (grid.length > best.length) best = grid;
+  }
+  return best;
+}
+
+const OLD_XLS = 'This is an old-format .xls file. Please open it and save as .xlsx, or export it as CSV.';
+
+/**
+ * Read a file named `.xls`, which is four different things in practice.
+ *
+ * The binary Excel 97 format is the only one that needs a real spreadsheet
+ * parser, and it is still declined (see xlsx.ts for why none is shipped). But
+ * banks routinely give the `.xls` name to things that are not that: a modern
+ * workbook, a tab-separated text file, or a web page holding one table — all of
+ * which the importer can already read, and all of which used to be turned away
+ * with "old-format .xls" purely on their name.
+ */
+async function readLegacyWorkbook(file: File, now: Date): Promise<StatementDoc> {
+  const head = new Uint8Array(await file.slice(0, 8).arrayBuffer());
+
+  // "PK": a modern workbook under the old name.
+  if (head[0] === 0x50 && head[1] === 0x4b) {
+    return readWorkbook(new File([file], file.name.replace(/\.xls$/i, '.xlsx'), { type: file.type }), now);
+  }
+  // D0 CF 11 E0: the binary format itself.
+  if (head[0] === 0xd0 && head[1] === 0xcf && head[2] === 0x11 && head[3] === 0xe0) {
+    throw new ImportError('unsupported', OLD_XLS);
+  }
+
+  const raw = await file.text();
+  if (raw.includes('\u0000')) throw new ImportError('unsupported', OLD_XLS);
+
+  if (/<table[\s>]/i.test(raw)) {
+    if (raw.length > MAX_STATEMENT_CHARS) throw new ImportError('too-large', TOO_LONG);
+    try {
+      return parseStatementMatrix(htmlTableGrid(raw), now, 'spreadsheet');
+    } catch (e) {
+      if (e instanceof StatementParseError) throw new ImportError('unreadable', e.message);
+      throw new ImportError('unreadable', 'Could not read this spreadsheet. Try exporting it as CSV instead.');
+    }
+  }
+  return readDelimited(raw, now);
+}
+
 /**
  * Read and parse an uploaded statement.
  *
@@ -199,7 +335,7 @@ export async function extractStatement(
     throw new ImportError('too-large', 'That file is larger than 15 MB. Please upload a single statement period.');
   }
 
-  const extension = extensionOf(file.name);
+  const extension = kindOf(file);
   if (!(ACCEPTED_EXTENSIONS as readonly string[]).includes(extension)) {
     throw new ImportError('unsupported', 'Unsupported format. Please upload a CSV, Excel or PDF statement, or a clear photo of one.');
   }
@@ -213,8 +349,10 @@ export async function extractStatement(
   let pages: number | null = null;
 
   if (IMAGE_EXTENSIONS.has(extension) && !isPdf) {
-    doc = await readRecognisedText(sanitizeText(await recogniseImages([file])), now, options.layout);
-  } else if (extension === 'xlsx' || extension === 'xls') {
+    doc = await readRecognisedText(statementText(await recogniseImages([file])), now, options.layout);
+  } else if (extension === 'xls') {
+    doc = await readLegacyWorkbook(file, now);
+  } else if (extension === 'xlsx') {
     doc = await readWorkbook(file, now);
   } else if (isPdf) {
     const compatibilityMessage = pdfCompatibilityMessage();
@@ -263,9 +401,9 @@ export async function extractStatement(
           'This PDF has no selectable text and could not be scanned on this device. Please download the statement as a PDF or CSV from your bank instead.',
         );
       }
-      doc = await readRecognisedText(sanitizeText(await recogniseImages(images)), now, options.layout);
+      doc = await readRecognisedText(statementText(await recogniseImages(images)), now, options.layout);
     } else {
-      doc = parseTextStatement(sanitizeText(text), now);
+      doc = parseTextStatement(statementText(text), now);
     }
   } else {
     const raw = await file.text();
@@ -274,12 +412,7 @@ export async function extractStatement(
     if (raw.includes('\u0000')) {
       throw new ImportError('unsupported', 'That file is not readable as text. If it is an Excel file, export it as CSV first.');
     }
-    try {
-      doc = parseCsvStatement(sanitizeText(raw), now);
-    } catch (e) {
-      if (e instanceof StatementParseError) throw new ImportError('unreadable', e.message);
-      throw new ImportError('unreadable', 'Could not read this file as a statement.');
-    }
+    doc = readDelimited(raw, now);
   }
 
   if (!doc.rows.length) {
@@ -289,14 +422,106 @@ export async function extractStatement(
     );
   }
 
-  const { rows, proved, assumed } = resolveDirections(doc);
-  const settled: StatementDoc = { ...doc, rows };
+  const { rows, proved, assumed, balanceKind, newestFirst } = resolveDirections(doc);
+  const settled: StatementDoc = { ...doc, rows, balanceKind, newestFirst };
 
   return {
     doc: settled,
     reconciliation: reconcile(settled, rows),
     directionsProved: proved,
     directionsAssumed: assumed,
+    directionsUncertain: proved === 0 && !rows.some((r) => r.directionStated),
     pages,
+  };
+}
+
+/** Most files one import reads at once. A share sheet can send many more. */
+export const MAX_BATCH_FILES = 10;
+
+/**
+ * Read several files (screenshots shared together, usually) as one review.
+ *
+ * Each file is read on its own, exactly as `extractStatement` reads a single
+ * file, and the rows are put side by side. Recognised text is never joined
+ * across images first: the payments-list reader groups neighbouring lines, and
+ * the last row of one screenshot is not part of the first row of the next.
+ *
+ * A file that cannot be read is listed in `skipped` instead of failing the
+ * batch. Only when none can be read is that an error. Balances are not carried
+ * across files: two screenshots are two documents.
+ */
+export async function extractStatements(
+  files: readonly File[],
+  options: { now?: Date; layout?: LayoutReader } = {},
+): Promise<ExtractedStatement> {
+  if (files.length === 1) return extractStatement(files[0], options);
+  if (!files.length) {
+    throw new ImportError('empty', 'Nothing was chosen. Please pick a statement or a screenshot.');
+  }
+
+  const read: ExtractedStatement[] = [];
+  const skipped: { name: string; reason: string }[] = [];
+  let firstError: ImportError | null = null;
+
+  for (const [index, file] of files.entries()) {
+    const name = file.name || `Image ${index + 1}`;
+    if (index >= MAX_BATCH_FILES) {
+      skipped.push({ name, reason: `Only ${MAX_BATCH_FILES} files are read at a time.` });
+      continue;
+    }
+    try {
+      read.push(await extractStatement(file, options));
+    } catch (e) {
+      const error = e instanceof ImportError ? e : new ImportError('unreadable', 'Could not read this file.');
+      firstError ??= error;
+      const locked = error.kind === 'password-required' || error.kind === 'password-wrong';
+      skipped.push({ name, reason: locked ? 'It is password-protected. Import it on its own.' : error.message });
+    }
+  }
+
+  if (!read.length) {
+    throw new ImportError(
+      firstError?.kind === 'too-large' || firstError?.kind === 'unsupported' ? firstError.kind : 'no-transactions',
+      `None of these ${files.length} files could be read. ${firstError?.message ?? ''}`.trim(),
+    );
+  }
+
+  const rows: StatementDoc['rows'] = [];
+  let offset = 0;
+  for (const part of read) {
+    // Line numbers stay unique across the batch, in the order the files came.
+    // Directions were already settled file by file; a balance chain running
+    // from one file into the next would only invent a mismatch.
+    for (const row of part.doc.rows) rows.push({ ...row, line: row.line + offset, balance: null });
+    offset += Math.max(0, ...part.doc.rows.map((row) => row.line)) + 1;
+  }
+
+  const docs = read.map((part) => part.doc);
+  const currencies = new Set(docs.map((doc) => doc.currency));
+  // A file whose own dates settled dd/mm against mm/dd outranks one that assumed.
+  const decided = docs.find((doc) => !doc.dateOrderAssumed) ?? docs[0];
+  const doc: StatementDoc = {
+    // One recognised image holds the whole batch back for review. Erring that
+    // way costs a tick; erring the other way imports a misread digit.
+    source: docs.some((d) => d.source === 'ocr') ? 'ocr' : docs[0].source,
+    rows,
+    currency: currencies.size === 1 ? docs[0].currency : null,
+    openingBalance: null,
+    closingBalance: null,
+    skipped: docs.reduce((sum, d) => sum + d.skipped, 0),
+    dateOrder: decided.dateOrder,
+    dateOrderAssumed: decided.dateOrderAssumed,
+    columnsInferred: docs.some((d) => d.columnsInferred) || undefined,
+  };
+
+  const pages = read.map((part) => part.pages).filter((p): p is number => p !== null);
+  return {
+    doc,
+    reconciliation: reconcile(doc, rows),
+    directionsProved: read.reduce((sum, part) => sum + part.directionsProved, 0),
+    directionsAssumed: read.reduce((sum, part) => sum + part.directionsAssumed, 0),
+    directionsUncertain: read.every((part) => part.directionsUncertain),
+    pages: pages.length ? pages.reduce((a, b) => a + b, 0) : null,
+    skipped,
   };
 }

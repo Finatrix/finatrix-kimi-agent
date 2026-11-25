@@ -44,7 +44,8 @@ describe('ExpensePage (React) — dashboard wiring', () => {
     expect(screen.getByText(/Export ▾/)).toBeInTheDocument();
     expect(screen.getByText('Monthly budget')).toBeInTheDocument();
     expect(screen.getByText('Monthly spent')).toBeInTheDocument();
-    expect(screen.getByText('No budget set')).toBeInTheDocument();
+    // No budget: the slot is the action that fills it, not a dash.
+    expect(screen.getByRole('link', { name: /Set a budget/ })).toHaveAttribute('href', '/tools/budget');
     // Needs / Wants / Savings summary block from Budget Builder sections.
     expect(screen.getByText('Needs · Wants · Savings')).toBeInTheDocument();
   });

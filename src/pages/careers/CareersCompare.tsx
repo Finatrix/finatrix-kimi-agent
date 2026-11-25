@@ -84,7 +84,7 @@ function Column({
   const id = `col-${eyebrow.toLowerCase().replace(/\W+/g, '-')}`;
   return (
     <section aria-labelledby={id} className="fx-glass rounded-[18px] p-6">
-      <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent-text">
+      <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-accent-text">
         {eyebrow}
       </span>
       <h2 id={id} className="mt-2 text-[17px] font-semibold tracking-[-0.01em] text-ink">
@@ -165,13 +165,13 @@ export default function CareersCompareRival() {
         <div className="flex flex-wrap items-center gap-3">
           <Link
             to="/signup"
-            className="fx-btn-gold inline-flex items-center gap-2 rounded-full px-7 py-3.5 font-mono text-[12px] uppercase tracking-[0.1em]"
+            className="fx-btn-gold inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-[14px] font-semibold"
           >
             Create a free account <span aria-hidden="true">→</span>
           </Link>
           <Link
             to="/pricing"
-            className="fx-btn-ghost inline-flex items-center rounded-full px-6 py-3.5 font-mono text-[12px] uppercase tracking-[0.1em]"
+            className="fx-btn-ghost inline-flex items-center rounded-full px-6 py-3.5 text-[14px] font-medium"
           >
             See pricing
           </Link>

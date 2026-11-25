@@ -50,14 +50,14 @@ export default function CareersFeatures() {
             </h2>
             <p className="mt-3 max-w-[68ch] text-[15px] leading-[1.7] text-ink-2">{f.what}</p>
             <p className="mt-3 max-w-[68ch] text-[14.5px] leading-[1.7] text-ink-2">
-              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-accent-text">
+              <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-accent-text">
                 Why it matters
               </span>
               <br />
               {f.why}
             </p>
             <p className="mt-3 max-w-[68ch] text-[14.5px] leading-[1.7] text-ink-3">
-              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-3">
+              <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-ink-3">
                 The limit
               </span>
               <br />
@@ -69,7 +69,11 @@ export default function CareersFeatures() {
 
       <Section id="privacy" title="What happens to your resume">
         <UL>
-          <li>It is stored in your own account and is readable by nobody else.</li>
+          <li>It is stored in your own account, and no other account can read it.</li>
+          <li>
+            AI features send its text, including any contact details in it, to our AI provider, and
+            only after you give permission.
+          </li>
           <li>It is never listed in a recruiter-searchable database.</li>
           <li>It is never sent to an employer, a recruiter or a job board.</li>
           <li>You can delete any version, or the whole account, at any time.</li>
@@ -90,14 +94,14 @@ export default function CareersFeatures() {
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <Link
             to={user ? '/careers/dashboard' : '/signup'}
-            className="fx-btn-gold inline-flex items-center gap-2 rounded-full px-7 py-3.5 font-mono text-[12px] uppercase tracking-[0.1em]"
+            className="fx-btn-gold inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-[14px] font-semibold"
           >
             {user ? 'Open your workspace' : 'Create a free account'}{' '}
             <span aria-hidden="true">→</span>
           </Link>
           <Link
             to="/pricing"
-            className="fx-btn-ghost inline-flex items-center rounded-full px-6 py-3.5 font-mono text-[12px] uppercase tracking-[0.1em]"
+            className="fx-btn-ghost inline-flex items-center rounded-full px-6 py-3.5 text-[14px] font-medium"
           >
             Compare plans
           </Link>

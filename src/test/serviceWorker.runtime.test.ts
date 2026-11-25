@@ -43,8 +43,25 @@ function worker() {
     if (navigate) Object.defineProperty(request, 'mode', { value: 'navigate' });
     return dispatch('fetch', request);
   }
-  return { cache, caches, fetch, get, dispatch };
+  /** Deliver a page → worker message, collecting what it asks to be kept alive for. */
+  function message(data: unknown, waitUntil: (promise: Promise<unknown>) => void) {
+    (listeners.get('message') as unknown as (event: { data: unknown; waitUntil: typeof waitUntil }) => void)({ data, waitUntil });
+  }
+  return { cache, caches, fetch, get, dispatch, message };
 }
+
+describe('the Worker API routes', () => {
+  // /api/fx/latest changes daily. Answered from the runtime cache, the app's
+  // once-a-day check would always read the previous day's rates.
+  it('are left to the network, never answered or stored by the worker', () => {
+    const w = worker();
+    const event = w.get('/api/fx/latest');
+    // No respondWith at all: the browser fetches it as if no worker existed.
+    expect(event.response()).toBeUndefined();
+    expect(w.caches.open).not.toHaveBeenCalled();
+    expect(w.fetch).not.toHaveBeenCalled();
+  });
+});
 
 describe('service worker storage failures', () => {
   it.each([
@@ -111,6 +128,54 @@ describe('service worker storage failures', () => {
     expect(event.pending.length).toBeGreaterThan(0);
     finish();
     await event.settled();
+  });
+});
+
+describe('a web page answered in place of a build asset', () => {
+  const page = () => new Response('<!doctype html><div id="root"></div>', { headers: { 'content-type': 'text/html; charset=utf-8' } });
+  const script = () => new Response('export default 1', { headers: { 'content-type': 'text/javascript' } });
+
+  it('is passed through but never stored as the asset', async () => {
+    // A host with an SPA fallback answers a chunk a deploy removed with its
+    // shell, under a 200. Stored cache-first, that page WAS the chunk from then
+    // on: it could not load again even after the real file came back.
+    const w = worker();
+    w.fetch.mockResolvedValue(page());
+    const event = w.get('/assets/StatementImport-abc123.js');
+    expect((await event.response()).headers.get('content-type')).toContain('text/html');
+    await event.settled();
+    expect(w.cache.put).not.toHaveBeenCalled();
+  });
+
+  it('is thrown out and refetched when an earlier worker already stored it', async () => {
+    const w = worker();
+    w.cache.match.mockResolvedValue(page());
+    w.fetch.mockResolvedValue(script());
+    const event = w.get('/assets/StatementImport-abc123.js');
+    expect(await (await event.response()).text()).toBe('export default 1');
+    await event.settled();
+    expect(w.cache.delete).toHaveBeenCalled();
+    expect(w.cache.put).toHaveBeenCalledTimes(1);
+  });
+
+  it('is not stored by the warm-up either', async () => {
+    const w = worker();
+    w.fetch.mockResolvedValue(page());
+    const pending: Promise<unknown>[] = [];
+    w.message({ type: 'fx-warm', urls: ['/assets/StatementImport-abc123.js'] }, (p) => pending.push(p));
+    await Promise.all(pending);
+    expect(w.fetch).toHaveBeenCalledTimes(1);
+    expect(w.cache.put).not.toHaveBeenCalled();
+    expect(w.cache.add).not.toHaveBeenCalled();
+  });
+
+  it('still stores a real asset from the warm-up', async () => {
+    const w = worker();
+    w.fetch.mockResolvedValue(script());
+    const pending: Promise<unknown>[] = [];
+    w.message({ type: 'fx-warm', urls: ['/assets/StatementImport-abc123.js'] }, (p) => pending.push(p));
+    await Promise.all(pending);
+    expect(w.cache.put).toHaveBeenCalledTimes(1);
   });
 });
 

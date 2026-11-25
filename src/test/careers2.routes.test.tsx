@@ -14,16 +14,14 @@ function renderAt(path: string) {
   );
 }
 
-// Phase 2 routes render through the real App (lazy chunks included). The tab
-// bar labels are stable regardless of auth/backend state. Companies moved off
-// the primary nav (2026-07-04 UX simplification) but the route itself still
-// renders — see the "hidden" cases below.
+// The Careers areas render through the real App (lazy chunks included). The
+// area names in the rail are stable regardless of auth/backend state.
 const CASES: [string, string][] = [
-  ['/careers/jobs', 'Career Coach'],
-  ['/careers/applications', 'Interview Prep'],
+  ['/careers/jobs', 'Interviews'],
+  ['/careers/applications', 'Resume'],
   ['/careers/companies', 'Applications'],
-  ['/careers/interviews', 'Job Search'],
-  ['/careers/coach', 'Resume Library'],
+  ['/careers/interviews', 'Jobs'],
+  ['/careers/coach', 'Resume'],
 ];
 
 describe('Phase 2 routes render', () => {
@@ -39,13 +37,13 @@ describe('Phase 2 routes render', () => {
     });
   }
 
-  it('keeps the hidden upload/profile routes alive', async () => {
+  it('sends the old upload address to the Resume area', async () => {
     renderAt('/careers/upload');
-    expect((await screen.findAllByText('Upload')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByRole('link', { name: 'Resume', current: 'page' })).length).toBeGreaterThan(0);
   });
 
-  // These sections were removed from the primary tab bar but must still be
-  // fully routable — "hidden" means decluttered, never removed.
+  // Former pages are now tabs of an area; their old addresses must still land
+  // inside Careers (bookmarks, emails, stored notification links).
   const HIDDEN_ROUTES = ['/careers/companies', '/careers/tasks', '/careers/recruiters', '/careers/network', '/careers/assessments', '/careers/offers', '/careers/knowledge', '/careers/billing'];
   for (const path of HIDDEN_ROUTES) {
     it(`keeps the hidden route ${path} alive`, async () => {
@@ -63,13 +61,13 @@ describe('per-route document titles', () => {
 
   it('sets a route-specific title on careers sub-pages', async () => {
     renderAt('/careers/jobs');
-    await screen.findAllByText('Career Coach');
-    expect(document.title).toBe('Job Search — FinatriX');
+    await screen.findAllByText('Interviews');
+    expect(document.title).toBe('Jobs — FinatriX Careers');
   });
 
   it('offers a skip-to-content link targeting #main', async () => {
     renderAt('/careers/jobs');
-    await screen.findAllByText('Career Coach');
+    await screen.findAllByText('Interviews');
     const skip = screen.getByText('Skip to content') as HTMLAnchorElement;
     expect(skip.getAttribute('href')).toBe('#main');
     expect(document.getElementById('main')).not.toBeNull();

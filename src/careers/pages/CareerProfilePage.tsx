@@ -8,8 +8,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
-import { PageHead, ToolFoot } from '../../tools/ui/common';
-import { EmptyState, ErrorCard, PageLoading } from '../components/states';
+import { ErrorCard, PageLoading } from '../components/states';
+import { Empty } from '../ui/primitives';
+import { RsIcon } from '../areas/resume/icons';
+import '../areas/resume/resume.css';
 import { DeclaredRightsCard } from '../components/DeclaredRightsCard';
 import { EMPLOYMENT_TYPES, INDUSTRY_OPTIONS } from '../constants';
 import { useCareers } from '../context/CareersContext';
@@ -138,25 +140,25 @@ export default function CareerProfilePage() {
   if (loading) return <PageLoading />;
 
   return (
-    <div className="fx-page">
-      <PageHead
-        chip="Career Profile"
-        chipColor="#D4AF37"
-        chipBg="rgba(212,175,55,.12)"
-        icon="users"
-        title="Your professional identity"
-      >
-        This profile powers everything Careers builds for you next — job matching in
-        Phase 2 starts here. Resume uploads suggest updates; only you apply them.
-      </PageHead>
-
+    <div>
       {error && <ErrorCard error={error} onRetry={() => void refresh()} />}
 
       {!error && profile && form && (
-        <div className="grid2" style={{ alignItems: 'flex-start' }}>
-          <div className="card">
-            <div className="panel-eyebrow">Profile</div>
-            <div style={{ marginTop: 14 }}>
+        <>
+          <section className="cx-panel" aria-labelledby="cp-prefs">
+            <div className="cx-panel-head"><h2 id="cp-prefs">Preferences</h2></div>
+            <p className="cx-sub" style={{ marginBottom: 18 }}>
+              Resume uploads suggest updates and only you apply them. Manual edits always win over AI suggestions.
+            </p>
+            {suggestions.length > 0 && (
+              <div className="cx-notice" role="status" style={{ marginBottom: 18 }}>
+                <p style={{ margin: 0 }}>
+                  <strong>{suggestions.length} suggestion{suggestions.length === 1 ? '' : 's'} from your latest resume.</strong>{' '}
+                  Review them next to each field. Nothing changes until you apply it.
+                </p>
+              </div>
+            )}
+            <div className="rs-form">
               {FIELDS.map((def) => {
                 const suggestion = profile.suggestions[def.key];
                 return (
@@ -187,75 +189,71 @@ export default function CareerProfilePage() {
                       />
                     )}
                     {suggestion && suggestion !== form[def.key] && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 7, flexWrap: 'wrap' }}>
-                        <span className="badge badge-gold">From your resume</span>
-                        <span style={{ fontSize: 12.5, color: 'var(--ink2)', flex: '1 1 auto' }}>{suggestion}</span>
-                        <button className="btn btn-ghost btn-sm" style={{ padding: '5px 12px', fontSize: 12 }} onClick={() => void acceptSuggestion(def.key, suggestion)}>
+                      <div className="rs-suggest">
+                        <span className="cx-chip cx-chip-accent">From your resume</span>
+                        <span className="rs-suggest-text">{suggestion}</span>
+                        <button type="button" className="cx-btn cx-btn-sm" onClick={() => void acceptSuggestion(def.key, suggestion)}>
                           Apply
                         </button>
-                        <button className="icon-btn" aria-label={`Dismiss suggestion for ${def.label}`} onClick={() => void dismissSuggestion(def.key)}>
-                          ✕
+                        <button type="button" className="cx-icon-btn" aria-label={`Dismiss suggestion for ${def.label}`} onClick={() => void dismissSuggestion(def.key)}>
+                          <RsIcon name="close" size={16} />
                         </button>
                       </div>
                     )}
                   </div>
                 );
               })}
-              <button className={`btn ${saving ? 'btn-loading' : ''}`} disabled={saving || !dirty} onClick={() => void save()} style={{ opacity: dirty ? 1 : 0.6 }}>
-                {saving ? 'Saving…' : dirty ? 'Save profile' : 'Saved'}
-              </button>
             </div>
-          </div>
+            <div className="rs-save">
+              <button type="button" className="cx-btn cx-btn-primary" disabled={saving || !dirty} onClick={() => void save()}>
+                {saving ? 'Saving…' : 'Save preferences'}
+              </button>
+              {!dirty && !saving && <span className="cx-sub cx-muted" role="status">All changes saved</span>}
+            </div>
+          </section>
 
-          <div>
-            {user && <DeclaredRightsCard userId={user.id} profile={profile} onSaved={setProfile} />}
-            <div className="card">
-              <div className="panel-eyebrow">Career DNA</div>
-              {dna ? (
-                <>
-                  <p style={{ fontSize: 13.5, color: 'var(--ink2)', lineHeight: 1.65, margin: '12px 0 18px' }}>
-                    {dna.personalitySummary}
-                  </p>
+          {user && (
+            <section className="cx-panel">
+              <DeclaredRightsCard userId={user.id} profile={profile} onSaved={setProfile} />
+            </section>
+          )}
+
+          <section className="cx-panel" aria-labelledby="cp-dna">
+            <div className="cx-panel-head"><h2 id="cp-dna">Career DNA</h2></div>
+            {dna ? (
+              <>
+                <p className="cx-sub">{dna.personalitySummary}</p>
+                <div className="rs-dna-bars">
                   {dna.traits.map((t) => (
-                    <div className="dna-trait" key={t.name}>
-                      <div className="dt-row">
-                        <span className="dt-name">{t.name}</span>
-                        <span className="dt-val">{t.confidence}%</span>
+                    <div key={t.name}>
+                      <div className="rs-dna-row">
+                        <span>{t.name}</span>
+                        <span>{t.confidence}%</span>
                       </div>
-                      <div className="bar">
-                        <div className="bar-fill" style={{ width: `${t.confidence}%`, background: 'var(--gold)' }} />
-                      </div>
+                      <div className="rs-dna-track" aria-hidden="true"><i style={{ width: `${t.confidence}%` }} /></div>
                     </div>
                   ))}
-                  <div className="hr" />
-                  <div className="panel-eyebrow" style={{ marginBottom: 8 }}>Strengths</div>
-                  <div>{dna.strengths.map((s) => <span className="tag green" key={s}>{s}</span>)}</div>
-                  <div className="panel-eyebrow" style={{ margin: '14px 0 8px' }}>Growth areas</div>
-                  <div>{dna.weaknesses.map((s) => <span className="tag red" key={s}>{s}</span>)}</div>
-                  <div className="panel-eyebrow" style={{ margin: '14px 0 8px' }}>Recommended industries</div>
-                  <div>{dna.recommendedIndustries.map((s) => <span className="tag gold" key={s}>{s}</span>)}</div>
-                  <div className="panel-eyebrow" style={{ margin: '14px 0 8px' }}>Suitable roles</div>
-                  <div>{dna.suitableRoles.map((s) => <span className="tag" key={s}>{s}</span>)}</div>
-                </>
-              ) : (
-                <EmptyState icon="layers" title="No Career DNA yet">
-                  Upload and analyse a resume to generate your AI career profile.
-                </EmptyState>
-              )}
-            </div>
-            {suggestions.length > 0 && (
-              <div className="tip tip-info">
-                <b>{suggestions.length} suggestion{suggestions.length === 1 ? '' : 's'} from your latest resume</b>
-                Review them next to each field — nothing changes until you apply it.
-              </div>
+                </div>
+                {([
+                  ['Strengths', dna.strengths, 'cx-chip-good'],
+                  ['Growth areas', dna.weaknesses, 'cx-chip-warn'],
+                  ['Recommended industries', dna.recommendedIndustries, 'cx-chip-accent'],
+                  ['Suitable roles', dna.suitableRoles, ''],
+                ] as const).map(([title, items, tone]) => (
+                  <div className="rs-dna-group" key={title}>
+                    <h3>{title}</h3>
+                    <div className="rs-chips">{items.map((x) => <span key={x} className={`cx-chip ${tone}`}>{x}</span>)}</div>
+                  </div>
+                ))}
+              </>
+            ) : (
+              <Empty title="No Career DNA yet">
+                Upload and analyse a resume to generate it.
+              </Empty>
             )}
-          </div>
-        </div>
+          </section>
+        </>
       )}
-
-      <ToolFoot>
-        <b>Career Profile</b> · manual edits always win over AI suggestions
-      </ToolFoot>
     </div>
   );
 }

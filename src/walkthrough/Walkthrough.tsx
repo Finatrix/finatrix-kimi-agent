@@ -106,7 +106,7 @@ export default function Walkthrough({ mode, onClose, onSetup }: Props) {
       // A breath in the frame as the wipe passes — anticipation, then settle.
       frame.animate(
         [{ transform: 'scale(1)' }, { transform: 'scale(0.982)', offset: 0.32 }, { transform: 'scale(1)' }],
-        { duration: 760, easing: 'cubic-bezier(.3,.7,.2,1)' },
+        { duration: 300, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' },
       );
     }
     try { bodyRef.current?.scrollTo?.({ top: 0, behavior: 'instant' }); } catch { /* old engines */ }

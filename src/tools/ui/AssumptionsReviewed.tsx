@@ -41,9 +41,9 @@ export function AssumptionsReviewed({
 
   if (compact) {
     return (
-      <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink-3">
-        {text} ·{' '}
-        <Link to="/editorial-standards" className="transition-colors hover:text-accent-text underline underline-offset-2">
+      <span className="text-[13px] text-ink-3">
+        {text}.{' '}
+        <Link to="/editorial-standards" className="fx-footer-link fx-footer-inline">
           How we review
         </Link>
       </span>
@@ -66,14 +66,10 @@ export function AssumptionsReviewed({
         <path d="M9 11l2 2 4-4" />
         <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
       </svg>
-      <span className="font-mono text-[11px] tracking-[0.02em]" style={{ color: 'var(--ink-3, #8b8b90)' }}>
-        {text}
+      <span className="text-[13px]" style={{ color: 'var(--ink-3, #8b8b90)' }}>
+        {text}.
       </span>
-      <Link
-        to="/editorial-standards"
-        className="font-mono text-[11px] underline underline-offset-2"
-        style={{ color: 'var(--accent-text, #C9A23C)' }}
-      >
+      <Link to="/editorial-standards" className="fx-footer-link fx-footer-inline text-[13px]">
         How we review
       </Link>
     </p>

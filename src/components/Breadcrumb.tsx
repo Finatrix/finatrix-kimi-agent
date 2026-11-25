@@ -14,20 +14,20 @@ export function Breadcrumb({ current, parent, className = '' }: {
   className?: string;
 }) {
   return (
-    <nav aria-label="Breadcrumb" data-web-only className={`flex items-center gap-2 ${className}`}>
-      <Link to="/" className="font-mono text-[10.5px] uppercase tracking-[0.08em] text-ink-3 hover:text-accent-text transition-colors">
+    <nav aria-label="Breadcrumb" data-web-only className={`fx-crumbs ${className}`}>
+      <Link to="/" className="fx-crumb">
         Home
       </Link>
       <span className="text-ink-3" aria-hidden="true">›</span>
       {parent && (
         <>
-          <Link to={parent.to} className="font-mono text-[10.5px] uppercase tracking-[0.08em] text-ink-3 hover:text-accent-text transition-colors">
+          <Link to={parent.to} className="fx-crumb">
             {parent.label}
           </Link>
           <span className="text-ink-3" aria-hidden="true">›</span>
         </>
       )}
-      <span className="text-[12px] text-ink" aria-current="page">{current}</span>
+      <span className="fx-crumb-current" aria-current="page">{current}</span>
     </nav>
   );
 }

@@ -13,7 +13,7 @@
 export default function RouteFallback() {
   return (
     <div
-      className="min-h-screen bg-surface-base flex flex-col items-center justify-center gap-6"
+      className="min-h-[100dvh] bg-surface-base flex flex-col items-center justify-center gap-6"
       role="status"
       aria-busy="true"
     >

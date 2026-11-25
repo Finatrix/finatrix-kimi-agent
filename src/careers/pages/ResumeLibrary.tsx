@@ -1,6 +1,6 @@
 /**
  * Resume Library — the management center: every resume family with its
- * versions, searchable/sortable/filterable, in grid or list view, with
+ * versions, searchable/sortable/filterable, as a list, with
  * rename / favorite / duplicate / archive / delete / download / retry,
  * a full analysis viewer and side-by-side version comparison.
  */
@@ -11,10 +11,11 @@ import { downloadBlob } from '../../lib/download';
 import { isNativeApp } from '../../native/platform';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
-import { Icon } from '../../tools/ui/Icon';
-import { PageHead } from '../../tools/ui/common';
 import { ScoreRing } from '../components/ScoreRing';
-import { ConfirmDialog, EmptyState, ErrorCard, ModalShell, PageLoading } from '../components/states';
+import { ConfirmDialog, ErrorCard, ModalShell, PageLoading } from '../components/states';
+import { Empty } from '../ui/primitives';
+import { RsIcon } from '../areas/resume/icons';
+import '../areas/resume/resume.css';
 import { PipelineProgress } from '../components/PipelineProgress';
 import { CAREERS_ROUTES } from '../constants';
 import { useCareers } from '../context/CareersContext';
@@ -67,7 +68,7 @@ export default function ResumeLibrary() {
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<SortKey>('updated');
   const [filter, setFilter] = useState<FilterKey>('active');
-  const [view, setView] = useState<'grid' | 'list'>('grid');
+  const [openId, setOpenId] = useState<string | null>(null);
   const [renameTarget, setRenameTarget] = useState<ResumeWithVersions | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<ResumeWithVersions | null>(null);
@@ -76,19 +77,17 @@ export default function ResumeLibrary() {
   const [retryState, setRetryState] = useState<{ versionId: string; progress: Progress } | null>(null);
 
   // Badge owners across the whole library.
-  const { latestId, bestAtsId, bestScoreId } = useMemo(() => {
-    let latest: ResumeVersionRow | null = null;
+  const { bestAtsId, bestScoreId } = useMemo(() => {
     let bestAts: ResumeVersionRow | null = null;
     let bestScore: ResumeVersionRow | null = null;
     for (const r of resumes) {
       for (const v of r.versions) {
         if (v.status !== 'complete') continue;
-        if (!latest || v.created_at > latest.created_at) latest = v;
         if (v.ats_score != null && (bestAts?.ats_score == null || v.ats_score > bestAts.ats_score)) bestAts = v;
         if (v.resume_score != null && (bestScore?.resume_score == null || v.resume_score > bestScore.resume_score)) bestScore = v;
       }
     }
-    return { latestId: latest?.id, bestAtsId: bestAts?.id, bestScoreId: bestScore?.id };
+    return { bestAtsId: bestAts?.id, bestScoreId: bestScore?.id };
   }, [resumes]);
 
   const visible = useMemo(() => {
@@ -227,191 +226,183 @@ export default function ResumeLibrary() {
 
   if (loading) return <PageLoading />;
 
-  return (
-    <div className="fx-page">
-      <PageHead
-        chip="Resume Library"
-        chipColor="#D4AF37"
-        chipBg="rgba(212,175,55,.12)"
-        icon="layers"
-        title="Every version, one place"
-      >
-        Manage your tailored resumes — compare versions, track score improvements and
-        keep the strongest one ready for every application.
-      </PageHead>
+  const toggleOpen = (id: string) => setOpenId((cur) => (cur === id ? null : id));
 
+  return (
+    <div>
       {error && <ErrorCard error={error} onRetry={() => void refresh()} />}
 
       {!error && (
         <>
-          <div className="lib-toolbar">
+          <div className="rs-toolbar">
             <input
-              className="fi"
+              className="fi rs-search"
               type="search"
-              placeholder="Search resumes…"
+              placeholder="Search resumes"
               aria-label="Search resumes"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
             <select className="fs" aria-label="Sort" value={sortBy} onChange={(e) => setSortBy(e.target.value as SortKey)}>
               <option value="updated">Newest first</option>
-              <option value="name">Name A–Z</option>
-              <option value="score">Highest Resume Score</option>
-              <option value="ats">Highest ATS Score</option>
+              <option value="name">Name A to Z</option>
+              <option value="score">Highest resume score</option>
+              <option value="ats">Highest ATS score</option>
             </select>
             <select className="fs" aria-label="Filter" value={filter} onChange={(e) => setFilter(e.target.value as FilterKey)}>
               <option value="active">Active</option>
-              <option value="favorites">Favorites</option>
+              <option value="favorites">Favourites</option>
               <option value="failed">Needs attention</option>
               <option value="archived">Archived</option>
               <option value="all">All</option>
             </select>
-            <button
-              className="icon-btn"
-              aria-label={view === 'grid' ? 'Switch to list view' : 'Switch to grid view'}
-              title={view === 'grid' ? 'List view' : 'Grid view'}
-              onClick={() => setView((v) => (v === 'grid' ? 'list' : 'grid'))}
-            >
-              <Icon name={view === 'grid' ? 'bills' : 'layers'} size={14} />
-            </button>
             {allCompleteVersions.length >= 2 && (
-              <button className="btn btn-ghost btn-sm" onClick={() => setCompareOpen(true)}>
+              <button type="button" className="cx-btn" onClick={() => setCompareOpen(true)}>
                 Compare versions
               </button>
             )}
           </div>
 
-          {!visible.length ? (
-            <div className="card">
-              <EmptyState
-                icon="layers"
-                title={resumes.length ? 'Nothing matches your filters' : 'Your library is empty'}
-                action={
-                  !resumes.length ? (
-                    <Link to={CAREERS_ROUTES.upload} className="btn btn-sm" style={{ textDecoration: 'none', width: 'auto', display: 'inline-block', padding: '12px 28px' }}>
-                      Upload your first resume
-                    </Link>
-                  ) : undefined
-                }
-              >
-                {resumes.length
-                  ? 'Try a different search or filter.'
-                  : 'Upload a resume to start building your version history.'}
-              </EmptyState>
-            </div>
-          ) : (
-            <div className={`lib-grid ${view === 'list' ? 'list' : ''}`}>
-              {visible.map((r) => {
-                const cur = currentVersion(r);
-                return (
-                  <div className="card" key={r.id} style={{ marginBottom: 0, display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-                          {r.is_archived && <span className="badge badge-mute">Archived</span>}
-                          {r.is_favorite && <span className="badge badge-gold">★ Favorite</span>}
-                          {cur?.id === latestId && <span className="badge badge-blue">Latest</span>}
-                          {cur?.id === bestScoreId && <span className="badge badge-green">Top score</span>}
-                          {cur?.id === bestAtsId && <span className="badge badge-green">Best ATS</span>}
-                          {cur?.status === 'failed' && <span className="badge badge-red">Failed</span>}
-                          {cur?.status === 'processing' && <span className="badge badge-mute">Processing</span>}
+          <section className="cx-panel" aria-label="Resumes">
+            {!visible.length ? (
+              resumes.length ? (
+                <Empty title="Nothing matches your filters">Try a different search or filter.</Empty>
+              ) : (
+                <Empty
+                  title="No resumes yet"
+                  action={<Link to={CAREERS_ROUTES.upload} className="cx-btn">Upload a resume</Link>}
+                >
+                  Upload one to see its scores and keep a history of versions.
+                </Empty>
+              )
+            ) : (
+              <>
+                <p role="status" aria-live="polite" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
+                  {visible.length} resume{visible.length === 1 ? '' : 's'} shown
+                </p>
+                <ul className="cx-list">
+                  {visible.map((r) => {
+                    const cur = currentVersion(r);
+                    const open = openId === r.id;
+                    const detailId = `rs-detail-${r.id}`;
+                    return (
+                      <li key={r.id} className="rs-item">
+                        <div className="cx-row">
+                          <button
+                            type="button"
+                            className="rs-main"
+                            aria-expanded={open}
+                            aria-controls={detailId}
+                            onClick={() => toggleOpen(r.id)}
+                          >
+                            <span className="rs-caret"><RsIcon name="caret" size={16} /></span>
+                            <span className="rs-main-text">
+                              <span className="cx-row-title" style={{ display: 'block' }}>{r.name}</span>
+                              <span className="cx-row-meta">
+                                <span>{r.versions.length} version{r.versions.length === 1 ? '' : 's'}</span>
+                                <span>Updated {formatDate(r.updated_at)}</span>
+                                {r.industry && <span>{r.industry}</span>}
+                              </span>
+                            </span>
+                          </button>
+                          {cur && <StatusChip status={cur.status} />}
+                          {r.is_archived && <span className="cx-chip">Archived</span>}
+                          {cur?.id === bestScoreId && <span className="cx-chip cx-chip-accent">Top score</span>}
+                          {cur?.id === bestAtsId && <span className="cx-chip cx-chip-accent">Best ATS</span>}
+                          {cur && <Scores v={cur} />}
+                          <div className="rs-actions">
+                            <button
+                              type="button"
+                              className="cx-icon-btn"
+                              aria-pressed={r.is_favorite}
+                              aria-label={r.is_favorite ? `Remove ${r.name} from favourites` : `Add ${r.name} to favourites`}
+                              title={r.is_favorite ? 'Remove from favourites' : 'Add to favourites'}
+                              onClick={() => void onToggleFavorite(r)}
+                            >
+                              <RsIcon name="star" size={18} filled={r.is_favorite} />
+                            </button>
+                            {cur && (
+                              <button type="button" className="cx-icon-btn" aria-label={`Download original file of ${r.name}`} title="Download original" onClick={() => void onDownloadOriginal(cur)}>
+                                <RsIcon name="download" size={18} />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              className="cx-icon-btn"
+                              aria-label={r.is_archived ? `Restore ${r.name}` : `Archive ${r.name}`}
+                              title={r.is_archived ? 'Restore' : 'Archive'}
+                              onClick={() => void onToggleArchive(r)}
+                            >
+                              <RsIcon name="archive" size={18} />
+                            </button>
+                            <button type="button" className="cx-icon-btn is-danger" aria-label={`Delete ${r.name}`} title="Delete" onClick={() => setDeleteTarget(r)}>
+                              <RsIcon name="trash" size={18} />
+                            </button>
+                          </div>
                         </div>
-                        <div style={{ fontSize: 16, fontWeight: 650, letterSpacing: '-.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {r.name}
-                        </div>
-                        {/* Date *and* time: two records created the same day
-                            from the same file were otherwise identical here,
-                            leaving nothing on the card to tell them apart. */}
-                        <div style={{ fontSize: 12, color: 'var(--ink2)', marginTop: 3 }}>
-                          {r.industry || 'No industry'} · {r.versions.length} version{r.versions.length === 1 ? '' : 's'} · {formatDateTime(r.updated_at)}
-                        </div>
-                        {cur && cur.status !== 'complete' && (
-                          <div style={{ fontSize: 12, color: cur.status === 'failed' ? 'var(--red)' : 'var(--ink3)', marginTop: 4, fontWeight: 600 }}>
-                            {cur.status === 'failed'
-                              ? 'Analysis failed — this copy has no scores'
-                              : 'Analysis still running'}
+
+                        {open && (
+                          <div className="rs-detail" id={detailId}>
+                            <div className="rs-detail-actions">
+                              <button
+                                type="button"
+                                className="cx-btn cx-btn-sm"
+                                onClick={() => { setRenameTarget(r); setRenameValue(r.name); }}
+                              >
+                                Rename
+                              </button>
+                              <button type="button" className="cx-btn cx-btn-sm" onClick={() => void onDuplicate(r)}>
+                                Duplicate
+                              </button>
+                              {cur?.parsed && (
+                                <button type="button" className="cx-btn cx-btn-sm" onClick={() => void onDownloadJson(r, cur)}>
+                                  Download parsed JSON
+                                </button>
+                              )}
+                            </div>
+                            <ul className="cx-list rs-versions" aria-label={`Versions of ${r.name}`}>
+                              {r.versions.map((v) => (
+                                <li key={v.id}>
+                                  <div className="cx-row">
+                                    <div className="cx-row-main">
+                                      <p className="cx-row-title">Version {v.version_number}</p>
+                                      <p className="cx-row-meta">
+                                        <span>{v.file_name}</span>
+                                        <span className="cx-num">{formatBytes(v.file_size)}</span>
+                                        <span>{formatDateTime(v.created_at)}</span>
+                                      </p>
+                                    </div>
+                                    <StatusChip status={v.status} />
+                                    <Scores v={v} />
+                                    {v.status === 'complete' && (
+                                      <button type="button" className="cx-btn cx-btn-sm" onClick={() => setAnalysisTarget({ resume: r, version: v })}>
+                                        View analysis
+                                      </button>
+                                    )}
+                                  </div>
+                                  {retryState?.versionId === v.id && <PipelineProgress progress={retryState.progress} />}
+                                  {v.status === 'failed' && (
+                                    <div className="cx-notice" role="alert" style={{ marginBottom: 12 }}>
+                                      <p style={{ margin: 0, flex: 1 }}>{v.error || 'Analysis failed. This version has no scores.'}</p>
+                                      {!retryState && (
+                                        <button type="button" className="cx-btn cx-btn-sm" onClick={() => void onRetry(v)}>
+                                          Retry processing
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
                           </div>
                         )}
-                      </div>
-                      <button
-                        className={`icon-btn ${r.is_favorite ? 'gold' : ''}`}
-                        aria-label={r.is_favorite ? 'Remove favorite' : 'Mark favorite'}
-                        onClick={() => void onToggleFavorite(r)}
-                      >
-                        ★
-                      </button>
-                    </div>
-
-                    {cur && (
-                      <div style={{ display: 'flex', gap: 18, alignItems: 'center', margin: '16px 0' }}>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: 22, fontWeight: 700, color: scoreColor(cur.resume_score) }}>
-                            {cur.resume_score ?? '—'}
-                          </div>
-                          <div style={{ fontSize: 10.5, color: 'var(--ink3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Resume</div>
-                        </div>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: 22, fontWeight: 700, color: scoreColor(cur.ats_score) }}>
-                            {cur.ats_score ?? '—'}
-                          </div>
-                          <div style={{ fontSize: 10.5, color: 'var(--ink3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>ATS</div>
-                        </div>
-                        <div style={{ flex: 1, fontSize: 12, color: 'var(--ink2)', minWidth: 0 }}>
-                          <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cur.file_name}</div>
-                          <div style={{ color: 'var(--ink3)' }}>{formatBytes(cur.file_size)} · v{cur.version_number}</div>
-                        </div>
-                      </div>
-                    )}
-
-                    {retryState && cur && retryState.versionId === cur.id && (
-                      <div style={{ marginBottom: 14 }}>
-                        <PipelineProgress progress={retryState.progress} />
-                      </div>
-                    )}
-
-                    {cur?.status === 'failed' && cur.error && (
-                      <p className="note" style={{ color: 'var(--red)', marginBottom: 12 }}>{cur.error}</p>
-                    )}
-
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 'auto' }}>
-                      {cur?.status === 'complete' && (
-                        <button className="btn btn-sm" style={{ flex: '1 1 auto' }} onClick={() => setAnalysisTarget({ resume: r, version: cur })}>
-                          View analysis
-                        </button>
-                      )}
-                      {cur?.status === 'failed' && !retryState && (
-                        <button className="btn btn-sm" style={{ flex: '1 1 auto' }} onClick={() => void onRetry(cur)}>
-                          Retry processing
-                        </button>
-                      )}
-                      <button className="icon-btn" title="Rename" aria-label={`Rename ${r.name}`} onClick={() => { setRenameTarget(r); setRenameValue(r.name); }}>
-                        <Icon name="bills" size={13} />
-                      </button>
-                      {cur && (
-                        <button className="icon-btn" title="Download original" aria-label="Download original file" onClick={() => void onDownloadOriginal(cur)}>
-                          <Icon name="arrow-up" size={13} style={{ transform: 'rotate(180deg)' }} />
-                        </button>
-                      )}
-                      {cur?.parsed && (
-                        <button className="icon-btn" title="Download parsed JSON" aria-label="Download parsed JSON" onClick={() => onDownloadJson(r, cur)}>
-                          {'{}'}
-                        </button>
-                      )}
-                      <button className="icon-btn" title="Duplicate" aria-label={`Duplicate ${r.name}`} onClick={() => void onDuplicate(r)}>
-                        ⧉
-                      </button>
-                      <button className="icon-btn" title={r.is_archived ? 'Restore' : 'Archive'} aria-label={r.is_archived ? 'Restore' : 'Archive'} onClick={() => void onToggleArchive(r)}>
-                        <Icon name="park" size={13} />
-                      </button>
-                      <button className="icon-btn danger" title="Delete" aria-label={`Delete ${r.name}`} onClick={() => setDeleteTarget(r)}>
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            )}
+          </section>
         </>
       )}
 
@@ -464,6 +455,26 @@ export default function ResumeLibrary() {
           onClose={() => setCompareOpen(false)}
         />
       )}
+    </div>
+  );
+}
+
+const STATUS_CHIP: Record<string, { label: string; tone: string }> = {
+  complete: { label: 'Ready', tone: 'cx-chip-good' },
+  processing: { label: 'Processing', tone: '' },
+  failed: { label: 'Failed', tone: 'cx-chip-bad' },
+};
+
+function StatusChip({ status }: { status: string }) {
+  const c = STATUS_CHIP[status] ?? { label: status, tone: '' };
+  return <span className={`cx-chip ${c.tone}`}>{c.label}</span>;
+}
+
+function Scores({ v }: { v: ResumeVersionRow }) {
+  return (
+    <div className="rs-scores">
+      <div className="rs-score"><b>{v.resume_score ?? '–'}</b><span>Resume score</span></div>
+      <div className="rs-score"><b>{v.ats_score ?? '–'}</b><span>ATS score</span></div>
     </div>
   );
 }
@@ -526,7 +537,7 @@ function AnalysisModal({
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
           <h3 style={{ flex: 1, marginBottom: 0 }}>{resume.name}</h3>
           {resume.versions.length > 1 && (
-            <select className="fs" style={{ width: 'auto', padding: '7px 34px 7px 12px', fontSize: 13 }} value={selected} onChange={(e) => setSelected(e.target.value)} aria-label="Version">
+            <select className="fs" style={{ width: 'auto', padding: '7px 34px 7px 12px', fontSize: 'max(13px, var(--field-min-fs))' }} value={selected} onChange={(e) => setSelected(e.target.value)} aria-label="Version">
               {resume.versions.map((x) => (
                 <option key={x.id} value={x.id}>v{x.version_number} · {formatDate(x.created_at)}</option>
               ))}
@@ -621,7 +632,7 @@ function AnalysisModal({
             Run the full workflow for the same job description — resume match with missing skills,
             tailoring suggestions and{' '}
             <Link to={CAREERS_ROUTES.interviews} style={{ color: 'var(--gold)' }}>interview questions</Link> — from the{' '}
-            <Link to={`${CAREERS_ROUTES.jobs}?view=analyzer`} style={{ color: 'var(--gold)' }}>Job Description Analyzer</Link>.
+            <Link to={`${CAREERS_ROUTES.jobs}?tab=analyse`} style={{ color: 'var(--accent-text)' }}>job description analyser</Link>.
           </div>
         )}
 
@@ -649,9 +660,11 @@ function AnalysisModal({
             <p style={{ fontSize: 13, color: 'var(--ink2)', lineHeight: 1.6, marginBottom: 12 }}>{v.career_dna.personalitySummary}</p>
             <div className="grid2">
               <div>
+                <div className="note" style={{ marginBottom: 6 }}>Strengths</div>
                 {v.career_dna.strengths.slice(0, 5).map((s) => <span className="tag green" key={s}>{s}</span>)}
               </div>
               <div>
+                <div className="note" style={{ marginBottom: 6 }}>Growth areas</div>
                 {v.career_dna.weaknesses.slice(0, 5).map((s) => <span className="tag red" key={s}>{s}</span>)}
               </div>
             </div>

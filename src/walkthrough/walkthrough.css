@@ -22,9 +22,9 @@
 .fx-tools.wt-root {
   --wt-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --wt-inout: cubic-bezier(0.65, 0, 0.35, 1);
-  --wt-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --wt-bounce: cubic-bezier(0.34, 1.8, 0.64, 1);
-  --wt-art-w: min(100%, 520px, max(236px, calc((100vh - 430px) * 1.3333)));
+  --wt-spring: cubic-bezier(0.23, 1, 0.32, 1);
+  --wt-bounce: cubic-bezier(0.23, 1, 0.32, 1);
+  --wt-art-w: min(100%, 520px, max(236px, calc((100svh - 430px) * 1.3333)));
   --wt-gold-disc: radial-gradient(circle at 34% 30%, #FBF1CC 0%, #EBCB6B 30%, #D4AF37 58%, #A8842B 100%);
   --wt-text-on-gold: #0A0A0A;
   --wt-sweep-core: rgba(248, 236, 192, 0.85);
@@ -45,14 +45,14 @@
   overflow: hidden;
   overscroll-behavior: contain;
   isolation: isolate;
-  animation: wt-fade 420ms var(--wt-ease) backwards;
+  animation: wt-fade 300ms var(--wt-ease) backwards;
 }
 
 /* Real spring curves where the engine can draw them (Chrome 113+, Safari 17.2+). */
 @supports (transition-timing-function: linear(0, 1)) {
   .fx-tools.wt-root {
-    --wt-spring: linear(0, 0.076, 0.251, 0.459, 0.657, 0.821, 0.943, 1.023, 1.066, 1.083, 1.081, 1.068, 1.051, 1.034, 1.019, 1.008, 1, 0.995, 0.993, 0.993, 0.994, 0.995, 0.997, 0.998, 0.999, 1, 1, 1.001, 1);
-    --wt-bounce: linear(0, 0.083, 0.282, 0.528, 0.767, 0.965, 1.104, 1.181, 1.205, 1.19, 1.149, 1.099, 1.05, 1.009, 0.98, 0.963, 0.958, 0.961, 0.969, 0.979, 0.989, 0.998, 1.004, 1.007, 1.009, 1.008, 1.006, 1.004, 1.002, 1, 0.999, 0.998, 1);
+    --wt-spring: cubic-bezier(0.23, 1, 0.32, 1);
+    --wt-bounce: cubic-bezier(0.23, 1, 0.32, 1);
   }
 }
 
@@ -92,7 +92,7 @@
   position: absolute;
   inset: -12%;
   transform: translate3d(calc(var(--wt-step, 0) * -2.6%), calc(var(--wt-step, 0) * 1.1%), 0);
-  transition: transform 1600ms var(--wt-ease);
+  transition: transform 300ms var(--wt-ease);
 }
 .wt-root .wt-blob {
   position: absolute;
@@ -202,7 +202,7 @@
      scene's copy is a different height — so it centres on an estimate: the
      chrome (~200px) plus a typical scene's copy (~200px). Same value in every
      layer, so the frame, the orb and the art still coincide. */
-  padding-top: max(0px, min(90px, calc((100vh - 400px - var(--wt-art-w) * 0.75) / 2)));
+  padding-top: max(0px, min(90px, calc((100svh - 400px - var(--wt-art-w) * 0.75) / 2)));
   min-width: 0;
 }
 .wt-root .wt-persist { pointer-events: none; }
@@ -221,7 +221,7 @@
     var(--card);
   border: 1px solid var(--hair);
   box-shadow: var(--shadow-2), inset 0 1px 0 var(--fill-06);
-  animation: wt-frame-in 1000ms var(--wt-spring) 60ms backwards;
+  animation: wt-frame-in 300ms var(--wt-spring) 60ms backwards;
 }
 .wt-root .wt-frame { container-type: inline-size; }
 /* The tag lives in the frame's top strip, which the illustrations leave empty.
@@ -232,12 +232,11 @@
   right: 14px;
   top: clamp(4px, 3.2cqw, 10px);
   right: clamp(8px, 4cqw, 14px);
-  font-family: ui-monospace, 'Geist Mono', SFMono-Regular, Menlo, monospace;
-  font-size: 10.5px;
-  font-size: clamp(6.5px, 2.9cqw, 10.5px);
+  /* 11px at every size: it used to shrink with the frame to as little as
+     6.5px. Sentence case and no tracking keep it short enough for the strip. */
+  font-size: 11px;
+  font-weight: 500;
   white-space: nowrap;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--ink3);
 }
 .wt-root .wt-art { display: block; width: 100%; height: 100%; overflow: visible; }
@@ -249,7 +248,7 @@
   position: absolute;
   inset: 0;
   transform: translate3d(31.11%, 48.89%, 0);
-  transition: transform 920ms var(--wt-spring);
+  transition: transform 300ms var(--wt-spring);
   will-change: transform;
 }
 .wt-root .wt-orb-track.is-riding { transition: none; }
@@ -266,7 +265,9 @@
     inset 0 1px 1px rgba(255, 255, 255, 0.55),
     inset 0 -2px 3px rgba(110, 85, 20, 0.35),
     0 6px 26px -4px rgba(212, 175, 55, 0.55);
-  transform: scale(0);
+  transform: scale(0.6);
+  opacity: 0;
+  transition: opacity 200ms var(--ease-out);
   will-change: transform;
 }
 
@@ -311,7 +312,7 @@
 }
 .wt-root .wt-word > span {
   display: inline-block;
-  animation: wt-word 900ms var(--wt-ease) backwards;
+  animation: wt-word 300ms var(--wt-ease) backwards;
   animation-delay: calc(var(--d, 0) * 1ms);
 }
 .wt-root .wt-lede {
@@ -321,17 +322,17 @@
   line-height: 1.58;
   color: var(--ink2);
 }
-.wt-root .wt-up { animation: wt-up 760ms var(--wt-ease) backwards; animation-delay: calc(var(--d, 0) * 1ms); }
+.wt-root .wt-up { animation: wt-up 300ms var(--wt-ease) backwards; animation-delay: calc(var(--d, 0) * 1ms); }
 
 /* ── Scene transitions ───────────────────────────────────────────────── */
 
 /* Incoming: a slanted wipe — the leading edge leans, like a page being drawn
    across — with the light sweep riding it. Outgoing: recedes and dims. */
-.wt-root .wt-scene[data-phase="enter"] { animation: wt-wipe-f 780ms var(--wt-inout) backwards; }
+.wt-root .wt-scene[data-phase="enter"] { animation: wt-wipe-f 300ms var(--wt-inout) backwards; }
 .wt-root[data-dir="-1"] .wt-scene[data-phase="enter"] { animation-name: wt-wipe-b; }
 .wt-root .wt-scene[data-phase="leave"] {
   pointer-events: none;
-  animation: wt-leave-f 620ms var(--wt-inout) forwards;
+  animation: wt-leave-f 300ms var(--wt-inout) forwards;
 }
 .wt-root[data-dir="-1"] .wt-scene[data-phase="leave"] { animation-name: wt-leave-b; }
 
@@ -346,7 +347,7 @@
   background: linear-gradient(90deg, transparent 0%, var(--wt-sweep-edge) 42%, var(--wt-sweep-core) 50%, var(--wt-sweep-edge) 58%, transparent 100%);
   opacity: 0.55;
   transform: translate3d(110vw, 0, 0) skewX(-14deg);
-  animation: wt-sweep-f 780ms var(--wt-inout) forwards;
+  animation: wt-sweep-f 300ms var(--wt-inout) forwards;
   will-change: transform;
 }
 .wt-root[data-dir="-1"] .wt-sweep { animation-name: wt-sweep-b; }
@@ -383,7 +384,7 @@
 .wt-root .wt-seg.is-past i { transform: scaleX(1); }
 .wt-root .wt-seg.is-current i {
   transform: scaleX(1);
-  animation: wt-fill var(--dur, 2400ms) var(--wt-ease) backwards;
+  animation: wt-fill var(--dur, 300ms) var(--wt-ease) backwards;
 }
 .wt-root .wt-actions {
   display: flex;
@@ -409,7 +410,7 @@
   white-space: nowrap;
   transition: transform var(--trans-control), background var(--trans-control), box-shadow var(--trans-control), border-color var(--trans-control);
 }
-.wt-root .wt-btn:active { transform: scale(0.97); }
+.wt-root .wt-btn:active { scale: 0.97; }
 .wt-root .wt-btn-spacer { width: 1px; }
 .wt-root .wt-ghost {
   border: 1px solid var(--hair);
@@ -437,12 +438,12 @@
 .wt-root .wt-draw {
   stroke-dasharray: 1 1;
   stroke-dashoffset: 0;
-  animation: wt-draw var(--dur, 700ms) var(--wt-inout) backwards;
+  animation: wt-draw var(--dur, 300ms) var(--wt-inout) backwards;
   animation-delay: calc(var(--d, 0) * 1ms);
 }
 .wt-root .wt-arc { fill: none; stroke-width: 20; }
 .wt-root .wt-medal-num { font-size: 21px; font-weight: 700; letter-spacing: -0.02em; fill: var(--wt-text-on-gold); font-variant-numeric: tabular-nums; }
-.wt-root .wt-medal-label { font-size: 9.5px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; fill: rgba(10, 10, 10, 0.72); }
+.wt-root .wt-medal-label { font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; fill: rgba(10, 10, 10, 0.72); }
 .wt-root .wt-pill { fill: var(--card-solid); stroke: var(--hair); stroke-width: 1; }
 .wt-root .wt-pill-gold { stroke: var(--gold); stroke-opacity: 0.55; }
 .wt-root .wt-field { fill: var(--card-solid); stroke: var(--fill-18); stroke-width: 1; }
@@ -452,10 +453,10 @@
 .wt-root .wt-target { stroke: var(--gold); stroke-width: 1.4; stroke-dasharray: 4 4; fill: none; opacity: 0.85; }
 /* Straight lines extend from their origin rather than "draw": a dashed line
    cannot use the dash-offset draw, and scaling a line is pure transform. */
-.wt-root .wt-grow-x { transform-origin: 0% 50%; animation: wt-grow-x 760ms var(--wt-inout) backwards; animation-delay: calc(var(--d, 0) * 1ms); }
-.wt-root .wt-grow-y { transform-origin: 50% 100%; animation: wt-grow 760ms var(--wt-inout) backwards; animation-delay: calc(var(--d, 0) * 1ms); }
+.wt-root .wt-grow-x { transform-origin: 0% 50%; animation: wt-grow-x 300ms var(--wt-inout) backwards; animation-delay: calc(var(--d, 0) * 1ms); }
+.wt-root .wt-grow-y { transform-origin: 50% 100%; animation: wt-grow 300ms var(--wt-inout) backwards; animation-delay: calc(var(--d, 0) * 1ms); }
 .wt-root .wt-curve { fill: none; stroke: var(--gold); stroke-width: 3; stroke-linecap: round; }
-.wt-root .wt-bar { fill: var(--gold); fill-opacity: 0.32; transform-origin: 50% 100%; animation: wt-grow 520ms var(--wt-spring) backwards; animation-delay: calc(var(--d, 0) * 1ms); }
+.wt-root .wt-bar { fill: var(--gold); fill-opacity: 0.32; transform-origin: 50% 100%; animation: wt-grow 300ms var(--wt-spring) backwards; animation-delay: calc(var(--d, 0) * 1ms); }
 .wt-root .wt-phone { fill: none; stroke: var(--ink2); stroke-width: 1.6; stroke-linecap: round; }
 .wt-root .wt-glyph { fill: none; stroke: var(--wt-text-on-gold); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 .wt-root .wt-glyph-lg { stroke-width: 2.6; }
@@ -474,7 +475,7 @@
 
 /* Typed line: tokens light up in their meaning's colour once "parsed". */
 .wt-root .wt-typed { font-family: ui-monospace, 'Geist Mono', SFMono-Regular, Menlo, monospace; font-size: 17px; fill: var(--ink); }
-.wt-root .wt-tok { transition: fill 360ms var(--wt-ease); }
+.wt-root .wt-tok { transition: fill 300ms var(--wt-ease); }
 .wt-root .wt-typed.is-parsed .wt-tok-0 { fill: var(--accent-text); font-weight: 700; }
 .wt-root .wt-typed.is-parsed .wt-tok-1 { fill: var(--wants); font-weight: 600; }
 .wt-root .wt-typed.is-parsed .wt-tok-2 { fill: var(--blue); font-weight: 600; }
@@ -482,23 +483,23 @@
 .wt-root .wt-typed.is-parsed + .wt-caret { opacity: 0; animation: none; }
 
 /* Entrances (base = final; `from` = hidden). */
-.wt-root .wt-fade { animation: wt-fade 640ms var(--wt-ease) backwards; animation-delay: calc(var(--d, 0) * 1ms); }
-.wt-root .wt-fade-out { animation: wt-fade-out 320ms var(--wt-ease) backwards; animation-delay: calc(var(--d, 0) * 1ms); }
-.wt-root .wt-pop { animation: wt-pop 700ms var(--wt-spring) backwards; animation-delay: calc(var(--d, 0) * 1ms); }
-.wt-root .wt-pop-big { animation: wt-pop-big 900ms var(--wt-bounce) backwards; animation-delay: calc(var(--d, 0) * 1ms); }
-.wt-root .wt-rise { animation: wt-rise 700ms var(--wt-ease) backwards; animation-delay: calc(var(--d, 0) * 1ms); }
-.wt-root .wt-slide-in { animation: wt-slide-in 760ms var(--wt-spring) backwards; animation-delay: calc(var(--d, 0) * 1ms); }
-.wt-root .wt-card-in { transform-origin: 50% 0%; animation: wt-card-in 820ms var(--wt-spring) backwards; animation-delay: calc(var(--d, 0) * 1ms); }
-.wt-root .wt-push { animation: wt-push 820ms var(--wt-spring) backwards; animation-delay: calc(var(--d, 0) * 1ms); }
-.wt-root .wt-pill-in { animation: wt-pill-in 820ms var(--wt-spring) backwards; animation-delay: calc(var(--d, 0) * 1ms); }
+.wt-root .wt-fade { animation: wt-fade 300ms var(--wt-ease) backwards; animation-delay: calc(var(--d, 0) * 1ms); }
+.wt-root .wt-fade-out { animation: wt-fade-out 300ms var(--wt-ease) backwards; animation-delay: calc(var(--d, 0) * 1ms); }
+.wt-root .wt-pop { animation: wt-pop 300ms var(--wt-spring) backwards; animation-delay: calc(var(--d, 0) * 1ms); }
+.wt-root .wt-pop-big { animation: wt-pop-big 300ms var(--wt-bounce) backwards; animation-delay: calc(var(--d, 0) * 1ms); }
+.wt-root .wt-rise { animation: wt-rise 300ms var(--wt-ease) backwards; animation-delay: calc(var(--d, 0) * 1ms); }
+.wt-root .wt-slide-in { animation: wt-slide-in 300ms var(--wt-spring) backwards; animation-delay: calc(var(--d, 0) * 1ms); }
+.wt-root .wt-card-in { transform-origin: 50% 0%; animation: wt-card-in 300ms var(--wt-spring) backwards; animation-delay: calc(var(--d, 0) * 1ms); }
+.wt-root .wt-push { animation: wt-push 300ms var(--wt-spring) backwards; animation-delay: calc(var(--d, 0) * 1ms); }
+.wt-root .wt-pill-in { animation: wt-pill-in 300ms var(--wt-spring) backwards; animation-delay: calc(var(--d, 0) * 1ms); }
 .wt-root .wt-float { animation: wt-float 5.2s ease-in-out infinite alternate; animation-delay: var(--phase, 0s); }
-.wt-root .wt-ripple { fill: none; stroke: var(--gold); stroke-width: 1.5; opacity: 0; animation: wt-ripple 1500ms var(--wt-ease) 2; animation-delay: calc(var(--d, 0) * 1ms); }
+.wt-root .wt-ripple { fill: none; stroke: var(--gold); stroke-width: 1.5; opacity: 0; animation: wt-ripple 300ms var(--wt-ease) 2; animation-delay: calc(var(--d, 0) * 1ms); }
 .wt-root .wt-ring { fill: none; stroke: var(--gold); stroke-width: 1.2; opacity: 0; animation: wt-ring 2100ms var(--wt-ease) infinite; animation-delay: calc(var(--d, 0) * 1ms); }
 
 /* ── Layout: wide screens ────────────────────────────────────────────── */
 
 @media (min-width: 900px) and (min-height: 540px) {
-  .fx-tools.wt-root { --wt-art-w: min(50vw, 620px, calc((100vh - 230px) * 1.3333)); }
+  .fx-tools.wt-root { --wt-art-w: min(50vw, 620px, calc((100svh - 230px) * 1.3333)); }
   .wt-root .wt-top { padding: 18px 28px; }
   .wt-root .wt-body { padding: 0 28px; }
   .wt-root .wt-layer {
@@ -519,7 +520,7 @@
 
 /* Short landscape phones: the copy gets the room, the art steps down. */
 @media (max-height: 520px) and (orientation: landscape) {
-  .fx-tools.wt-root { --wt-art-w: min(46vw, calc((100vh - 150px) * 1.3333)); }
+  .fx-tools.wt-root { --wt-art-w: min(46vw, calc((100svh - 150px) * 1.3333)); }
   .wt-root .wt-layer { flex-direction: row; align-items: center; justify-content: center; padding-top: 0; }
   .wt-root .wt-copy { width: min(46vw, 420px); }
   .wt-root .wt-title { font-size: 24px; }

@@ -34,6 +34,7 @@
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import { rateLimited } from '../_shared/ratelimit.ts';
 import { corsHeaders } from '../_shared/origins.ts';
+import { clientIp } from '../_shared/clientIp.ts';
 import { appleConfig, appleSubjectOf, decryptToken, revokeAppleToken } from '../_shared/appleSignIn.ts';
 
 /** Buckets holding user-owned files, each keyed `<bucket>/<user id>/…`. */
@@ -92,8 +93,8 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json(405, { error: 'Method not allowed' });
 
-  const ip = req.headers.get('CF-Connecting-IP') ?? req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
-  if (rateLimited(`account-delete:ip:${ip}`, PRE_AUTH_PER_IP)) {
+  const ip = clientIp(req.headers);
+  if (ip && rateLimited(`account-delete:ip:${ip}`, PRE_AUTH_PER_IP)) {
     return json(429, { error: 'Too many attempts. Wait a minute and try again.' });
   }
 

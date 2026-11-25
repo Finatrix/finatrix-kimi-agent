@@ -22,9 +22,11 @@ import { listAllUsage, summarizeUsage } from '../services/aiUsage';
 import { createAnnouncement, listAllAnnouncements, setAnnouncementActive } from '../services/announcements';
 import { listAuditLog, logAudit } from '../services/audit';
 import {
+  KILL_SWITCH_SCOPE,
   deleteFlagOverride,
   listFlagOverrides,
   listGlobalFlags,
+  overrideTarget,
   setFlagOverride,
 } from '../services/featureFlags2';
 import { listAllOrganizations } from '../services/organizations';
@@ -45,7 +47,7 @@ import type { FeatureFlagRow } from '../types/jobs';
 import { toCareersError, type CareersError } from '../utils/errors';
 import { formatDate, formatDateTime, scoreColor } from '../utils/format';
 
-type Tab = 'overview' | 'subscriptions' | 'ai-usage' | 'providers' | 'flags' | 'organizations' | 'announcements' | 'tickets' | 'audit' | 'not-connected';
+type Tab = 'overview' | 'subscriptions' | 'ai-usage' | 'providers' | 'flags' | 'organizations' | 'announcements' | 'tickets' | 'audit';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview', label: 'Overview' },
@@ -57,7 +59,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'announcements', label: 'Announcements' },
   { id: 'tickets', label: 'Support Tickets' },
   { id: 'audit', label: 'Audit Log' },
-  { id: 'not-connected', label: 'Payments / Errors / System Health' },
 ];
 
 export default function AdminDashboard() {
@@ -119,7 +120,7 @@ export default function AdminDashboard() {
   if (!isAdmin) {
     return (
       <div className="fx-page">
-        <PageHead chip="Admin" chipColor="#D4AF37" chipBg="rgba(212,175,55,.12)" icon="warn" title="Admin Dashboard">
+        <PageHead chip="Admin" chipColor="#D4AF37" icon="warn" title="Admin Dashboard">
           This area is restricted.
         </PageHead>
         <div className="card">
@@ -133,13 +134,18 @@ export default function AdminDashboard() {
   }
 
   const addFlagOverride = async () => {
-    if (!user || !flagForm.flag.trim() || !flagForm.scopeId.trim()) {
-      notify('Flag name and scope id are required.', 'error');
+    const flag = flagForm.flag.trim();
+    const scopeId = flagForm.scopeId.trim();
+    // A kill switch is saved for everyone, so it has no scope id to ask for.
+    if (!user || !flag || (!flagForm.killSwitch && !scopeId)) {
+      notify(flagForm.killSwitch ? 'Flag name is required.' : 'Flag name and scope id are required.', 'error');
       return;
     }
     try {
-      await setFlagOverride(flagForm.flag.trim(), flagForm.scope, flagForm.scopeId.trim(), { isKillSwitch: flagForm.killSwitch });
-      logAudit(user.id, 'flag_override.set', { type: 'feature_flag', id: flagForm.flag.trim() }, { scope: flagForm.scope, scopeId: flagForm.scopeId.trim(), killSwitch: flagForm.killSwitch });
+      await setFlagOverride(flag, flagForm.scope, scopeId, { isKillSwitch: flagForm.killSwitch });
+      // Record where it was actually stored, not what the form happened to hold.
+      const stored = overrideTarget(flagForm.scope, scopeId, flagForm.killSwitch);
+      logAudit(user.id, 'flag_override.set', { type: 'feature_flag', id: flag }, { scope: stored.scope, scopeId: stored.scope_id, killSwitch: flagForm.killSwitch });
       setFlagForm({ flag: '', scope: 'user', scopeId: '', killSwitch: false });
       await load();
       notify('Flag override saved.', 'ok');
@@ -162,7 +168,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="fx-page">
-      <PageHead chip="Admin" chipColor="#D4AF37" chipBg="rgba(212,175,55,.12)" icon="briefcase" title="Admin Dashboard">
+      <PageHead chip="Admin" chipColor="#D4AF37" icon="briefcase" title="Admin Dashboard">
         Platform-wide subscriptions, AI usage, feature flags, organizations and support — admin-only.
       </PageHead>
 
@@ -337,7 +343,7 @@ export default function AdminDashboard() {
             <div className="panel-eyebrow" style={{ marginBottom: 8 }}>Scoped overrides &amp; kill switches</div>
             {overrides.map((o) => (
               <div className="act-row" key={o.id}>
-                <span style={{ flex: 1 }}>{o.flag} — {o.scope}:{o.scope_id}</span>
+                <span style={{ flex: 1 }}>{o.flag} — {o.scope === KILL_SWITCH_SCOPE ? 'everyone' : `${o.scope}:${o.scope_id}`}</span>
                 {o.is_kill_switch && <span className="badge badge-red">kill switch</span>}
                 <span className="badge badge-blue">{o.rollout_percent}%</span>
                 <button className="icon-btn danger" aria-label="Delete override" onClick={() => void deleteFlagOverride(o.id).then(load)}>✕</button>
@@ -345,17 +351,25 @@ export default function AdminDashboard() {
             ))}
             <div className="grid3" style={{ marginTop: 14 }}>
               <input className="fi" placeholder="Flag name" aria-label="Flag name" value={flagForm.flag} onChange={(e) => setFlagForm((f) => ({ ...f, flag: e.target.value }))} />
-              <select className="fs" aria-label="Flag scope" value={flagForm.scope} onChange={(e) => setFlagForm((f) => ({ ...f, scope: e.target.value as typeof f.scope }))}>
+              <select className="fs" aria-label="Flag scope" value={flagForm.scope} disabled={flagForm.killSwitch} onChange={(e) => setFlagForm((f) => ({ ...f, scope: e.target.value as typeof f.scope }))}>
                 <option value="user">User</option>
                 <option value="org">Organization</option>
                 <option value="plan">Plan</option>
               </select>
-              <input className="fi" placeholder="Scope id" aria-label="Scope id" value={flagForm.scopeId} onChange={(e) => setFlagForm((f) => ({ ...f, scopeId: e.target.value }))} />
+              <input className="fi" placeholder="Scope id" aria-label="Scope id" value={flagForm.scopeId} disabled={flagForm.killSwitch} onChange={(e) => setFlagForm((f) => ({ ...f, scopeId: e.target.value }))} />
             </div>
             <label className="note" style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0' }}>
               <input type="checkbox" checked={flagForm.killSwitch} onChange={(e) => setFlagForm((f) => ({ ...f, killSwitch: e.target.checked }))} />
               Kill switch (overrides everything, everywhere)
             </label>
+            {/* The live region is always present, so the note is announced when it appears. */}
+            <div role="status">
+              {flagForm.killSwitch && (
+                <p className="note" style={{ margin: '0 0 8px' }}>
+                  A kill switch is saved for everyone, so it has no scope.
+                </p>
+              )}
+            </div>
             <button className="btn btn-sm" onClick={() => void addFlagOverride()}>Add override</button>
           </div>
         </>
@@ -430,17 +444,6 @@ export default function AdminDashboard() {
             </div>
           ))}
           {!auditRows.length && <EmptyState icon="check" title="No audit events yet" />}
-        </div>
-      )}
-
-      {tab === 'not-connected' && (
-        <div className="card">
-          <EmptyState icon="warn" title="Not yet connected">
-            Users list needs the Supabase service-role admin API (not safe to call from the browser).
-            Payments need Stripe/Razorpay keys. Errors need a Sentry DSN. Storage/Search/Resume analytics
-            and System Health need additional instrumentation. All of these are scaffolded in the
-            architecture (see the Phase 4 docs) but intentionally not faked here.
-          </EmptyState>
         </div>
       )}
 

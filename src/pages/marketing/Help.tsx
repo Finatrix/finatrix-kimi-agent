@@ -74,7 +74,7 @@ export default function Help() {
                   <span className="mt-2 block max-w-[68ch] text-[14px] leading-[1.65] text-ink-2">
                     {guide.purpose}
                   </span>
-                  <span className="mt-2.5 block font-mono text-[10px] uppercase tracking-[0.12em] text-ink-3">
+                  <span className="mt-2.5 block font-mono text-[11px] uppercase tracking-[0.12em] text-ink-3">
                     First step: {guide.steps[0]}
                   </span>
                 </Link>

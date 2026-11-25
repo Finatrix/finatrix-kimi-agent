@@ -74,7 +74,7 @@ export default function DeleteAccount({ email }: { email: string | null | undefi
 
   return (
     <section aria-labelledby={`${panelId}-h`} className="mt-8 border-t border-hairline-2 pt-6">
-      <h2 id={`${panelId}-h`} className="font-mono text-[10px] uppercase tracking-[0.08em] text-ink-3 mb-2">
+      <h2 id={`${panelId}-h`} className="font-mono text-[11px] uppercase tracking-[0.08em] text-ink-3 mb-2">
         Delete account
       </h2>
       <p className="text-[13px] leading-relaxed text-ink-2 mb-3">

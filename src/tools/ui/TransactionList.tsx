@@ -6,9 +6,11 @@ import { useAskAi } from './AiAssistant';
 import { focusAriaLabel } from '../ai/focus';
 import type { FlatCat } from './TransactionModal';
 import { PAYMENT_METHODS, migrateCategory, type ExpenseItem } from '../lib/expense';
+import { fmtForeign } from '../lib/trips';
 import { SECTION_LABEL } from '../lib/budget';
 import { SECTION_COLOR } from '../lib/sectionColors';
 import { store } from '../lib/storage';
+import { haptic } from '../../lib/haptics';
 import {
   filterTransactions, sortTransactions, groupByTimeline, emptyFilters, countActiveFilters,
   SORT_OPTIONS, type TxFilters, type SortKey, type CatLabels,
@@ -408,6 +410,25 @@ function AmountBound({ id, sym, placeholder, value, onChange }: {
   );
 }
 
+/** Distance past which letting go acts (px), and a flick fast enough to act anyway (px/ms). */
+const SWIPE_COMMIT = 72;
+const SWIPE_VELOCITY = 0.11;
+/** Free travel before resistance, and how stiff the resistance is past it. */
+const SWIPE_FREE = 96;
+
+/**
+ * Follows the finger 1:1 up to SWIPE_FREE, then resists: each further pixel
+ * moves the row less, approaching but never passing a soft limit — the
+ * rubber band iOS uses at the end of a scroll view.
+ */
+function rubberBand(dx: number): number {
+  const a = Math.abs(dx);
+  if (a <= SWIPE_FREE) return dx;
+  const over = a - SWIPE_FREE;
+  const limit = 80;
+  return Math.sign(dx) * (SWIPE_FREE + (1 - 1 / (over / limit * 0.55 + 1)) * limit);
+}
+
 function toggleIn(arr: string[], v: string): string[] {
   return arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v];
 }
@@ -423,6 +444,7 @@ function TxRow({
   const color = cat ? SECTION_COLOR[cat.section] : 'var(--ink2)';
   const primary = e.merchant || e.note || cat?.l || 'Uncategorised';
   const initial = (e.merchant || cat?.l || '?').trim().charAt(0).toUpperCase();
+  const foreign = e.fxCurrency && typeof e.fxAmount === 'number' ? fmtForeign(e.fxAmount, e.fxCurrency) : null;
 
   // Null outside the tools shell, and disabled until the cloud seed lands — in
   // either case the row simply has one fewer action rather than a dead button.
@@ -431,49 +453,78 @@ function TxRow({
     ? ({ kind: 'transaction', id: e.id, label: primary } as const)
     : null;
 
-  // Touch gesture handling: swipe left = delete, right = edit, long-press = select.
-  const [dx, setDx] = useState(0);
-  const start = useRef<{ x: number; y: number; t: number } | null>(null);
+  // Touch gestures: swipe left = delete, right = edit, long-press = select.
+  //
+  // The row follows the finger through a direct transform on the element —
+  // no React state per touchmove, so a drag never re-renders the list. Past
+  // the action point it rubber-bands instead of stopping dead, and a quick
+  // flick commits on velocity even when it travelled less than the full
+  // distance (Apple HIG, gestures.md; Emil Kowalski's 0.11 px/ms threshold).
+  const rowRef = useRef<HTMLDivElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ x: number; y: number; lastX: number; lastT: number; v: number; dx: number; axis: 'x' | 'y' | null; armed: boolean } | null>(null);
   const lp = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const moved = useRef(false);
 
   const clearLp = () => { if (lp.current) { clearTimeout(lp.current); lp.current = null; } };
+  const setOffset = (dx: number, animate: boolean) => {
+    const row = rowRef.current;
+    const wrap = wrapRef.current;
+    if (!row || !wrap) return;
+    row.style.transition = animate ? 'transform 220ms var(--ease-out)' : 'none';
+    row.style.transform = dx ? `translate3d(${dx}px,0,0)` : '';
+    wrap.dataset.reveal = dx < 0 ? 'del' : dx > 0 ? 'edit' : '';
+  };
   const onTouchStart = (ev: React.TouchEvent) => {
     const t = ev.touches[0];
-    start.current = { x: t.clientX, y: t.clientY, t: Date.now() };
-    moved.current = false;
+    drag.current = { x: t.clientX, y: t.clientY, lastX: t.clientX, lastT: ev.timeStamp, v: 0, dx: 0, axis: null, armed: false };
     clearLp();
-    lp.current = setTimeout(() => { if (!moved.current) { onLongPress(); if (navigator.vibrate) navigator.vibrate(10); } }, 500);
+    lp.current = setTimeout(() => {
+      if (drag.current && !drag.current.axis) { onLongPress(); haptic('select'); }
+    }, 500);
   };
   const onTouchMove = (ev: React.TouchEvent) => {
-    if (!start.current) return;
+    const d = drag.current;
+    if (!d) return;
     const t = ev.touches[0];
-    const dX = t.clientX - start.current.x;
-    const dY = t.clientY - start.current.y;
-    if (Math.abs(dX) > 8 || Math.abs(dY) > 8) { moved.current = true; clearLp(); }
-    if (Math.abs(dX) > Math.abs(dY)) setDx(Math.max(-96, Math.min(96, dX)));
+    const dX = t.clientX - d.x;
+    const dY = t.clientY - d.y;
+    if (!d.axis && (Math.abs(dX) > 8 || Math.abs(dY) > 8)) {
+      d.axis = Math.abs(dX) > Math.abs(dY) ? 'x' : 'y';
+      clearLp();
+    }
+    if (d.axis !== 'x') return;
+    const dt = Math.max(1, ev.timeStamp - d.lastT);
+    d.v = (t.clientX - d.lastX) / dt;
+    d.lastX = t.clientX;
+    d.lastT = ev.timeStamp;
+    d.dx = rubberBand(dX);
+    // One tick as the row crosses the point where letting go would act.
+    const armed = Math.abs(d.dx) >= SWIPE_COMMIT;
+    if (armed !== d.armed) { d.armed = armed; if (armed) haptic('select'); }
+    setOffset(d.dx, false);
   };
   const onTouchEnd = () => {
     clearLp();
-    if (dx <= -60) onDelete();
-    else if (dx >= 60) onEdit();
-    setDx(0);
-    start.current = null;
+    const d = drag.current;
+    drag.current = null;
+    if (!d || d.axis !== 'x') return;
+    const flick = Math.abs(d.v) >= SWIPE_VELOCITY && Math.sign(d.v) === Math.sign(d.dx) && Math.abs(d.dx) > 24;
+    setOffset(0, true);
+    if (Math.abs(d.dx) >= SWIPE_COMMIT || flick) {
+      if (d.dx < 0) onDelete(); else onEdit();
+    }
   };
 
-  const reveal = dx < 0 ? 'del' : dx > 0 ? 'edit' : null;
-
   return (
-    <div className={`tx-rowwrap${removing ? ' is-removing' : ''}`} aria-hidden={removing || undefined}>
-      {reveal && (
-        <div className={`tx-swipehint ${reveal}`} aria-hidden="true">
-          {reveal === 'del' ? 'Delete' : 'Edit'}
-        </div>
-      )}
+    <div ref={wrapRef} className={`tx-rowwrap${removing ? ' is-removing' : ''}`} aria-hidden={removing || undefined}>
+      {/* Labels come from CSS (`content`), so every row does not carry two
+          extra words in the DOM for a gesture most rows never see. */}
+      <div className="tx-swipehint del" aria-hidden="true" />
+      <div className="tx-swipehint edit" aria-hidden="true" />
       <div
+        ref={rowRef}
         className="tx-row"
-        style={{ transform: dx ? `translateX(${dx}px)` : undefined, transition: dx ? 'none' : 'transform .2s' }}
-        onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
+        onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={onTouchEnd}
       >
         {selectMode && (
           <label className="fx-check-hit">
@@ -485,7 +536,7 @@ function TxRow({
           type="button"
           className="tx-main"
           onClick={() => (selectMode ? onToggle() : onEdit())}
-          aria-label={`${selectMode ? 'Toggle selection for' : 'Edit'} ${primary}, ${cfmt(e.amount)} on ${e.date}`}
+          aria-label={`${selectMode ? 'Toggle selection for' : 'Edit'} ${primary}, ${cfmt(e.amount)}${foreign ? ` (${foreign})` : ''} on ${e.date}`}
         >
           <span className="tx-avatar" style={{ background: `color-mix(in srgb, ${color} 18%, transparent)`, color }}>
             {e.merchant ? initial : <Icon name={cat?.ic ?? 'other'} size={16} style={{ color }} />}
@@ -503,7 +554,16 @@ function TxRow({
               <span className="tx-meta">{fmtDate(e.date)}</span>
             </span>
           </span>
-          <span className="tx-amt">{cfmt(e.amount)}</span>
+          {/* Travel mode: a spend paid abroad shows what was paid as well as
+              what it cost at home ("AED 120 · ₹2,981"). */}
+          {foreign ? (
+            <span className="tx-amt tx-amt-fx">
+              <span>{cfmt(e.amount)}</span>
+              <span className="tx-fx">{foreign}</span>
+            </span>
+          ) : (
+            <span className="tx-amt">{cfmt(e.amount)}</span>
+          )}
         </button>
         {!selectMode && (
           <div className="tx-actions">
@@ -664,7 +724,8 @@ const TX_STYLES = `
 .fx-tools .tx-chip{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:980px;border:1px solid var(--hair2);
   background:var(--card);color:var(--ink2);font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;
   transition:background-color var(--ctl-trans),border-color var(--ctl-trans),color var(--ctl-trans);}
-.fx-tools .tx-chip:hover{border-color:var(--ink3);}
+@media (hover: hover) and (pointer: fine){
+.fx-tools .tx-chip:hover{border-color:var(--ink3);}}
 .fx-tools .tx-chip.on{border-color:var(--ink);background:var(--hair);color:var(--ink);}
 .fx-tools .tx-seg{display:inline-flex;border:1px solid var(--hair2);border-radius:10px;overflow:hidden;margin-top:6px;}
 .fx-tools .tx-seg button{padding:8px 14px;background:var(--card);border:none;border-right:1px solid var(--hair2);color:var(--ink2);
@@ -678,13 +739,15 @@ const TX_STYLES = `
 .fx-tools .tx-bulkbtn{padding:7px 12px;border-radius:9px;border:1px solid var(--hair2);background:var(--card);color:var(--ink);
   font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;
   transition:background-color var(--ctl-trans),border-color var(--ctl-trans),color var(--ctl-trans),opacity var(--ctl-trans);}
-.fx-tools .tx-bulkbtn:hover:not(:disabled){background:var(--fill-06);}
+@media (hover: hover) and (pointer: fine){
+.fx-tools .tx-bulkbtn:hover:not(:disabled){background:var(--fill-06);}}
 .fx-tools .tx-bulkbtn:disabled{opacity:.45;cursor:default;}
 .fx-tools .tx-bulkbtn.danger{color:var(--red);border-color:color-mix(in srgb,var(--red) 40%,transparent);}
 .fx-tools .tx-subpanel{background:var(--well);border:1px solid var(--well-border);border-radius:12px;padding:12px;margin-bottom:10px;}
 .fx-tools .tx-menuitem{display:block;width:100%;text-align:left;padding:10px 12px;border-radius:8px;background:transparent;border:none;
   color:var(--ink);font-size:13px;cursor:pointer;font-family:inherit;}
-.fx-tools .tx-menuitem:hover{background:var(--fill-06);}
+@media (hover: hover) and (pointer: fine){
+.fx-tools .tx-menuitem:hover{background:var(--fill-06);}}
 .fx-tools .tx-grouphd{display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:700;letter-spacing:.04em;
   text-transform:uppercase;color:var(--ink3);padding:12px 2px 4px;position:sticky;top:0;background:linear-gradient(var(--card),var(--card) 70%,transparent);}
 .fx-tools .tx-grouphd span{font-weight:600;letter-spacing:0;}
@@ -694,41 +757,49 @@ const TX_STYLES = `
    aria-hidden, so this is purely a visual hand-off to the undo toast. */
 .fx-tools .tx-rowwrap.is-removing{animation:fxTxOut 220ms cubic-bezier(.4,0,1,1) forwards;pointer-events:none;}
 @keyframes fxTxOut{
-  0%{opacity:1;transform:none;max-height:80px;}
-  100%{opacity:0;transform:translateX(-24px);max-height:0;border-bottom-color:transparent;}
+  0%{opacity:1;transform:none;}
+  100%{opacity:0;transform:translateX(-24px);}
 }
 .fx-tools .tx-warnbar{display:flex;align-items:flex-start;gap:9px;padding:10px 12px;margin-bottom:12px;border-radius:11px;font-size:12.5px;
   line-height:1.5;color:var(--ink2);background:color-mix(in srgb,var(--orange) 8%,transparent);
   border:1px solid color-mix(in srgb,var(--orange) 26%,transparent);}
 .fx-tools .tx-confirm{border-color:color-mix(in srgb,var(--red) 35%,transparent);}
-.fx-tools .tx-swipehint{position:absolute;inset:0;display:flex;align-items:center;padding:0 18px;font-size:12px;font-weight:700;color:#fff;}
+.fx-tools .tx-swipehint{position:absolute;inset:0;display:none;align-items:center;padding:0 18px;font-size:13px;font-weight:700;color:#fff;}
+.fx-tools .tx-rowwrap[data-reveal='del'] .tx-swipehint.del,.fx-tools .tx-rowwrap[data-reveal='edit'] .tx-swipehint.edit{display:flex;}
 .fx-tools .tx-swipehint.del{justify-content:flex-end;background:var(--red);}
 .fx-tools .tx-swipehint.edit{justify-content:flex-start;background:var(--blue);}
-.fx-tools .tx-row{display:flex;align-items:center;gap:8px;padding:10px 2px;background:var(--card);position:relative;}
+.fx-tools .tx-swipehint.del::after{content:"Delete";}
+.fx-tools .tx-swipehint.edit::after{content:"Edit";}
+.fx-tools .tx-row{display:flex;align-items:center;gap:8px;padding:10px 2px;background:var(--card-solid,var(--card));position:relative;touch-action:pan-y;}
 .fx-tools .tx-main{display:flex;align-items:center;gap:11px;flex:1;min-width:0;background:none;border:none;padding:2px 4px;margin:-2px -4px;
   border-radius:10px;cursor:pointer;text-align:left;color:inherit;font:inherit;}
-.fx-tools .tx-main:hover{background:var(--fill-04);}
+@media (hover: hover) and (pointer: fine){
+.fx-tools .tx-main:hover{background:var(--fill-04);}}
 .fx-tools .tx-avatar{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;
   font-size:14px;font-weight:700;flex-shrink:0;}
 .fx-tools .tx-body{flex:1;min-width:0;}
 .fx-tools .tx-line1{display:flex;align-items:center;gap:6px;}
 .fx-tools .tx-primary{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.fx-tools .tx-badge{display:inline-flex;align-items:center;gap:3px;font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:980px;
+.fx-tools .tx-badge{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;padding:2px 7px;border-radius:980px;
   background:var(--well);color:var(--ink3);flex-shrink:0;text-transform:uppercase;letter-spacing:.03em;}
 .fx-tools .tx-line2{display:flex;align-items:center;gap:8px;margin-top:3px;min-width:0;}
-.fx-tools .tx-pill{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:980px;border:1px solid;white-space:nowrap;}
+.fx-tools .tx-pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:980px;border:1px solid;white-space:nowrap;}
 .fx-tools .tx-meta{font-size:11px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .fx-tools .tx-amt{font-size:14px;font-weight:700;flex-shrink:0;padding-left:8px;}
+.fx-tools .tx-amt-fx{display:flex;flex-direction:column;align-items:flex-end;line-height:1.25;}
+.fx-tools .tx-fx{font-size:11px;font-weight:600;color:var(--ink3);white-space:nowrap;}
 .fx-tools .tx-actions{display:flex;align-items:center;gap:2px;flex-shrink:0;}
 .fx-tools .tx-act{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;background:none;border:none;
   border-radius:8px;cursor:pointer;color:var(--ink3);
   transition:background-color var(--ctl-trans),color var(--ctl-trans);}
-.fx-tools .tx-act:hover{background:var(--fill-06);color:var(--ink);}
-.fx-tools .tx-act.danger:hover{color:var(--red);}
+@media (hover: hover) and (pointer: fine){
+.fx-tools .tx-act:hover{background:var(--fill-06);color:var(--ink);}}
+@media (hover: hover) and (pointer: fine){
+.fx-tools .tx-act.danger:hover{color:var(--red);}}
 .fx-tools .tx-empty{text-align:center;padding:30px 16px 22px;}
 .fx-tools .tx-empty svg{margin:0 auto 14px;display:block;}
 .fx-tools .tx-empty-title{font-size:15px;font-weight:700;margin-bottom:6px;}
-.fx-tools .tx-empty-copy{font-size:13px;color:var(--ink2);line-height:1.6;max-width:340px;margin:0 auto 16px;}
+.fx-tools .tx-empty-copy{font-size:15px;color:var(--ink2);line-height:1.6;max-width:340px;margin:0 auto 16px;}
 .fx-tools .sr-only-lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);}
 .fx-tools .fs-wrap{display:inline-flex;}
 @media (max-width:560px){

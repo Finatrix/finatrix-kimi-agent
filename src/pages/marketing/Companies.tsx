@@ -76,7 +76,7 @@ export function CompaniesIndex() {
           preparing for the stages after that.
         </P>
         <div className="mt-6 rounded-[16px] border border-hairline bg-surface-2 p-5">
-          <h3 className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent-text">
+          <h3 className="font-mono text-[11px] uppercase tracking-[0.14em] text-accent-text">
             What they deliberately do not contain
           </h3>
           <p className="mt-3 max-w-[68ch] text-[14.5px] leading-[1.7] text-ink-2">
@@ -187,7 +187,7 @@ export default function CompanyPage() {
           href={company.careersSite}
           target="_blank"
           rel="noopener noreferrer"
-          className="fx-btn-ghost mt-2 inline-flex items-center rounded-full px-6 py-3.5 font-mono text-[12px] uppercase tracking-[0.1em]"
+          className="fx-btn-ghost mt-2 inline-flex items-center rounded-full px-6 py-3.5 text-[14px] font-medium"
         >
           {company.name} careers site
           <span className="sr-only"> (opens in a new tab)</span>

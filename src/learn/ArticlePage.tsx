@@ -103,7 +103,7 @@ function ArticleBody({ article }: { article: Article }) {
         aria-label="On this page"
         className="rounded-[16px] border border-hairline bg-surface-2 p-5"
       >
-        <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-3">
+        <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink-3">
           On this page · {minutes} min read
         </p>
         <ol className="mt-3 space-y-2">
@@ -239,7 +239,7 @@ export default function ArticlePage() {
         <>
         <ScopeNote scope={scope} />
         <div className="mt-8 rounded-[18px] border border-hairline bg-surface-2 p-6">
-          <h2 className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent-text">
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.14em] text-accent-text">
             In short
           </h2>
           <Suspense fallback={<div className="mt-3"><Lines widths={[96, 90, 82, 55]} /></div>}>

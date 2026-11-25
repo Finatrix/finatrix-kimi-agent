@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { RemindersCard } from '../ui/Reminders';
+import { AppLockCard } from '../ui/AppLockCard';
 import { isNativeApp } from '../../native/platform';
 import { Link } from 'react-router';
 import { PageHead, ToolFoot } from '../ui/common';
@@ -62,7 +63,7 @@ export default function SettingsPage() {
 
   return (
     <div className="fx-page fx-settings">
-      <PageHead chip="Settings" chipColor="var(--gold)" chipBg="rgba(212,175,55,.1)" icon="shield" title="Settings & personalisation.">
+      <PageHead chip="Settings" chipColor="var(--gold)" icon="shield" title="Settings & personalisation.">
         Personalise how FinatriX looks, tell us where you live, choose your display currency, and
         manage your data. Signed-in finance records also sync with your account.
       </PageHead>
@@ -190,6 +191,13 @@ export default function SettingsPage() {
 
       {/* Data & privacy */}
       <PrivacyControls />
+      {/* App lock: the installed apps only. A browser has no lock, so no switch. */}
+      {isNativeApp() && (
+        <Section title="App lock" desc="Ask for your face, fingerprint or device passcode when FinatriX opens, and when you come back after a minute away, so someone who picks up your unlocked phone cannot open it. It uses this device’s own unlock, so anyone who can unlock the device can unlock FinatriX, and it does not encrypt your data.">
+          <AppLockCard />
+        </Section>
+      )}
+
       <Section tour="settings-records" title="Your finance records" desc="Export a backup of your finance records, including review notes and emergency-fund plans. Backups contain personal information; store them somewhere private.">
         {anyData ? (
           <ul style={{ listStyle: 'none', margin: '0 0 14px', padding: 0 }}>

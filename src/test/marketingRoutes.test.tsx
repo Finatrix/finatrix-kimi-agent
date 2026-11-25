@@ -99,9 +99,9 @@ describe('public Careers surface is not gated', () => {
   });
 
   it('only advertises features that are real Careers routes', () => {
-    const routes = new Set<string>(Object.values(CAREERS_ROUTES));
+    // Each feature names a Careers destination (an area, or a tab inside one).
     for (const f of CAREERS_FEATURES) {
-      expect(routes.has(`/careers/${f.section}`), `${f.name} → /careers/${f.section}`).toBe(true);
+      expect(f.section in CAREERS_ROUTES, `${f.name} → ${f.section}`).toBe(true);
     }
   });
 

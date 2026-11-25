@@ -14,13 +14,15 @@ import { useLayoutEffect, type RefObject } from 'react';
  * 1.3.1 and 2.4.3).
  *
  * Only SIBLINGS along the path from the dialog up to <body> are made inert,
- * never an ancestor, so the overlay the dialog sits in stays live. Three kinds
+ * never an ancestor, so the overlay the dialog sits in stays live. Four kinds
  * of sibling are left alone:
  *  - already `inert` or `aria-hidden="true"` — already out of the tree, and a
  *    backdrop is exactly this: making it inert would also stop it receiving
  *    the tap that closes the dialog, because `inert` blocks pointer events;
  *  - live regions (`aria-live`, `role=status|alert|log`) — so a toast raised
  *    from inside the dialog is still announced;
+ *  - elements marked `data-fx-keep-live`: the app lock's cover, which has to stay
+ *    tappable and audible whatever dialog the page opens behind or after it;
  *  - script, style and template elements.
  * Only what this call changed is restored, so nested dialogs unwind cleanly.
  */
@@ -32,6 +34,7 @@ export function inertOutside(dialog: HTMLElement): () => void {
       if (sibling === node || !(sibling instanceof HTMLElement)) continue;
       if (/^(SCRIPT|STYLE|TEMPLATE|LINK)$/.test(sibling.tagName)) continue;
       if (sibling.hasAttribute('inert') || sibling.getAttribute('aria-hidden') === 'true') continue;
+      if (sibling.hasAttribute('data-fx-keep-live')) continue;
       if (sibling.hasAttribute('aria-live') || /^(status|alert|log)$/.test(sibling.getAttribute('role') ?? '')) continue;
       sibling.setAttribute('inert', '');
       changed.push(sibling);

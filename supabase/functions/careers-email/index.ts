@@ -14,6 +14,7 @@ import { rateLimited } from '../_shared/ratelimit.ts';
 import { corsHeaders } from '../_shared/origins.ts';
 
 const RATE_PER_MINUTE = Number(Deno.env.get('CAREERS_EMAIL_RATE_PER_MINUTE') ?? '5');
+const MAX_TEXT_CHARS = 10_000;
 
 // CORS: see ../_shared/origins.ts for why the allowlist is built from
 // CANONICAL_HOST and CAREERS_ALLOWED_ORIGINS is additive. Bearer-JWT
@@ -50,7 +51,7 @@ Deno.serve(async (req) => {
   // This prevents the function from being used as an open relay: an authenticated
   // user cannot send email to arbitrary third-party addresses using FinatriX's
   // Resend API key and sender domain.
-  const userEmail = userData.user.email;
+  const userEmail = userData.user.email_confirmed_at ? userData.user.email : undefined;
   if (!userEmail) return json(403, { error: 'Your account has no verified email address.' });
 
   // Burst protection (per-isolate) — email is the most abuse-sensitive endpoint.
@@ -58,7 +59,9 @@ Deno.serve(async (req) => {
     return json(429, { error: 'Too many emails. Wait a minute and try again.' });
   }
 
-  let body: { to?: string; subject?: string; html?: string; text?: string };
+  // Plain text only: caller-written HTML would let anyone send themselves a
+  // convincing FinatriX-branded page from our domain and pass it on as genuine.
+  let body: { to?: string; subject?: string; text?: string };
   try {
     body = await req.json();
   } catch {
@@ -66,9 +69,8 @@ Deno.serve(async (req) => {
   }
   const to = String(body.to ?? '').trim();
   const subject = String(body.subject ?? '').slice(0, 200);
-  const html = String(body.html ?? '');
-  const text = String(body.text ?? '');
-  if (!to || !subject || (!html && !text)) return json(400, { error: 'Missing to/subject/content.' });
+  const text = String(body.text ?? '').slice(0, MAX_TEXT_CHARS);
+  if (!to || !subject || !text) return json(400, { error: 'Missing to/subject/content.' });
 
   // Enforce that the recipient is the authenticated user's own email.
   // Case-insensitive comparison to handle normalisation differences.
@@ -86,11 +88,12 @@ Deno.serve(async (req) => {
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from, to: [to], subject, html: html || undefined, text: text || undefined }),
+    body: JSON.stringify({ from, to: [to], subject, text }),
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
-    return json(502, { sent: false, reason: 'provider-error', detail: detail.slice(0, 300) });
+    console.error('careers-email provider error', res.status, detail.slice(0, 300));
+    return json(502, { sent: false, reason: 'provider-error' });
   }
   return json(200, { sent: true });
 });

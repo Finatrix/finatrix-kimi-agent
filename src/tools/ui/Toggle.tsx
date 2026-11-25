@@ -115,7 +115,9 @@ const TOGGLE_STYLES = `
 .fx-tools .fx-tgl-sm .fx-tgl-input:checked + .fx-tgl-track .fx-tgl-knob{transform:translateY(-50%) translateX(17px);}
 .fx-tools .fx-tgl-md .fx-tgl-input:checked + .fx-tgl-track .fx-tgl-knob{transform:translateY(-50%) translateX(20px);}
 
-.fx-tools .fx-tgl:hover .fx-tgl-track{border-color:var(--gold);}
+@media (hover: hover) and (pointer: fine){
+
+.fx-tools .fx-tgl:hover .fx-tgl-track{border-color:var(--gold);}}
 .fx-tools .fx-tgl:active .fx-tgl-knob{width:20px;}
 .fx-tools .fx-tgl-md:active .fx-tgl-knob{width:24px;}
 /* The ring is drawn on the TRACK, because that is the thing that looks like
@@ -129,6 +131,9 @@ const TOGGLE_STYLES = `
   .fx-tools .fx-tgl-track,.fx-tools .fx-tgl-knob{transition:none;}
   .fx-tools .fx-tgl:active .fx-tgl-knob{width:auto;}
 }
+/* A switch is pressed as a whole row: under a finger the label is 44px tall,
+   so the 24px track is not the only thing that can be hit. */
+@media (pointer:coarse){.fx-tools .fx-tgl{min-height:44px;min-width:44px;justify-content:center;}}
 @media print{.fx-tools .fx-tgl{display:none;}}
 `;
 

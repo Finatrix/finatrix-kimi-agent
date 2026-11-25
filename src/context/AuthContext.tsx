@@ -16,6 +16,7 @@ import { track } from '../lib/analytics';
 import { safeInternalPath } from '../lib/safePath';
 import type { OAuthProvider } from '../lib/authProviders';
 import { beginNativePkce, exchangeNativeCode, readNativeAuthCode, stripAuthCodeFromUrl } from '../lib/nativeOAuth';
+import { clearAppLockOnSignOut } from '../native/appLock/setting';
 
 /**
  * `@supabase/supabase-js` is 54 KB gzipped — 38% of the landing page's entire
@@ -302,6 +303,19 @@ function authErrorMessage(
   return garbled ? fallback : msg;
 }
 
+/**
+ * GoTrue re-announces the same session on every tab refocus and token refresh,
+ * each time with a fresh `user` object. Handing that straight to React gave
+ * every `[user]` effect in the app a new dependency, so returning to the tab
+ * reloaded each page's data and reset what was on screen (a typed search,
+ * open results). Keep the previous object while nothing in it has changed;
+ * a real change, such as a new app_metadata flag, still comes through.
+ */
+function keepSameUser(prev: User | null, next: User | null): User | null {
+  if (!prev || !next || prev.id !== next.id) return next;
+  return JSON.stringify(prev) === JSON.stringify(next) ? prev : next;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -350,7 +364,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       subscribed.current = true;
       const { data: sub } = supabase.auth.onAuthStateChange((event, newSession) => {
         setSession(newSession);
-        setUser(newSession?.user ?? null);
+        setUser((prev) => keepSameUser(prev, newSession?.user ?? null));
         rememberSession(!!newSession);
 
         // The one event that carries information `session` does not. GoTrue
@@ -454,7 +468,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const { data } = await supabase.auth.getSession();
           if (!mounted.current) return;
           setSession(data.session);
-          setUser(data.session?.user ?? null);
+          setUser((prev) => keepSameUser(prev, data.session?.user ?? null));
           rememberSession(!!data.session);
         } catch {
           // Reaching here means the auth stack could not be loaded or queried
@@ -594,6 +608,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       /* Clear local state regardless of network/server outcome. */
     }
+    // An explicit sign-out ends the app lock with the account. Only this path
+    // does: ACCOUNT_LOCAL_KEYS is cleared by an account switch and by losing a
+    // session, and a link that carries someone else's tokens causes both, so
+    // the lock must not live there (see cloudSync.ts).
+    clearAppLockOnSignOut();
     // Cleared unconditionally, for the same reason the local state is: if the
     // network call failed, the user still asked to be signed out, and leaving
     // the marker set would make the next load fetch an auth stack for a session

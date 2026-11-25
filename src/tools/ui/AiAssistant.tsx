@@ -234,6 +234,37 @@ export function AiLauncher() {
   );
 }
 
+/**
+ * The phone's way into FinatriX AI: an icon button in the app bar.
+ *
+ * Below 768px the floating launcher is hidden. The bottom of a phone screen
+ * already holds the tab bar and, on the money pages, the add button; a second
+ * floating button stacked above them covered more of the page than either
+ * (Apple HIG, layout.md › Best practices: keep content clear of controls).
+ * The header is where the other global actions — search, notifications,
+ * account — already are.
+ */
+export function AiHeaderButton({ className = '' }: { className?: string }) {
+  const ai = useAskAi();
+  if (!ai) return null;
+  return (
+    <button
+      type="button"
+      className={`fx-icon-btn fx-ai-headbtn ${className}`}
+      data-tour="ai-launcher"
+      onClick={() => ai.open()}
+      aria-haspopup="dialog"
+      aria-expanded={ai.isOpen}
+      aria-controls={ai.isOpen ? PANEL_ID : undefined}
+      aria-label="Open FinatriX AI"
+      title="FinatriX AI"
+      disabled={!ai.enabled}
+    >
+      <AiSparkle />
+    </button>
+  );
+}
+
 /** The FinatriX AI mark. Same glyph in both launcher states. */
 function AiSparkle() {
   return (
@@ -261,7 +292,7 @@ const FAB_STYLES = `
 .fx-tools .fx-dock-slot:empty{display:none;}
 .fx-tools .fx-dock-slot.is-wallet{margin-right:auto;flex:0 1 auto;}
 .fx-tools .fx-ai-fab{display:inline-flex;align-items:center;height:var(--ctl-h-lg);
-  border-radius:var(--ctl-pill);border:var(--ctl-bw) solid var(--fab-border);background:var(--gold);color:#1a1400;
+  border-radius:var(--ctl-pill);border:var(--ctl-bw) solid var(--hair);background:var(--card-solid,var(--card));color:var(--ink);
   font-family:inherit;font-size:13px;font-weight:600;
   /* Elevation is the one thing that differs between themes: a gold glow is
      luminous on obsidian and invisible on cream, so on light the same lift is
@@ -271,7 +302,8 @@ const FAB_STYLES = `
   transition:box-shadow var(--ctl-trans),background-color 200ms ease,transform var(--ctl-trans);
   animation:fxFabIn 220ms var(--ease-out) backwards;
   -webkit-tap-highlight-color:transparent;touch-action:manipulation;}
-.fx-tools .fx-ai-fab:hover{background:#E0BC4B;box-shadow:var(--fab-shadow-hover);}
+@media (hover: hover) and (pointer: fine){
+.fx-tools .fx-ai-fab:hover{border-color:var(--ink3);box-shadow:var(--fab-shadow-hover);}}
 
 /* Both segments are transparent buttons inside the gold pill so the pill keeps
    a single border, a single elevation and a single silhouette. */
@@ -280,21 +312,28 @@ const FAB_STYLES = `
   border-radius:var(--ctl-pill);transition:transform var(--ctl-trans),background-color var(--ctl-trans);
   -webkit-tap-highlight-color:transparent;touch-action:manipulation;}
 .fx-tools .fx-ai-fab-ask{gap:8px;padding:0 6px 0 16px;}
-.fx-tools .fx-ai-fab-ask:active{transform:scale(.97);}
+/* The sparkle keeps the one touch of gold that marks AI across the product. */
+.fx-tools .fx-ai-fab svg,.fx-tools .fx-ai-headbtn svg{color:var(--accent-text);}
+.fx-tools .fx-ai-fab-ask:active{scale: .97;}
 /* The minimise control. Sized to clear the WCAG 2.2 (2.5.8) 24px target, and
    separated by a hairline of deeper gold rather than by a gap, so it reads as
    a facet of the pill instead of a second button parked next to it. */
 .fx-tools .fx-ai-fab-min{width:34px;margin-right:5px;border-radius:50%;
-  position:relative;color:color-mix(in srgb,#1a1400 78%,transparent);}
+  position:relative;color:var(--ink2);}
 .fx-tools .fx-ai-fab-min::before{content:"";position:absolute;left:-1px;top:50%;transform:translateY(-50%);
-  width:1px;height:20px;background:color-mix(in srgb,#1a1400 22%,transparent);}
-.fx-tools .fx-ai-fab-min:hover{background:color-mix(in srgb,#1a1400 12%,transparent);color:#1a1400;}
-.fx-tools .fx-ai-fab-min:active{transform:scale(.92);}
+  width:1px;height:20px;background:var(--hair);}
+@media (pointer:coarse){.fx-tools .fx-ai-fab-min{width:44px;margin-right:2px;}}
+/* On a phone FinatriX AI lives in the app bar (AiHeaderButton); the dock
+   keeps only the page's own add button and the Wallet pill. */
+@media(max-width:767px){.fx-tools .fx-ai-fab{display:none;}}
+@media (hover: hover) and (pointer: fine){
+.fx-tools .fx-ai-fab-min:hover{background:var(--fill-06);color:var(--ink);}}
+.fx-tools .fx-ai-fab-min:active{scale: .92;}
 
 /* Collapsed: the same pill reduced to its mark. A circle at the lg rung, so it
    keeps the expanded state's height and its position never shifts. */
 .fx-tools .fx-ai-fab.is-collapsed{width:var(--ctl-h-lg);padding:0;justify-content:center;cursor:pointer;}
-.fx-tools .fx-ai-fab.is-collapsed:active{transform:scale(.94);}
+.fx-tools .fx-ai-fab.is-collapsed:active{scale: .94;}
 
 /* Focus lands on the inner buttons, so the ring is drawn just outside the pill
    to stay visible against the gold fill. */
@@ -312,8 +351,9 @@ const FAB_STYLES = `
 }
 @media (prefers-reduced-motion:reduce){
   .fx-tools .fx-ai-fab{transition:none;animation:none;}
-  .fx-tools .fx-ai-fab:hover,.fx-tools .fx-ai-fab-ask:active,
-  .fx-tools .fx-ai-fab-min:active,.fx-tools .fx-ai-fab.is-collapsed:active{transform:none;}
+  .fx-tools .fx-ai-fab-ask:active,.fx-tools .fx-ai-fab-min:active,.fx-tools .fx-ai-fab.is-collapsed:active{scale: none;}
+  @media (hover: hover) and (pointer: fine){
+  .fx-tools .fx-ai-fab:hover{transform:none;}}
 }
 @media print{.fx-tools .fx-ai-dock{display:none;}}
 `;

@@ -18,7 +18,9 @@ export function useOrbControl(
 ): OrbControl {
   // A plain holder rather than a ref: it is only ever read inside the
   // returned callbacks, and it must survive re-renders.
-  const [scale] = useState(() => ({ current: 0 }));
+  // Starts at 0.6 and transparent, not at scale(0): nothing in the interface
+  // grows out of a point (it reads as appearing from nowhere).
+  const [scale] = useState(() => ({ current: 0.6 }));
   return useMemo(() => createControl(track, dot, scale, reduced), [track, dot, scale, reduced]);
 }
 
@@ -43,17 +45,18 @@ function createControl(
       if (!disc || from === to) return;
       scale.current = to;
       disc.style.transform = `scale(${to})`;
+      disc.style.opacity = '1';
       if (reduced || typeof disc.animate !== 'function') return;
-      // Squash and stretch: wider and flatter mid-flight, overshoot on landing.
+      // A little squash and stretch mid-flight, then it settles on its size —
+      // no overshoot on landing, because each move answers a tap on Next.
       const mid = (from + to) / 2;
       disc.animate(
         [
           { transform: `scale(${from})` },
-          { transform: `scale(${mid * 1.14}, ${mid * 0.88})`, offset: 0.42 },
-          { transform: `scale(${to * 1.06})`, offset: 0.78 },
+          { transform: `scale(${mid * 1.06}, ${mid * 0.95})`, offset: 0.45 },
           { transform: `scale(${to})` },
         ],
-        { duration: 860, easing: 'cubic-bezier(.3,.7,.2,1)' },
+        { duration: 300, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' },
       );
     },
     ride: (x: number, y: number, s: number) => {
@@ -62,6 +65,7 @@ function createControl(
       if (!disc) return;
       scale.current = s;
       disc.style.transform = `scale(${s})`;
+      disc.style.opacity = '1';
     },
   };
 }

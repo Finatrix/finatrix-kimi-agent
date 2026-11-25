@@ -1,5 +1,5 @@
 /**
- * AI Knowledge Base (Phase 3, Module 19) — STAR stories, achievements,
+ * Story bank (Phase 3, Module 19) — STAR stories, achievements,
  * leadership moments, failures and successes, searchable and reused by the
  * interview simulator's STAR builder.
  */
@@ -7,8 +7,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
-import { PageHead, ToolFoot } from '../../tools/ui/common';
-import { EmptyState, ErrorCard, PageLoading } from '../components/states';
+import { ErrorCard, PageLoading } from '../components/states';
+import { Empty } from '../ui/primitives';
+import '../ui/forms.css';
 import { useCareers } from '../context/CareersContext';
 import { deleteKnowledgeItem, listKnowledgeItems, searchKnowledge, upsertKnowledgeItem } from '../services/knowledge';
 import { KNOWLEDGE_KINDS, type KnowledgeItemRow, type KnowledgeKind } from '../types/phase3';
@@ -52,50 +53,66 @@ export default function KnowledgeBasePage() {
   if (loading) return <PageLoading />;
 
   return (
-    <div className="fx-page">
-      <PageHead chip="Knowledge Base" chipColor="#D4AF37" chipBg="rgba(212,175,55,.12)" icon="lifemap" title="Every story, ready to reuse">
-        STAR stories, achievements, leadership moments and lessons learned — searchable, and fed
-        into your interview prep so answers draw on your real experience.
-      </PageHead>
-
+    <div className="cxf-stack">
       {(ctxError || loadError) && <ErrorCard error={(ctxError ?? loadError)!} onRetry={() => { void refresh(); void load(); }} />}
 
-      <div className="card">
-        <div className="panel-eyebrow" style={{ marginBottom: 12 }}>Add an item</div>
-        <div className="grid2" style={{ marginBottom: 10 }}>
-          <input className="fi" placeholder="Title *" aria-label="Title (required)" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
-          <select className="fs" aria-label="Entry type" value={form.kind} onChange={(e) => setForm((f) => ({ ...f, kind: e.target.value as KnowledgeKind }))}>
-            {KNOWLEDGE_KINDS.map((k) => <option key={k} value={k}>{k.replace('_', ' ')}</option>)}
-          </select>
+      <section className="cx-panel" aria-labelledby="kb-new">
+        <div className="cx-panel-head"><h2 id="kb-new">Add a story</h2></div>
+        <p className="cx-sub" style={{ marginBottom: 14 }}>
+          Stories, achievements and lessons you save here are used when you practise, so your answers draw on your real experience.
+        </p>
+        <div className="cxf-form">
+          <div className="fg">
+            <label className="fl" htmlFor="kb-title">Title (required)</label>
+            <input id="kb-title" className="fi" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
+          </div>
+          <div className="fg">
+            <label className="fl" htmlFor="kb-kind">Type</label>
+            <select id="kb-kind" className="fs" value={form.kind} onChange={(e) => setForm((f) => ({ ...f, kind: e.target.value as KnowledgeKind }))}>
+              {KNOWLEDGE_KINDS.map((k) => <option key={k} value={k}>{k.replace('_', ' ')}</option>)}
+            </select>
+          </div>
+          <div className="fg cxf-wide">
+            <label className="fl" htmlFor="kb-body">What happened: situation, action, result</label>
+            <textarea id="kb-body" className="fi" style={{ minHeight: 100 }} value={form.body} onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))} />
+          </div>
+          <div className="fg cxf-wide">
+            <label className="fl" htmlFor="kb-tags">Tags, separated by commas</label>
+            <input id="kb-tags" className="fi" value={form.tags} onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))} />
+          </div>
         </div>
-        <textarea className="fi" style={{ minHeight: 100, marginBottom: 10 }} placeholder="What happened — situation, action, result…" aria-label="What happened — situation, action, result…" value={form.body} onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))} />
-        <input className="fi" style={{ marginBottom: 10 }} placeholder="Tags (comma separated)" aria-label="Tags (comma separated)" value={form.tags} onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))} />
-        <button className={`btn ${saving ? 'btn-loading' : ''}`} disabled={saving} onClick={() => void add()}>Save</button>
+        <div className="cxf-actions">
+          <button type="button" className="cx-btn cx-btn-primary" disabled={saving} onClick={() => void add()}>Save story</button>
+        </div>
+      </section>
+
+      <div className="cxf-toolbar">
+        <input className="fi cxf-grow" type="search" placeholder="Search your stories" aria-label="Search your stories" value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
-      <input className="fi" style={{ maxWidth: 320, marginBottom: 10 }} placeholder="Search your knowledge base…" aria-label="Search your knowledge base…" value={search} onChange={(e) => setSearch(e.target.value)} />
-
       {!visible.length ? (
-        <div className="card"><EmptyState icon="lifemap" title="Nothing saved yet">Add your first STAR story or achievement.</EmptyState></div>
+        <div className="cx-panel"><Empty title="Nothing saved yet">Add your first STAR story or achievement above.</Empty></div>
       ) : (
-        visible.map((i) => (
-          <div className="card" key={i.id} style={{ padding: 14, marginBottom: 8 }}>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <b>{i.title}</b>
-                <div className="job-meta">
-                  <span className="badge badge-mute">{i.kind.replace('_', ' ')}</span>
-                  {i.tags.map((t) => <span key={t} className="badge badge-blue">{t}</span>)}
+        <section className="cx-panel" aria-label="Saved stories">
+          <ul className="cx-list">
+            {visible.map((i) => (
+              <li key={i.id}>
+                <div className="cx-row" style={{ alignItems: 'flex-start' }}>
+                  <div className="cx-row-main">
+                    <p className="cx-row-title wrap">{i.title}</p>
+                    <p className="cx-row-meta">
+                      <span className="cx-chip">{i.kind.replace('_', ' ')}</span>
+                      {i.tags.map((t) => <span key={t} className="cx-chip">{t}</span>)}
+                    </p>
+                    <p className="cx-sub" style={{ marginTop: 6, whiteSpace: 'pre-wrap' }}>{i.body}</p>
+                  </div>
+                  <button type="button" className="cx-icon-btn" aria-label={`Delete ${i.title}`} onClick={() => { if (user) void deleteKnowledgeItem(user.id, i.id).then(load); }}>✕</button>
                 </div>
-                <p className="note" style={{ marginTop: 6, whiteSpace: 'pre-wrap' }}>{i.body}</p>
-              </div>
-              <button className="icon-btn danger" aria-label={`Delete ${i.title}`} onClick={() => { if (user) void deleteKnowledgeItem(user.id, i.id).then(load); }}>✕</button>
-            </div>
-          </div>
-        ))
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
-
-      <ToolFoot><b>Knowledge Base</b> · your real stories, always available for interview prep</ToolFoot>
     </div>
   );
 }

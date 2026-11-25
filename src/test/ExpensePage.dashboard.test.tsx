@@ -34,7 +34,8 @@ describe('dashboard summary cards', () => {
     renderPage();
     const flow = screen.getByText('Net cash flow').closest('.fx-metric') as HTMLElement;
     expect(within(flow).getByText('—')).toBeInTheDocument();
-    expect(screen.getByText('No budget set')).toBeInTheDocument();
+    // No budget: the slot is the action that fills it, not a dash.
+    expect(screen.getByRole('link', { name: /Set a budget/ })).toHaveAttribute('href', '/tools/budget');
     expect(screen.queryByText('Over budget by')).not.toBeInTheDocument();
   });
 

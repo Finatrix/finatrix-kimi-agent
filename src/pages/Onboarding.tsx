@@ -4,8 +4,8 @@ import { store } from '../tools/lib/storage';
 import { currencySym, CURRENCY_CODES } from '../tools/lib/format';
 import { loadMarket, MARKET_LIST, isMarketId, type MarketId } from '../tools/lib/markets';
 import { seedOnboarding } from '../tools/lib/onboarding';
-import { BrandLogo } from '../components/BrandLogo';
-import ThemeToggle from '../components/ThemeToggle';
+import { Wordmark } from '../components/Wordmark';
+import AppearanceMenu from '../components/AppearanceMenu';
 
 /**
  * First-run onboarding — a calm, ~60-second setup that POPULATES the dashboard.
@@ -79,17 +79,16 @@ export default function Onboarding() {
   const canContinue = step === 0 ? income > 0 : step === 1 ? (form.savings.trim() === '' || (/^[\d,]+(?:\.\d+)?$/.test(form.savings.trim()) && Number(form.savings.replace(/,/g, '')) <= income)) : true;
 
   return (
-    <div className="fx-onb" role="main">
+    <div className="fx-onb">
       <OnbStyles />
 
       {/* Top bar — logo, theme, and an always-available escape (never trap). */}
       <header className="fx-onb-top">
         <Link to="/" className="fx-onb-brand" aria-label="FinatriX home">
-          <BrandLogo size={22} />
-          <span>Finatri<span className="fx-gold-text">X</span></span>
+          <Wordmark logo={22} />
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <ThemeToggle />
+          <AppearanceMenu />
           <Link to="/tools/dashboard" className="fx-onb-skip">Skip for now</Link>
         </div>
       </header>
@@ -217,7 +216,7 @@ export default function Onboarding() {
       </div>
       {error && <p role="alert" style={{ maxWidth: 560, margin: '12px auto', color: 'var(--ink-2)' }}>{error}</p>}
       {step === 1 && !canContinue && <p role="alert" style={{ textAlign: 'center', color: 'var(--ink-2)' }}>Enter an amount from zero to your monthly income, or leave this blank.</p>}
-      {step < INPUT_STEPS && <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--ink-2)' }}>Need a hand? <Link to="/tools/dashboard?help=setup" style={{ color: 'var(--accent-text)' }}>Open setup help in chat</Link></p>}
+      {step < INPUT_STEPS && <p style={{ textAlign: 'center', fontSize: 14, color: 'var(--ink-2)', margin: '4px 0 18px' }}>Need a hand? <Link to="/tools/dashboard?help=setup" className="fx-inline-link" style={{ color: 'var(--accent-text)' }}>Open setup help in chat</Link></p>}
 
       {/* Footer nav */}
       {step < INPUT_STEPS && (
@@ -251,16 +250,17 @@ function OnbStyles() {
     <style>{`
       .fx-onb { min-height: calc(100dvh - var(--fx-safe-top)); background: var(--surface-base); color: var(--ink); display: flex; flex-direction: column; padding: 0 20px calc(var(--fx-safe-bottom) + 20px); }
       .fx-onb-top { display: flex; align-items: center; justify-content: space-between; height: 60px; max-width: 560px; width: 100%; margin: 0 auto; }
-      .fx-onb-brand { display: inline-flex; align-items: center; gap: 9px; font-weight: 600; font-size: 15px; letter-spacing: -.01em; color: var(--ink); text-decoration: none; }
-      .fx-onb-skip { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); text-decoration: none; transition: color .2s ease; }
-      .fx-onb-skip:hover { color: var(--ink); }
+      .fx-onb-brand { display: inline-flex; align-items: center; border-radius: 12px; color: var(--ink); text-decoration: none; }
+      .fx-onb-skip { display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; font-size: 14px; font-weight: 500; color: var(--ink-2); text-decoration: none; transition: color .15s var(--ease-out); }
+      @media (hover: hover) and (pointer: fine) {
+      .fx-onb-skip:hover { color: var(--ink); } }
 
       .fx-onb-progress { display: flex; gap: 6px; max-width: 560px; width: 100%; margin: 8px auto 0; }
-      .fx-onb-progress > span { height: 4px; flex: 1; border-radius: 980px; background: var(--hairline-2); overflow: hidden; transition: background .35s var(--ease-out); }
+      .fx-onb-progress > span { height: 4px; flex: 1; border-radius: 980px; background: var(--hairline-2); overflow: hidden; transition: background 300ms var(--ease-out); }
       .fx-onb-progress > span.is-on { background: linear-gradient(90deg,#EAD27E,#C9A23C); }
 
       .fx-onb-stage { flex: 1; display: flex; align-items: center; justify-content: center; max-width: 560px; width: 100%; margin: 0 auto; padding: 24px 0; }
-      .fx-onb-step { width: 100%; animation: onbIn .5s var(--ease-standard) both; }
+      .fx-onb-step { width: 100%; animation: onbIn 300ms var(--ease-standard) both; }
       @keyframes onbIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
       @media (prefers-reduced-motion: reduce) { .fx-onb-step { animation: none; } }
 
@@ -279,7 +279,8 @@ function OnbStyles() {
       .fx-onb-amount.sm .fx-onb-sym { font-size: 16px; }
       .fx-onb-amount input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 26px; font-weight: 700; letter-spacing: -.02em; padding: 10px 6px; font-family: inherit; }
       .fx-onb-amount.sm input { font-size: 18px; padding: 9px 4px; }
-      .fx-onb-amount select { border: 0; background: var(--surface-2); color: var(--ink-2); font-size: 13px; font-weight: 600; border-radius: 12px; padding: 8px 8px; cursor: pointer; font-family: inherit; }
+      .fx-onb-amount select { border: 0; background: var(--surface-2); color: var(--ink-2); font-size: max(13px, var(--field-min-fs)); font-weight: 600; border-radius: 12px; padding: 8px 8px; cursor: pointer; font-family: inherit; }
+      @media (pointer: coarse) { .fx-onb-amount select { min-height: 44px; } }
       .fx-onb-text { width: 100%; border: 1px solid var(--hairline); background: var(--tile-bg); border-radius: 14px; padding: 14px 16px; color: var(--ink); font-size: 16px; font-family: inherit; outline: none; transition: border-color .2s ease, box-shadow .2s ease; }
       .fx-onb-text:focus { border-color: hsl(var(--accent)); box-shadow: 0 0 0 3px rgba(212,175,55,.14); }
       .fx-onb-row { display: flex; gap: 12px; }
@@ -287,24 +288,26 @@ function OnbStyles() {
 
       .fx-onb-choices { display: flex; flex-direction: column; gap: 10px; }
       .fx-onb-choice { text-align: left; border: 1px solid var(--hairline); background: var(--tile-bg); border-radius: 16px; padding: 16px 18px; cursor: pointer; transition: border-color .2s ease, background .2s ease, transform .2s var(--ease-out); display: flex; flex-direction: column; gap: 3px; }
-      .fx-onb-choice:hover { border-color: var(--btn-ghost-border-hover); transform: translateY(-1px); }
+      @media (hover: hover) and (pointer: fine) {
+      .fx-onb-choice:hover { border-color: var(--btn-ghost-border-hover); transform: translateY(-1px); } }
       .fx-onb-choice.is-sel { border-color: hsl(var(--accent)); background: var(--accent-bg); box-shadow: 0 0 0 3px rgba(212,175,55,.12); }
       .fx-onb-choice-l { font-size: 15.5px; font-weight: 650; color: var(--ink); }
       .fx-onb-choice-d { font-size: 13px; color: var(--ink-2); }
 
       .fx-onb-nav { display: flex; align-items: center; justify-content: space-between; max-width: 560px; width: 100%; margin: 0 auto; padding: 8px 0 4px; }
       .fx-onb-back { background: none; border: 0; color: var(--ink-3); font-size: 13px; font-weight: 500; cursor: pointer; padding: 10px 6px; transition: color .2s ease; font-family: inherit; }
-      .fx-onb-back:hover:not(:disabled) { color: var(--ink); }
+      @media (hover: hover) and (pointer: fine) {
+      .fx-onb-back:hover:not(:disabled) { color: var(--ink); } }
       .fx-onb-back:disabled { opacity: 0; pointer-events: none; }
-      .fx-onb-next { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; text-transform: uppercase; letter-spacing: .1em; padding: 13px 26px; border-radius: 980px; display: inline-flex; align-items: center; gap: 8px; }
+      .fx-onb-next { font-size: 15px; font-weight: 600; min-height: 48px; padding: 0 26px; border-radius: 980px; display: inline-flex; align-items: center; gap: 8px; }
       .fx-onb-next:disabled { opacity: .45; cursor: not-allowed; }
 
       .fx-onb-done { text-align: center; display: flex; flex-direction: column; align-items: center; }
-      .fx-onb-check { width: 62px; height: 62px; border-radius: 50%; display: grid; place-items: center; color: #1a1400; background: linear-gradient(150deg,#F0D779,#C49B2E); box-shadow: 0 14px 40px -12px rgba(212,175,55,.6); margin-bottom: 22px; animation: onbPop .55s var(--ease-spring) both; }
+      .fx-onb-check { width: 62px; height: 62px; border-radius: 50%; display: grid; place-items: center; color: #1a1400; background: linear-gradient(150deg,#F0D779,#C49B2E); box-shadow: 0 14px 40px -12px rgba(212,175,55,.6); margin-bottom: 22px; animation: onbPop 300ms var(--ease-spring) both; }
       @keyframes onbPop { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: scale(1); } }
       @media (prefers-reduced-motion: reduce) { .fx-onb-check { animation: none; } }
       .fx-onb-done .fx-onb-sub { margin-left: auto; margin-right: auto; }
-      .fx-onb-cta { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; text-transform: uppercase; letter-spacing: .1em; padding: 14px 30px; border-radius: 980px; display: inline-flex; align-items: center; gap: 9px; text-decoration: none; }
+      .fx-onb-cta { font-size: 15px; font-weight: 600; min-height: 48px; padding: 0 30px; border-radius: 980px; display: inline-flex; align-items: center; gap: 9px; text-decoration: none; }
 
       @media (max-width: 480px) {
         .fx-onb-row { flex-direction: column; gap: 0; }

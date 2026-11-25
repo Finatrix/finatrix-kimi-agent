@@ -94,7 +94,7 @@ function ParkSmartTool() {
 
   return (
     <div className="fx-page">
-      <PageHead marketNotice chip="ParkSmart" chipColor="var(--teal)" chipBg="rgba(12,128,121,.09)" icon="bank" title="Idle money shouldn't idle.">
+      <PageHead marketNotice chip="ParkSmart" chipColor="var(--teal)" icon="bank" title="Idle money shouldn't idle.">
         {enteredRates ? `Compare two cash options in ${market.name} using rates you enter after taxes and fees. No bank rate or tax exemption is assumed.` : <>Compare what idle cash actually earns after tax across {park.options.length} parking options in {market.name} — tuned to your duration, your tax rate and current rules.</>}
       </PageHead>
       <RegionBar tour="parksmart-region" />
@@ -302,7 +302,7 @@ function ParkResultView({ result, pack, liquidOnly, amount, dur, rate, market, m
               <span className="fx-park-meta">
                 <span>{enteredRates ? 'Entered net' : 'Gross'} {o.rate}%</span>
                 <span>Post-tax {o.effRate.toFixed(2)}%</span>
-                <span className={`pill ${o.liquid ? 'pill-ok' : 'pill-bad'}`} style={{ fontSize: 10 }}>{o.liquid ? 'Liquid' : 'Locked'}</span>
+                <span className={`pill ${o.liquid ? 'pill-ok' : 'pill-bad'}`} style={{ fontSize: 11 }}>{o.liquid ? 'Liquid' : 'Locked'}</span>
                 <span>Risk: {o.risk}</span>
               </span>
               <span className="bar bar-sm fx-park-bar" aria-hidden="true">

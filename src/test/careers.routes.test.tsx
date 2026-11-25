@@ -15,7 +15,7 @@ function renderAt(path: string) {
 }
 
 // Every Careers WORKSPACE route renders through the real App (lazy chunks
-// included) without crashing. The Careers tab bar labels are stable regardless
+// included) without crashing. The area names in the Careers rail are stable regardless
 // of auth/backend state, so they make reliable smoke assertions.
 //
 // `/careers` is deliberately absent: it is no longer the workspace. It renders
@@ -23,11 +23,11 @@ function renderAt(path: string) {
 // `careersPublic.test.tsx` — and the whole point of that change is that it does
 // NOT render a tab bar or hit an auth gate.
 const CASES: [string, string | RegExp][] = [
-  ['/careers/dashboard', 'Resume Library'],
-  ['/careers/upload', 'Career Coach'],
-  ['/careers/resumes', 'Career Coach'],
-  ['/careers/profile', 'Dashboard'],
-  ['/careers/settings', 'Dashboard'],
+  ['/careers/dashboard', 'Interviews'],
+  ['/careers/upload', 'Companies'],
+  ['/careers/resumes', 'Companies'],
+  ['/careers/profile', 'Home'],
+  ['/careers/settings', 'Home'],
 ];
 
 describe('Careers routes render', () => {

@@ -136,6 +136,8 @@ const WORKSPACE: readonly { id: string; title: string; subtitle: string; icon: I
   { id: 'dashboard', title: 'Dashboard', subtitle: 'Everything at a glance', icon: 'pie', keywords: ['home', 'hub', 'overview', 'summary'] },
   { id: 'reports', title: 'Reports', subtitle: 'Export a full financial report', icon: 'layers', keywords: ['pdf', 'export', 'download', 'statement', 'summary'] },
   { id: 'calendar', title: 'Calendar', subtitle: 'Bills, SIPs and goal dates', icon: 'clock', keywords: ['bills', 'due', 'upcoming', 'month', 'schedule'] },
+  { id: 'moneycalendar', title: 'Money calendar', subtitle: 'Your balance over the next 30–90 days', icon: 'clock', keywords: ['cash flow', 'cashflow', 'forecast', 'balance', 'payday', 'salary', 'projection', 'short'] },
+  { id: 'subscriptions', title: 'Subscriptions', subtitle: 'Yearly cost, renewals and free trials', icon: 'subs', keywords: ['subscription', 'renewal', 'trial', 'netflix', 'recurring', 'cancel', 'yearly'] },
   { id: 'settings', title: 'Settings', subtitle: 'Data, sync and preferences', icon: 'shield', keywords: ['preferences', 'privacy', 'reset', 'delete data', 'sync'] },
 ];
 
@@ -145,42 +147,33 @@ const WORKSPACE: readonly { id: string; title: string; subtitle: string; icon: I
  * the label the product happens to use.
  */
 const CAREERS_KEYWORDS: Record<string, readonly string[]> = {
-  dashboard: ['careers home', 'overview'],
-  resumes: ['cv', 'resume', 'library'],
+  dashboard: ['careers home', 'overview', 'next step'],
+  resume: ['cv', 'resume', 'library', 'versions'],
   jobs: ['roles', 'openings', 'vacancies', 'search'],
   applications: ['applied', 'pipeline', 'tracker', 'status'],
-  interviews: ['interview', 'questions', 'star', 'prep'],
-  coach: ['advice', 'mentor', 'ask'],
-  settings: ['preferences', 'account'],
+  interviews: ['interview', 'questions', 'star', 'prep', 'practice'],
+  companies: ['employers', 'company research', 'employer intel', 'hiring'],
+  coach: ['advice', 'mentor', 'ask', 'career health'],
+  settings: ['preferences', 'privacy', 'notifications'],
   upload: ['add resume', 'import cv'],
-  profile: ['about me', 'career profile'],
-  queue: ['matches', 'scored roles'],
+  profile: ['about me', 'career profile', 'work rights'],
+  queue: ['matches', 'scored roles', 'one at a time'],
   tasks: ['todo', 'follow up', 'reminders'],
-  companies: ['employers', 'saved companies'],
-  intelligence: ['research', 'company research', 'employer intel'],
-  companyProfile: ['company page'],
-  recruiters: ['contacts', 'hiring managers'],
-  network: ['referrals', 'connections', 'networking'],
+  yourCompanies: ['saved companies', 'target companies'],
+  people: ['contacts', 'hiring managers', 'referrals', 'connections', 'networking', 'recruiters'],
   assessments: ['tests', 'coding test', 'aptitude'],
   offers: ['offer', 'compensation', 'negotiate', 'ctc'],
-  knowledge: ['notes', 'stories', 'evidence bank'],
+  knowledge: ['notes', 'stories', 'evidence bank', 'achievements'],
   billing: ['plan', 'subscription', 'invoice', 'payment'],
   admin: ['admin', 'internal'],
 };
 
 /**
- * Every routable Careers section, from the same two registries the shell's own
- * navigation reads — the tab bar's seven plus the sections it deliberately does
- * not show. A section reachable only by URL is exactly the kind of thing a
- * command bar should make findable.
- *
- * `companyProfile` is dropped: it shares a name and a purpose with
- * `intelligence` and is entered from it, so listing both would put two
- * identical rows in the results.
+ * Every Careers destination, from the same two registries the shell reads:
+ * the six areas plus the places inside them (tabs such as Tasks or Story bank),
+ * which is exactly the kind of thing a command bar should make findable.
  */
-const CAREERS_SECTIONS = [...CAREERS_NAV, ...CAREERS_HIDDEN_SECTIONS].filter(
-  (s) => s.id !== 'companyProfile',
-);
+const CAREERS_SECTIONS = [...CAREERS_NAV, ...CAREERS_HIDDEN_SECTIONS];
 
 /**
  * Every command available in the workspace, in a deterministic order.

@@ -10,6 +10,7 @@
 
 import { requestCompletion, type AiFailureKind } from '../../lib/ai/transport';
 import { CareersError } from '../utils/errors';
+import { ensureAiConsent } from './consentBroker';
 import type { AiCompletion, AiProvider, AiRequest } from './provider';
 
 /** The Careers wording for each transport failure. Unchanged from before. */
@@ -27,7 +28,7 @@ function careersError(kind: AiFailureKind, message: string): CareersError {
     case 'no-consent':
       return new CareersError(
         'ai',
-        'Nothing was sent. Allow FinatriX AI to share data with its AI provider in Settings → Privacy first.'
+        'Nothing was sent. Allow FinatriX AI in Careers settings → Privacy, then try again.'
       );
     case 'limit':
       return new CareersError('ai-limit', message || 'Daily AI limit reached. Try again tomorrow.');
@@ -48,6 +49,9 @@ function careersError(kind: AiFailureKind, message: string): CareersError {
 export const openRouterProvider: AiProvider = {
   id: 'openrouter',
   async complete(req: AiRequest): Promise<AiCompletion> {
+    // Ask now, at the moment it matters, rather than failing and pointing at
+    // Settings. A "no" leaves the transport to refuse exactly as before.
+    await ensureAiConsent();
     const result = await requestCompletion({
       task: req.task,
       system: req.system,

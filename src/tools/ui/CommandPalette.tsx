@@ -317,16 +317,15 @@ const STYLES = `
    fix.) */
 .fx-cmdk-overlay{position:fixed;inset:0;z-index:var(--z-modal,300);background:rgba(0,0,0,.5);
   backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
-  display:flex;align-items:flex-start;justify-content:center;padding:10vh 16px 16px;}
-.fx-cmdk{width:min(640px,100%);max-height:min(70vh,560px);display:flex;flex-direction:column;
+  display:flex;align-items:flex-start;justify-content:center;padding:10dvh 16px 16px;}
+.fx-cmdk{width:min(640px,100%);max-height:min(70dvh,560px);display:flex;flex-direction:column;
   background:var(--card-solid);border:1px solid var(--hair);border-radius:16px;
   /* Themed elevation. A flat 60%-black drop shadow is right on obsidian and
      far too heavy on warm paper; --shadow-3 is the raised-surface rung and
      carries the light theme's softer, warmer value. */
-  box-shadow:var(--shadow-3);overflow:hidden;
-  animation:fx-cmdk-in .16s var(--ease-in-out) both;}
-@keyframes fx-cmdk-in{from{opacity:0;transform:translateY(-6px) scale(.99)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){.fx-cmdk{animation:none}}
+  box-shadow:var(--shadow-3);overflow:hidden;}
+/* No open animation: the palette is summoned from the keyboard many times a
+   day, and any entrance makes it feel slower than the keystroke. */
 .fx-cmdk-head{display:flex;align-items:center;gap:10px;padding:12px 12px 12px 14px;
   border-bottom:1px solid var(--hair2);}
 .fx-cmdk-lead{color:var(--ink3);flex:0 0 auto;}
@@ -336,10 +335,11 @@ const STYLES = `
 .fx-cmdk-close{flex:0 0 auto;font-family:var(--mono,ui-monospace,monospace);font-size:11px;
   letter-spacing:.06em;color:var(--ink3);background:var(--fill-05);border:1px solid var(--hair2);
   border-radius:6px;padding:4px 8px;cursor:pointer;min-height:24px;}
-.fx-cmdk-close:hover{color:var(--ink);}
+@media (hover: hover) and (pointer: fine){
+.fx-cmdk-close:hover{color:var(--ink);}}
 .fx-cmdk-close:focus-visible,.fx-cmdk-input:focus-visible{box-shadow:var(--ring-gold);border-radius:6px;}
 .fx-cmdk-list{overflow-y:auto;padding:6px;flex:1 1 auto;overscroll-behavior:contain;}
-.fx-cmdk-group{font-family:var(--mono,ui-monospace,monospace);font-size:10px;text-transform:uppercase;
+.fx-cmdk-group{font-family:var(--mono,ui-monospace,monospace);font-size:11px;text-transform:uppercase;
   letter-spacing:.12em;color:var(--ink3);padding:10px 10px 6px;}
 .fx-cmdk-opt{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:10px;
   cursor:pointer;min-height:44px;}
@@ -355,5 +355,5 @@ const STYLES = `
   font-size:11px;color:var(--ink3);margin:0;}
 .fx-cmdk-foot kbd{font-family:var(--mono,ui-monospace,monospace);border:1px solid var(--hair2);
   border-radius:4px;padding:0 4px;margin-right:3px;background:var(--fill-05);}
-@media (max-width:520px){.fx-cmdk-overlay{padding:6vh 10px 10px;}.fx-cmdk{max-height:82vh;}}
+@media (max-width:520px){.fx-cmdk-overlay{padding:6dvh 10px 10px;}.fx-cmdk{max-height:82dvh;}}
 `;

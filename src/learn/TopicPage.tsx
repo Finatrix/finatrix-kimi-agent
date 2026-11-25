@@ -53,7 +53,7 @@ function ArticleCard({ article }: { article: Article }) {
         to={articlePath(article)}
         className="group flex h-full flex-col rounded-[16px] border border-hairline p-5 transition-colors hover:border-[color:var(--accent-text)] focus-visible:border-[color:var(--accent-text)]"
       >
-        <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-accent-text">
+        <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-accent-text">
           {KIND_LABEL[article.kind]}
         </span>
         <span className="mt-2 text-[16px] font-semibold leading-[1.35] tracking-[-0.01em] text-ink transition-colors group-hover:text-accent-text">

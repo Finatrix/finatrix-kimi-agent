@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Chart from 'chart.js/auto';
+import { useAmountsHidden } from '../lib/hideAmounts';
 import { useTheme } from '../../context/ThemeContext';
 import { useDialogFocus } from '../../hooks/useDialogFocus';
 import { getChartTheme } from '../lib/chartTheme';
@@ -114,7 +115,7 @@ export default function LifeMapPage() {
   if (!profile) {
     return (
       <div className="fx-page" style={{ paddingBottom: 64 }}>
-        <PageHead marketNotice chip="LifeMap" chipColor="var(--purple)" chipBg="rgba(110,59,212,.1)" icon="lifemap" title="Simulate your entire financial life." chipPadTop={48}>
+        <PageHead marketNotice chip="LifeMap" chipColor="var(--purple)" icon="lifemap" title="Simulate your entire financial life." chipPadTop={48}>
           Enter your numbers once. Travel through time. See how every decision — good or bad —
           reshapes your wealth trajectory from today to retirement. Everything past today is a
           projection from stated assumptions, not a forecast of what will happen.
@@ -321,9 +322,9 @@ function SetupForm({ form, goals, seed, setField, setGoals, onLaunch, sym, month
             return (
               <button key={g.k} type="button" aria-pressed={on}
                 onClick={() => { const n = new Set(goals); if (n.has(g.k)) n.delete(g.k); else n.add(g.k); setGoals(n); }}
-                style={{ padding: '11px 6px', borderRadius: 13, border: `1.5px solid ${on ? 'var(--gold)' : 'var(--hair2)'}`, background: on ? 'var(--gold-bg)' : 'var(--card)', textAlign: 'center', cursor: 'pointer', transition: 'all .15s', fontFamily: 'inherit' }}>
+                style={{ padding: '11px 6px', borderRadius: 13, border: `1.5px solid ${on ? 'var(--gold)' : 'var(--hair2)'}`, background: on ? 'var(--gold-bg)' : 'var(--card)', textAlign: 'center', cursor: 'pointer', transition: 'border-color .15s, background-color .15s, color .15s', fontFamily: 'inherit' }}>
                 <span style={{ display: 'flex', justifyContent: 'center', height: 24, alignItems: 'center', color: 'var(--ink2)' }}><Icon name={g.ic} size={19} /></span>
-                <span style={{ fontSize: 10, color: 'var(--ink2)', fontWeight: 600, display: 'block', marginTop: 3 }}>{g.l}</span>
+                <span style={{ fontSize: 11, color: 'var(--ink2)', fontWeight: 600, display: 'block', marginTop: 3 }}>{g.l}</span>
               </button>
             );
           })}
@@ -430,9 +431,9 @@ function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, mark
           <div style={{ position: 'absolute', top: 8, left: 0, right: 0, height: 1, background: 'var(--hair2)' }} />
           {milestones.map((m) => (
             <div key={m.age} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, position: 'relative' }}>
-              <div title={m.l} style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid var(--hair2)', background: currentAge >= m.age ? 'var(--ink)' : 'var(--card)', borderColor: currentAge >= m.age ? 'var(--ink)' : 'var(--hair2)', transition: 'all .3s', zIndex: 1, boxSizing: 'border-box' }} />
-              <div style={{ fontSize: 10, color: 'var(--ink3)' }}>{m.age}</div>
-              <div style={{ fontSize: 10, color: 'var(--ink3)', textAlign: 'center', maxWidth: 56 }}>{m.l}</div>
+              <div title={m.l} style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid var(--hair2)', background: currentAge >= m.age ? 'var(--ink)' : 'var(--card)', borderColor: currentAge >= m.age ? 'var(--ink)' : 'var(--hair2)', transition: 'border-color .2s, background-color .2s', zIndex: 1, boxSizing: 'border-box' }} />
+              <div style={{ fontSize: 11, color: 'var(--ink3)' }}>{m.age}</div>
+              <div style={{ fontSize: 11, color: 'var(--ink3)', textAlign: 'center', maxWidth: 56 }}>{m.l}</div>
             </div>
           ))}
         </div>
@@ -458,7 +459,7 @@ function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, mark
             <div style={{ position: 'relative', width: 100, height: 100, margin: '0 auto 12px' }}>
               <svg aria-hidden="true" width="100" height="100" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
                 <circle cx="50" cy="50" r="40" fill="none" stroke="var(--hair2)" strokeWidth="9" />
-                <circle cx="50" cy="50" r="40" fill="none" stroke="var(--ink)" strokeWidth="9" strokeLinecap="round" strokeDasharray="251.2" strokeDashoffset={251.2 - (score / 100) * 251.2} style={{ transition: 'stroke-dashoffset .8s ease' }} />
+                <circle cx="50" cy="50" r="40" fill="none" stroke="var(--ink)" strokeWidth="9" strokeLinecap="round" strokeDasharray="251.2" strokeDashoffset={251.2 - (score / 100) * 251.2} style={{ transition: 'stroke-dashoffset 300ms ease' }} />
               </svg>
               <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                 <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-.02em' }}>{score}</div>
@@ -491,8 +492,8 @@ function AppScreen({ profile: p, dec, applied, currentAge, cat, code, cfmt, mark
               if (!cnt) return null;
               const on = cat === c.id;
               return (
-                <button key={c.id} type="button" aria-pressed={on} onClick={() => onCat(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 13px', borderRadius: 980, border: `1px solid ${on ? 'var(--gold)' : 'var(--hair2)'}`, background: on ? 'var(--gold)' : 'var(--card)', color: on ? 'var(--card)' : 'var(--ink2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all .2s', fontFamily: 'inherit' }}>
-                  {c.i ? c.i : c.ic ? <Icon name={c.ic} size={13} style={{ verticalAlign: '-1px' }} /> : null} {c.n} <span style={{ opacity: 0.7, fontSize: 10 }}>{cnt}</span>
+                <button key={c.id} type="button" aria-pressed={on} onClick={() => onCat(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 13px', borderRadius: 980, border: `1px solid ${on ? 'var(--gold)' : 'var(--hair2)'}`, background: on ? 'var(--gold)' : 'var(--card)', color: on ? 'var(--card)' : 'var(--ink2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'border-color .2s, background-color .2s, color .2s', fontFamily: 'inherit' }}>
+                  {c.i ? c.i : c.ic ? <Icon name={c.ic} size={13} style={{ verticalAlign: '-1px' }} /> : null} {c.n} <span style={{ opacity: 0.7, fontSize: 11 }}>{cnt}</span>
                 </button>
               );
             })}
@@ -564,7 +565,7 @@ function Kpi({ v, l, color, tag }: { v: string; l: string; color?: string; tag?:
       <div className="v" style={color ? { color } : undefined}>{v}</div>
       <div className="l">{l}</div>
       {tag && (
-        <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ink3)', marginTop: 4 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ink3)', marginTop: 4 }}>
           {tag}
         </div>
       )}
@@ -587,6 +588,8 @@ function CompareCol({ title, color, bg, border, nw, inv, debt, debtColor }: { ti
 
 function WealthChart({ profile: p, dec, applied, cfmt, code }: { profile: LifeProfile; dec: Decision[]; applied: Set<string>; cfmt: (n: number) => string; code: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  // Hide amounts rebuilds the chart without its value axis.
+  const hidden = useAmountsHidden();
   const chartRef = useRef<Chart | null>(null);
   const { theme } = useTheme();
   const ages = useMemo(() => Array.from({ length: 60 - p.age + 1 }, (_, i) => p.age + i), [p.age]);
@@ -606,21 +609,21 @@ function WealthChart({ profile: p, dec, applied, cfmt, code }: { profile: LifePr
         ],
       },
       options: {
-        responsive: true, animation: { duration: 450 },
+        responsive: true, animation: { duration: 300 },
         plugins: {
           legend: { display: false },
           tooltip: { backgroundColor: ct.tooltipBg, borderColor: ct.tooltipBorder, borderWidth: 1, titleColor: ct.tooltipTitle, bodyColor: ct.tooltipBody, callbacks: { label: (c) => ' ' + cfmt(c.raw as number) } },
         },
         scales: {
           x: { ticks: { color: ct.tick, font: { size: 10 }, maxTicksLimit: 8 }, grid: { color: ct.grid } },
-          y: { ticks: { color: ct.tick, font: { size: 10 }, callback: (v) => cfmt(v as number) }, grid: { color: ct.grid } },
+          y: { ticks: { display: !hidden, color: ct.tick, font: { size: 10 }, callback: (v) => cfmt(v as number) }, grid: { color: ct.grid } },
         },
       },
     });
     return () => { chartRef.current?.destroy(); chartRef.current = null; };
     // Rebuild when the currency OR theme changes so axis/tooltip match.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code, theme]);
+  }, [code, theme, hidden]);
 
   useEffect(() => {
     const ch = chartRef.current;

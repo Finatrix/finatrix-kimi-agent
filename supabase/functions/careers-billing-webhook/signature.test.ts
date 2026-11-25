@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import {
+import { renewalBase,
   parseSignatureHeader,
   timingSafeEqual,
   verifyStripeSignature,
@@ -195,5 +195,25 @@ describe('periodEnd', () => {
 
   it('clamps yearly purchases from leap day to February 28 when needed', () => {
     expect(periodEnd('yearly', new Date('2024-02-29T10:00:00Z')).slice(0, 10)).toBe('2025-02-28');
+  });
+});
+
+describe('renewalBase', () => {
+  const now = new Date('2026-11-05T00:00:00Z');
+  const end = '2026-11-20T00:00:00Z';
+
+  it('extends from the current end when renewing the same plan early', () => {
+    expect(renewalBase(now, { plan_id: 'student', current_period_end: end }, 'student').toISOString())
+      .toBe('2026-11-20T00:00:00.000Z');
+  });
+
+  it('starts from now on a change of plan', () => {
+    expect(renewalBase(now, { plan_id: 'student', current_period_end: end }, 'premium')).toBe(now);
+  });
+
+  it('starts from now when the period has lapsed or there is none', () => {
+    expect(renewalBase(now, { plan_id: 'student', current_period_end: '2026-11-01T00:00:00Z' }, 'student')).toBe(now);
+    expect(renewalBase(now, { plan_id: 'student', current_period_end: null }, 'student')).toBe(now);
+    expect(renewalBase(now, null, 'student')).toBe(now);
   });
 });

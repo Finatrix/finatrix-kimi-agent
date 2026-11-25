@@ -1,11 +1,12 @@
 import { useEffect } from 'react';
 import { onLocalWrite } from './storage';
 import { REMINDER_KEY } from './reminders';
+import { RADAR_KEY } from './subscriptions';
 import { syncReminders } from './reminderSync';
 
 /** Records whose change can alter the plan. Anything else is not worth a re-plan. */
 function affectsPlan(key: string): boolean {
-  return key === REMINDER_KEY || key === 'fx_expenses' || key === 'fx_investmatch'
+  return key === REMINDER_KEY || key === RADAR_KEY || key === 'fx_expenses' || key === 'fx_investmatch'
     || key === 'fx_goal' || key.startsWith('fx_bb_');
 }
 

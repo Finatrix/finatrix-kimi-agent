@@ -13,6 +13,7 @@ import android.webkit.WebView;
 import androidx.activity.EdgeToEdge;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.PluginHandle;
 
 public class MainActivity extends BridgeActivity {
 
@@ -31,6 +32,9 @@ public class MainActivity extends BridgeActivity {
         // App-local plugins register before the bridge starts.
         registerPlugin(SystemUiPlugin.class);
         registerPlugin(FileExportPlugin.class);
+        registerPlugin(AppLockPlugin.class);
+        registerPlugin(VoicePlugin.class);
+        registerPlugin(SharePlugin.class);
         super.onCreate(savedInstanceState);
         // Draw under the status and navigation bars on every Android version,
         // not only 15+ where it is enforced. The page pads itself from the
@@ -47,6 +51,23 @@ public class MainActivity extends BridgeActivity {
         webView.setBackgroundColor(ContextCompat.getColor(this, R.color.fx_window_bg));
         applyFontScale(getResources().getConfiguration());
         warnIfWebViewTooOld();
+    }
+
+    /**
+     * Android's overview screen keeps the app drawn live in its card without
+     * pausing it. The app lock has to hear about that to cover the page there
+     * (AppLockPlugin.onTopResumedChanged). Android 10 and later; earlier
+     * versions never call this, and their overview shows a saved thumbnail,
+     * which the lock already keeps blank.
+     */
+    @Override
+    public void onTopResumedActivityChanged(boolean isTopResumedActivity) {
+        super.onTopResumedActivityChanged(isTopResumedActivity);
+        if (getBridge() == null) return;
+        PluginHandle handle = getBridge().getPlugin("FxAppLock");
+        if (handle != null && handle.getInstance() instanceof AppLockPlugin) {
+            ((AppLockPlugin) handle.getInstance()).onTopResumedChanged(isTopResumedActivity);
+        }
     }
 
     /** Chromium major version of the WebView actually in use, or -1 if unknown. */

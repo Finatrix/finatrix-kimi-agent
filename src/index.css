@@ -158,11 +158,11 @@
 .theme-anim *::before,
 .theme-anim *::after {
   transition:
-    background-color 320ms var(--ease-out, ease),
-    border-color 320ms var(--ease-out, ease),
-    color 320ms var(--ease-out, ease),
-    fill 320ms var(--ease-out, ease),
-    box-shadow 320ms var(--ease-out, ease) !important;
+    background-color 300ms var(--ease-out, ease),
+    border-color 300ms var(--ease-out, ease),
+    color 300ms var(--ease-out, ease),
+    fill 300ms var(--ease-out, ease),
+    box-shadow 300ms var(--ease-out, ease) !important;
 }
 @media (prefers-reduced-motion: reduce) {
   .theme-anim,
@@ -208,8 +208,8 @@
   from { opacity: 0; }
   to   { opacity: 1; }
 }
-.fx-in { animation: fxIn 0.62s cubic-bezier(0.34, 1.56, 0.64, 1) backwards; }
-.fx-line-in { animation: fxLineGrow 0.8s ease backwards; }
+.fx-in { animation: fxIn 300ms cubic-bezier(0.23, 1, 0.32, 1) backwards; }
+.fx-line-in { animation: fxLineGrow 300ms ease backwards; }
 
 @media (prefers-reduced-motion: reduce) {
   .fx-in,
@@ -287,8 +287,8 @@
     var(--glass-shadow);
 }
 .fx-card-hover {
-  transition: transform 0.45s var(--fx-ease), border-color 0.45s var(--fx-ease),
-    box-shadow 0.45s var(--fx-ease), background 0.45s var(--fx-ease);
+  transition: transform 300ms var(--fx-ease), border-color 300ms var(--fx-ease),
+    box-shadow 300ms var(--fx-ease), background 300ms var(--fx-ease);
 }
 .fx-card-hover:hover {
   transform: translateY(-5px);
@@ -323,7 +323,7 @@
     0 8px 22px -8px rgba(212, 175, 55, 0.6);
 }
 .fx-btn-gold:active {
-  transform: translateY(0) scale(0.985);
+  translate: 0 0; scale: 0.985;
   background: #C9A431;
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.28) inset,
@@ -354,7 +354,7 @@
 /* Touch devices: give immediate press feedback since there is no hover. */
 @media (hover: none) {
   .fx-btn-gold:active {
-    transform: scale(0.97);
+    scale: 0.97;
     background: #C9A431;
   }
 }
@@ -397,10 +397,10 @@
   background: var(--accent-bg);
 }
 .fx-backbtn:focus-visible { outline: 2px solid hsl(var(--accent)); outline-offset: 2px; }
-.fx-backbtn:active { transform: scale(0.97); }
+.fx-backbtn:active { scale: 0.97; }
 @media (prefers-reduced-motion: reduce) {
   .fx-backbtn { transition: none; }
-  .fx-backbtn:active { transform: none; }
+  .fx-backbtn:active { scale: none; }
 }
 
 /* Dropdown / popover entrance — shared by the account menu and bell panel. */
@@ -413,12 +413,176 @@
   .fx-menu-pop { animation: none !important; }
 }
 
+/* The FinatriX lockup (components/Wordmark.tsx). The link wrapping it is the
+   tap target; 44px tall so the header's home link meets the touch minimum. */
+.fx-lockup { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; }
+.fx-wordmark { font-size: 16px; font-weight: 600; letter-spacing: -0.015em; color: var(--ink); white-space: nowrap; }
+.fx-wordmark-x { color: var(--accent-text); }
+.fx-wordmark-suffix { font-weight: 500; color: var(--ink-2); }
+
+/* Website header pieces (sections/LandingNav.tsx, marketing pages). No
+   `display` on the text link: its breakpoint visibility comes from Tailwind
+   utilities, and a display here would win the tie. */
+.fx-nav-brand { display: inline-flex; align-items: center; border-radius: 12px; color: inherit; text-decoration: none; }
+.fx-nav-brand:focus-visible { outline: 2px solid hsl(var(--accent)); outline-offset: 2px; }
+.fx-nav-text-link { align-items: center; min-height: 44px; padding: 0 6px; font-size: 14px; font-weight: 500; color: var(--ink-2); text-decoration: none; transition: color var(--trans-control); }
+.fx-nav-text-link:hover { color: var(--ink); }
+/* Neutral on purpose: the page under the header carries the one gold
+   primary action; two gold buttons on one screen compete. */
+.fx-nav-cta { display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--hairline); background: var(--tile-bg); color: var(--ink); font-size: 14px; font-weight: 600; white-space: nowrap; text-decoration: none; transition: border-color var(--trans-control), background-color var(--trans-control); }
+.fx-nav-cta:hover { border-color: var(--btn-ghost-border-hover); }
+.fx-nav-cta:focus-visible { outline: 2px solid hsl(var(--accent)); outline-offset: 2px; }
+@media (pointer: coarse) { .fx-nav-cta { min-height: 44px; } }
+
+/* Breadcrumb (components/Breadcrumb.tsx). Sentence case in the body font —
+   it was 10.5px mono capitals, the smallest text on the page. */
+.fx-crumbs { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 13px; }
+.fx-crumbs > span[aria-hidden='true'] { color: var(--ink-3); }
+.fx-crumb { display: inline-flex; align-items: center; justify-content: center; min-height: 32px; min-width: 44px; margin-inline: -6px; padding-inline: 6px; color: var(--ink-3); text-decoration: none; white-space: nowrap; transition: color var(--trans-control); }
+@media (pointer: coarse) { .fx-crumb { min-height: 44px; } }
+.fx-crumb:hover { color: var(--ink); }
+.fx-crumb:focus-visible { outline: 2px solid hsl(var(--accent)); outline-offset: 2px; border-radius: 4px; }
+.fx-crumb-current { min-width: 0; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Footer links (sections/LandingFooter.tsx and the tools footer). A column of
+   links is a list of targets: on a touch screen each row is 44px, so the
+   finger lands on one link rather than between two. */
+.fx-footer-link { display: inline-flex; align-items: center; min-height: 32px; min-width: 44px; font-size: 14px; color: var(--ink-2); text-decoration: none; transition: color var(--trans-control); }
+.fx-footer-link:hover { color: var(--ink); }
+.fx-footer-link:focus-visible { outline: 2px solid hsl(var(--accent)); outline-offset: 2px; border-radius: 4px; }
+.fx-footer-inline { display: inline-block; min-height: 0; min-width: 0; font-size: inherit; text-decoration: underline; text-underline-offset: 3px; }
+@media (pointer: coarse) {
+  .fx-footer-link:not(.fx-footer-inline) { min-height: 44px; }
+}
+
+/* Press feedback — every pressable answers the finger the moment it lands
+   (Apple HIG, buttons.md › Best practices: give feedback on press; Emil
+   Kowalski: scale(0.97) on :active). Buttons shrink slightly, links dim.
+
+   `scale` rather than `transform`, so it composes with whatever transform a
+   component already uses for position, and `:where()` so it has no
+   specificity: a component that defines its own :active look keeps it. Under
+   reduced motion the shrink becomes a dim, which is not motion. */
+@media (prefers-reduced-motion: no-preference) {
+  :where(button, [role='button'], a[href][class*='btn']):where(:not(:disabled, [aria-disabled='true'], [role='menuitem'], [role='menuitemradio'], [role='option'], [role='tab'])):active {
+    scale: 0.97;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(button, [role='button'], a[href][class*='btn']):where(:not(:disabled, [aria-disabled='true'])):active {
+    opacity: 0.8;
+  }
+}
+/* Rows, tabs, menu items and labels dim rather than shrink: scaling a wide
+   row moves its far edge — and the checkbox in it — out from under the
+   finger mid-press. */
+:where([role='tab'], [role='menuitem'], [role='menuitemradio'], [role='option'], [role='switch'], summary, label:has(> input[type='checkbox']), label:has(> input[type='radio'])):where(:not([aria-disabled='true'])):active { opacity: 0.72; }
+:where(a[href]:not([class*='btn'])):active { opacity: 0.7; }
+
+/* Links inside running text get an invisible hit area from a positioned
+   ::after — 24px under a mouse (WCAG 2.5.8), 44px under a finger. Positioned,
+   so it wins the hit test over the lines of text around it (vertical padding
+   on an inline box does not: the next line is hit first). Inline-block keeps
+   a link in one box, so a link that would wrap cannot stretch its hit area
+   across two lines of somebody else's text. */
+.fx-prose-link,
+.fx-footer-inline,
+.fx-inline-link { position: relative; display: inline-block; }
+.fx-prose-link::after,
+.fx-footer-inline::after,
+.fx-inline-link::after { content: ''; position: absolute; left: -3px; right: -3px; top: 50%; height: max(100%, 24px); translate: 0 -50%; }
+@media (pointer: coarse) {
+  /* Exactly 44px tall and centred, so it reaches no further into the lines
+     above and below than it needs to. */
+  .fx-prose-link::after,
+  .fx-footer-inline::after,
+  .fx-inline-link::after { left: -7px; right: -7px; height: max(100%, 44px); }
+}
+
+/* Header icon button — search, notifications, AI, appearance, account. One
+   size for every shell: 40px under a mouse, 44px under a finger (Apple HIG,
+   accessibility.md › Interaction: 44×44pt minimum tap target). */
+.fx-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: var(--tile-bg);
+  color: var(--ink-2);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: color var(--trans-control), border-color var(--trans-control), background-color var(--trans-control), scale var(--trans-control);
+}
+@media (pointer: coarse) {
+  .fx-icon-btn { width: 44px; height: 44px; }
+}
+.fx-icon-btn:hover { color: var(--ink); border-color: var(--btn-ghost-border-hover); }
+.fx-icon-btn[aria-expanded='true'] { color: var(--ink); background: var(--fill-06, var(--tile-bg)); }
+.fx-icon-btn:focus-visible { outline: 2px solid hsl(var(--accent)); outline-offset: 2px; }
+.fx-avatar-btn { font-size: 15px; font-weight: 600; color: var(--ink); letter-spacing: -0.01em; }
+
+/* The search trigger (components/CommandPaletteTrigger.tsx): an icon button,
+   widening into a labelled field with its shortcut where a keyboard is likely. */
+.fx-search-label,
+.fx-search-kbd { display: none; }
+@media (min-width: 1024px) and (pointer: fine) {
+  .fx-search-btn { width: auto; gap: 8px; padding: 0 8px 0 12px; }
+  .fx-search-label { display: inline; font-size: 13px; color: var(--ink-3); }
+  .fx-search-kbd { display: inline; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; color: var(--ink-3); border: 1px solid var(--hairline-2); border-radius: 6px; padding: 1px 5px; }
+}
+
+/* Dropdown menu surface and rows (account, appearance). Rows are 44px: a
+   menu is used with a thumb as often as with a pointer. */
+.fx-menu {
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  border-radius: 14px;
+  border: 1px solid var(--hairline);
+  background: var(--surface-2);
+  box-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.45);
+}
+.fx-menu-heading {
+  padding: 8px 12px 6px;
+  font-size: 13px;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fx-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 15px;
+  text-align: left;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.fx-menu-item:hover,
+.fx-menu-item:focus-visible { background: var(--hairline-2); outline: none; }
+.fx-menu-item:active { background: var(--hairline); }
+.fx-menu-item.is-danger { color: var(--status-danger, #E0726B); }
+
 /* Connector pulse + slow float */
 @keyframes fxConnPulse { 0%, 100% { opacity: 0.22; } 50% { opacity: 0.5; } }
 .fx-conn { animation: fxConnPulse 4.5s ease-in-out infinite; }
 @keyframes fxSheen { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 /* Section reveal on scroll-in (used with IntersectionObserver toggling .is-in) */
-.fx-reveal { opacity: 0; transform: translateY(26px); transition: opacity 0.7s var(--fx-ease), transform 0.7s var(--fx-ease); }
+.fx-reveal { opacity: 0; transform: translateY(12px); transition: opacity 300ms var(--fx-ease), transform 300ms var(--fx-ease); }
 .fx-reveal.is-in { opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) {
   .fx-conn { animation: none !important; }
@@ -484,7 +648,9 @@
 }
 .fx-navpill:hover { color: var(--ink); background: var(--hairline-2); }
 .fx-navpill:hover .fx-navpill-dot { opacity: 1; transform: scale(1.25); }
-.fx-navpill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fx-navpill:focus-visible { outline: 2px solid hsl(var(--accent)); outline-offset: 2px; }
+/* A tablet shows this bar too, under a finger. */
+@media (pointer: coarse) { .fx-navpill { min-height: 44px; } }
 /* The current page. Gold fill and near-black ink is the same active treatment
    the tools bar already used, kept so the change reads as one bar arriving
    everywhere rather than as a new bar replacing a familiar one. */
@@ -545,7 +711,7 @@ html.fx-native [data-web-only] { display: none !important; }
    a native tab bar does. (`.fx-tools .btn` already has its own pressed state.) */
 html.fx-native .fx-mobnav-item:active,
 html.fx-native .fx-navpill:active {
-  transform: scale(0.97);
+  scale: 0.97;
   transition: transform 80ms var(--ease-out, ease-out);
 }
 
@@ -626,10 +792,34 @@ html.fx-native.fx-text-lg .fx-wordmark { display: none; }
    size × the zoom, hence the division); the full label stays in the
    accessibility tree, and an ellipsis is only the last-resort guard. */
 html.fx-native.fx-text-lg .fx-mobnav-item {
-  font-size: calc(10.5px * min(var(--fx-text-zoom, 1), 1.5) / var(--fx-text-zoom, 1));
+  font-size: calc(11px * min(var(--fx-text-zoom, 1), 1.5) / var(--fx-text-zoom, 1));
 }
 
 @media (prefers-reduced-motion: reduce) {
   html.fx-native .fx-mobnav-item:active,
-  html.fx-native .fx-navpill:active { transform: none; }
+  html.fx-native .fx-navpill:active { scale: none; }
+}
+
+/* ── Reduce transparency ───────────────────────────────────────────────
+   Someone who has asked the system for less transparency gets solid
+   materials everywhere, not on two bars (Apple HIG, materials.md › Best
+   practices; accessibility.md › Reduce transparency). Every frosted surface
+   reads its fill from a token, so the tokens become their solid surface
+   colours and every backdrop blur is switched off. The selectors outrank the
+   theme blocks that define the translucent values (tokens.css, tools.css). */
+@media (prefers-reduced-transparency: reduce) {
+  :root:is([data-theme], :not([data-theme])) {
+    --nav-bg: var(--surface-base);
+    --glass-bg: var(--surface-2);
+  }
+  :root:is([data-theme], :not([data-theme])) .fx-tools {
+    --card: var(--card-solid);
+    --nav-solid: var(--surface-base);
+  }
+  *,
+  *::before,
+  *::after {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
 }

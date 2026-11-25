@@ -56,7 +56,7 @@ export default function Support() {
         <p className="mb-6">
           <a
             href={SUPPORT_MAILTO}
-            className="fx-btn-gold inline-flex items-center gap-2 rounded-full px-6 py-3 font-mono text-[12px] uppercase tracking-[0.1em]"
+            className="fx-btn-gold inline-flex items-center gap-2 rounded-full px-6 py-3 text-[14px] font-medium"
           >
             Email {SUPPORT_EMAIL}
           </a>
@@ -66,7 +66,7 @@ export default function Support() {
           {CHANNELS.map((c) => (
             <Card key={c.subject} title={c.title} eyebrow={`Subject: ${c.subject}`}>
               <p>{c.body}</p>
-              <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.12em] text-accent-text">
+              <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.12em] text-accent-text">
                 Target: {c.target}
               </p>
             </Card>

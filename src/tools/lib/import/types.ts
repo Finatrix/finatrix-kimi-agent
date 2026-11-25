@@ -96,7 +96,19 @@ export interface StatementRow {
   amount: number | null;
   /** Which way the money moved. Null when the file did not say. */
   direction: Direction | null;
-  /** Running balance after this row, when the statement prints one. */
+  /**
+   * True when the bank stated `direction` outright — a separate Debit or Credit
+   * column, or a Dr/Cr marker. Unset when it was only read off a
+   * minus sign, which is a convention rather than a statement: some exports
+   * print spending as negative and others print it as positive. Only stated
+   * directions are trusted to say what kind of balance the file carries (see
+   * `resolveDirections`).
+   */
+  directionStated?: boolean;
+  /**
+   * Running balance after this row, when the statement prints one. Signed: an
+   * overdrawn balance (`-150.00`, `150.00 Dr`, `(150.00)`) is negative.
+   */
   balance: number | null;
   /** Cheque / UTR / reference number when present. */
   reference: string | null;
@@ -120,7 +132,27 @@ export interface StatementDoc {
   dateOrder: DateOrder;
   /** True when no evidence in the file settled `dateOrder`. */
   dateOrderAssumed: boolean;
+  /**
+   * What the running balance counts. `'funds'` is money held, which falls when
+   * something is spent — a bank account. `'owed'` is money owed, which rises
+   * when something is spent — a credit card or a loan. Set by
+   * `resolveDirections`; absent means `'funds'`.
+   */
+  balanceKind?: BalanceKind;
+  /**
+   * True when the file lists its rows newest-first, so the balance chain is
+   * walked from the last line up. Set by `resolveDirections`.
+   */
+  newestFirst?: boolean;
+  /**
+   * True when the file had no header row and its columns were worked out from
+   * their contents (see `inferColumns`). The review sheet says so.
+   */
+  columnsInferred?: boolean;
 }
+
+/** See `StatementDoc.balanceKind`. */
+export type BalanceKind = 'funds' | 'owed';
 
 /** Component order in a numeric date like `03/04/2026`. */
 export type DateOrder = 'dmy' | 'mdy';

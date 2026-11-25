@@ -27,11 +27,11 @@ export default function LandingClose() {
         {PRINCIPLES.map((p, i) => (
           <Reveal key={p.title} delay={i * 80}>
             <div className="fx-glass rounded-[20px] p-7 h-full">
-              <span className="grid h-11 w-11 place-items-center rounded-[13px] border border-[#D4AF37]/25 bg-[#D4AF37]/[0.08] text-accent-text">
+              <span className="grid h-11 w-11 place-items-center rounded-[13px] border border-hairline bg-[var(--tile-bg)] text-ink-2">
                 <Glyph name={p.icon} />
               </span>
               <h3 className="mt-5 text-[17px] font-semibold tracking-[-0.01em] text-ink">{p.title}</h3>
-              <p className="mt-2.5 text-[14px] leading-relaxed text-ink-2">{p.body}</p>
+              <p className="mt-2.5 text-[15px] leading-relaxed text-ink-2">{p.body}</p>
             </div>
           </Reveal>
         ))}
@@ -49,20 +49,20 @@ export default function LandingClose() {
               Start as a guest in seconds. Create a free account to save and sync across every device.
             </p>
             <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-              <Link to="/tools" className="fx-btn-gold inline-flex items-center gap-2 font-mono text-[12px] uppercase tracking-[0.1em] px-7 py-3.5 rounded-full">
-                Open your dashboard <span>→</span>
+              <Link to="/tools" className="fx-btn-gold inline-flex items-center gap-2 text-[15px] min-h-[48px] px-7 rounded-full font-semibold">
+                Open your dashboard <span aria-hidden="true">→</span>
               </Link>
-              <Link to="/signup" className="fx-btn-ghost inline-flex items-center font-mono text-[12px] uppercase tracking-[0.1em] px-6 py-3.5 rounded-full">
+              <Link to="/signup" className="fx-btn-ghost inline-flex items-center text-[15px] min-h-[48px] px-6 rounded-full font-medium">
                 Create free account
               </Link>
             </div>
-            <p className="mt-7 font-mono text-[10px] uppercase tracking-[0.14em] text-ink-3">
-              Educational tools · not financial advice
+            <p className="mt-7 text-[13px] text-ink-3">
+              Educational tools, not financial advice.
             </p>
-            <div className="mt-6 flex flex-wrap justify-center gap-6 text-sm text-ink-2">
-              <Link to="/editorial-standards" className="underline underline-offset-4">How we check our work</Link>
-              <Link to="/contact" className="underline underline-offset-4">Contact the people building FinatriX</Link>
-              <Link to="/pricing" className="underline underline-offset-4">See pricing</Link>
+            <div className="mt-4 flex flex-wrap justify-center gap-x-6 text-[14px] text-ink-2">
+              <Link to="/editorial-standards" className="inline-flex min-h-[44px] items-center underline underline-offset-4 decoration-[color:var(--hairline)] hover:decoration-current">How we check our work</Link>
+              <Link to="/contact" className="inline-flex min-h-[44px] items-center underline underline-offset-4 decoration-[color:var(--hairline)] hover:decoration-current">Contact the people building FinatriX</Link>
+              <Link to="/pricing" className="inline-flex min-h-[44px] items-center underline underline-offset-4 decoration-[color:var(--hairline)] hover:decoration-current">See pricing</Link>
             </div>
           </div>
         </div>

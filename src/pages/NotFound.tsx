@@ -23,13 +23,13 @@ export default function NotFound() {
       <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
         <Link
           to="/"
-          className="font-mono text-[12px] uppercase tracking-[0.08em] text-[#0A0A0A] bg-[#D4AF37] hover:bg-[#F1C40F] px-5 py-3 transition-colors"
+          className="text-[14px] text-[#0A0A0A] bg-[#D4AF37] hover:bg-[#F1C40F] px-5 py-3 transition-colors font-medium"
         >
           Back to home
         </Link>
         <Link
           to="/tools"
-          className="font-mono text-[12px] uppercase tracking-[0.08em] text-ink-3 rounded-full border border-hairline hover:border-[#D4AF37] hover:text-ink px-5 py-3 transition-colors"
+          className="text-[14px] text-ink-3 rounded-full border border-hairline hover:border-[#D4AF37] hover:text-ink px-5 py-3 transition-colors font-medium"
         >
           Open the tools
         </Link>

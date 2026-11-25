@@ -31,7 +31,7 @@ export function BudgetSmartReview({ month, input, cats, items, cfmt, onApply, on
     <section className="card" aria-label="Smart budget review" data-tour="budget-review">
       <h2 style={{ fontSize: 17, margin: '0 0 6px' }}>Smart budget review</h2>
       <p className="note">Checks {monthLabel(month)} against your saved transactions. Changes are previewed using the same budget calculator.</p>
-      <p style={{ fontSize: 13 }}>
+      <p style={{ fontSize: 15 }}>
         {review.transactionCount === 0 ? 'No transactions for this month yet. Actual spending cannot be checked.'
           : `${review.transactionCount} transaction${review.transactionCount === 1 ? '' : 's'} checked · ${review.gaps.length} ${review.gaps.length === 1 ? 'category' : 'categories'} above the planned amount.`}
         {' '}Logged amounts are observations, not a forecast of the rest of the month.

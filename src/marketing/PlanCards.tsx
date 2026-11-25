@@ -65,7 +65,7 @@ export function PlanCard({
       style={plan.featured ? { borderColor: 'var(--accent-text)' } : undefined}
     >
       {plan.featured && (
-        <span className="absolute -top-2.5 left-6 rounded-full bg-[#D4AF37] px-2.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-black">
+        <span className="absolute -top-2.5 left-6 rounded-full bg-[#D4AF37] px-2.5 py-0.5 font-mono text-[11px] uppercase tracking-[0.12em] text-black">
           Most chosen
         </span>
       )}
@@ -92,7 +92,7 @@ export function PlanCard({
       {/* An empty reserved line rather than a conditional one: without it the
           card's height changes when the billing period toggles, which shifts
           every card below it (CLS on a deliberate, repeated interaction). */}
-      <p className="mt-1 min-h-[18px] font-mono text-[10px] uppercase tracking-[0.12em] text-accent-text">
+      <p className="mt-1 min-h-[18px] font-mono text-[11px] uppercase tracking-[0.12em] text-accent-text">
         {saving > 0 ? `Save ${saving}% vs monthly` : ' '}
       </p>
 
@@ -119,7 +119,7 @@ export function PlanCard({
             // tabbing this grid otherwise hears the same label four times with
             // nothing to tell them apart (WCAG 2.4.4).
             aria-describedby={headingId}
-            className="fx-btn-ghost block w-full rounded-full py-3 text-center font-mono text-[11px] uppercase tracking-[0.1em]"
+            className="fx-btn-ghost block w-full rounded-full py-3 text-center text-[14px] font-medium"
           >
             Contact sales
           </a>
@@ -127,7 +127,7 @@ export function PlanCard({
           <Link
             to={cta.to}
             aria-describedby={headingId}
-            className="fx-btn-gold block w-full rounded-full py-3 text-center font-mono text-[11px] uppercase tracking-[0.1em]"
+            className="fx-btn-gold block w-full rounded-full py-3 text-center text-[14px] font-semibold"
           >
             {label}
           </Link>

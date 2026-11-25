@@ -218,12 +218,60 @@ describe('one app identity across every file that declares it', () => {
     }
   });
 
-  it('asks for exactly one iOS permission, and it is the camera', () => {
+  it('asks for exactly four iOS permissions: the camera, Face ID, and the microphone and speech for voice', () => {
     const plist = read('ios/App/App/Info.plist');
     const asked = keysOf('ios/App/App/Info.plist').filter((k) => /^NS\w*UsageDescription$/.test(k));
-    expect(asked).toEqual(['NSCameraUsageDescription']);
+    // Face ID joined the camera with the optional app lock (FxAppLockPlugin.swift),
+    // and the microphone and speech recognition with FinatriX AI's voice
+    // (FxVoicePlugin.swift): iOS terminates an app that asks without the string.
+    expect(asked).toEqual([
+      'NSCameraUsageDescription', 'NSFaceIDUsageDescription',
+      'NSMicrophoneUsageDescription', 'NSSpeechRecognitionUsageDescription',
+    ]);
     // App Review rejects an empty or boilerplate purpose string.
-    expect(plist).toMatch(/<key>NSCameraUsageDescription<\/key>\s*<string>[^<]{40,}<\/string>/);
+    for (const key of asked) {
+      expect(plist).toMatch(new RegExp(`<key>${key}<\\/key>\\s*<string>[^<]{40,}<\\/string>`));
+    }
+  });
+
+  it('registers the voice plugin on both platforms, under one name', () => {
+    expect(read('ios/App/App/ViewController.swift')).toContain('registerPluginInstance(FxVoicePlugin())');
+    expect(read('ios/App/App/FxVoicePlugin.swift')).toContain('jsName = "FxVoice"');
+    expect(read('ios/App/App.xcodeproj/project.pbxproj')).toContain('FxVoicePlugin.swift in Sources');
+    expect(read('android/app/src/main/java/co/finatrix/app/MainActivity.java')).toContain('registerPlugin(VoicePlugin.class)');
+    const java = read('android/app/src/main/java/co/finatrix/app/VoicePlugin.java');
+    expect(java).toContain('@CapacitorPlugin(');
+    expect(java).toContain('name = "FxVoice"');
+    expect(read('src/lib/voice/nativeEngine.ts')).toContain("registerPlugin<FxVoicePlugin>('FxVoice')");
+    // The microphone, and the services Android 11+ hides unless declared.
+    const manifest = read('android/app/src/main/AndroidManifest.xml');
+    expect(manifest).toContain('android.permission.RECORD_AUDIO');
+    expect(manifest).toContain('android.speech.RecognitionService');
+    expect(manifest).toContain('android.intent.action.TTS_SERVICE');
+    // Never listening in the background: both halves stop as the app leaves.
+    expect(read('ios/App/App/FxVoicePlugin.swift')).toContain('didEnterBackgroundNotification');
+    expect(java).toContain('protected void handleOnPause()');
+  });
+
+  it('registers the app lock plugin on both platforms, under one name', () => {
+    expect(read('ios/App/App/ViewController.swift')).toContain('registerPluginInstance(FxAppLockPlugin())');
+    expect(read('ios/App/App/FxAppLockPlugin.swift')).toContain('jsName = "FxAppLock"');
+    // A Swift file that is not in the project's Sources phase is not compiled.
+    expect(read('ios/App/App.xcodeproj/project.pbxproj')).toContain('FxAppLockPlugin.swift in Sources');
+    expect(read('android/app/src/main/java/co/finatrix/app/MainActivity.java')).toContain('registerPlugin(AppLockPlugin.class)');
+    // Android's overview shows the app live without pausing it; only the
+    // activity hears about that, and the lock needs to be told.
+    expect(read('android/app/src/main/java/co/finatrix/app/MainActivity.java')).toContain('onTopResumedChanged(isTopResumedActivity)');
+    expect(read('android/app/src/main/java/co/finatrix/app/AppLockPlugin.java')).toContain('@CapacitorPlugin(name = "FxAppLock")');
+    expect(read('src/native/appLock/plugin.ts')).toContain("registerPlugin<FxAppLockPlugin>('FxAppLock')");
+    // The iOS edge-swipe back gesture paints the previous screen under the cover,
+    // so it is switched off while covered; and "unavailable" is reserved for a
+    // missing passcode, because the page answers it by switching the lock off.
+    const swift = read('ios/App/App/FxAppLockPlugin.swift');
+    expect(swift).toContain('CAPPluginMethod(name: "setLocked"');
+    expect(swift).toContain('allowsBackForwardNavigationGestures');
+    expect(swift).toContain('LAError.Code.passcodeNotSet.rawValue');
+    expect(read('android/app/src/main/java/co/finatrix/app/AppLockPlugin.java')).toContain('public void setLocked(PluginCall call)');
   });
 
   it('never weakens App Transport Security', () => {

@@ -9,10 +9,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
-import { PageHead, ToolFoot } from '../../tools/ui/common';
 import { Tabs } from '../../tools/ui/Tabs';
 import { ScoreRing } from '../components/ScoreRing';
-import { EmptyState, ErrorCard, PageLoading } from '../components/states';
+import { ErrorCard, PageLoading } from '../components/states';
+import { Empty, Panel } from '../ui/primitives';
+import '../ui/forms.css';
 import { CAREERS_ROUTES } from '../constants';
 import { useCareers } from '../context/CareersContext';
 import { computeApplicationStats, listApplications } from '../services/applications';
@@ -44,6 +45,9 @@ const SUGGESTED_QUESTIONS = [
   'Which resume version should I use?',
   'What jobs should I apply for today?',
 ];
+
+/** Priority is always shown as text; colour only reinforces it. */
+const priorityChip = (p: string) => `cx-chip ${p === 'high' ? 'cx-chip-bad' : p === 'medium' ? 'cx-chip-warn' : ''}`;
 
 export default function CareerCoachPage() {
   const { user } = useAuth();
@@ -131,7 +135,7 @@ export default function CareerCoachPage() {
       setChat((c) => [...c, { role: 'ai', text: toCareersError(e).message }]);
     } finally {
       setAsking(false);
-      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'instant' }), 50);
     }
   };
 
@@ -156,53 +160,36 @@ export default function CareerCoachPage() {
   if (loading) return <PageLoading />;
 
   return (
-    <div className="fx-page">
-      <PageHead
-        chip="Career Coach"
-        chipColor="#D4AF37"
-        chipBg="rgba(212,175,55,.12)"
-        icon="compass"
-        title="Your long-term career advisor"
-      >
-        Every score and every suggestion below comes from your own data — resume
-        intelligence, Career DNA, applications and interview practice. No generic advice.
-      </PageHead>
-
+    <div className="cxf-stack">
       {(ctxError || loadError) && <ErrorCard error={(ctxError ?? loadError)!} onRetry={() => { void refresh(); void load(); }} />}
 
       {!hasResume ? (
-        <div className="card">
-          <EmptyState
-            icon="compass"
+        <div className="cx-panel">
+          <Empty
             title="The coach needs your resume first"
-            action={
-              <Link to={CAREERS_ROUTES.upload} className="btn btn-sm" style={{ textDecoration: 'none', width: 'auto', display: 'inline-block', padding: '12px 28px' }}>
-                Upload resume
-              </Link>
-            }
+            action={<Link to={CAREERS_ROUTES.upload} className="cx-btn cx-btn-primary">Upload a resume</Link>}
           >
-            Career Health, roadmaps and insights are all computed from your analysed
+            Career health, roadmaps and insights are all computed from your analysed
             resume, applications and practice sessions.
-          </EmptyState>
+          </Empty>
         </div>
       ) : (
         <>
-          {/* Health score */}
-          <div className="card result-card-anim">
+          <Panel title="Career health">
             <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
               <div style={{ textAlign: 'center' }}>
                 <ScoreRing score={health.overall} caption="Career health" size={130} />
-                <div className="note" style={{ marginTop: 8 }}>
+                <div className="cx-sub" style={{ marginTop: 8 }}>
                   {/* Not "probability": this is a readiness indicator over a
                       handful of data points, not a calibrated forecast. See
                       services/health.ts for the smoothing. */}
-                  Offer outlook: <b style={{ color: scoreColor(health.offerProbability) }}>{health.offerProbability}<span aria-hidden="true">/100</span><span className="sr-only"> out of 100</span></b>
+                  Offer outlook: <b className="cx-num" style={{ color: scoreColor(health.offerProbability) }}>{health.offerProbability}<span aria-hidden="true">/100</span><span className="sr-only"> out of 100</span></b>
                 </div>
-                <div className="note">
-                  Promotion readiness: <b style={{ color: scoreColor(health.promotionReadiness) }}>{health.promotionReadiness}%</b>
+                <div className="cx-sub">
+                  Promotion readiness: <b className="cx-num" style={{ color: scoreColor(health.promotionReadiness) }}>{health.promotionReadiness}%</b>
                 </div>
-                <div className="note">
-                  Role readiness: <b style={{ color: scoreColor(health.roleReadiness) }}>{health.roleReadiness}%</b>
+                <div className="cx-sub">
+                  Role readiness: <b className="cx-num" style={{ color: scoreColor(health.roleReadiness) }}>{health.roleReadiness}%</b>
                 </div>
               </div>
               <div style={{ flex: 1, minWidth: 240 }}>
@@ -210,23 +197,25 @@ export default function CareerCoachPage() {
                   <div className="cat-row" key={c.id}>
                     <span className="cat-label">{c.label}</span>
                     <div className="bar"><div className="bar-fill" style={{ width: `${c.score}%`, background: scoreColor(c.score) }} /></div>
-                    <span className="cat-val">{c.score}</span>
+                    <span className="cat-val cx-num">{c.score}</span>
                   </div>
                 ))}
               </div>
             </div>
             {health.suggestions.length > 0 && (
-              <div className="tip tip-info" style={{ marginTop: 14 }}>
-                <b>Fastest ways to improve</b>
-                {health.suggestions.map((s, i) => <div key={i}>· {s}</div>)}
+              <div className="cx-notice" style={{ marginTop: 16, flexDirection: 'column' }}>
+                <strong>Fastest ways to improve</strong>
+                <ul style={{ margin: 0, paddingLeft: 18 }}>
+                  {health.suggestions.map((s, i) => <li key={i}>{s}</li>)}
+                </ul>
               </div>
             )}
-          </div>
+          </Panel>
 
-          {/* Automation Engine — weekly/monthly progress digest, no AI cost */}
-          <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <div className="panel-eyebrow" style={{ marginBottom: 0 }}>{review.headline}</div>
+          {/* Automation Engine: weekly/monthly progress digest, no AI cost */}
+          <section className="cx-panel" aria-label={review.headline}>
+            <div className="cx-panel-head" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+              <h2>{review.headline}</h2>
               <Tabs
                 variant="nav"
                 label="Review period"
@@ -236,128 +225,152 @@ export default function CareerCoachPage() {
                 items={[{ key: 'weekly', label: 'Weekly' }, { key: 'monthly', label: 'Monthly' }]}
               />
             </div>
-            {review.bullets.map((b, i) => <div key={i} className="note">· {b}</div>)}
-          </div>
+            <ul className="cx-sub" style={{ margin: 0, paddingLeft: 18 }}>
+              {review.bullets.map((b, i) => <li key={i}>{b}</li>)}
+            </ul>
+          </section>
 
           {/* AI narrative */}
           {!report ? (
-            <div className="card" style={{ textAlign: 'center' }}>
-              <div className="panel-eyebrow" style={{ justifyContent: 'center', marginBottom: 10 }}>AI coach report</div>
-              <p className="panel-sub" style={{ marginBottom: 14 }}>
-                Personalised insights, a career roadmap, learning plan and certification
-                recommendations — generated from your data, cached for the day.
+            <Panel title="Coach report">
+              <p className="cx-sub" style={{ marginBottom: 14 }}>
+                Personalised insights, a career roadmap, a learning plan and certification
+                recommendations, generated from your data and cached for the day.
               </p>
-              <div style={{ display: 'flex', gap: 10, maxWidth: 520, margin: '0 auto' }}>
+              <div className="cxf-toolbar" style={{ marginBottom: 0 }}>
+                <label className="sr-only" htmlFor="coach-focus">Coaching focus (optional)</label>
                 <input
-                  className="fi" style={{ padding: '11px 14px' }}
-                  placeholder={`Focus (optional) — e.g. ${String(context.profile.preferredRole || 'Risk Manager')}`}
-                  aria-label="Coaching focus"
+                  id="coach-focus"
+                  className="fi cxf-grow"
+                  placeholder={`Focus (optional), for example ${String(context.profile.preferredRole || 'Risk Manager')}`}
                   value={focus}
                   onChange={(e) => setFocus(e.target.value)}
                 />
-                <button className={`btn btn-sm ${reportBusy ? 'btn-loading' : ''}`} style={{ flexShrink: 0 }} disabled={reportBusy} onClick={() => void runReport()}>
-                  {reportBusy ? 'Coaching…' : 'Generate report'}
+                <button type="button" className="cx-btn cx-btn-primary" disabled={reportBusy} onClick={() => void runReport()}>
+                  {reportBusy ? 'Coaching' : 'Generate report'}
                 </button>
               </div>
-            </div>
+            </Panel>
           ) : (
             <>
               {(report.marketTrends || report.salaryForecast) && (
-                <div className="card">
-                  <div className="panel-eyebrow" style={{ marginBottom: 8 }}>Market trends &amp; salary forecast</div>
-                  {report.marketTrends && <p style={{ marginBottom: report.salaryForecast ? 10 : 0 }}>{report.marketTrends}</p>}
-                  {report.salaryForecast && <p className="note">{report.salaryForecast}</p>}
-                </div>
+                <Panel title="Market trends and salary forecast">
+                  {report.marketTrends && <p className="cx-sub" style={{ marginBottom: report.salaryForecast ? 10 : 0 }}>{report.marketTrends}</p>}
+                  {report.salaryForecast && <p className="cx-sub">{report.salaryForecast}</p>}
+                </Panel>
               )}
 
               {report.insights.length > 0 && (
-                <div className="card">
-                  <div className="panel-eyebrow" style={{ marginBottom: 8 }}>Insights from your data</div>
-                  {report.insights.map((ins, i) => (
-                    <div className="act-row" key={i}>
-                      <span className={`tl-dot tl-${ins.priority === 'high' ? 'red' : ins.priority === 'medium' ? 'yellow' : 'green'}`} style={{ flexShrink: 0, marginTop: 5 }} />
-                      <span style={{ flex: 1 }}>{ins.text}</span>
-                    </div>
-                  ))}
-                </div>
+                <Panel title="Insights from your data">
+                  <ul className="cx-list">
+                    {report.insights.map((ins, i) => (
+                      <li key={i}>
+                        <div className="cx-row">
+                          <span className={priorityChip(ins.priority)}>{ins.priority} priority</span>
+                          <div className="cx-row-main"><p className="cx-sub">{ins.text}</p></div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </Panel>
               )}
 
               {report.roadmap && (
-                <div className="card">
-                  <div className="panel-eyebrow">Career roadmap</div>
-                  <div className="panel-title">{report.roadmap.title || `Path to ${report.roadmap.targetRole}`}</div>
-                  <div className="panel-sub" style={{ marginBottom: 14 }}>{report.roadmap.timeline}</div>
-                  <div className="pipe">
+                <Panel title="Career roadmap">
+                  <p className="cx-row-title wrap" style={{ fontSize: 16 }}>{report.roadmap.title || `Path to ${report.roadmap.targetRole}`}</p>
+                  <p className="cx-sub" style={{ marginBottom: 14 }}>{report.roadmap.timeline}</p>
+                  <ol className="cx-list">
                     {report.roadmap.steps.map((step, i) => (
-                      <div className="pipe-step done" key={i}>
-                        <div className="pipe-dot">{i + 1}</div>
-                        <div style={{ flex: 1 }}>
-                          <div className="pipe-label">{step.title} {step.months ? <span className="note">· ~{step.months} months</span> : null}</div>
-                          <div className="job-meta" style={{ marginTop: 4 }}>
-                            {step.salaryRange && <span>💰 {step.salaryRange}</span>}
-                            {step.demand && <span>{step.demand}</span>}
-                          </div>
-                          <div style={{ marginTop: 6 }}>
-                            {step.skills.map((s) => <span className="tag gold" key={s}>{s}</span>)}
-                            {step.certifications.map((s) => <span className="tag green" key={s}>{s}</span>)}
+                      <li key={i}>
+                        <div className="cx-row" style={{ alignItems: 'flex-start' }}>
+                          <span className="cx-chip cx-num" aria-label={`Step ${i + 1}`}>{i + 1}</span>
+                          <div className="cx-row-main">
+                            <p className="cx-row-title wrap">{step.title}</p>
+                            <p className="cx-row-meta">
+                              {step.months ? <span className="cx-num">About {step.months} months</span> : null}
+                              {step.salaryRange && <span>{step.salaryRange}</span>}
+                              {step.demand && <span>{step.demand}</span>}
+                            </p>
+                            {(step.skills.length > 0 || step.certifications.length > 0) && (
+                              <div className="cxf-chips" style={{ marginTop: 8 }}>
+                                {step.skills.map((s) => <span className="cx-chip cx-chip-accent" key={s}>{s}</span>)}
+                                {step.certifications.map((s) => <span className="cx-chip cx-chip-good" key={s}>{s}</span>)}
+                              </div>
+                            )}
                           </div>
                         </div>
-                      </div>
+                      </li>
                     ))}
-                  </div>
-                </div>
+                  </ol>
+                </Panel>
               )}
 
-              <div className="grid2">
+              <div className="cx-grid cx-grid-2">
                 {report.learning.length > 0 && (
-                  <div className="card" style={{ marginBottom: 12 }}>
-                    <div className="panel-eyebrow" style={{ marginBottom: 8 }}>Learning plan</div>
-                    {report.learning.map((item) => (
-                      <label className="act-row" key={item.name} style={{ cursor: 'pointer' }}>
-                        <input type="checkbox" checked={item.done} onChange={() => void toggleLearningItem(item)} aria-label={`Mark ${item.name} done`} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ textDecoration: item.done ? 'line-through' : 'none' }}>{item.name}</div>
-                          <div style={{ fontSize: 11.5, color: 'var(--ink3)' }}>
-                            {[item.kind, item.provider, item.difficulty, item.hours ? `~${item.hours}h` : ''].filter(Boolean).join(' · ')}
+                  <Panel title="Learning plan">
+                    <ul className="cx-list">
+                      {report.learning.map((item) => (
+                        <li key={item.name}>
+                          <div className="cx-row" style={{ alignItems: 'flex-start' }}>
+                            <input
+                              type="checkbox" style={{ width: 20, height: 20, flex: 'none', marginTop: 2 }}
+                              checked={item.done} onChange={() => void toggleLearningItem(item)} aria-label={`Mark ${item.name} done`}
+                            />
+                            <div className="cx-row-main">
+                              <p className="cx-row-title wrap" style={item.done ? { textDecoration: 'line-through' } : undefined}>{item.name}</p>
+                              <p className="cx-row-meta">
+                                {item.kind && <span>{item.kind}</span>}
+                                {item.provider && <span>{item.provider}</span>}
+                                {item.difficulty && <span>{item.difficulty}</span>}
+                                {item.hours ? <span className="cx-num">About {item.hours} hours</span> : null}
+                              </p>
+                              {item.impact && <p className="cx-sub" style={{ marginTop: 4 }}>{item.impact}</p>}
+                            </div>
+                            <span className={priorityChip(item.priority)}>{item.priority}</span>
                           </div>
-                          {item.impact && <div style={{ fontSize: 12, color: 'var(--ink2)' }}>{item.impact}</div>}
-                        </div>
-                        <span className={`badge ${item.priority === 'high' ? 'badge-red' : item.priority === 'medium' ? 'badge-gold' : 'badge-mute'}`}>{item.priority}</span>
-                      </label>
-                    ))}
-                  </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </Panel>
                 )}
                 {report.certifications.length > 0 && (
-                  <div className="card" style={{ marginBottom: 12 }}>
-                    <div className="panel-eyebrow" style={{ marginBottom: 8 }}>Certifications worth pursuing</div>
-                    {report.certifications.map((c) => (
-                      <div className="row-line" key={c.name} style={{ fontSize: 13, alignItems: 'flex-start' }}>
-                        <div style={{ flex: 1 }}>
-                          <b>{c.name}</b>
-                          <div style={{ fontSize: 11.5, color: 'var(--ink3)' }}>
-                            {[c.difficulty, c.cost, c.duration, c.salaryImpact].filter(Boolean).join(' · ')}
+                  <Panel title="Certifications worth pursuing">
+                    <ul className="cx-list">
+                      {report.certifications.map((c) => (
+                        <li key={c.name}>
+                          <div className="cx-row" style={{ alignItems: 'flex-start' }}>
+                            <div className="cx-row-main">
+                              <p className="cx-row-title wrap">{c.name}</p>
+                              <p className="cx-row-meta">
+                                {c.difficulty && <span>{c.difficulty}</span>}
+                                {c.cost && <span>{c.cost}</span>}
+                                {c.duration && <span>{c.duration}</span>}
+                                {c.salaryImpact && <span>{c.salaryImpact}</span>}
+                              </p>
+                              {c.reason && <p className="cx-sub" style={{ marginTop: 4 }}>{c.reason}</p>}
+                            </div>
+                            <span className={priorityChip(c.priority)}>{c.priority}</span>
                           </div>
-                          {c.reason && <div style={{ fontSize: 12, color: 'var(--ink2)', marginTop: 2 }}>{c.reason}</div>}
-                        </div>
-                        <span className={`badge ${c.priority === 'high' ? 'badge-red' : c.priority === 'medium' ? 'badge-gold' : 'badge-mute'}`}>{c.priority}</span>
-                      </div>
-                    ))}
-                  </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </Panel>
                 )}
               </div>
-              <button className={`btn btn-ghost btn-sm ${reportBusy ? 'btn-loading' : ''}`} disabled={reportBusy} onClick={() => void runReport()} style={{ marginBottom: 16 }}>
-                Refresh report
-              </button>
+              <div>
+                <button type="button" className="cx-btn cx-btn-quiet cx-btn-sm" disabled={reportBusy} onClick={() => void runReport()}>
+                  {reportBusy ? 'Refreshing' : 'Refresh report'}
+                </button>
+              </div>
             </>
           )}
 
           {/* Assistant */}
-          <div className="card">
-            <div className="panel-eyebrow" style={{ marginBottom: 8 }}>Ask the coach</div>
+          <Panel title="Ask the coach">
             {chat.length === 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+              <div className="cxf-chips" style={{ marginBottom: 12 }}>
                 {SUGGESTED_QUESTIONS.map((q) => (
-                  <button key={q} className="btn btn-ghost btn-sm" style={{ width: 'auto', fontSize: 12 }} onClick={() => void ask(q)}>{q}</button>
+                  <button key={q} type="button" className="cx-btn cx-btn-sm" onClick={() => void ask(q)}>{q}</button>
                 ))}
               </div>
             )}
@@ -367,37 +380,34 @@ export default function CareerCoachPage() {
                   <div key={i} className={`chat-msg ${m.role}`}>
                     {m.text}
                     {m.references && m.references.length > 0 && (
-                      <div className="chat-refs">Based on: {m.references.join(' · ')}</div>
+                      <div className="chat-refs">Based on: {m.references.join(', ')}</div>
                     )}
                   </div>
                 ))}
-                {asking && <div className="chat-msg ai">Thinking…</div>}
+                {asking && <div className="chat-msg ai">Thinking</div>}
                 <div ref={chatEndRef} />
               </div>
             )}
-            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <div className="cxf-toolbar" style={{ marginTop: 12, marginBottom: 0 }}>
+              <label className="sr-only" htmlFor="coach-question">Ask the career coach</label>
               <input
-                className="fi" style={{ padding: '11px 14px' }}
-                placeholder="Ask anything about your job search…"
-                aria-label="Ask the career coach"
+                id="coach-question"
+                className="fi cxf-grow"
+                placeholder="Ask anything about your job search"
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && void ask(question)}
               />
-              <button className={`btn btn-sm ${asking ? 'btn-loading' : ''}`} style={{ flexShrink: 0 }} disabled={asking} onClick={() => void ask(question)}>
+              <button type="button" className="cx-btn cx-btn-primary" disabled={asking} onClick={() => void ask(question)}>
                 Ask
               </button>
             </div>
-            <p className="note" style={{ marginTop: 8 }}>
-              Answers use only your stored FinatriX data. If something isn't tracked, the coach says so.
+            <p className="cx-sub" style={{ marginTop: 8 }}>
+              Answers use only your stored FinatriX data. If something is not tracked, the coach says so.
             </p>
-          </div>
+          </Panel>
         </>
       )}
-
-      <ToolFoot>
-        <b>Career Coach</b> · grounded in your data, refreshed daily, cached to keep AI costs near zero
-      </ToolFoot>
     </div>
   );
 }

@@ -5,6 +5,8 @@ import { Icon } from './Icon';
 import { useCurrency } from '../CurrencyContext';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import { useDialogFocus } from '../../hooks/useDialogFocus';
+import { useSheetDrag } from '../../hooks/useSheetDrag';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { computeWallet, walletSummary, type WalletRow } from '../lib/wallet';
 import { defaultFyStart, fyAllMonths, loadFyChoice, MONTH_NAMES, saveFyStart } from '../lib/fiscalYear';
 import { SECTION_COLOR } from '../lib/sectionColors';
@@ -69,6 +71,7 @@ export function WalletDock({ items, cats, budgetStore, month }: WalletDockProps)
   const [fyChoice, setFyChoice] = useState<number | null>(loadFyChoice);
   const fyStart = fyChoice ?? defaultFyStart(code);
   const slot = useDockSlot('wallet');
+  const inPage = useMediaQuery('(max-width: 767px)');
   const panelRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLButtonElement>(null);
 
@@ -78,6 +81,9 @@ export function WalletDock({ items, cats, budgetStore, month }: WalletDockProps)
   );
 
   const close = useCallback(() => setOpen(false), []);
+  const headRef = useRef<HTMLDivElement>(null);
+  // Below 720px the Wallet is a bottom sheet: pull its header down to close.
+  useSheetDrag(panelRef, headRef, close, '(max-width: 719px)', open);
   useBodyScrollLock(open);
   useDialogFocus({ containerRef: panelRef, open });
 
@@ -94,33 +100,46 @@ export function WalletDock({ items, cats, budgetStore, month }: WalletDockProps)
 
   const chooseYear = (next: number) => { setFyChoice(next); saveFyStart(next); };
 
+  const trigger = (
+    <button
+      ref={openerRef}
+      type="button"
+      className={`fx-wallet-fab is-${tone}`}
+      data-tour="wallet-dock"
+      onClick={() => setOpen(true)}
+      aria-haspopup="dialog"
+      aria-expanded={open}
+      aria-label={`Wallet. ${summary}`}
+    >
+      <Icon name="bank" size={17} />
+      <span className="fx-wallet-fab-l">Wallet</span>
+      <span className="fx-wallet-fab-v" aria-hidden="true">
+        {wallet.empty ? '—' : `${balance < 0 ? '−' : ''}${cfmt(Math.abs(balance))}`}
+      </span>
+    </button>
+  );
+
   return (
     <>
-      {/* The DOCK is portaled too, not only the panel.
+      {/* On a phone the + is the one floating control, so Wallet is a button
+          in the page instead (where the page places this component). Wider
+          screens keep it in the shared dock beside the + and FinatriX AI.
+
+          The DOCK is portaled too, not only the panel.
           A `position: fixed` element is positioned against the nearest ancestor
           with a transform, filter or containment — and the tool pages animate
           their result cards, so a dock rendered in place was pinned five
           thousand pixels down the document instead of to the corner of the
           screen. Measured on a phone, where it was completely unreachable. */}
-      {createPortal(
+      {inPage ? (
+        <div className="fx-wallet-inline">
+          <style>{WALLET_STYLES}</style>
+          {trigger}
+        </div>
+      ) : createPortal(
         <div className={`fx-tools fx-scope fx-wallet-dock${slot ? ' is-docked' : ''}`}>
           <style>{WALLET_STYLES}</style>
-          <button
-            ref={openerRef}
-            type="button"
-            className={`fx-wallet-fab is-${tone}`}
-            data-tour="wallet-dock"
-            onClick={() => setOpen(true)}
-            aria-haspopup="dialog"
-            aria-expanded={open}
-            aria-label={`Wallet. ${summary}`}
-          >
-            <Icon name="bank" size={17} />
-            <span className="fx-wallet-fab-l">Wallet</span>
-            <span className="fx-wallet-fab-v" aria-hidden="true">
-              {wallet.empty ? '—' : `${balance < 0 ? '−' : ''}${cfmt(Math.abs(balance))}`}
-            </span>
-          </button>
+          {trigger}
         </div>,
         slot ?? document.body,
       )}
@@ -137,7 +156,7 @@ export function WalletDock({ items, cats, budgetStore, month }: WalletDockProps)
             aria-labelledby="fx-wallet-title"
             aria-describedby="fx-wallet-sum"
           >
-            <div className="fx-wallet-hd">
+            <div className="fx-wallet-hd" ref={headRef}>
               <div>
                 <h2 id="fx-wallet-title" className="fx-wallet-title">Wallet</h2>
                 <p className="fx-wallet-sub" title={wallet.yearRange}>
@@ -339,6 +358,8 @@ const WALLET_STYLES = `
 /* Inside the shared dock (ui/dockSlots.ts) the dock positions it. */
 .fx-tools.fx-wallet-dock.is-docked{position:static;min-width:0;}
 .fx-tools.fx-wallet-dock.is-docked .fx-wallet-fab{max-width:100%;}
+.fx-tools .fx-wallet-inline{display:flex;justify-content:center;margin:16px 0 4px;}
+.fx-tools .fx-wallet-inline .fx-wallet-fab{box-shadow:none;}
 .fx-tools .fx-wallet-fab{display:inline-flex;align-items:center;gap:9px;height:var(--ctl-h-lg);padding:0 16px;
   border-radius:var(--ctl-pill);border:var(--ctl-bw) solid var(--hair);background:var(--card-solid,var(--card));
   color:var(--ink);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;
@@ -346,8 +367,9 @@ const WALLET_STYLES = `
   transition:box-shadow var(--ctl-trans),border-color var(--ctl-trans),transform var(--ctl-trans);
   animation:fxWalletIn 220ms var(--ease-out) backwards;
   -webkit-tap-highlight-color:transparent;touch-action:manipulation;}
-.fx-tools .fx-wallet-fab:hover{border-color:var(--gold);box-shadow:0 18px 42px -14px rgba(0,0,0,.6);}
-.fx-tools .fx-wallet-fab:active{transform:scale(.97);}
+@media (hover: hover) and (pointer: fine){
+.fx-tools .fx-wallet-fab:hover{border-color:var(--gold);box-shadow:0 18px 42px -14px rgba(0,0,0,.6);}}
+.fx-tools .fx-wallet-fab:active{scale: .97;}
 .fx-tools .fx-wallet-fab:focus-visible{outline:2px solid var(--gold);outline-offset:3px;}
 .fx-tools .fx-wallet-fab-l{flex-shrink:0;}
 .fx-tools .fx-wallet-fab-v{font-variant-numeric:tabular-nums;font-weight:700;letter-spacing:-.01em;
@@ -374,13 +396,14 @@ const WALLET_STYLES = `
   max-height:min(calc(86dvh - var(--fx-safe-top)),760px);display:flex;flex-direction:column;
   background:var(--card-solid,var(--card));border:1px solid var(--hair);
   border-radius:20px 20px 0 0;box-shadow:0 -22px 70px -20px rgba(0,0,0,.7);
-  animation:fxWalletUp 240ms cubic-bezier(.32,1.05,.5,1) both;}
+  animation:fxWalletUp 240ms cubic-bezier(0.23, 1, 0.32, 1) both;}
 @media(min-width:720px){
   .fx-tools .fx-wallet-panel{bottom:24px;border-radius:20px;}
 }
 @keyframes fxWalletFade{from{opacity:0}to{opacity:1}}
 @keyframes fxWalletUp{from{opacity:0;transform:translate(-50%,26px)}to{opacity:1;transform:translate(-50%,0)}}
 
+@media(max-width:719px){.fx-tools .fx-wallet-hd{touch-action:none;}}
 .fx-tools .fx-wallet-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
   padding:18px 20px 12px;border-bottom:1px solid var(--hair2);flex-shrink:0;}
 .fx-tools .fx-wallet-title{font-size:17px;font-weight:700;letter-spacing:-.02em;color:var(--ink);margin:0;}
@@ -388,7 +411,8 @@ const WALLET_STYLES = `
 .fx-tools .fx-wallet-x{display:inline-flex;align-items:center;justify-content:center;
   width:var(--ctl-h-sm);height:var(--ctl-h-sm);flex-shrink:0;border-radius:var(--ctl-r-sm);
   border:var(--ctl-bw) solid var(--hair2);background:var(--well);color:var(--ink2);cursor:pointer;}
-.fx-tools .fx-wallet-x:hover{background:var(--fill-06);color:var(--ink);}
+@media (hover: hover) and (pointer: fine){
+.fx-tools .fx-wallet-x:hover{background:var(--fill-06);color:var(--ink);}}
 
 .fx-tools .fx-wallet-body{padding:16px 20px calc(22px + var(--fx-safe-bottom));overflow-y:auto;-webkit-overflow-scrolling:touch;}
 
@@ -408,7 +432,7 @@ const WALLET_STYLES = `
 .fx-tools .fx-wallet-split{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px;}
 .fx-tools .fx-wallet-stat{padding:12px 14px;border-radius:var(--ctl-r-md);background:var(--well);
   border:1px solid var(--well-border);border-left:3px solid var(--stat-accent);}
-.fx-tools .fx-wallet-stat-l{display:block;font-size:10.5px;font-weight:700;letter-spacing:.05em;
+.fx-tools .fx-wallet-stat-l{display:block;font-size:11px;font-weight:700;letter-spacing:.05em;
   text-transform:uppercase;color:var(--ink3);}
 .fx-tools .fx-wallet-stat-v{display:block;font-size:19px;font-weight:700;letter-spacing:-.02em;margin-top:3px;
   color:var(--stat-accent);font-variant-numeric:tabular-nums;}
@@ -421,7 +445,7 @@ const WALLET_STYLES = `
 .fx-tools .fx-wallet-table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:420px;}
 .fx-tools .fx-wallet-table th,.fx-tools .fx-wallet-table td{text-align:right;padding:8px 10px;
   border-bottom:1px solid var(--hair2);font-variant-numeric:tabular-nums;}
-.fx-tools .fx-wallet-table thead th{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+.fx-tools .fx-wallet-table thead th{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
   color:var(--ink3);position:sticky;top:0;background:var(--card-solid,var(--card));}
 .fx-tools .fx-wallet-table th:first-child,.fx-tools .fx-wallet-table tbody th{text-align:left;font-weight:500;color:var(--ink);}
 .fx-tools .fx-wallet-grouprow th{text-align:left;font-size:11px;font-weight:700;letter-spacing:.04em;
@@ -442,7 +466,7 @@ const WALLET_STYLES = `
 
 @media (prefers-reduced-motion:reduce){
   .fx-tools .fx-wallet-fab,.fx-tools .fx-wallet-panel,.fx-tools .fx-wallet-backdrop{animation:none;transition:none;}
-  .fx-tools .fx-wallet-fab:active{transform:none;}
+  .fx-tools .fx-wallet-fab:active{scale: none;}
 }
 @media print{.fx-tools.fx-wallet-dock,.fx-tools .fx-wallet-dock{display:none;}}
 `;

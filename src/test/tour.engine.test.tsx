@@ -201,20 +201,20 @@ describe('tour hub and offer', () => {
     expect(localStorage.getItem(TOUR_OPTOUT_KEY)).toBe('1');
   });
 
-  it('"Maybe later" snoozes; "Don\'t remind me again" opts out; "Yes" starts the tour', async () => {
+  it('"Not now" snoozes; "Don\'t show this again" opts out; "Start the tour" starts it', async () => {
     let onClose = renderTour(vi.fn(), { kind: 'offer' });
-    fireEvent.click(await screen.findByRole('button', { name: 'Maybe later' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Not now' }));
     expect(onClose).toHaveBeenCalled();
     expect(JSON.parse(localStorage.getItem(TOUR_OFFER_KEY)!).snoozes).toBe(1);
     cleanup();
 
     onClose = renderTour(vi.fn(), { kind: 'offer' });
-    fireEvent.click(await screen.findByRole('button', { name: 'Don’t remind me again' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Don’t show this again' }));
     expect(localStorage.getItem(TOUR_OPTOUT_KEY)).toBe('1');
     cleanup();
 
     renderTour(vi.fn(), { kind: 'offer' });
-    fireEvent.click(await screen.findByRole('button', { name: 'Yes, show me' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Start the tour' }));
     expect(await screen.findByRole('dialog', { name: 'Demo tool tour' })).toBeInTheDocument();
     expect(JSON.parse(localStorage.getItem(TOUR_OFFER_KEY)!).accepted).toBe(true);
     expect(loadProgress().startedAt).toBeTypeOf('number');
@@ -254,21 +254,24 @@ describe('tour in the tools shell', () => {
     renderShell('/tools/dashboard');
     await screen.findByText('dashboard-content');
     await act(() => new Promise((r) => setTimeout(r, 2000)));
-    expect(screen.queryByRole('dialog', { name: /quick tour/ })).toBeNull();
+    expect(screen.queryByRole('region', { name: /quick tour/ })).toBeNull();
     cleanup();
 
     localStorage.setItem(TOUR_TEST_OPT_IN_KEY, '1');
     renderShell('/tools/dashboard');
-    expect(await screen.findByRole('dialog', { name: /quick tour/ }, { timeout: 5000 })).toHaveAttribute('aria-modal', 'false');
+    // An invitation in the page — never a dialog over it, and the page stays put.
+    expect(await screen.findByRole('region', { name: /quick tour/ }, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByText('dashboard-content')).toBeInTheDocument();
   }, 15000);
 
   it('never stacks the offer on the first-run intro', async () => {
     localStorage.setItem(WALKTHROUGH_TEST_OPT_IN_KEY, '1');
     localStorage.setItem(TOUR_TEST_OPT_IN_KEY, '1');
     renderShell('/tools/dashboard');
-    expect(await screen.findByRole('dialog', { name: 'Welcome to FinatriX' })).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: 'New to FinatriX?' })).toBeInTheDocument();
     await act(() => new Promise((r) => setTimeout(r, 2200)));
-    expect(screen.queryByRole('dialog', { name: /quick tour/ })).toBeNull();
+    expect(screen.queryByRole('region', { name: /quick tour/ })).toBeNull();
   }, 15000);
 
   it('arriving from the landing page opens the hub instead of the first-run intro', async () => {

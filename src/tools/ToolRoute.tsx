@@ -30,8 +30,11 @@ const TOOL_PAGES: Record<string, ComponentType> = {
   networth: lazy(() => import('./pages/NetWorthPage')),
   reports: lazy(() => import('./pages/ReportsPage')),
   calendar: lazy(() => import('./pages/CalendarPage')),
+  subscriptions: lazy(() => import('./pages/SubscriptionsPage')),
+  moneycalendar: lazy(() => import('./pages/MoneyCalendarPage')),
   settings: lazy(() => import('./pages/SettingsPage')),
   reference: lazy(() => import('./pages/ReferencePage')),
+  all: lazy(() => import('./pages/AllToolsPage')),
 };
 
 export default function ToolRoute() {
@@ -67,7 +70,7 @@ export default function ToolRoute() {
   const isPublicTool = (TOOL_IDS as readonly string[]).includes(id);
 
   return (
-    <Suspense fallback={<div style={{ minHeight: '50vh' }} aria-hidden="true" />}>
+    <Suspense fallback={<div style={{ minHeight: '50svh' }} aria-hidden="true" />}>
       <Page key={`${id}:${marketId}:${currency}`} />
       {isPublicTool && <ToolEducation toolId={id as ToolId} />}
     </Suspense>

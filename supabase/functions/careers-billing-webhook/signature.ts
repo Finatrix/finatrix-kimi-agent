@@ -120,8 +120,20 @@ function lastUtcDayOfMonth(year: number, month: number): number {
 }
 
 /**
- * monthly -> +1 calendar month, yearly -> +1 calendar year, from `from`.
- *
+ * Where a newly paid period starts counting from. Paying early for the same plan
+ * extends it, so the customer keeps the days already paid for. A change of plan
+ * starts from now, since there is no proration between plans.
+ */
+export function renewalBase(
+  now: Date,
+  current: { plan_id?: string | null; current_period_end?: string | null } | null,
+  planId: string,
+): Date {
+  const end = current?.current_period_end ? new Date(current.current_period_end) : null;
+  return current?.plan_id === planId && end && end > now ? end : now;
+}
+
+/**
  * JavaScript date setters overflow short months: Jan 31 + 1 month becomes
  * Mar 3. Paid access periods should clamp to the last real day of the target
  * month instead.

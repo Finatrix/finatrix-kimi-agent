@@ -66,7 +66,8 @@ export function buildJobAnalysisPrompt(jobText: string): { system: string; user:
       '\nSkill categories: programming, finance, accounting, risk, compliance, aml, fraud, kyc, ' +
       'data, tools, leadership, communication, research, operations, customer, marketing, sales, ' +
       'strategy, project-management, other. Keywords: 15–30 items, weight = ATS importance 0–100, ' +
-      'frequency = occurrences in the text. "hidden" keywords are implied competencies recruiters ' +
+      'frequency = occurrences in the text. intelligence.difficulty = how hard the job is to land, ' +
+      '0–100. "hidden" keywords are implied competencies recruiters ' +
       'screen for but the posting states indirectly. intelligence.summary is 2–3 candid sentences.',
     user: fence(jobText, 24_000),
   };
@@ -113,15 +114,18 @@ export function buildTailorPrompt(digest: string, jobText: string): { system: st
   return {
     system:
       'You are a resume writer tailoring a candidate\'s resume toward one job. NEVER invent ' +
-      'experience, employers, dates or credentials — only rephrase, reorder, quantify and ' +
-      'keyword-align what the candidate already has. ' + GUARD +
+      'experience, employers, dates or credentials — only rephrase, reorder and keyword-align ' +
+      'what the candidate already has. A rewrite may not add a tool, domain, team, ' +
+      'responsibility or result the original does not state, and it copies every number exactly ' +
+      'as the original gives it — never add one. addedKeywords lists only terms the candidate\'s ' +
+      'resume already supports. ' + GUARD +
       '\nReturn JSON exactly: {' +
       '"summary":"one-paragraph tailored professional summary",' +
       '"sections":[{"section":"summary|experience|skills|projects|certifications|achievements",' +
       '"original":"","improved":"","addedKeywords":[],"reason":""}],' +
       '"addedKeywords":[],"formattingSuggestions":[]}' +
-      '\n5–10 sections, strongest impact first. "improved" uses strong action verbs and, where the ' +
-      'data allows, quantified results. Every section explains its reason.',
+      '\n5–10 sections, strongest impact first. "improved" uses strong action verbs and keeps the ' +
+      'original\'s figures. Every section explains its reason.',
     user: `CANDIDATE:\n${fence(digest, 12_000)}\nTARGET JOB:\n${fence(jobText, 12_000)}`,
   };
 }

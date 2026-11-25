@@ -1,5 +1,6 @@
 import { CAREERS_AVAILABLE, CAREERS_LAUNCH_YEAR } from '../shared/careersAvailability';
 import { Link } from 'react-router';
+import { BrandLogo } from '../components/BrandLogo';
 import { AssumptionsReviewed } from '../tools/ui/AssumptionsReviewed';
 import { SUPPORT_MAILTO } from '../shared/brand';
 import { TOOLS } from '../lib/tools';
@@ -123,16 +124,13 @@ export default function LandingFooter() {
         >
           {visibleColumns().map((col) => (
             <div key={col.heading}>
-              <h2 className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-3">
+              <h2 className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink-3">
                 {col.heading}
               </h2>
-              <ul className="mt-3.5 space-y-2.5">
+              <ul className="mt-2">
                 {col.links.map((l) => (
                   <li key={l.to}>
-                    <Link
-                      to={l.to}
-                      className="text-[13.5px] text-ink-2 transition-colors hover:text-accent-text"
-                    >
+                    <Link to={l.to} className="fx-footer-link">
                       {l.label}
                     </Link>
                   </li>
@@ -142,20 +140,15 @@ export default function LandingFooter() {
           ))}
         </nav>
 
-        <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-hairline pt-6 sm:flex-row">
+        <div className="mt-10 flex flex-col items-center justify-between gap-6 border-t border-hairline pt-6 sm:flex-row">
           <div className="flex items-center gap-2.5">
-            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-              <rect x="7" y="7" width="10" height="10" rx="2.5" fill="#D4AF37" />
-              <circle cx="12" cy="12" r="2.1" fill="var(--surface-footer)" />
-            </svg>
-            <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-3">
-              © 2026 FinatriX
-            </span>
+            <BrandLogo size={16} />
+            <span className="text-[13px] text-ink-3">© 2026 FinatriX</span>
           </div>
 
-          <p className="max-w-[52ch] text-center font-mono text-[10px] uppercase leading-[1.7] tracking-[0.1em] text-ink-3 sm:text-left">
-            Educational tools · not financial advice ·{' '}
-            <a href={SUPPORT_MAILTO} className="transition-colors hover:text-accent-text">
+          <p className="max-w-[52ch] text-center text-[13px] leading-[1.6] text-ink-3 sm:text-left">
+            Educational tools, not financial advice.{' '}
+            <a href={SUPPORT_MAILTO} className="fx-footer-link fx-footer-inline">
               Email us
             </a>
             {/* TODO(brand): add official social links here once a profile exists.

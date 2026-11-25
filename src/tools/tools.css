@@ -39,7 +39,7 @@
   --wants-fill: var(--data-wants-fill);
   --r: var(--radius-xl); --shadow: var(--shadow-2);
   --spring: var(--ease-spring);
-  --ease-in-out: cubic-bezier(.42,0,.58,1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --duration-fast: var(--dur-fast); --duration-med: var(--dur-med); --duration-slow: var(--dur-slow);
 
   /* ── Control geometry ──────────────────────────────────────────────────
@@ -190,6 +190,12 @@
 html:has(.fx-tools) { --scroll-offset: 60px; }
 @media(min-width:768px){ html:has(.fx-tools) { --scroll-offset: 109px; } }
 
+/* On a phone the five-tab bar is fixed to the bottom edge, so a control that
+   focus scrolls into view would otherwise land underneath it (WCAG 2.2, 2.4.11
+   Focus Not Obscured). 72px covers the bar: 6px + a 48px row + 6px + hairline,
+   rounded up, plus the home-indicator inset. */
+@media(max-width:767px){ html:has(.fx-mobnav) { scroll-padding-bottom: calc(72px + var(--fx-safe-bottom)); } }
+
 /* ============ TOOL NAV (in-page tab bar) ============ */
 .fx-tools .nav-wrap { position: sticky; top: var(--fx-safe-top); z-index: var(--z-toolnav); background: var(--nav-solid); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-bottom: 1px solid var(--hair); }
 /* The tool bar's layout. The PILLS themselves are styled once, globally, in
@@ -203,23 +209,38 @@ html:has(.fx-tools) { --scroll-offset: 60px; }
    up as one design. */
 .fx-tools .fx-toolbar { max-width: 1280px; margin: 0 auto; display: flex; align-items: center; gap: 10px; padding: 8px 16px; }
 .fx-tools .fx-toolbar .fx-navpills { flex: 1 1 auto; min-width: 0; }
-/* Below md the bottom tab bar and the drawer own navigation, so the pills are
-   hidden by NavPills' own `hideBelow` — and with the currency select moved into
-   the header, the bar has nothing left to show and collapses entirely rather
-   than leaving an empty strip under the header. */
+/* Below md the bottom tab bar owns navigation, so the pills are hidden by
+   NavPills' own `hideBelow` — and with the currency select moved into the
+   header, the bar has nothing left to show and collapses entirely rather than
+   leaving an empty strip under the header. */
 @media(max-width:767px){ .fx-tools .nav-wrap { display: none; } }
-/* The display currency: in the header on a real screen, in the drawer on a
-   phone. Two copies rather than one that moves, because the two live in
-   different DOM subtrees — and exactly one is ever rendered visible. */
+/* The display currency and market: in the header on a real screen, on the
+   All tools page on a phone. */
 @media(max-width:639px){ .fx-tools .fx-cur-desktop { display: none; } }
-@media(min-width:640px){ .fx-tools .fx-cur-drawer { display: none; } }
-/* The floating docks stand down while the navigation drawer is open. Both are
-   portaled to document.body at --z-fab, well above the drawer's own stacking
-   level, so without this they paint over its links and swallow taps meant for
-   them. Set by MobileDrawer, which is the only thing that knows. */
-body.fx-drawer-open .fx-wallet-dock,
-body.fx-drawer-open .fx-ai-dock,
-body.fx-drawer-open .fx-add-dock { display: none; }
+
+/* ---- App bar (ToolsLayout) ----
+   One row: the wordmark, then the global actions as 44px icon buttons on a
+   touch screen. Phone-only and desktop-only pieces are switched here, not with
+   Tailwind display utilities, because this sheet loads after the utility
+   layer and would win the tie (see the note on CurrencySelect). */
+.fx-tools .fx-appbar { position: sticky; top: var(--fx-safe-top); z-index: 51; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 56px; padding: 0 12px; background: var(--nav-bg); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); }
+.fx-tools .fx-appbar-brand { display: inline-flex; align-items: center; min-width: 0; border-radius: 12px; color: inherit; text-decoration: none; -webkit-tap-highlight-color: transparent; }
+.fx-tools .fx-appbar-brand:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+/* Under 360px the header holds the logo and five 44px controls (search, AI, hide amounts, alerts, account) only by dropping the wordmark text; the link keeps its name ("FinatriX home"). */
+@media(max-width:359.98px){ .fx-tools .fx-appbar-brand { min-width: 44px; min-height: 44px; justify-content: center; } .fx-tools .fx-appbar-brand .fx-wordmark { display: none; } }
+.fx-tools .fx-appbar-actions { display: flex; align-items: center; gap: 4px; min-width: 0; }
+@media(min-width:375px){ .fx-tools .fx-appbar-actions { gap: 6px; } }
+@media(min-width:640px){ .fx-tools .fx-appbar { padding: 0 16px; } .fx-tools .fx-appbar-actions { gap: 10px; } }
+/* Hide amounts on: the eye reads as on, like an open menu's button. */
+.fx-tools .fx-icon-btn[aria-pressed='true'] { color: var(--ink); background: var(--fill-06, var(--tile-bg)); }
+@media(min-width:768px){ .fx-tools .fx-appbar .fx-phone-only { display: none; } }
+@media(max-width:767px){ .fx-tools .fx-appbar .fx-desktop-only { display: none; } }
+.fx-tools .fx-sync-label { font-size: 12px; white-space: nowrap; }
+.fx-tools .fx-signin-pill { display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border-radius: 980px; border: 1px solid var(--hair); background: var(--card); color: var(--ink); font-size: 14px; font-weight: 600; white-space: nowrap; text-decoration: none; transition: border-color var(--ctl-trans), background-color var(--ctl-trans); }
+.fx-tools .fx-signin-pill:hover { border-color: var(--ink3); }
+.fx-tools .fx-signin-pill:active { background: var(--fill-06); }
+.fx-tools .fx-signin-pill:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+@media (pointer: coarse) { .fx-tools .fx-signin-pill { min-height: 44px; } }
 
 /* ---- Expense Tracker quick add (ui/AddExpenseFab.tsx) ----
    Stacked above the AI launcher: that dock sits 18px above the tab bar and is
@@ -229,7 +250,7 @@ body.fx-drawer-open .fx-add-dock { display: none; }
 .fx-tools.fx-add-dock { position: fixed; right: 16px; bottom: calc(18px + var(--ctl-h-lg) + 12px + var(--fx-bottomnav-h, 0px) + var(--fx-safe-bottom)); z-index: var(--z-fab); display: flex; background: transparent; }
 .fx-tools .fx-add-fab { display: inline-flex; align-items: center; justify-content: center; width: 52px; height: 52px; padding: 0; border: none; border-radius: 50%; background: var(--ink); color: var(--bg); cursor: pointer; box-shadow: 0 12px 28px -10px rgba(0,0,0,.55), 0 2px 6px -2px rgba(0,0,0,.25); transition: transform var(--ctl-trans), box-shadow var(--ctl-trans); animation: fxAddFabIn 220ms var(--ease-out, ease-out) backwards; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 .fx-tools .fx-add-fab:hover { transform: translateY(-1px); box-shadow: 0 16px 34px -12px rgba(0,0,0,.6), 0 3px 8px -3px rgba(0,0,0,.28); }
-.fx-tools .fx-add-fab:active { transform: scale(.94); }
+.fx-tools .fx-add-fab:active { scale: .94; }
 .fx-tools .fx-add-fab:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 /* Inside the shared dock (ui/dockSlots.ts): same row and height as its neighbours. */
 .fx-tools.fx-add-dock.is-docked { position: static; }
@@ -239,7 +260,7 @@ body.fx-drawer-open .fx-add-dock { display: none; }
 @media (max-width: 380px) { .fx-tools.fx-add-dock { right: 12px; } }
 @media (prefers-reduced-motion: reduce) {
   .fx-tools .fx-add-fab { transition: none; animation: none; }
-  .fx-tools .fx-add-fab:hover, .fx-tools .fx-add-fab:active { transform: none; }
+  .fx-tools .fx-add-fab:hover, .fx-tools .fx-add-fab:active { transform: none; scale: none; }
 }
 @media print { .fx-tools.fx-add-dock { display: none; } }
 /* Room at the foot of the page for the taller corner stack (the base .wrap
@@ -257,7 +278,7 @@ body.fx-has-add-fab .fx-tools .wrap { padding-bottom: calc(18px + var(--ctl-h-lg
 .fx-tools { --fx-bottomnav-h: 0px; }
 @media(max-width:767px){ .fx-tools { --fx-bottomnav-h: 60px; } }
 .fx-mobnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-mobilenav); display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: stretch; gap: 2px; padding: 6px 6px calc(6px + var(--fx-safe-bottom)); background: var(--nav-solid); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-top: 1px solid var(--hair); }
-.fx-mobnav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 48px; padding: 6px 2px; border: none; background: none; border-radius: 12px; font-family: inherit; font-size: 10.5px; font-weight: 600; letter-spacing: -.01em; color: color-mix(in srgb, var(--ink) 62%, transparent); text-decoration: none; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: color .2s var(--ease-out), background .2s var(--ease-out); }
+.fx-mobnav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 48px; padding: 5px 2px; border: none; background: none; border-radius: 12px; font-family: inherit; font-size: 11px; font-weight: 600; letter-spacing: -.01em; color: color-mix(in srgb, var(--ink) 62%, transparent); text-decoration: none; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: color .2s var(--ease-out), background .2s var(--ease-out); }
 .fx-mobnav-item svg { opacity: .9; }
 /* Equal columns (minmax(0,1fr) above) even when a label is wider than its
    fifth — large system text in the Android app — with an ellipsis, not overlap. */
@@ -352,7 +373,7 @@ body.fx-has-add-fab .fx-tools .wrap { padding-bottom: calc(18px + var(--ctl-h-lg
    the heading; the negative top margin pulls it up beside the h3's own bottom
    margin instead of introducing a row of its own. */
 .fx-tools .fx-tier { display: inline-block; margin: -4px 0 8px; padding: 2px 8px; border-radius: 980px;
-  font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
   background: var(--hair2); color: var(--ink3); }
 .fx-tools .fx-tier[data-tier="KNOWN"] { background: color-mix(in srgb, var(--green) 13%, transparent); color: var(--green); }
 .fx-tools .fx-tier[data-tier="ASSUMED"] { background: var(--gold-bg); color: var(--accent-text); }
@@ -370,7 +391,7 @@ body.fx-has-add-fab .fx-tools .wrap { padding-bottom: calc(18px + var(--ctl-h-lg
 .fx-tools .fx-refpage-status { padding: 12px 14px; border: 1px solid var(--hair2); border-radius: 12px; margin-bottom: 8px; }
 .fx-tools .fx-refpage-status[data-available="false"] { border-color: color-mix(in srgb, var(--orange) 30%, transparent); background: color-mix(in srgb, var(--orange) 6%, transparent); }
 .fx-tools .fx-refpage-status-tag { display: inline-block; margin-bottom: 6px; padding: 2px 8px; border-radius: 980px;
-  font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
   background: color-mix(in srgb, var(--green) 13%, transparent); color: var(--green); }
 .fx-tools .fx-refpage-status[data-available="false"] .fx-refpage-status-tag { background: color-mix(in srgb, var(--orange) 14%, transparent); color: var(--orange); }
 .fx-tools .fx-refpage-section { margin-top: 14px; }
@@ -428,7 +449,7 @@ body.fx-has-add-fab .fx-tools .wrap { padding-bottom: calc(18px + var(--ctl-h-lg
    put dark amber text on bright amber and fail contrast. Everything tinted in
    this file mixes toward transparent so it sits on whichever surface it lands
    on, light or dark. */
-.fx-tools .fx-ref-chip { padding: 2px 7px; border-radius: 980px; font-size: 10px; font-weight: 700; letter-spacing: .02em;
+.fx-tools .fx-ref-chip { padding: 2px 7px; border-radius: 980px; font-size: 11px; font-weight: 700; letter-spacing: .02em;
   background: color-mix(in srgb, var(--orange) 14%, transparent); color: var(--orange); }
 .fx-tools .fx-ref-chip[data-tone="stale"] { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
 .fx-tools .fx-ref-sources { margin: 7px 0 0; padding-left: 16px; list-style: disc; display: flex; flex-direction: column; }
@@ -463,7 +484,7 @@ body.fx-has-add-fab .fx-tools .wrap { padding-bottom: calc(18px + var(--ctl-h-lg
 /* ---- Result → explanation → action → next step (ui/ResultExplainer.tsx) ---- */
 .fx-tools .fx-outcome { margin: 22px 0 4px; padding-top: 20px; border-top: 1px solid var(--hair2); }
 .fx-tools .fx-outcome-title { font-size: 17px; font-weight: 700; letter-spacing: -.015em; color: var(--ink); margin: 0; }
-.fx-tools .fx-outcome-meaning { font-size: 14.5px; line-height: 1.7; color: var(--ink2); margin: 8px 0 16px; max-width: 68ch; }
+.fx-tools .fx-outcome-meaning { font-size: 15px; line-height: 1.7; color: var(--ink2); margin: 8px 0 16px; max-width: 68ch; }
 .fx-tools .fx-outcome-sub { font-size: 13px; font-weight: 700; letter-spacing: -.005em; color: var(--ink); margin: 20px 0 10px; }
 .fx-tools .fx-outcome-actions { margin: 0; padding-left: 18px; list-style: disc; display: flex; flex-direction: column; gap: 8px; max-width: 68ch; }
 .fx-tools .fx-outcome-actions li { font-size: 13.5px; line-height: 1.7; color: var(--ink2); }
@@ -489,7 +510,7 @@ body.fx-has-add-fab .fx-tools .wrap { padding-bottom: calc(18px + var(--ctl-h-lg
    outside the tools shell) — but not the tools PAGE surface that class paints,
    which showed as an opaque square behind the bell in the translucent header. */
 .bell-wrap.fx-tools { background: none; min-height: 0; }
-.fx-tools .bell-dot { position: absolute; top: -2px; right: -2px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 980px; background: var(--red); color: #fff; font-size: 9.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.fx-tools .bell-dot { position: absolute; top: -3px; right: -3px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 980px; background: var(--red); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
 .fx-tools .bell-panel { position: absolute; right: 0; top: calc(100% + 10px); width: min(92vw, 360px); max-height: 420px; overflow-y: auto; background: var(--card-solid); border: 1px solid var(--hair); border-radius: 14px; box-shadow: 0 24px 60px -18px rgba(0,0,0,.75); z-index: var(--z-popover); animation: fxMenuIn 160ms var(--ease-out) both; transform-origin: top right; }
 .fx-tools .bell-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--hair2); position: sticky; top: 0; background: var(--card-solid); }
 .fx-tools .bell-item { padding: 12px 14px; border-bottom: 1px solid var(--hair2); font-size: 13px; }
@@ -499,7 +520,7 @@ body.fx-has-add-fab .fx-tools .wrap { padding-bottom: calc(18px + var(--ctl-h-lg
 .fx-tools .wrap { max-width: 1024px; margin: 0 auto; padding: 0 16px calc(64px + var(--fx-bottomnav-h) + var(--fx-safe-bottom)); position: relative; z-index: var(--z-raised); }
 
 /* ============ TYPE ============ */
-.fx-tools .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent-text); margin-bottom: 8px; }
+.fx-tools .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink3); margin-bottom: 8px; }
 /* Vertical rhythm note: the head used to open with 48px of padding above a
    headline that inherited a 1.5 body line-height — a 40px display type set on
    60px leading, so a two-line title alone burned 120px and the first budgeting
@@ -510,7 +531,16 @@ body.fx-has-add-fab .fx-tools .wrap { padding-bottom: calc(18px + var(--ctl-h-lg
 .fx-tools .page-head { text-align: center; padding: 32px 8px 22px; max-width: 640px; margin: 0 auto; }
 .fx-tools .page-head h1 { font-size: clamp(28px,4.5vw,40px); font-weight: 700; letter-spacing: -.02em; line-height: 1.08; text-wrap: balance; }
 .fx-tools .page-head p { font-size: 15px; color: var(--ink2); margin-top: 12px; line-height: 1.55; text-wrap: pretty; }
-.fx-tools .tool-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 980px; margin-bottom: 14px; }
+/* On a phone the hero gives the first screen to the tool's own main action.
+   The h1 stays (it names the page, for people and for search) at a size that
+   holds most titles to one or two lines; the chip and the introduction step
+   aside — the same words are in the page's description and its guide. */
+@media(max-width:767px){
+  .fx-tools .page-head { padding: 14px 4px 10px; }
+  .fx-tools .page-head > .tool-chip, .fx-tools .page-head > p { display: none; }
+  .fx-tools .page-head h1 { font-size: 24px; line-height: 1.15; }
+}
+.fx-tools .tool-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; padding: 5px 12px; border-radius: 980px; margin-bottom: 14px; color: var(--ink2); background: var(--fill-03); border: 1px solid var(--hair2); }
 
 /* ============ CARDS & FORMS ============ */
 /* The card surface. No `backdrop-filter`: it carried blur(14px) saturate(150%)
@@ -658,7 +688,7 @@ body.fx-has-add-fab .fx-tools .wrap { padding-bottom: calc(18px + var(--ctl-h-lg
    --ctl-r-sm rather than the lg rung's --ctl-r-md is deliberate: on the md
    rung this sits beside .bb-pct and the row action buttons, and two 40px
    controls with a 2px radius difference read as a mistake, not a distinction. */
-.fx-tools .fi-sm { width: 110px; height: var(--ctl-h-md); padding: 0 12px; border-radius: var(--ctl-r-sm); font-size: 14px; text-align: right; }
+.fx-tools .fi-sm { width: 110px; height: var(--ctl-h-md); padding: 0 12px; border-radius: var(--ctl-r-sm); font-size: max(14px, var(--field-min-fs)); text-align: right; }
 /* iOS Safari zooms the viewport whenever a focused field is under 16px. The
    money field is the one users tap most on mobile, so it was zooming the page
    on nearly every entry and leaving it zoomed. Bumping to 16px on small
@@ -678,7 +708,7 @@ body.fx-has-add-fab .fx-tools .wrap { padding-bottom: calc(18px + var(--ctl-h-lg
    round number. Centring is now explicit instead of incidental. */
 .fx-tools .btn { display: inline-flex; align-items: center; justify-content: center; width: 100%; padding: 14px; border: var(--ctl-bw) solid #B8962E; border-radius: var(--ctl-pill); font-size: 15px; font-weight: 600; letter-spacing: .01em; cursor: pointer; font-family: inherit; transition: transform var(--ctl-trans), box-shadow var(--ctl-trans), background-color 200ms ease; text-align: center; background: #D4AF37; color: #1a1400; box-shadow: 0 4px 14px -6px rgba(212,175,55,.45); -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 .fx-tools .btn:hover { transform: translateY(-2px); background: #E0BC4B; box-shadow: 0 8px 22px -8px rgba(212,175,55,.6); }
-.fx-tools .btn:active { transform: scale(.97) translateY(1px); background: #C9A431; }
+.fx-tools .btn:active { scale: .97; translate: 0 1px; background: #C9A431; }
 .fx-tools .btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .fx-tools .btn:disabled { cursor: default; opacity: .5; transform: none; box-shadow: none; }
 .fx-tools .btn-ghost { background: var(--fill-03); color: var(--ink); border: 1px solid var(--hair); box-shadow: none; }
@@ -686,7 +716,7 @@ body.fx-has-add-fab .fx-tools .wrap { padding-bottom: calc(18px + var(--ctl-h-lg
 .fx-tools .btn-sm { width: auto; min-height: var(--ctl-h-md); padding: 0 18px; font-size: 13px; }
 .fx-tools .btn-loading { animation: fxBtnPulse 1.2s ease-in-out infinite; pointer-events: none; opacity: .75; }
 @keyframes fxBtnPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(0,0,0,.1); } 50% { box-shadow: 0 0 0 8px rgba(0,0,0,0); } }
-@media (hover: none) { .fx-tools .btn:active { transform: scale(.97); background: #C9A431; } }
+@media (hover: none) { .fx-tools .btn:active { scale: .97; background: #C9A431; } }
 @media (prefers-reduced-motion: reduce) { .fx-tools .btn-loading { animation: none; } }
 
 /* ---- Segmented control ----
@@ -726,7 +756,7 @@ body.fx-has-add-fab .fx-tools .wrap { padding-bottom: calc(18px + var(--ctl-h-lg
 .fx-tools .fx-mnav-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .fx-tools .fx-mnav-arrow { display: inline-flex; align-items: center; justify-content: center; width: var(--ctl-h-md); height: var(--ctl-h-md); flex-shrink: 0; background: var(--well); border: var(--ctl-bw) solid var(--hair2); border-radius: var(--ctl-r-sm); color: var(--ink2); font-size: 18px; line-height: 1; font-family: inherit; cursor: pointer; transition: background-color var(--ctl-trans), border-color var(--ctl-trans), color var(--ctl-trans), transform var(--ctl-trans); -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 .fx-tools .fx-mnav-arrow:hover:not(:disabled) { background: var(--fill-06); border-color: var(--hair); color: var(--ink); }
-.fx-tools .fx-mnav-arrow:active:not(:disabled) { transform: scale(.94); }
+.fx-tools .fx-mnav-arrow:active:not(:disabled) { scale: .94; }
 .fx-tools .fx-mnav-arrow:disabled { opacity: .35; cursor: default; }
 .fx-tools .fx-mnav-label { text-align: center; min-width: 0; }
 .fx-tools .fx-mnav-month { font-size: 15px; font-weight: 700; letter-spacing: -.01em; color: var(--ink); }
@@ -735,14 +765,14 @@ body.fx-has-add-fab .fx-tools .wrap { padding-bottom: calc(18px + var(--ctl-h-lg
 /* xs rung: the chips were 22px tall, under the WCAG 2.2 (2.5.8) 24px minimum. */
 .fx-tools .fx-mnav-chip { display: inline-flex; align-items: center; min-height: var(--ctl-h-xs); padding: 0 12px; border: var(--ctl-bw) solid var(--hair2); border-radius: var(--ctl-pill); background: var(--well); color: var(--ink2); font-size: 11.5px; font-weight: 600; font-family: inherit; white-space: nowrap; cursor: pointer; transition: background-color var(--ctl-trans), border-color var(--ctl-trans), color var(--ctl-trans), transform var(--ctl-trans); -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 .fx-tools .fx-mnav-chip:hover:not(.on) { background: var(--fill-06); border-color: var(--hair); color: var(--ink); }
-.fx-tools .fx-mnav-chip:active { transform: scale(.96); }
+.fx-tools .fx-mnav-chip:active { scale: .96; }
 /* The active chip previously painted its label var(--card) on gold. On light
    that is 72%-white text on #D4AF37 — about 1.9:1, a hard WCAG AA failure —
    and on dark it was a translucent near-black that read muddy. #1a1400 is the
    ink every other gold surface in the system already uses (~8.9:1). */
 .fx-tools .fx-mnav-chip.on { background: linear-gradient(180deg,#E6C766,#D4AF37); border-color: #B8962E; color: #1a1400; box-shadow: 0 4px 12px -4px rgba(212,175,55,.45); }
 @media (prefers-reduced-motion: reduce) {
-  .fx-tools .fx-mnav-arrow:active:not(:disabled), .fx-tools .fx-mnav-chip:active { transform: none; }
+  .fx-tools .fx-mnav-arrow:active:not(:disabled), .fx-tools .fx-mnav-chip:active { scale: none; }
 }
 
 .fx-tools .pill { display: inline-block; font-size: 11px; font-weight: 600; padding: 4px 11px; border-radius: 980px; }
@@ -758,7 +788,11 @@ body.fx-has-add-fab .fx-tools .wrap { padding-bottom: calc(18px + var(--ctl-h-lg
    layout is this 8px strip, not the card around it. */
 .fx-tools .bar { height: var(--bar-h, 8px); background: var(--well); border-radius: 8px; overflow: hidden; position: relative; contain: layout paint; }
 .fx-tools .bar-sm { --bar-h: 6px; }
-.fx-tools .bar-fill { height: 100%; border-radius: 8px; transition: width 800ms cubic-bezier(.4,0,.2,1); }
+/* Bars are drawn at their width and revealed left to right once, on mount,
+   with a clip — never by animating `width`, which re-lays-out the row every
+   frame. A changed value afterwards simply redraws. */
+.fx-tools .bar-fill { height: 100%; border-radius: 8px; animation: fxRevealX 300ms var(--ease-out) both; }
+@keyframes fxRevealX { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
 .fx-tools .hr { height: 1px; background: var(--hair2); margin: 18px 0; }
 
 /* Trend charts (Expense overview + 12-month analytics).
@@ -782,7 +816,7 @@ body.fx-has-add-fab .fx-tools .wrap { padding-bottom: calc(18px + var(--ctl-h-lg
    responsive `hidden md:*` reveal inside the shells (it silently removed the
    Home button, sync label and account menu on desktop). Tailwind's own
    `hidden` utility already covers the base case. */
-.fx-tools .note { font-size: 12px; color: var(--ink3); line-height: 1.7; }
+.fx-tools .note { font-size: 13px; color: var(--ink3); line-height: 1.6; }
 .fx-tools .foot { text-align: center; padding: 34px 0 0; font-size: 12px; color: var(--ink3); }
 .fx-tools .foot b { color: var(--accent-text); }
 /* Underlined, not `text-decoration: none`. These sit inside a sentence, and a
@@ -800,15 +834,21 @@ body.fx-has-add-fab .fx-tools .wrap { padding-bottom: calc(18px + var(--ctl-h-lg
 .fx-tools .foot a:hover { text-decoration-color: var(--accent-text); }
 
 .fx-tools .stat-cell { background: var(--card); border: 1px solid var(--hair2); border-radius: 16px; padding: 20px 14px; text-align: center; box-shadow: var(--shadow); transition: transform .25s ease, box-shadow .25s ease; }
-.fx-tools .stat-cell:hover { transform: translateY(-3px); box-shadow: 0 8px 28px rgba(0,0,0,.09); }
+.fx-tools a.stat-cell:hover { transform: translateY(-3px); box-shadow: 0 8px 28px rgba(0,0,0,.09); }
 .fx-tools .stat-cell .v { font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
-.fx-tools .stat-cell .l { font-size: 11px; color: var(--ink2); margin-top: 4px; font-weight: 500; }
+.fx-tools .stat-cell .l { font-size: 12px; color: var(--ink2); margin-top: 4px; font-weight: 500; }
+/* A KPI slot with nothing to show yet becomes the action that fills it. */
+.fx-tools .fx-kpi-action { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--ink); text-decoration: none; border-style: dashed; }
+.fx-tools .fx-kpi-action .v { font-size: 17px; color: var(--accent-text); }
+.fx-tools .fx-kpi-action .l { display: block; }
+.fx-tools .fx-kpi-action:active { scale: .98; }
+.fx-tools .fx-kpi-action:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
 .fx-tools .big-num { font-size: clamp(34px,6vw,48px); font-weight: 700; letter-spacing: -.025em; }
 .fx-tools .row-line { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--hair2); }
 .fx-tools .row-line:last-child { border-bottom: none; }
 .fx-tools .seg-bar { display: flex; border-radius: 10px; overflow: hidden; height: 14px; margin: 14px 0; contain: layout paint; }
-.fx-tools .seg { transition: width .6s ease; }
+.fx-tools .seg-bar { animation: fxRevealX 300ms var(--ease-out) both; }
 .fx-tools .tip { border-radius: 14px; padding: 15px 17px; font-size: 13px; line-height: 1.6; margin-bottom: 9px; color: var(--ink2); }
 .fx-tools .tip b { display: block; font-size: 13px; margin-bottom: 3px; color: var(--ink); }
 .fx-tools .tip-ok { background: rgba(29,125,70,.06); border: 1px solid rgba(29,125,70,.14); }
@@ -819,19 +859,19 @@ body.fx-has-add-fab .fx-tools .wrap { padding-bottom: calc(18px + var(--ctl-h-lg
    that actually change. */
 .fx-tools .opt-card { padding: 16px; border: var(--ctl-bw) solid var(--hair2); border-radius: var(--ctl-r-lg); cursor: pointer; margin-bottom: 9px; transition: border-color var(--ctl-trans), background-color var(--ctl-trans), transform var(--ctl-trans); background: var(--card); }
 .fx-tools .opt-card:hover { border-color: var(--ink3); background: var(--fill-04); }
-.fx-tools .opt-card:active { transform: scale(.995); }
-@media (prefers-reduced-motion: reduce) { .fx-tools .opt-card:active { transform: none; } }
+.fx-tools .opt-card:active { scale: .995; }
+@media (prefers-reduced-motion: reduce) { .fx-tools .opt-card:active { scale: none; } }
 .fx-tools .opt-card.sel { border-color: var(--gold); background: var(--gold-bg); }
 .fx-tools .opt-card .ol { font-size: 15px; font-weight: 600; }
 .fx-tools .opt-card .od { font-size: 12px; color: var(--ink2); margin-top: 2px; }
 .fx-tools .steps { display: flex; gap: 5px; margin-bottom: 18px; }
-.fx-tools .sd { flex: 1; height: 4px; border-radius: 4px; background: var(--hair2); transition: background .4s; }
+.fx-tools .sd { flex: 1; height: 4px; border-radius: 4px; background: var(--hair2); transition: background 300ms; }
 .fx-tools .sd.on { background: var(--gold); }
 .fx-tools table.cmp { width: 100%; border-collapse: collapse; font-size: 13px; }
 .fx-tools table.cmp td { padding: 9px 4px; border-bottom: 1px solid var(--hair2); }
 
 /* ============ DASHBOARD PRIMITIVES ============ */
-.fx-tools .panel-eyebrow { display: inline-flex; align-items: center; gap: 7px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 10.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--ink2); }
+.fx-tools .panel-eyebrow { display: inline-flex; align-items: center; gap: 7px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--ink2); }
 .fx-tools .panel-eyebrow::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--gold); }
 .fx-tools .panel-title { font-size: 18px; font-weight: 600; letter-spacing: -.01em; color: var(--ink); margin: 8px 0 2px; }
 .fx-tools .panel-sub { font-size: 13px; color: var(--ink2); line-height: 1.5; }
@@ -851,22 +891,22 @@ body.fx-has-add-fab .fx-tools .wrap { padding-bottom: calc(18px + var(--ctl-h-lg
 .fx-tools .empty-state .es-d { font-size: 13px; margin-top: 5px; line-height: 1.55; }
 
 /* ============ ANIMATIONS ============ */
-@keyframes fxResultHeroIn { 0% { opacity: 0; transform: translateY(40px) scale(0.92); } 60% { transform: translateY(-6px) scale(1.01); } 100% { opacity: 1; transform: none; } }
-@keyframes fxResultCardIn { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: none; } }
-@keyframes fxPageEnter { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
-.fx-tools .result-hero-anim { animation: fxResultHeroIn 600ms var(--spring) both; }
-.fx-tools .result-card-anim { opacity: 0; animation: fxResultCardIn 500ms var(--ease-out) both; }
-.fx-tools .result-card-anim:nth-child(1) { animation-delay: 100ms; }
-.fx-tools .result-card-anim:nth-child(2) { animation-delay: 180ms; }
-.fx-tools .result-card-anim:nth-child(3) { animation-delay: 260ms; }
-.fx-tools .result-card-anim:nth-child(4) { animation-delay: 340ms; }
-.fx-tools .result-card-anim:nth-child(5) { animation-delay: 420ms; }
-.fx-tools .result-card-anim:nth-child(6) { animation-delay: 500ms; }
-/* `backwards` (not `both`) fill: a forwards-filling transform animation leaves a
-   permanent transform on the page wrapper, which becomes the containing block for
-   every position:fixed descendant — mispositioning the transaction modal, undo
-   toast and any fixed overlay rendered inside a tool page. */
-.fx-tools .fx-page { animation: fxPageEnter var(--duration-med) var(--ease-out) backwards; }
+@keyframes fxResultHeroIn { from { opacity: 0; transform: translateY(12px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes fxResultCardIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes fxPageEnter { from { opacity: 0; } }
+.fx-tools .result-hero-anim { animation: fxResultHeroIn 280ms var(--ease-out) both; }
+.fx-tools .result-card-anim { opacity: 0; animation: fxResultCardIn 300ms var(--ease-out) both; }
+.fx-tools .result-card-anim:nth-child(1) { animation-delay: 40ms; }
+.fx-tools .result-card-anim:nth-child(2) { animation-delay: 80ms; }
+.fx-tools .result-card-anim:nth-child(3) { animation-delay: 120ms; }
+.fx-tools .result-card-anim:nth-child(4) { animation-delay: 160ms; }
+.fx-tools .result-card-anim:nth-child(5) { animation-delay: 200ms; }
+.fx-tools .result-card-anim:nth-child(6) { animation-delay: 240ms; }
+/* Tool pages are switched dozens of times a day, so the entrance is a short fade
+   with no movement. Keep it transform-free: a transform on the page wrapper makes
+   it the containing block for every position:fixed descendant, mispositioning the
+   transaction modal, undo toast and any fixed overlay rendered inside a tool page. */
+.fx-tools .fx-page { animation: fxPageEnter var(--duration-fast) var(--ease-out) backwards; }
 
 /* ============ TOAST ============ */
 .fx-toast-wrap { position: fixed; left: 50%; bottom: calc(24px + var(--fx-safe-bottom)); transform: translateX(-50%); z-index: var(--z-toast); display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
@@ -894,9 +934,9 @@ body.fx-has-add-fab .fx-tools .wrap { padding-bottom: calc(18px + var(--ctl-h-lg
 .fx-tools .fx-askai-md.is-icon { width: var(--ctl-h-md); }
 .fx-tools .fx-askai:hover { background: var(--gold-bg); color: var(--gold); border-color: color-mix(in srgb, var(--gold) 28%, transparent); }
 .fx-tools .fx-askai:hover svg { opacity: 1; }
-.fx-tools .fx-askai:active { transform: scale(.96); }
+.fx-tools .fx-askai:active { scale: .96; }
 @media print { .fx-tools .fx-askai { display: none; } }
-@media (prefers-reduced-motion: reduce) { .fx-tools .fx-askai { transition: none; } .fx-tools .fx-askai:active { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .fx-tools .fx-askai { transition: none; } .fx-tools .fx-askai:active { scale: none; } }
 
 /* ============ LIFEMAP RESPONSIVE ============ */
 /* A `1fr` track is `minmax(auto, 1fr)`, and that `auto` minimum refuses to go
@@ -937,11 +977,14 @@ html.fx-native .fx-tools .wrap { padding-top: 14px; }
 
 /* The breadcrumb row (ToolsLayout). Breadcrumb and Back are website chrome,
    but the row also carries "Tour this page", which the apps need — so on
-   native it stays, minus the top padding the rule above already provides. */
+   native it stays, minus the top padding the rule above already provides.
+   On a phone the tab bar is the navigation, so the breadcrumb and Back stand
+   down there too and the row keeps only the tour button. */
 .fx-tools .fx-crumbrow { padding-top: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
 .fx-tools .fx-crumbrow > nav { min-width: 0; }
 .fx-tools .fx-crumbrow-end { display: flex; align-items: center; gap: 6px; margin-left: auto; flex: 0 0 auto; }
 .fx-tools .fx-crumbrow-back { display: inline-flex; }
+@media(max-width:767px){ .fx-tools .fx-crumbrow > nav, .fx-tools .fx-crumbrow-back { display: none; } }
 html.fx-native .fx-tools .fx-crumbrow { padding-top: 0; }
 
 /* "Tour this page" (tour/TourPageButton.tsx). A 44px target around a pill
@@ -956,16 +999,20 @@ html.fx-native .fx-tools .fx-crumbrow { padding-top: 0; }
 .fx-tools .fx-tourbtn-pill {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 6px 12px 6px 9px; border-radius: 980px;
-  border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent);
-  background: var(--gold-bg); color: var(--ink);
-  font-size: 12.5px; font-weight: 600; line-height: 1; white-space: nowrap;
+  border: 1px solid var(--hair);
+  background: var(--fill-03); color: var(--ink);
+  font-size: 13px; font-weight: 600; line-height: 1; white-space: nowrap;
   transition: border-color var(--ctl-trans), background-color var(--ctl-trans);
 }
-.fx-tools .fx-tourbtn-pill svg { color: var(--accent-text); flex: 0 0 auto; }
-.fx-tools .fx-tourbtn:hover .fx-tourbtn-pill { border-color: var(--gold); }
+.fx-tools .fx-tourbtn-pill svg { color: var(--ink2); flex: 0 0 auto; }
+.fx-tools .fx-tourbtn:hover .fx-tourbtn-pill { border-color: var(--ink3); }
 .fx-tools .fx-tourbtn:focus-visible { outline: none; }
+/* One tour entry point at a time: the pill waits while the first-visit card is
+   on the page (components/InlineInvite sets the class), and returns once the
+   card is answered or dismissed. */
+html.fx-inviting .fx-tools .fx-tourbtn { display: none; }
 .fx-tools .fx-tourbtn:focus-visible .fx-tourbtn-pill { outline: 2px solid var(--ink); outline-offset: 2px; }
-.fx-tools .fx-tourbtn:active .fx-tourbtn-pill { transform: scale(0.97); }
+.fx-tools .fx-tourbtn:active .fx-tourbtn-pill { scale: 0.97; }
 
 /* ---- Sources strip (ui/MarketNote.tsx) ----
    One per tool page; the shell's own review-date line stands down when this is
@@ -978,10 +1025,10 @@ html.fx-native .fx-tools .fx-crumbrow { padding-top: 0; }
 .fx-tools:has(.fx-market-note) .fx-assumptions-row { display: none; }
 
 /* ---- Market / currency mismatch (ui/MarketNote.tsx MarketCurrencyNotice) ---- */
-.fx-tools .fx-market-mismatch { margin: 16px auto 0; max-width: 620px; padding: 12px 14px; border-radius: 12px; background: var(--gold-bg); border: 1px solid var(--hair); text-align: left; font-size: 13px; line-height: 1.55; color: var(--ink2); }
+.fx-tools .fx-market-mismatch { margin: 16px auto 0; max-width: 620px; padding: 12px 14px; border-radius: 12px; background: var(--fill-03); border: 1px solid var(--hair); text-align: left; font-size: 15px; line-height: 1.55; color: var(--ink2); }
 .fx-tools .fx-market-mismatch p { margin: 0; font-size: inherit; color: inherit; max-width: none; }
 .fx-tools .fx-market-mismatch b { color: var(--ink); }
-.fx-tools .fx-market-mismatch-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 10px; }
+.fx-tools .fx-market-mismatch-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 18px; margin-top: 10px; }
 .fx-tools .fx-market-mismatch-actions .btn { width: auto; padding: 8px 14px; font-size: 13px; }
 .fx-tools .fx-market-mismatch-actions a { color: var(--accent-text); text-decoration: underline; font-weight: 600; }
 
@@ -1029,8 +1076,11 @@ html.fx-native .fx-tools .fx-crumbrow { padding-top: 0; }
 .fx-tools .fx-pc-preview span { background: var(--well); border-radius: 10px; padding: 10px; font-size: 12px; color: var(--ink2); }
 
 /* ---- Net Worth: labelled example under the empty state ---- */
-.fx-tools .nw-empty-example { margin: 22px auto 0; max-width: 420px; padding: 12px 14px; border-radius: 12px; background: var(--well); opacity: .75; }
-.fx-tools .nw-empty-example figcaption { font-size: 11px; color: var(--ink3); margin-bottom: 6px; text-align: left; }
+/* The drawing is muted to read as an example; the caption is not, so it
+   keeps its contrast (it was dimmed with the whole figure). */
+.fx-tools .nw-empty-example { margin: 22px auto 0; max-width: 420px; padding: 12px 14px; border-radius: 12px; background: var(--well); }
+.fx-tools .nw-empty-example svg { opacity: .75; }
+.fx-tools .nw-empty-example figcaption { font-size: 12px; color: var(--ink2); margin-bottom: 6px; text-align: left; }
 
 /* ---- LifeMap setup: prefill first, form in three labelled parts ---- */
 .fx-tools .fx-lm-prefill { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; font-size: 13px; }
@@ -1080,3 +1130,90 @@ html.fx-native .fx-tools .fx-crumbrow { padding-top: 0; }
 .fx-tools .fx-region-status:empty { display: none; }
 .fx-tools .fx-region-status:not(:empty) { margin-top: 6px; }
 @media (max-width: 480px) { .fx-tools .fx-region-row { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- All tools (pages/AllToolsPage.tsx) ----
+   Grouped lists in the iOS inset-grouped pattern: a quiet heading over a
+   rounded card of rows, every row a full-width 52px target with a chevron.
+   It is the fifth tab on a phone, so it is built for a thumb first. */
+.fx-tools .fx-hub { max-width: 640px; margin: 0 auto; padding: 8px 0 24px; }
+.fx-tools .fx-hub-head { padding: 18px 4px 6px; }
+.fx-tools .fx-hub-head h1 { font-size: clamp(28px, 6vw, 34px); font-weight: 700; letter-spacing: -.025em; line-height: 1.1; }
+.fx-tools .fx-hub-head p { margin-top: 8px; font-size: 15px; line-height: 1.5; color: var(--ink2); }
+.fx-tools .fx-hub-group { margin-top: 22px; }
+.fx-tools .fx-hub-title { padding: 0 4px 8px; font-size: 13px; font-weight: 600; color: var(--ink3); }
+.fx-tools .fx-hub-list { margin: 0; padding: 0; list-style: none; background: var(--card); border: 1px solid var(--hair2); border-radius: 16px; overflow: hidden; }
+.fx-tools .fx-hub-list > li + li { border-top: 1px solid var(--hair2); }
+.fx-tools .fx-hub-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 10px 14px; background: none; border: 0; font: inherit; text-align: left; color: var(--ink); text-decoration: none; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color var(--ctl-trans); }
+.fx-tools .fx-hub-row.is-static { cursor: default; flex-wrap: wrap; }
+.fx-tools a.fx-hub-row:hover, .fx-tools button.fx-hub-row:hover { background: var(--fill-03); }
+.fx-tools a.fx-hub-row:active, .fx-tools button.fx-hub-row:active { background: var(--fill-06); }
+.fx-tools .fx-hub-row:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.fx-tools .fx-hub-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 34px; height: 34px; border-radius: 10px; }
+.fx-tools .fx-hub-text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
+.fx-tools .fx-hub-label { font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
+.fx-tools .fx-hub-detail { font-size: 13px; line-height: 1.4; color: var(--ink3); }
+.fx-tools .fx-hub-chev { flex: 0 0 auto; color: var(--ink3); }
+.fx-tools .fx-hub-select { flex: 0 0 auto; min-height: 44px; padding: 0 12px; border-radius: var(--ctl-r-sm); border: 1px solid var(--hair2); background: var(--card); color: var(--ink); font: inherit; font-size: 16px; }
+.fx-tools .fx-hub-row .fx-seg { flex: 0 0 auto; }
+.fx-tools .fx-hub-account { margin-top: 28px; display: flex; justify-content: center; }
+.fx-tools .fx-hub-account .btn { width: auto; padding: 0 22px; min-height: 48px; }
+.fx-tools .fx-hub-signout { min-height: 48px; padding: 0 22px; border-radius: 980px; border: 1px solid var(--hair); background: var(--card); color: var(--red); font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }
+.fx-tools .fx-hub-signout:active { background: var(--fill-06); }
+
+/* ---- First-visit invitation (components/InlineInvite.tsx) ----
+   A card in the page flow, under the breadcrumb row: the intro or the page
+   tour, offered rather than opened. Two columns on a phone (mark + text, then
+   the actions full width); one row from 640px. */
+.fx-tools.fx-invite { display: grid; grid-template-columns: auto 1fr; gap: 12px 14px; align-items: start; margin: 12px 0 4px; padding: 16px; border-radius: 16px; border: 1px solid var(--hair2); background: var(--card-solid); color: var(--ink); animation: fxInviteIn 240ms var(--ease-out) backwards; }
+.fx-tools.fx-invite.is-floating { position: fixed; z-index: 935; left: 16px; right: 16px; bottom: calc(var(--fx-safe-bottom) + var(--fx-bottomnav-h, 0px) + 16px); max-width: 480px; margin: 0 auto; box-shadow: var(--shadow-3); }
+.fx-tools .fx-invite-mark { width: 28px; height: 28px; margin-top: 2px; border-radius: 50%; background: radial-gradient(circle at 34% 30%, #FBF1CC 0%, #EBCB6B 30%, #D4AF37 58%, #A8842B 100%); box-shadow: inset 0 1px 1px rgba(255,255,255,.55); }
+.fx-tools .fx-invite h2 { margin: 0; font-size: 16px; font-weight: 650; line-height: 1.35; letter-spacing: -.01em; }
+.fx-tools .fx-invite p { margin: 4px 0 0; font-size: 15px; line-height: 1.5; color: var(--ink2); }
+.fx-tools .fx-invite-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.fx-tools .fx-invite-actions .btn { width: auto; }
+.fx-tools .fx-invite-text-btn { min-height: var(--ctl-h-md); padding: 0 8px; border: 0; border-radius: 10px; background: none; font: inherit; font-size: 14px; font-weight: 500; color: var(--ink2); cursor: pointer; }
+.fx-tools .fx-invite-text-btn:hover { color: var(--ink); }
+.fx-tools .fx-invite-never { margin-left: auto; }
+@media (min-width: 640px) {
+  .fx-tools.fx-invite:not(.is-floating) { grid-template-columns: auto 1fr auto; align-items: center; }
+  .fx-tools.fx-invite:not(.is-floating) .fx-invite-actions { grid-column: auto; flex-wrap: nowrap; }
+  .fx-tools.fx-invite:not(.is-floating) .fx-invite-never { margin-left: 0; }
+}
+@keyframes fxInviteIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* ---- Touch geometry ----
+   Last in the sheet on purpose: these must win over the component rules
+   above, which have the same specificity.
+   Under a finger every rung of the control ladder is at least 44px tall
+   (Apple HIG, accessibility.md › Interaction: 44×44pt minimum hit target).
+   The rungs keep their names and their order, so a control's rank still
+   reads the same; on a phone the compact rungs simply stop being smaller
+   than a fingertip. Mouse and trackpad keep the compact sizes. */
+@media (pointer: coarse) {
+  .fx-tools { --ctl-h-xs: 44px; --ctl-h-sm: 44px; --ctl-h-md: 44px; --ctl-h-lg: 48px; }
+  .fx-tools .fx-seg button { min-height: 44px; }
+  .fx-tools .fx-check-hit { min-width: 44px; min-height: 44px; }
+  .fx-tools .fx-tgl { min-height: 44px; }
+  /* !important: the summaries' own min-heights (24px) are more specific, and
+     this is a floor, not a style. */
+  .fx-tools summary { min-height: 44px !important; }
+  .fx-tools .fx-checkrow { min-height: 44px; }
+  .fx-tools .fx-method > summary,
+  .fx-tools .fx-smart-summary { display: flex; align-items: center; }
+}
+
+/* Links inside running text in the tools (unclassed links in a paragraph, a
+   note or the footer line): the same invisible hit area as .fx-prose-link in
+   index.css — 24px under a mouse, 44px under a finger, no layout change. */
+.fx-tools :is(p, li, .note, .foot, .fx-market-mismatch) a:not([class]),
+.fx-tools .foot a { position: relative; display: inline-block; }
+.fx-tools :is(p, li, .note, .foot, .fx-market-mismatch) a:not([class])::after,
+.fx-tools .foot a::after { content: ''; position: absolute; left: -3px; right: -3px; top: 50%; height: max(100%, 24px); translate: 0 -50%; }
+@media (pointer: coarse) {
+  .fx-tools :is(p, li, .note, .foot, .fx-market-mismatch) a:not([class])::after,
+  .fx-tools .foot a::after { left: -7px; right: -7px; height: max(100%, 44px); }
+}
+/* Disclosure summaries and check rows reach 24px under a mouse too. */
+.fx-tools details > summary { min-height: 28px; }
+.fx-tools .fx-checkrow { padding-inline: 6px; margin-inline: -6px; }
+@media (pointer: coarse) { .fx-tools .fx-checkrow { padding-inline: 14px; margin-inline: -14px; } }

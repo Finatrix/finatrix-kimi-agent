@@ -28,7 +28,12 @@ function renderShell(path: string) {
   );
 }
 
-const dialog = () => screen.findByRole('dialog', { name: 'Welcome to FinatriX' });
+/** The intro is offered in the page first; accepting opens it. */
+const dialog = async () => {
+  const watch = screen.queryByRole('button', { name: 'Watch the intro' }) ?? (await screen.findByRole('button', { name: 'Watch the intro' }).catch(() => null));
+  if (watch) fireEvent.click(watch);
+  return screen.findByRole('dialog', { name: 'Welcome to FinatriX' });
+};
 const settle = () => act(() => new Promise((r) => setTimeout(r, 60)));
 
 describe('first-run walkthrough', () => {
@@ -38,7 +43,17 @@ describe('first-run walkthrough', () => {
   });
   afterEach(() => cleanup());
 
-  it('opens for a new user on the dashboard and is marked seen at once', async () => {
+  it('is offered in the page, never opened over it, and is marked seen at once', async () => {
+    renderShell('/tools/dashboard');
+    // First load: the dashboard is there and usable; the intro is an invitation.
+    const watch = await screen.findByRole('button', { name: 'Watch the intro' });
+    expect(screen.getByText('dashboard-content')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(watch.closest('section')).toHaveAccessibleName('New to FinatriX?');
+    await waitFor(() => expect(localStorage.getItem(WALKTHROUGH_SEEN_KEY)).toBe('1'));
+  });
+
+  it('opens when the invitation is accepted', async () => {
     renderShell('/tools/dashboard');
     const d = await dialog();
     expect(d).toHaveAttribute('aria-modal', 'true');

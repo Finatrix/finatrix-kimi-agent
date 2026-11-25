@@ -200,6 +200,21 @@ export function validateAiMatch(raw: Dict): AiMatchPart {
 
 // ─────────────────────────── tailoring ───────────────────────────
 
+/** The figures in a text, thousands separators removed ("1,200 users" → "1200"). */
+function figuresIn(text: string): Set<string> {
+  return new Set((text.match(/\d[\d,]*(?:\.\d+)?/g) ?? []).map((n) => n.replace(/,/g, '')));
+}
+
+/**
+ * True when a rewrite states a figure its original line never did. Tailoring may reword a
+ * result, never invent one, so such a suggestion is dropped rather than shown.
+ */
+function addsFigures(original: string, improved: string): boolean {
+  if (!original) return false;
+  const known = figuresIn(original);
+  return [...figuresIn(improved)].some((n) => !known.has(n));
+}
+
 export function validateTailoring(raw: Dict): TailoringReport {
   const sections = asArray(raw.sections).slice(0, 12).map((item) => {
     const d = asDict(item);
@@ -210,7 +225,7 @@ export function validateTailoring(raw: Dict): TailoringReport {
       addedKeywords: sanitizeStringArray(d.addedKeywords, 15, 60),
       reason: sanitizeProse(d.reason, 400),
     };
-  }).filter((sec) => sec.improved);
+  }).filter((sec) => sec.improved && !addsFigures(sec.original, sec.improved));
   if (!sections.length) {
     throw new CareersError('ai-response', 'The AI returned no tailoring suggestions. Please retry.');
   }

@@ -155,8 +155,8 @@ create table if not exists public.usage_counters (
 create table if not exists public.feature_flag_overrides (
   id         uuid primary key default gen_random_uuid(),
   flag       text not null,
-  scope      text not null,       -- user | org | plan
-  scope_id   text not null,       -- user_id / org_id / plan_id
+  scope      text not null,       -- user | org | plan | global (kill switches only)
+  scope_id   text not null,       -- user_id / org_id / plan_id, or '*' for global
   enabled    boolean not null default true,
   rollout_percent int not null default 100,
   is_beta    boolean not null default false,
@@ -331,16 +331,33 @@ $$;
 revoke execute on function public.validate_coupon(text) from public, anon;
 grant execute on function public.validate_coupon(text) to authenticated, service_role;
 
--- subscriptions: own row select/insert/update; admins see/manage all.
+-- subscriptions: owner reads. The one client write is the free row BillingPage
+-- creates; every other change is the Stripe webhook (service role) or an admin.
 drop policy if exists "subscriptions_select" on public.subscriptions;
 create policy "subscriptions_select" on public.subscriptions for select
   using (auth.uid() = user_id or public.is_platform_admin(auth.uid()));
 drop policy if exists "subscriptions_insert" on public.subscriptions;
 create policy "subscriptions_insert" on public.subscriptions for insert
-  with check (auth.uid() = user_id or public.is_platform_admin(auth.uid()));
+  with check (
+    public.is_platform_admin(auth.uid())
+    or (
+      auth.uid() = user_id
+      and plan_id = 'free'
+      and status = 'active'
+      and provider = 'manual'
+      and provider_customer_id = ''
+      and provider_subscription_id = ''
+      and org_id is null
+      and trial_ends_at is null
+      and current_period_end is null
+      and cancel_at_period_end = false
+      and coupon_code is null
+    )
+  );
 drop policy if exists "subscriptions_update" on public.subscriptions;
 create policy "subscriptions_update" on public.subscriptions for update
-  using (auth.uid() = user_id or public.is_platform_admin(auth.uid()));
+  using (public.is_platform_admin(auth.uid()))
+  with check (public.is_platform_admin(auth.uid()));
 
 -- billing_history: read-only for the owner; only admins (future: webhook via service role) insert.
 drop policy if exists "billing_history_select" on public.billing_history;
@@ -350,19 +367,23 @@ drop policy if exists "billing_history_admin_write" on public.billing_history;
 create policy "billing_history_admin_write" on public.billing_history for insert
   with check (public.is_platform_admin(auth.uid()));
 
--- usage_counters: own row select; the client increments its own counters transactionally.
+-- usage_counters: read-only for the owner, so nobody can reset their own quota.
 drop policy if exists "usage_counters_select" on public.usage_counters;
 create policy "usage_counters_select" on public.usage_counters for select
   using (auth.uid() = user_id or public.is_platform_admin(auth.uid()));
 drop policy if exists "usage_counters_upsert" on public.usage_counters;
-create policy "usage_counters_upsert" on public.usage_counters for insert with check (auth.uid() = user_id);
 drop policy if exists "usage_counters_update" on public.usage_counters;
-create policy "usage_counters_update" on public.usage_counters for update using (auth.uid() = user_id);
 
--- feature_flag_overrides: readable by everyone signed in (client resolves scope match itself);
--- writable only by admins.
+-- feature_flag_overrides: a signed-in user reads the rows that are not about one
+-- person (plan, org and global rows, which the client needs to resolve its own
+-- flags) and the rows about themselves. `using (true)` let any account list
+-- other people's ids and the flags they hold. Writable only by admins, whose
+-- FOR ALL policy also lets them read every row.
+-- Kept identical to migration 20261112000100_scope_feature_flag_override_reads.sql,
+-- which is what production runs: re-running this file must not reopen the table.
 drop policy if exists "feature_flag_overrides_select" on public.feature_flag_overrides;
-create policy "feature_flag_overrides_select" on public.feature_flag_overrides for select to authenticated using (true);
+create policy "feature_flag_overrides_select" on public.feature_flag_overrides for select to authenticated
+  using (scope <> 'user' or scope_id = (select auth.uid())::text);
 drop policy if exists "feature_flag_overrides_admin_write" on public.feature_flag_overrides;
 create policy "feature_flag_overrides_admin_write" on public.feature_flag_overrides for all
   using (public.is_platform_admin(auth.uid())) with check (public.is_platform_admin(auth.uid()));
@@ -374,9 +395,15 @@ create policy "ai_usage_log_select" on public.ai_usage_log for select
 drop policy if exists "ai_usage_log_insert" on public.ai_usage_log;
 create policy "ai_usage_log_insert" on public.ai_usage_log for insert with check (auth.uid() = user_id);
 
--- audit_log: any signed-in user can log their own action; only admins can read.
+-- audit_log: only admins write (their own actions) and read.
 drop policy if exists "audit_log_insert" on public.audit_log;
-create policy "audit_log_insert" on public.audit_log for insert with check (auth.uid() = actor_user_id);
+create policy "audit_log_insert" on public.audit_log for insert
+  with check (
+    auth.uid() = actor_user_id
+    and public.is_platform_admin(auth.uid())
+    and length(action) <= 100
+    and pg_column_size(meta) <= 8192
+  );
 drop policy if exists "audit_log_select" on public.audit_log;
 create policy "audit_log_select" on public.audit_log for select using (public.is_platform_admin(auth.uid()));
 

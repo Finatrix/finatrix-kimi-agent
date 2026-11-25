@@ -47,6 +47,7 @@ are few and each one is commented with the reason it exists.
 | Text size | No Dynamic Type; pinch-zoom instead | WKWebView has no equivalent of Android's WebView text zoom, and `-webkit-text-size-adjust` with a percentage is ignored by WebKit (measured, not assumed). `ios.zoomEnabled: true` is the app's WCAG 1.4.4 route. |
 | Keyboard appearance | Follows the in-app theme | The iOS keyboard follows the SYSTEM appearance unless told otherwise, so dark-mode-in-app on a light-mode phone would get a white keyboard. Android's keyboard is the user's own IME and is not the app's to restyle. |
 | Window backdrop | `FxSystemUiPlugin.swift` | Same JS contract as Android's `SystemUiPlugin.java`, so `bridge.ts` calls one API on both. |
+| App lock | `FxAppLockPlugin.swift` | Optional and off by default (Settings, App lock). Face ID or Touch ID with the device passcode as the fallback (`.deviceOwnerAuthentication`), and the launch screen over the app in the switcher. Same JS contract as Android's `AppLockPlugin.java`; when to lock and when to ask is shared code in `src/native/appLock/`. Needs `NSFaceIDUsageDescription`. A privacy gate, not encryption. |
 
 Everything else — BACK-closes-overlays policy, splash timing, haptics, external
 links, the purchase gate, the web-only chrome — is shared code and behaves
@@ -94,6 +95,15 @@ Supabase dashboard, and none of it can be done from the repository.
 1. **App ID** — identifier `co.finatrix.app`, with these capabilities enabled:
    - **Associated Domains** (Universal Links + Password AutoFill)
    - **Sign in with Apple**
+   - **App Groups**, with `group.co.finatrix.app` (Share to FinatriX, step 3.3)
+
+   A second App ID, `co.finatrix.app.ShareExtension`, is the Share Extension
+   (`ios/App/ShareExtension/`). It needs **App Groups** with the same
+   `group.co.finatrix.app`, and nothing else
+   (`ios/App/ShareExtension/ShareExtension.entitlements`). Register the group
+   once under Identifiers → App Groups, then tick it on both App IDs. Automatic
+   signing can do all three from Xcode when the team is selected on both
+   targets and the build runs with `-allowProvisioningUpdates`.
 
    They must match `ios/App/App/App.entitlements` exactly. A capability in the
    entitlements file but not on the App ID is a code-signing failure. Automatic
@@ -229,6 +239,12 @@ Xcode creates and manages the profiles.
 Confirm the two capabilities appear there (they are read from
 `App.entitlements`): **Associated Domains** listing all four entries, and, once
 §4.3 is done, **Sign in with Apple** if the native flow is ever adopted.
+
+Do the same for the **ShareExtension** target: choose the same team, and confirm
+**App Groups** shows `group.co.finatrix.app` ticked on both targets. The
+extension's version and build number must equal the app's
+(`MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` on both targets), or App Store
+Connect rejects the upload; bump all four together.
 
 ## 6. Sign in with Apple — why it is required
 
@@ -398,6 +414,8 @@ If `ios/` is ever regenerated with `npx cap add ios`, re-apply:
   `CODE_SIGN_ENTITLEMENTS` build setting that points at it
 - `App/App/ViewController.swift` — plugin registration + the edge-swipe gesture
 - `App/App/FxSystemUiPlugin.swift` — window colour behind the web view
+- `App/App/FxAppLockPlugin.swift` — the optional app lock: the Face ID or
+  passcode prompt, and the cover in the app switcher
 - `App/App/SceneDelegate.swift` — root view controller is `ViewController`
 - `App/App/PrivacyInfo.xcprivacy` — privacy manifest
 - `App/App/Base.lproj/LaunchScreen.storyboard` — brand background, not

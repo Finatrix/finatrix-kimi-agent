@@ -4,7 +4,7 @@ import {
   Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type RefObject,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { useLocation, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import Chart, { type Plugin } from 'chart.js/auto';
 import { useTheme } from '../../context/ThemeContext';
 import {
@@ -22,18 +22,21 @@ import {
   type ExpenseExport,
 } from '../lib/exporters';
 import { currentMonth, monthLabel, nextMonthUnclamped, prevMonth } from '../lib/month';
-import { getJSON, setJSON, onLocalWrite } from '../lib/storage';
+import { getJSON, setJSON, onLocalWrite, store } from '../lib/storage';
+import { amountsHidden } from '../lib/hideAmounts';
+import { reloadIfBuildIsStale } from '../../lib/chunkRecovery';
 import {
   loadExpenses, saveExpenses, etToday, etMonthsWithData, computeDashboard, genExpenseId,
-  isSpendingCategory, migrateCategory,
+  isSpendingCategory, migrateCategory, ET_CATS,
   type ExpenseItem, type DashResult, type DashCategory, type BudgetWarning,
   type SectionSplit,
 } from '../lib/expense';
 import {
   loadAuditLog, recordAudit, clearAuditLog, auditEvent, auditEdit, newBatchId, historyFor,
-  AUDIT_ACTION_LABEL, AUDIT_FIELD_LABEL,
+  AUDIT_ACTION_LABEL, AUDIT_FIELD_LABEL, AUDIT_KEY,
   type AuditEntry,
 } from '../lib/expenseAudit';
+import { clearDeletions, recordDeletions } from '../lib/expenseTombstones';
 import AuditTrail from '../ui/AuditTrail';
 import { QuickAddBar } from '../ui/QuickAddBar';
 import { learnCategoryWords, type QuickAddResult } from '../lib/quickAdd';
@@ -49,6 +52,7 @@ import { AskAiButton } from '../ui/AskAiButton';
 import { BudgetTimeline } from '../ui/BudgetTimeline';
 import TransactionModal from '../ui/TransactionModal';
 import { AddExpenseFab } from '../ui/AddExpenseFab';
+import { takeShared } from '../../lib/shareInbox';
 import TransactionList, { type ExportKind, type TransactionListHandle } from '../ui/TransactionList';
 import { Tabs, type TabItem } from '../ui/Tabs';
 import {
@@ -66,6 +70,14 @@ import { computeExecutionScore, type ScoreResult } from '../lib/score';
 import {
   loadPanelPrefs, savePanelPrefs, togglePanel, type PanelKey, type PanelPrefs,
 } from '../lib/panelPrefs';
+import {
+  TRIP_CARD_HIDDEN_KEY, addDays, fmtForeign, overlappingTrip, repriceTripExpenses, repriceableCount, spendMoney,
+  tripDefaults, tripLabel, tripOn, tripSpendInMonth, type Trip,
+} from '../lib/trips';
+import { TravelBar } from '../travel/TravelBar';
+import { TripSheet } from '../travel/TripSheet';
+import { TripSummarySheet } from '../travel/TripSummarySheet';
+import { useTrips } from '../travel/useTrips';
 
 /* ── Design tokens ── */
 
@@ -90,8 +102,15 @@ const UNDO_WINDOW_MS = 10_000;
  * are someone logging a coffee. Keeping it out of the Expense Tracker's chunk
  * means importing costs a moment when it is first used, and costs nothing at all
  * to everyone who never does.
+ *
+ * The loader is named so the Import button can call it too. A chunk fetch can
+ * fail — a deploy since this tab was opened, or no connection — and `lazy`
+ * turns that failure into a thrown render error, which took down the whole app
+ * (see lib/chunkRecovery.ts). So the button waits for the chunk itself, and
+ * only renders the sheet once it has arrived.
  */
-const StatementImport = lazy(() => import('../ui/StatementImport'));
+const loadStatementImport = () => import('../ui/StatementImport');
+const StatementImport = lazy(loadStatementImport);
 
 const TAB_ITEMS: ReadonlyArray<TabItem<Tab>> = [
   { key: 'overview', label: 'Overview', icon: 'expense' },
@@ -154,6 +173,10 @@ export default function ExpensePage() {
   // the most recent batch and re-inserts it, so a run of mistaken deletes
   // can be walked back one by one.
   const [importing, setImporting] = useState(false);
+  /** The importer's chunk is on its way: the button says so and ignores a second press. */
+  const [importLoading, setImportLoading] = useState(false);
+  /** A write that did not reach storage is announced once, not on every edit. */
+  const warnedUnsaved = useRef(false);
   const [undoStack, setUndoStack] = useState<{ victims: ExpenseItem[]; label: string }[]>([]);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Bumped on every delete/undo to restart the countdown bar. */
@@ -164,6 +187,19 @@ export default function ExpensePage() {
     flatCats.forEach((c) => m.set(c.k, c));
     return m;
   }, [flatCats]);
+
+  /* ── Travel mode (lib/trips.ts, ../travel) ── */
+  const { trips, saveTrip, deleteTrip } = useTrips();
+  /** The setup/edit sheet: a trip to edit, or null (with optional prefill) for a new one. */
+  const [tripSheet, setTripSheet] = useState<{ trip: Trip | null; prefill?: Partial<Trip> } | null>(null);
+  const [summaryId, setSummaryId] = useState<string | null>(null);
+  const summaryTrip = summaryId ? trips.find((t) => t.id === summaryId) ?? null : null;
+  /** The ended trip whose card was closed. Device-only. */
+  const [hiddenTripCard, setHiddenTripCard] = useState<string | null>(() => store.get(TRIP_CARD_HIDDEN_KEY, '') || null);
+  const labelOf = useCallback(
+    (k: string) => catMeta.get(k)?.l ?? ET_CATS[k]?.l ?? k,
+    [catMeta],
+  );
 
   // Most-used categories, for the one-tap "Recent" shortcut in the add forms.
   const recentCatKeys = useMemo(
@@ -196,7 +232,13 @@ export default function ExpensePage() {
   );
 
   useEffect(() => {
-    const off = onLocalWrite((key) => {
+    const off = onLocalWrite((key, origin) => {
+      // Sync merged in rows from another device. Without re-reading, this page
+      // would write its older list back on the next edit and drop them.
+      if (origin === 'remote') {
+        if (key === 'fx_expenses') setItems(loadExpenses());
+        if (key === AUDIT_KEY) setAudit(loadAuditLog());
+      }
       if (key === 'fx_bb_cats' || key === 'fx_bb_catprefs' || key === 'fx_bb_cats_by_month') {
         setCats(loadCatViewFor(selMonthRef.current).active);
       }
@@ -255,6 +297,9 @@ export default function ExpensePage() {
   }, [todayKey]);
 
   const r = computeDashboard(selMonth, items, cats, budget.vals, now, budget.income);
+  // Travel mode: how much of this month's spending came from a trip, so a
+  // budget that moved is never a mystery (part of `r.monthlySpent`, same filter).
+  const tripShare = tripSpendInMonth(items, trips, selMonth);
   /**
    * How well this month followed the plan.
    *
@@ -324,10 +369,39 @@ export default function ExpensePage() {
    * path is an audit trail nobody can trust. Pass `[]` deliberately for a change
    * that genuinely records nothing (an edit that changed no field).
    */
-  const commit = (next: ExpenseItem[], events: AuditEntry[]) => {
+  const commit = (
+    next: ExpenseItem[],
+    events: AuditEntry[],
+    { allOrNothing = false }: { allOrNothing?: boolean } = {},
+  ): boolean => {
+    // `false` only when storage exists and refused the write (it is full).
+    // With no storage at all nothing can persist, and the list already says so.
+    const saved = saveExpenses(next) || !store.persistent;
+
+    if (!saved && allOrNothing) {
+      // Nothing else has been touched yet, so the ledger can go back exactly as
+      // it was: on disk, in this session, and in what sync uploads next.
+      saveExpenses(items);
+      return false;
+    }
+
     setItems(next);
-    saveExpenses(next);
     if (events.length) setAudit(recordAudit(events));
+    // Sync merges the ledger, so a row missing here means nothing to another
+    // device unless the deletion is written down.
+    recordDeletions(events.filter((e) => e.action === 'delete').map((e) => e.txId));
+    clearDeletions(events.filter((e) => e.action === 'restore').map((e) => e.txId));
+
+    // The change is on screen but would not survive a reload. Saying nothing
+    // here is how someone loses a week of entries without ever being told.
+    if (!saved && !warnedUnsaved.current) {
+      warnedUnsaved.current = true;
+      notify(
+        'This device’s storage is full, so that change could not be saved here. Export a backup now so nothing is lost.',
+        'error',
+      );
+    }
+    return saved;
   };
 
   /**
@@ -346,9 +420,12 @@ export default function ExpensePage() {
       return false;
     }
     const nowIso = new Date().toISOString();
+    // On a trip, the typed amount is in the trip's currency unless the
+    // category stays home — the same rule, and the same pricing, as the form.
+    const travel = tripDefaults(tripOn(trips, parsed.date), category, false);
     const item: ExpenseItem = {
       id: genExpenseId(),
-      amount: parsed.amount,
+      ...spendMoney(parsed.amount, { ...travel, paymentMethod: parsed.paymentMethod }),
       category,
       date: parsed.date,
       ...(parsed.note ? { note: parsed.note } : {}),
@@ -376,6 +453,80 @@ export default function ExpensePage() {
     setEditing(null);
     const m = item.date.slice(0, 7);
     if (m !== selMonth) switchMonth(m);
+  };
+
+  /* ── Travel mode actions ── */
+
+  /**
+   * Save a trip from the sheet. A changed rate or fee re-prices the trip's
+   * foreign spends only when the user said yes, through `commit` like any
+   * other edit, so the history records every amount that moved.
+   */
+  const saveTripFromSheet = (trip: Trip, { reprice }: { reprice: boolean }) => {
+    if (reprice) {
+      const { next, changes } = repriceTripExpenses(items, trip, trip.rate, trip.feePct, new Date().toISOString());
+      if (changes.length) {
+        const batch = changes.length > 1 ? newBatchId() : undefined;
+        const events = changes
+          .map(({ before, after }) => auditEdit(before, after, { batch }))
+          .filter((e): e is AuditEntry => e !== null);
+        commit(next, events);
+      }
+    }
+    saveTrip(trip);
+    setTripSheet(null);
+    notify(trip.start > todayKey
+      ? `${tripLabel(trip)} trip saved. Travel mode turns on by itself on the first day.`
+      : `Travel mode is on for ${tripLabel(trip)}.`, 'ok');
+  };
+
+  /** Coming back early: the trip ends today, and its summary opens. */
+  const endTripNow = (trip: Trip) => {
+    saveTrip({ ...trip, end: todayKey, updatedAt: new Date().toISOString() });
+    setTripSheet(null);
+    setSummaryId(trip.id);
+  };
+
+  /** "Still travelling?": one more day, unless the next trip starts then. */
+  const extendTrip = (trip: Trip) => {
+    const next = { ...trip, end: addDays(trip.end, 1), updatedAt: new Date().toISOString() };
+    const clash = overlappingTrip(trips, next);
+    if (clash) {
+      notify(`Your ${tripLabel(clash)} trip starts the next day, so this one can't run longer.`, 'error');
+      return;
+    }
+    saveTrip(next);
+    notify(`${tripLabel(trip)} now ends a day later.`, 'ok');
+  };
+
+  /** "Next stop?": the next leg of a multi-country trip, starting the day after this one ends. */
+  const nextStop = (trip: Trip) => {
+    setSummaryId(null);
+    const start = addDays(trip.end, 1);
+    setTripSheet({
+      trip: null,
+      prefill: { start, end: addDays(start, 6), feePct: trip.feePct, homeCats: trip.homeCats },
+    });
+  };
+
+  const removeTrip = (trip: Trip) => {
+    deleteTrip(trip);
+    setTripSheet(null);
+    setSummaryId(null);
+    notify('Trip deleted. Its expenses stay in your tracker.', 'ok');
+  };
+
+  const hideTripCard = (trip: Trip) => {
+    store.set(TRIP_CARD_HIDDEN_KEY, trip.id);
+    setHiddenTripCard(trip.id);
+  };
+
+  /** The quick-add preview's amount: both currencies when the line is a trip spend. */
+  const quickAddAmountLabel = (parsed: QuickAddResult, category: string): string => {
+    const travel = tripDefaults(tripOn(trips, parsed.date), category, false);
+    if (!travel.ctx || !travel.paidInTrip) return cfmt(parsed.amount);
+    const home = spendMoney(parsed.amount, { ...travel, paymentMethod: parsed.paymentMethod }).amount;
+    return `${fmtForeign(parsed.amount, travel.ctx.currency)} = ${cfmt(home)}`;
   };
 
   const duplicateTransaction = (src: ExpenseItem) => {
@@ -463,6 +614,41 @@ export default function ExpensePage() {
     const q = params.toString();
     navigate({ pathname: location.pathname, search: q ? `?${q}` : '' }, { replace: true });
   }, [location.search, location.pathname, navigate]);
+
+  /**
+   * Images shared to FinatriX from another app (src/lib/shareInbox.ts) open the
+   * screenshot import with them already chosen. The review is the same one a
+   * chosen file gets, so nothing is saved until the user presses Import. The
+   * parameter is consumed at once; the ref stops one share from being opened
+   * twice when the effect runs again for the same navigation.
+   */
+  const [sharedFiles, setSharedFiles] = useState<File[] | null>(null);
+  const handledShare = useRef<string | null>(null);
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const share = params.get('share');
+    if (!share || handledShare.current === location.key) return;
+    handledShare.current = location.key;
+    params.delete('share');
+    const q = params.toString();
+    navigate({ pathname: location.pathname, search: q ? `?${q}` : '' }, { replace: true });
+    if (share === 'failed') {
+      notify('The shared image did not reach FinatriX. Open Import and choose it from your photos instead.', 'error');
+      return;
+    }
+    void takeShared().then(async (files) => {
+      if (!files.length) {
+        notify('Nothing is waiting to import. The shared images were already opened.', 'info');
+        return;
+      }
+      await loadStatementImport();
+      setTab('overview');
+      setSharedFiles(files);
+      setImporting(true);
+    }).catch(() => {
+      notify('Import could not be loaded. Check your connection and try again.', 'error');
+    });
+  }, [location.search, location.pathname, location.key, navigate, notify]);
 
   /**
    * Take the user from an empty Analytics tab to the thing that fills it.
@@ -556,13 +742,74 @@ export default function ExpensePage() {
    * transactions" as a single, expandable line rather than burying a week of
    * manual entries under one upload.
    */
-  const importTransactions = (imported: ExpenseItem[]) => {
-    if (!imported.length) return;
+  const importTransactions = (imported: ExpenseItem[]): boolean => {
+    if (!imported.length) return true;
     const batch = batchIdFor(imported.length);
-    commit([...imported, ...items], imported.map((it) => auditEvent('add', it, { batch })));
+
+    // All or nothing. An import is the one write large enough to meet a full
+    // disk, and "Imported 143 transactions" over a ledger that will be empty
+    // again after a reload is the worst thing this page could say. Returning
+    // false keeps the review sheet open with its work intact.
+    const saved = commit(
+      [...imported, ...items],
+      imported.map((it) => auditEvent('add', it, { batch })),
+      { allOrNothing: true },
+    );
+    if (!saved) return false;
+
     haptic('success');
-    notify(`Imported ${imported.length} transaction${imported.length > 1 ? 's' : ''}.`, 'ok');
     track('tool_completed', { tool: 'expenses' });
+
+    // A statement is nearly always for a month that has ended, and this page
+    // opens on the current one — so the rows used to land where nobody was
+    // looking, and the import looked as though it had done nothing. If none of
+    // them fall in the month on screen, go to the latest month that got some.
+    const count = `Imported ${imported.length} transaction${imported.length > 1 ? 's' : ''}.`;
+    const landed = [...new Set(imported.map((it) => (it.date || '').slice(0, 7)).filter(Boolean))].sort();
+    const latest = landed[landed.length - 1];
+    if (latest && !landed.includes(selMonthRef.current)) {
+      switchMonth(latest);
+      notify(
+        landed.length > 1
+          ? `${count} Showing ${monthLabel(latest)}, the latest of the ${landed.length} months they cover.`
+          : `${count} Showing ${monthLabel(latest)}, where they landed.`,
+        'ok',
+      );
+    } else {
+      notify(landed.length > 1 ? `${count} They cover ${landed.length} months.` : count, 'ok');
+    }
+    return true;
+  };
+
+  /**
+   * Open the statement importer.
+   *
+   * Waits for the importer's chunk before rendering anything, for two reasons.
+   * The button can then show that something is happening, where it used to sit
+   * unchanged until the sheet appeared. And a chunk that fails to arrive fails
+   * HERE, as a message beside a page that still works, instead of as a render
+   * error that replaces the app. A stale build is cured by a reload, which
+   * `reloadIfBuildIsStale` does once, after confirming there is a newer build;
+   * anything else is reported.
+   */
+  const openImport = async () => {
+    if (importLoading) return;
+    setImportLoading(true);
+    try {
+      await loadStatementImport();
+      setImporting(true);
+    } catch {
+      if (!(await reloadIfBuildIsStale())) {
+        notify(
+          typeof navigator !== 'undefined' && navigator.onLine === false
+            ? 'Import needs a connection the first time it opens. Reconnect and try again.'
+            : 'Import could not be loaded. Check your connection and try again.',
+          'error',
+        );
+      }
+    } finally {
+      setImportLoading(false);
+    }
   };
 
   /**
@@ -766,9 +1013,25 @@ export default function ExpensePage() {
     <div className="fx-page">
       <style>{TAB_STYLES}</style>
 
-      <PageHead chip="Expense Manager" chipColor="var(--orange)" chipBg="rgba(194,65,12,.09)" icon="expense" title="Your money, tracked and understood.">
+      <PageHead chip="Expense Manager" chipColor="var(--orange)" icon="expense" title="Your money, tracked and understood.">
         Categories and budgets flow from Budget Builder — log a spend and watch your Needs, Wants and Savings update live. Explore analytics to discover spending patterns.
       </PageHead>
+
+      {tab !== 'history' && (
+        <TravelBar
+          trips={trips}
+          items={items}
+          today={todayKey}
+          cfmt={cfmt}
+          dismissedEnded={hiddenTripCard}
+          onSetUp={() => setTripSheet({ trip: null })}
+          onOpenTrip={(t) => setTripSheet({ trip: t })}
+          onSummary={(t) => setSummaryId(t.id)}
+          onExtend={extendTrip}
+          onNextStop={nextStop}
+          onDismissEnded={hideTripCard}
+        />
+      )}
 
       {tab === 'overview' && <ExpenseRecordReview items={monthTx} validKeys={validKeys} onEdit={openEdit} cfmt={cfmt} />}
 
@@ -822,8 +1085,9 @@ export default function ExpensePage() {
             <button
               type="button"
               className="btn btn-ghost btn-sm"
-              style={{ gap: 6 }}
-              onClick={() => setImporting(true)}
+              style={{ gap: 6, ...(importLoading ? { opacity: 0.6, cursor: 'progress' } : null) }}
+              onClick={openImport}
+              aria-busy={importLoading || undefined}
             >
               <Icon name="layers" size={15} />
               Import
@@ -845,9 +1109,11 @@ export default function ExpensePage() {
             cats={flatCats}
             existing={items}
             cfmt={cfmt}
+            sym={sym}
             currencyCode={code}
             onImport={importTransactions}
-            onClose={() => setImporting(false)}
+            onClose={() => { setImporting(false); setSharedFiles(null); }}
+            initialFiles={sharedFiles ?? undefined}
           />
         </Suspense>
       )}
@@ -857,10 +1123,10 @@ export default function ExpensePage() {
       <div role="tabpanel" id={`fx-exp-panel-${tab}`} aria-labelledby={`fx-exp-tab-${tab}`}>
         {tab === 'overview' && (
           <OverviewTab
-            r={r} items={items} monthTx={monthTx} selMonth={selMonth} flatCats={flatCats}
+            r={r} items={items} monthTx={monthTx} selMonth={selMonth} flatCats={flatCats} tripShare={tripShare}
             defaultCatKey={defaultCatKey} learnedWords={learnedWords}
             cfmt={cfmt} sym={sym} now={now} catMeta={catMeta}
-            addFromQuickAdd={addFromQuickAdd} quickSeed={quickSeed}
+            addFromQuickAdd={addFromQuickAdd} quickAddAmountLabel={quickAddAmountLabel} quickSeed={quickSeed}
             openAdd={openAdd} openEdit={openEdit}
             duplicateTransaction={duplicateTransaction} deleteTransaction={deleteTransaction}
             bulkDelete={bulkDelete} bulkDuplicate={bulkDuplicate} bulkCategory={bulkCategory}
@@ -924,6 +1190,45 @@ export default function ExpensePage() {
           onClose={() => { setModalOpen(false); setEditing(null); }}
           onDelete={deleteTransaction}
           onDuplicate={duplicateTransaction}
+          trips={trips}
+          homeCode={code}
+        />
+      )}
+
+      {tripSheet && (
+        <TripSheet
+          key={tripSheet.trip?.id ?? `new-${tripSheet.prefill?.start ?? ''}`}
+          trip={tripSheet.trip}
+          prefill={tripSheet.prefill}
+          trips={trips}
+          homeCode={code}
+          homeSym={sym}
+          cats={flatCats}
+          today={todayKey}
+          repriceCount={(id) => {
+            const t = trips.find((x) => x.id === id);
+            return t ? repriceableCount(items, t) : 0;
+          }}
+          onSave={saveTripFromSheet}
+          onEndNow={endTripNow}
+          onDelete={removeTrip}
+          onClose={() => setTripSheet(null)}
+        />
+      )}
+
+      {summaryTrip && (
+        <TripSummarySheet
+          trip={summaryTrip}
+          items={items}
+          today={todayKey}
+          homeSym={sym}
+          cfmt={cfmt}
+          labelOf={labelOf}
+          onEdit={(t) => { setSummaryId(null); setTripSheet({ trip: t }); }}
+          onEndNow={endTripNow}
+          onExtend={extendTrip}
+          onNextStop={nextStop}
+          onClose={() => setSummaryId(null)}
         />
       )}
 
@@ -990,9 +1295,10 @@ export default function ExpensePage() {
         />
       )}
 
-      {/* The year's carry-over across every category, one tap from anywhere on
-          the page. Same store, same categories, so it can never disagree with
-          the month on screen. */}
+      {/* The year's carry-over across every category. Same store, same
+          categories, so it can never disagree with the month on screen. Wider
+          screens dock it beside the +; on a phone it is a button here, at the
+          end of the page, so the + is the only control floating over the list. */}
       <WalletDock items={items} cats={cats} budgetStore={budgetStore} month={selMonth} />
 
       {/* Add a spend from anywhere on the page, on any tab — the same sheet as
@@ -1015,6 +1321,8 @@ export default function ExpensePage() {
 
 interface OverviewProps {
   r: DashResult; items: ExpenseItem[]; monthTx: ExpenseItem[]; selMonth: string;
+  /** This month's spending per trip (lib/trips.ts `tripSpendInMonth`), for the "Includes" line. */
+  tripShare: ReadonlyArray<{ trip: Trip; home: number }>;
   flatCats: Array<{ k: string; l: string; ic: IconName; section: CatKey }>;
   /** The category a fresh entry starts on — the one this user logs most. */
   defaultCatKey: string;
@@ -1024,6 +1332,8 @@ interface OverviewProps {
   catMeta: Map<string, CatMeta>;
   /** Commit a parsed one-line entry. False when it could not be logged. */
   addFromQuickAdd: (parsed: QuickAddResult) => boolean;
+  /** The quick-add preview's amount: both currencies for a trip spend. */
+  quickAddAmountLabel: (parsed: QuickAddResult, category: string) => string;
   /** A line handed over by the ⌘K palette, to be typed into the quick-add field. */
   quickSeed: { text: string; nonce: number } | null;
   openAdd: () => void; openEdit: (item: ExpenseItem) => void;
@@ -1050,9 +1360,9 @@ interface OverviewProps {
 }
 
 function OverviewTab({
-  r, items, monthTx, selMonth, flatCats, defaultCatKey, learnedWords,
+  r, items, monthTx, selMonth, flatCats, tripShare, defaultCatKey, learnedWords,
   cfmt, sym, now, catMeta,
-  addFromQuickAdd, quickSeed, openAdd, openEdit, duplicateTransaction, deleteTransaction,
+  addFromQuickAdd, quickAddAmountLabel, quickSeed, openAdd, openEdit, duplicateTransaction, deleteTransaction,
   bulkDelete, bulkDuplicate, bulkCategory, bulkAddTags, exportTransactions,
   code, listApi, panels, onFlipPanel, score, validKeys, todayKey, onGoToMonth,
 }: OverviewProps) {
@@ -1097,6 +1407,7 @@ function OverviewTab({
               cfmt={cfmt}
               now={now}
               onAdd={addFromQuickAdd}
+              amountLabel={quickAddAmountLabel}
               fallbackCategory={defaultCatKey}
               seed={quickSeed ?? undefined}
             />
@@ -1120,24 +1431,47 @@ function OverviewTab({
           change, because the words are what make them true. */}
       <div className="dash-grid" style={{ marginBottom: 12 }} data-tour="expenses-kpis">
         <Kpi v={cfmt(r.monthlyBudget)} l="Monthly budget" />
+        {/* Spending is a figure, not a warning: it stays in the ink colour
+            (an orange "₹0 spent" read as a problem before anything was
+            logged). Over budget is the red case, on the card beside it. */}
         <Kpi
           v={cfmt(r.monthlySpent)}
           l={isFutureMonth ? 'Scheduled' : 'Monthly spent'}
-          color="var(--orange)"
         />
-        <Kpi
-          v={r.monthlyBudget > 0 ? cfmt(Math.abs(r.remaining)) : '—'}
-          l={r.monthlyBudget > 0
-            ? r.remaining >= 0 ? (isFutureMonth ? 'Unscheduled budget' : 'Remaining budget') : 'Over budget by'
-            : 'No budget set'}
-          color={r.monthlyBudget > 0 ? r.remaining >= 0 ? 'var(--green)' : 'var(--red)' : 'var(--ink3)'}
-        />
+        {r.monthlyBudget > 0 ? (
+          <Kpi
+            v={cfmt(Math.abs(r.remaining))}
+            l={r.remaining >= 0 ? (isFutureMonth ? 'Unscheduled budget' : 'Remaining budget') : 'Over budget by'}
+            color={r.remaining >= 0 ? 'var(--green)' : 'var(--red)'}
+          />
+        ) : (
+          // An empty state that says what to do, rather than "— No budget set".
+          <Link to="/tools/budget" className="stat-cell fx-kpi-action">
+            <span className="v">Set a budget</span>
+            <span className="l">Then see what is left</span>
+          </Link>
+        )}
         <Kpi
           v={r.monthlyBudget > 0 ? `${Math.round(r.budgetUsedPct)}%` : '—'}
           l={isFutureMonth ? 'Budget committed' : 'Budget used'}
           color={TONE_COLOR[r.tone]}
         />
       </div>
+      {tripShare.length > 0 && (
+        <p className="note fx-trip-share" style={{ display: 'flex', alignItems: 'baseline', gap: 6, margin: '-2px 0 12px' }}>
+          <Icon name="travel" size={14} aria-hidden="true" />
+          <span>
+            Includes{' '}
+            {tripShare.map(({ trip, home }, i) => (
+              <span key={trip.id}>
+                {i > 0 && (i === tripShare.length - 1 ? ' and ' : ', ')}
+                {cfmt(home)} from the {tripLabel(trip)} trip
+              </span>
+            ))}
+            .
+          </span>
+        </p>
+      )}
 
       {/* Month pacing & cash flow */}
       <div className="card" data-tour="expenses-pacing">
@@ -1756,7 +2090,7 @@ const ANALYTICS_PREVIEW_STYLES = `
 .fx-tools .fx-apv-bar{flex:1;border-radius:5px 5px 0 0;
   background:linear-gradient(180deg,color-mix(in srgb,var(--gold) 42%,transparent),color-mix(in srgb,var(--gold) 12%,transparent));
   border:1px solid color-mix(in srgb,var(--gold) 30%,transparent);border-bottom:none;
-  transform-origin:bottom;animation:fxApvGrow .5s cubic-bezier(.2,.9,.3,1) both;}
+  transform-origin:bottom;animation:fxApvGrow 300ms cubic-bezier(.2,.9,.3,1) both;}
 @keyframes fxApvGrow{from{transform:scaleY(.05);opacity:0}to{transform:scaleY(1);opacity:1}}
 .fx-tools .fx-apv-caption{margin:8px 0 16px;font-size:11px;}
 .fx-tools .fx-apv-list{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:2px;}
@@ -1830,7 +2164,7 @@ function RecurringTab({
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 700 }}>{cfmt(p.estimatedMonthly)}</div>
-                <div className="note" style={{ fontSize: 10 }}>/ month</div>
+                <div className="note" style={{ fontSize: 11 }}>/ month</div>
               </div>
             </div>
           ))}
@@ -2297,7 +2631,7 @@ function CategoryBudgetsCard({
                   style={{
                     fontWeight: 700, marginTop: 10, marginBottom: 2,
                     color: c.section ? SECTION_COLOR[c.section] : 'var(--ink3)',
-                    textTransform: 'uppercase', letterSpacing: '.04em', fontSize: 10.5,
+                    textTransform: 'uppercase', letterSpacing: '.04em', fontSize: 11,
                   }}
                 >
                   {c.section ? SECTION_LABEL[c.section] : 'Uncategorised'}
@@ -2324,7 +2658,7 @@ function CategoryRow({ c, cfmt }: { c: DashCategory; cfmt: (n: number) => string
         {/* Icon-only: a labelled pill on every category row would shout over
             the figures it sits beside. The accessible name still names it. */}
         <AskAiButton focus={{ kind: 'category', key: c.k, label: c.l }} iconOnly />
-        <span className="pill" style={{ background: `color-mix(in srgb, ${color} 14%, transparent)`, color, fontSize: 10 }}>
+        <span className="pill" style={{ background: `color-mix(in srgb, ${color} 14%, transparent)`, color, fontSize: 11 }}>
           {TONE_LABEL[c.tone]}
         </span>
       </div>
@@ -2489,6 +2823,8 @@ function segmentLabels(fmt: (n: number) => string, ink: string): Plugin<'bar'> {
   return {
     id: 'fxSegmentLabels',
     afterDatasetsDraw(chart) {
+      // Hide amounts: the bars keep their shape, the figures go.
+      if (amountsHidden()) return;
       const { ctx } = chart;
       ctx.save();
       ctx.font = '600 10px ui-sans-serif, system-ui, sans-serif';
@@ -2550,7 +2886,8 @@ function TrendChart({ trend, cfmt, code }: { trend: DashResult['trend']; cfmt: (
   const ref = useRef<HTMLCanvasElement>(null);
   const chartRef = useRef<Chart | null>(null);
   const { theme } = useTheme();
-  const { cfmtSh } = useCurrency();
+  // `hidden` (Hide amounts) rebuilds the chart without value labels.
+  const { cfmtSh, hidden } = useCurrency();
   const labels = useMemo(() => trend.map((t) => t.label), [trend]);
 
   useEffect(() => {
@@ -2565,20 +2902,20 @@ function TrendChart({ trend, cfmt, code }: { trend: DashResult['trend']; cfmt: (
       data: { labels, datasets: buildSectionDatasets(trend, 6, el) },
       plugins: [segmentLabels(cfmtSh, ct.onSection)],
       options: {
-        responsive: true, maintainAspectRatio: false, animation: { duration: 450 },
+        responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
         plugins: {
           legend: { display: true, position: 'top', align: 'end', labels: { usePointStyle: true, pointStyle: 'rect', padding: 12, boxWidth: 8, boxHeight: 8, font: { size: 11 }, color: ct.tick } },
           tooltip: { backgroundColor: ct.tooltipBg, borderColor: ct.tooltipBorder, borderWidth: 1, titleColor: ct.tooltipTitle, bodyColor: ct.tooltipBody, footerColor: ct.tooltipTitle, callbacks: stackedTooltipCallbacks(trend, cfmt) },
         },
         scales: {
           x: { stacked: true, ticks: { color: ct.tick, font: { size: 10 } }, grid: { display: false } },
-          y: { stacked: true, ticks: { color: ct.tick, font: { size: 10 }, maxTicksLimit: 6, callback: (v) => cfmtSh(v as number) }, grid: { color: ct.grid } },
+          y: { stacked: true, ticks: { display: !hidden, color: ct.tick, font: { size: 10 }, maxTicksLimit: 6, callback: (v) => cfmtSh(v as number) }, grid: { color: ct.grid } },
         },
       },
     });
     return () => { chartRef.current?.destroy(); chartRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code, theme]);
+  }, [code, theme, hidden]);
 
   useEffect(() => {
     const ch = chartRef.current;
@@ -2603,7 +2940,8 @@ function TrendChart({ trend, cfmt, code }: { trend: DashResult['trend']; cfmt: (
 function Trend12Chart({ trend, cfmt, code, theme }: { trend: MonthlyTrend[]; cfmt: (n: number) => string; code: string; theme: string | undefined }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const chartRef = useRef<Chart | null>(null);
-  const { cfmtSh } = useCurrency();
+  // `hidden` (Hide amounts) rebuilds the chart without value labels.
+  const { cfmtSh, hidden } = useCurrency();
   const labels = useMemo(() => trend.map((t) => t.label), [trend]);
   const avgData = useMemo(() => {
     const avg = trend.length > 0 ? trend.reduce((s, t) => s + t.spent, 0) / trend.length : 0;
@@ -2642,20 +2980,20 @@ function Trend12Chart({ trend, cfmt, code, theme }: { trend: MonthlyTrend[]; cfm
       data: { labels, datasets: buildDatasets(el) },
       plugins: [segmentLabels(cfmtSh, ct.onSection)],
       options: {
-        responsive: true, maintainAspectRatio: false, animation: { duration: 500 },
+        responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
         plugins: {
           legend: { display: true, position: 'top', align: 'end', labels: { usePointStyle: true, pointStyle: 'rect', padding: 12, boxWidth: 8, boxHeight: 8, font: { size: 11 }, color: ct.tick } },
           tooltip: { backgroundColor: ct.tooltipBg, borderColor: ct.tooltipBorder, borderWidth: 1, titleColor: ct.tooltipTitle, bodyColor: ct.tooltipBody, footerColor: ct.tooltipTitle, callbacks: stackedTooltipCallbacks(trend, cfmt) },
         },
         scales: {
           x: { stacked: true, ticks: { color: ct.tick, font: { size: 10 } }, grid: { display: false } },
-          y: { stacked: true, ticks: { color: ct.tick, font: { size: 10 }, maxTicksLimit: 6, callback: (v) => cfmtSh(v as number) }, grid: { color: ct.grid } },
+          y: { stacked: true, ticks: { display: !hidden, color: ct.tick, font: { size: 10 }, maxTicksLimit: 6, callback: (v) => cfmtSh(v as number) }, grid: { color: ct.grid } },
         },
       },
     });
     return () => { chartRef.current?.destroy(); chartRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code, theme]);
+  }, [code, theme, hidden]);
 
   useEffect(() => {
     const ch = chartRef.current;
@@ -2804,15 +3142,16 @@ function Heatmap({ days, cfmt, monthText }: {
 const HEATMAP_STYLES = `
 .fx-tools .fx-hm-scroll{overflow-x:auto;}
 .fx-tools .fx-hm-grid{display:grid;gap:3px;min-width:280px;}
-.fx-tools .fx-hm-dow{font-size:10px;color:var(--ink3);display:flex;align-items:center;font-weight:600;}
+.fx-tools .fx-hm-dow{font-size:11px;color:var(--ink3);display:flex;align-items:center;font-weight:600;}
 .fx-tools .fx-hm-cell{aspect-ratio:1;min-height:28px;border-radius:5px;border:1px solid transparent;padding:0;
-  display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;font-family:inherit;
+  display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;font-family:inherit;
   color:var(--ink);cursor:pointer;transition:border-color .12s,transform .12s;}
-.fx-tools .fx-hm-cell:hover{border-color:var(--hair);}
+@media (hover: hover) and (pointer: fine){
+.fx-tools .fx-hm-cell:hover{border-color:var(--hair);}}
 .fx-tools .fx-hm-cell.is-active{border-color:var(--gold);}
 .fx-tools .fx-hm-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px;flex-wrap:wrap;}
 .fx-tools .fx-hm-read{font-size:12px;color:var(--ink2);margin:0;min-height:18px;}
-.fx-tools .fx-hm-legend{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--ink3);margin-left:auto;}
+.fx-tools .fx-hm-legend{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ink3);margin-left:auto;}
 .fx-tools .fx-hm-swatch{width:12px;height:12px;border-radius:3px;display:inline-block;}
 @media (prefers-reduced-motion:reduce){.fx-tools .fx-hm-cell{transition:none;}}
 `;
@@ -2832,10 +3171,10 @@ const UNDO_STYLES = `
   z-index:var(--z-undo);border-radius:14px;overflow:hidden;
   background:var(--card-solid,#1c1c1f);border:1px solid var(--hair2);color:var(--ink);
   box-shadow:0 20px 50px -18px rgba(0,0,0,.7);font-size:13px;max-width:calc(100vw - 32px);
-  animation:fxUndoIn .28s cubic-bezier(.34,1.3,.5,1) both;}
+  animation:fxUndoIn .28s cubic-bezier(0.23, 1, 0.32, 1) both;}
 .fx-undo-body{display:flex;align-items:center;gap:14px;padding:12px 14px 12px 18px;}
 @keyframes fxUndoIn{from{opacity:0;transform:translate(-50%,14px)}to{opacity:1;transform:translate(-50%,0)}}
-.fx-undo kbd{font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:var(--ink3);
+.fx-undo kbd{font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--ink3);
   border:1px solid var(--hair2);border-radius:5px;padding:1px 5px;}
 .fx-undo-tick{display:block;height:3px;background:var(--gold);transform-origin:left center;
   animation-name:fxUndoTick;animation-timing-function:linear;animation-fill-mode:forwards;}
@@ -2858,12 +3197,14 @@ const TAB_STYLES = `
   padding:6px 0;border-bottom:1px solid var(--hair2);}
 .fx-sched-mb{background:none;border:none;padding:4px 0;margin:-4px 0;font-family:inherit;font-size:11px;font-weight:700;
   letter-spacing:.05em;text-transform:uppercase;color:var(--ink2);cursor:pointer;}
-.fx-sched-mb:hover{color:var(--gold);text-decoration:underline;}
+@media (hover: hover) and (pointer: fine){
+.fx-sched-mb:hover{color:var(--gold);text-decoration:underline;}}
 .fx-sched-row{display:flex;align-items:center;gap:10px;width:100%;padding:9px 6px;background:none;
   border:none;border-bottom:1px solid var(--hair2);font-family:inherit;text-align:left;cursor:pointer;
   color:var(--ink);border-radius:8px;}
 .fx-sched-row:last-child{border-bottom:none;}
-.fx-sched-row:hover{background:var(--fill-04);}
+@media (hover: hover) and (pointer: fine){
+.fx-sched-row:hover{background:var(--fill-04);}}
 .fx-sched-l{flex:1;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .fx-sched-d{font-size:11px;color:var(--ink3);font-weight:600;flex-shrink:0;font-variant-numeric:tabular-nums;}
 .fx-sched-a{font-size:13px;font-weight:700;flex-shrink:0;font-variant-numeric:tabular-nums;}
@@ -2873,7 +3214,8 @@ const TAB_STYLES = `
 .fx-tab{display:inline-flex;align-items:center;gap:7px;padding:10px 16px;border-radius:11px;border:none;background:transparent;
   color:var(--ink2);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;flex:1;justify-content:center;
   transition:background-color var(--ctl-trans),color var(--ctl-trans),box-shadow var(--ctl-trans);}
-.fx-tab:hover{color:var(--ink);background:var(--fill-04);}
+@media (hover: hover) and (pointer: fine){
+.fx-tab:hover{color:var(--ink);background:var(--fill-04);}}
 .fx-tab.active{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08);}
 /* Four tabs have to share a phone's width. Each gives up padding, then its
    icon, before the bar is allowed to grow — and the bar scrolls rather than
@@ -2882,8 +3224,9 @@ const TAB_STYLES = `
 @media (max-width:480px){
   .fx-tabs{overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;}
   .fx-tabs::-webkit-scrollbar{display:none;}
-  .fx-tab{padding:9px 6px;font-size:11.5px;gap:4px;min-width:0;white-space:nowrap;}
+  .fx-tab{padding:9px 6px;font-size:13px;gap:4px;min-width:0;white-space:nowrap;}
 }
+@media (pointer:coarse){.fx-tab{min-height:44px;}}
 @media (max-width:400px){.fx-tab svg{display:none;}}
 .fx-streak{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:10px;
   background:var(--well);border:1px solid var(--well-border);font-size:12px;font-weight:600;color:var(--ink2);}
@@ -2903,12 +3246,13 @@ const TAB_STYLES = `
 .fx-warn-list{list-style:none;margin:0;padding:0;display:grid;gap:4px;}
 .fx-warn-row{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border-radius:11px;border:1px solid transparent;
   background:transparent;color:inherit;font-family:inherit;cursor:pointer;text-align:left;transition:background .15s,border-color .15s;}
-.fx-warn-row:hover{background:var(--fill-04);border-color:var(--hair2);}
+@media (hover: hover) and (pointer: fine){
+.fx-warn-row:hover{background:var(--fill-04);border-color:var(--hair2);}}
 .fx-warn-name{flex:1;min-width:0;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .fx-warn-bar{flex:0 0 82px;height:6px;border-radius:6px;background:var(--well);overflow:hidden;display:block;}
 .fx-warn-bar > span{display:block;height:100%;border-radius:6px;}
 .fx-warn-pct{font-size:12.5px;font-weight:700;flex-shrink:0;width:38px;text-align:right;}
-.fx-warn-tag{font-size:10.5px;font-weight:700;flex-shrink:0;width:74px;text-align:right;}
+.fx-warn-tag{font-size:11px;font-weight:700;flex-shrink:0;width:74px;text-align:right;}
 @media(max-width:480px){
   .fx-warn-bar{display:none;}
   .fx-warn-tag{display:none;}

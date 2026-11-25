@@ -161,7 +161,7 @@ const toolkit: TourChapter = {
   },
   steps: [
     // First: the planning probe is the first plain target, and it must be on
-    // screen at every width (search hides below 360px; waiting for it stalls).
+    // screen at every width.
     {
       id: 'notifications',
       target: '[data-tour="shell-notifications"]',
@@ -183,10 +183,10 @@ const toolkit: TourChapter = {
       output: PalettePicture,
     },
     {
-      id: 'menu',
-      target: '[data-tour="shell-menu"]',
-      title: 'The menu',
-      body: 'On a phone the menu holds search, every tool, your currency and market rules, Profile and Settings.',
+      id: 'all-tools',
+      target: '[data-tour="shell-all"]',
+      title: 'Everything else',
+      body: 'The Tools tab lists every tool, Reports and Calendar, with your currency, market rules and appearance.',
       needs: ['narrow'],
     },
     {
@@ -206,8 +206,9 @@ const toolkit: TourChapter = {
     {
       id: 'theme',
       target: '[data-tour="shell-theme"]',
-      title: 'Light or dark',
-      body: 'One press switches the look. Settings also offers System, to follow your device.',
+      title: 'Appearance',
+      body: 'Choose Light, Dark or System. System follows your device, and is where FinatriX starts.',
+      needs: ['wide'],
     },
     {
       id: 'sync',
@@ -220,8 +221,8 @@ const toolkit: TourChapter = {
       id: 'account',
       target: '[data-tour="shell-account"]',
       title: 'Your account',
-      body: 'Profile, Settings and signing out live under your name.',
-      needs: ['signedIn', 'wide'],
+      body: 'Profile, Settings and signing out live under your initial.',
+      needs: ['signedIn'],
     },
     {
       id: 'sign-in',

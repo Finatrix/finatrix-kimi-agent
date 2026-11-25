@@ -247,7 +247,7 @@ const AUTO_STYLES = `
 .fx-tools .fx-auto-verdict{font-size:12px;color:var(--ink2);line-height:1.55;margin:5px 0 8px;}
 .fx-tools .fx-auto-tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
 .fx-tools .fx-auto-table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:520px;}
-.fx-tools .fx-auto-table thead th{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+.fx-tools .fx-auto-table thead th{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
   color:var(--ink3);text-align:right;padding:0 8px 6px;}
 .fx-tools .fx-auto-table thead th:first-child{text-align:left;}
 .fx-tools .fx-auto-table tbody th{text-align:left;font-weight:500;padding:9px 8px;vertical-align:top;
@@ -256,7 +256,7 @@ const AUTO_STYLES = `
   font-variant-numeric:tabular-nums;white-space:nowrap;}
 .fx-tools .fx-auto-cat{display:flex;align-items:center;gap:8px;min-width:0;}
 .fx-tools .fx-auto-catl{font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.fx-tools .fx-auto-tag{font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+.fx-tools .fx-auto-tag{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
   color:var(--ink3);background:var(--well);border-radius:var(--ctl-pill);padding:2px 7px;flex-shrink:0;}
 .fx-tools .fx-auto-reason{display:block;font-size:11px;color:var(--ink3);line-height:1.5;margin-top:3px;max-width:40ch;}
 .fx-tools .fx-auto-reason i{font-style:normal;color:var(--ink2);}
@@ -266,7 +266,8 @@ const AUTO_STYLES = `
   border:var(--ctl-bw) solid var(--hair2);background:var(--card);color:var(--ink2);font-family:inherit;
   font-size:11.5px;font-weight:600;cursor:pointer;
   transition:background-color var(--ctl-trans),color var(--ctl-trans),border-color var(--ctl-trans);}
-.fx-tools .fx-auto-apply:hover:not(:disabled){border-color:var(--gold);color:var(--ink);background:var(--gold-bg);}
+@media (hover: hover) and (pointer: fine){
+.fx-tools .fx-auto-apply:hover:not(:disabled){border-color:var(--gold);color:var(--ink);background:var(--gold-bg);}}
 .fx-tools .fx-auto-apply:disabled{opacity:.5;cursor:default;color:var(--green);}
 .fx-tools .fx-auto-foot{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:18px;
   padding-top:14px;border-top:1px solid var(--hair2);}

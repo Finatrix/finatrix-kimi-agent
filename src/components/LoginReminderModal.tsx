@@ -120,7 +120,7 @@ export default function LoginReminderModal() {
       >
         <style>{`
           @keyframes fxModalIn{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
-          .fx-login-card{animation:fxModalIn 320ms cubic-bezier(.34,1.56,.64,1) both;}
+          .fx-login-card{animation:fxModalIn 300ms cubic-bezier(0.23, 1, 0.32, 1) both;}
           @media (prefers-reduced-motion: reduce){.fx-login-card{animation:none;}}
         `}</style>
 

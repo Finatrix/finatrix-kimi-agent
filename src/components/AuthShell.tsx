@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Breadcrumb } from './Breadcrumb';
-import ThemeToggle from './ThemeToggle';
+import AppearanceMenu from './AppearanceMenu';
+import { Wordmark } from './Wordmark';
 import type { OAuthProvider } from '../lib/authProviders';
 
 export default function AuthShell({
@@ -26,21 +27,14 @@ export default function AuthShell({
       {/* Persistent unified nav. In the apps `/` IS the tools dashboard, so
           "Home" would be a second "Tools"; "Tools" stays as the way out of a
           sign-in screen reached by a deep link with no history behind it. */}
-      <nav className="absolute top-4 right-4 z-20 flex items-center gap-4" aria-label="Primary">
-        <Link to="/" data-web-only className="font-mono text-[11px] uppercase tracking-[0.08em] text-ink-3 hover:text-ink transition-colors">Home</Link>
-        <Link to="/tools" className="font-mono text-[11px] uppercase tracking-[0.08em] text-ink-3 hover:text-ink transition-colors">Tools</Link>
-        <ThemeToggle />
+      <nav className="absolute top-3 right-3 z-20 flex items-center gap-1" aria-label="Primary">
+        <Link to="/" data-web-only className="fx-nav-text-link inline-flex">Home</Link>
+        <Link to="/tools" className="fx-nav-text-link inline-flex">Tools</Link>
+        <AppearanceMenu />
       </nav>
 
-      <Link to="/" className="relative z-10 flex items-center gap-2.5 mb-9 group" aria-label="FinatriX home">
-        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-          <rect x="7" y="7" width="10" height="10" rx="2.5" fill="#D4AF37" />
-          <circle cx="12" cy="12" r="2.1" fill="var(--surface-base)" />
-          <path d="M12 7V2M12 22v-5M7 12H2M22 12h-5" stroke="#D4AF37" strokeWidth="1.6" strokeLinecap="round" />
-        </svg>
-        <span className="font-semibold text-[15px] tracking-[-0.01em] text-ink">
-          Finatri<span className="fx-gold-text">X</span>
-        </span>
+      <Link to="/" className="fx-nav-brand relative z-10 mb-7" aria-label="FinatriX home">
+        <Wordmark logo={24} />
       </Link>
 
       <Breadcrumb current={title} className="relative z-10 mb-5 justify-center" />
@@ -67,15 +61,15 @@ export function Field({
   const [show, setShow] = useState(false);
   return (
     <label className="block mb-5">
-      <span className="block font-mono text-[10px] uppercase tracking-[0.08em] text-ink-3 mb-2">
+      <span className="block font-mono text-[11px] uppercase tracking-[0.08em] text-ink-3 mb-2">
         {label}
       </span>
       <div className="relative">
         <input
           {...props}
           type={isPassword ? (show ? 'text' : 'password') : type}
-          className={`w-full bg-[var(--tile-bg)] border border-hairline focus:border-[#D4AF37] focus:bg-hairline-2 focus:ring-2 focus:ring-[#D4AF37]/20 rounded-xl outline-none text-[15px] text-ink px-4 py-3 transition-all placeholder:text-ink-3 ${
-            isPassword ? 'pr-11' : ''
+          className={`w-full bg-[var(--tile-bg)] border border-hairline focus:border-[#D4AF37] focus:bg-hairline-2 focus:ring-2 focus:ring-[#D4AF37]/20 rounded-xl outline-none text-[16px] text-ink px-4 py-3 transition-[border-color,background-color,box-shadow] duration-200 placeholder:text-ink-3 ${
+            isPassword ? 'pr-12' : ''
           }`}
         />
         {isPassword && (
@@ -84,7 +78,7 @@ export function Field({
             tabIndex={-1}
             onClick={() => setShow((s) => !s)}
             aria-label={show ? 'Hide password' : 'Show password'}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-3 hover:text-accent-text transition-colors"
+            className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex h-11 w-11 items-center justify-center rounded-full text-ink-3 hover:text-ink transition-colors"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z" />
@@ -105,7 +99,7 @@ export function PrimaryButton({
   return (
     <button
       {...props}
-      className="fx-btn-gold w-full font-mono text-[12px] uppercase tracking-[0.1em] py-3.5 rounded-full active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+      className="fx-btn-gold w-full text-[15px] min-h-[48px] rounded-full disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 font-semibold"
     >
       {children}
     </button>
@@ -116,7 +110,7 @@ export function OrDivider({ label = 'or' }: { label?: string }) {
   return (
     <div className="my-6 flex items-center gap-4">
       <span className="h-px flex-1 bg-hairline" />
-      <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-3">
+      <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-ink-3">
         {label}
       </span>
       <span className="h-px flex-1 bg-hairline" />
@@ -133,7 +127,7 @@ export function SocialButton({
     <button
       type="button"
       {...props}
-      className="w-full flex items-center justify-center gap-3 bg-[var(--tile-bg)] border border-hairline hover:border-[#D4AF37]/50 hover:bg-hairline-2 text-ink text-[14px] py-3 mb-3 rounded-xl transition-colors active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+      className="w-full flex items-center justify-center gap-3 bg-[var(--tile-bg)] border border-hairline hover:border-[#D4AF37]/50 hover:bg-hairline-2 text-ink text-[14px] py-3 mb-3 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
     >
       {provider === 'apple' ? <AppleIcon /> : <GoogleIcon />}
       <span>{children}</span>

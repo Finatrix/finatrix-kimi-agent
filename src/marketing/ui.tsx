@@ -103,7 +103,7 @@ export function Card({
   return (
     <Tag className="fx-glass rounded-[18px] p-6 h-full">
       {eyebrow && (
-        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent-text">
+        <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-accent-text">
           {eyebrow}
         </span>
       )}
@@ -134,7 +134,7 @@ export function Facts({ items }: { items: Array<{ value: string; label: string }
             </span>
             <span
               aria-hidden="true"
-              className="mt-1 block font-mono text-[10px] uppercase tracking-[0.12em] text-ink-3"
+              className="mt-1 block font-mono text-[11px] uppercase tracking-[0.12em] text-ink-3"
             >
               {f.label}
             </span>
@@ -293,21 +293,21 @@ export function CtaRow({
       <div className="flex flex-wrap items-center gap-3">
         <Link
           to={primary.to}
-          className="fx-btn-gold inline-flex items-center gap-2 font-mono text-[12px] uppercase tracking-[0.1em] px-7 py-3.5 rounded-full"
+          className="fx-btn-gold inline-flex items-center gap-2 text-[14px] px-7 py-3.5 rounded-full font-semibold"
         >
           {primary.label} <span aria-hidden="true">→</span>
         </Link>
         {secondary && (
           <Link
             to={secondary.to}
-            className="fx-btn-ghost inline-flex items-center font-mono text-[12px] uppercase tracking-[0.1em] px-6 py-3.5 rounded-full"
+            className="fx-btn-ghost inline-flex items-center text-[14px] px-6 py-3.5 rounded-full font-medium"
           >
             {secondary.label}
           </Link>
         )}
       </div>
       {note && (
-        <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.14em] text-ink-3">{note}</p>
+        <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.14em] text-ink-3">{note}</p>
       )}
     </div>
   );

@@ -66,7 +66,10 @@
   # codebase before being listed — an entry here for something the app DOES use
   # is an outage, not a hardening. `camera` stays disabled despite the resume
   # OCR flow: Tesseract reads uploaded files, never a live capture.
-  Permissions-Policy: accelerometer=(), autoplay=(), bluetooth=(), browsing-topics=(), camera=(), display-capture=(), encrypted-media=(), geolocation=(), gyroscope=(), hid=(), idle-detection=(), magnetometer=(), microphone=(), midi=(), payment=(), serial=(), usb=(), xr-spatial-tracking=()
+  # `microphone=(self)` is the one exception: FinatriX AI's voice conversation
+  # (src/lib/voice/) listens through the browser's SpeechRecognition, on this
+  # origin only and never in any embedded frame.
+  Permissions-Policy: accelerometer=(), autoplay=(), bluetooth=(), browsing-topics=(), camera=(), display-capture=(), encrypted-media=(), geolocation=(), gyroscope=(), hid=(), idle-detection=(), magnetometer=(), microphone=(self), midi=(), payment=(), serial=(), usb=(), xr-spatial-tracking=()
   # Asks for a dedicated agent cluster — origin-keyed rather than site-keyed —
   # so this origin gets its own process where the browser can manage it. Cheap
   # Spectre-class isolation for a page that holds a signed-in session, and inert
@@ -80,10 +83,10 @@
   X-Permitted-Cross-Domain-Policies: none
 
 /
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-8sIkMSAQhH4cmqemj6kE1Bs/6aBQrXGsMGgKxYpye5g='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; media-src 'none'; connect-src 'self' https://uspbsgbggurggsfsontq.supabase.co wss://uspbsgbggurggsfsontq.supabase.co; worker-src 'self'; manifest-src 'self'; frame-src 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; frame-ancestors 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-8sIkMSAQhH4cmqemj6kE1Bs/6aBQrXGsMGgKxYpye5g='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; media-src 'none'; connect-src 'self' https://uspbsgbggurggsfsontq.supabase.co wss://uspbsgbggurggsfsontq.supabase.co https://finatrix.co; worker-src 'self'; manifest-src 'self'; frame-src 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; frame-ancestors 'self'
 
 /index.html
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-8sIkMSAQhH4cmqemj6kE1Bs/6aBQrXGsMGgKxYpye5g='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; media-src 'none'; connect-src 'self' https://uspbsgbggurggsfsontq.supabase.co wss://uspbsgbggurggsfsontq.supabase.co; worker-src 'self'; manifest-src 'self'; frame-src 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; frame-ancestors 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-8sIkMSAQhH4cmqemj6kE1Bs/6aBQrXGsMGgKxYpye5g='; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; media-src 'none'; connect-src 'self' https://uspbsgbggurggsfsontq.supabase.co wss://uspbsgbggurggsfsontq.supabase.co https://finatrix.co; worker-src 'self'; manifest-src 'self'; frame-src 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; frame-ancestors 'self'
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable

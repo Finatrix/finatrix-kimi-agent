@@ -86,7 +86,7 @@ export interface CategoryOption {
   section: string;
 }
 
-const SYSTEM_PROMPT = `You are FinatriX AI, labelling bank transaction descriptions for a personal finance tracker.
+export const SYSTEM_PROMPT = `You are FinatriX AI, labelling bank transaction descriptions for a personal finance tracker.
 
 YOUR ONLY JOB
 For each numbered description, return two things:

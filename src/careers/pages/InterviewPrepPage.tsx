@@ -7,9 +7,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
-import { PageHead, ToolFoot } from '../../tools/ui/common';
 import { ScoreRing } from '../components/ScoreRing';
-import { EmptyState, ErrorCard, PageLoading } from '../components/states';
+import { ErrorCard, PageLoading } from '../components/states';
+import { Empty } from '../ui/primitives';
+import '../ui/forms.css';
 import { useCareers } from '../context/CareersContext';
 import { listApplications } from '../services/applications';
 import {
@@ -27,16 +28,30 @@ import {
   INTERVIEW_TYPES,
   type ApplicationRow,
   type InterviewAnswer,
+  type InterviewFeedback,
   type InterviewSessionRow,
   type StarAnswer,
 } from '../types/jobs';
 import { toCareersError, type CareersError } from '../utils/errors';
-import { formatDate, scoreColor } from '../utils/format';
+import { capitalise, formatDate, scoreColor } from '../utils/format';
+
+const FEEDBACK_LABELS: Record<keyof InterviewFeedback['scores'], string> = {
+  confidence: 'Confidence',
+  communication: 'Communication',
+  technical: 'Technical',
+  leadership: 'Leadership',
+  star: 'STAR structure',
+  behavioural: 'Behavioural',
+  structure: 'Structure',
+  problemSolving: 'Problem solving',
+  grammar: 'Grammar',
+  fluency: 'Fluency',
+};
 
 function completeVersions(resumes: ResumeWithVersions[]): { label: string; version: ResumeVersionRow }[] {
   return resumes.flatMap((r) =>
     r.versions.filter((v) => v.status === 'complete' && v.parsed)
-      .map((v) => ({ label: `${r.name} · v${v.version_number}`, version: v }))
+      .map((v) => ({ label: `${r.name}, version ${v.version_number}`, version: v }))
   );
 }
 
@@ -104,7 +119,7 @@ export default function InterviewPrepPage() {
 
   const start = async () => {
     if (!user || !version) {
-      notify('Upload and analyse a resume first — questions are personalised to it.', 'error');
+      notify('Upload and analyse a resume first. Questions are personalised to it.', 'error');
       return;
     }
     const app = applications.find((a) => a.id === applicationId);
@@ -195,26 +210,15 @@ export default function InterviewPrepPage() {
   const feedback = active?.feedback ?? null;
 
   return (
-    <div className="fx-page">
-      <PageHead
-        chip="Interview Prep"
-        chipColor="#D4AF37"
-        chipBg="rgba(212,175,55,.12)"
-        icon="users"
-        title="Walk in prepared"
-      >
-        Personalised questions from your resume and target role, STAR answers built
-        from your real experience, and scored mock interviews with a practice plan.
-      </PageHead>
-
+    <div className="cxf-stack">
       {(ctxError || loadError) && <ErrorCard error={(ctxError ?? loadError)!} onRetry={() => { void refresh(); void load(); }} />}
 
       {!active ? (
         <>
-          <div className="card">
-            <div className="panel-eyebrow" style={{ marginBottom: 12 }}>New session</div>
-            <div className="grid3" style={{ marginBottom: 10 }}>
-              <div className="fg" style={{ marginBottom: 0 }}>
+          <section className="cx-panel" aria-labelledby="ip-new">
+            <div className="cx-panel-head"><h2 id="ip-new">New session</h2></div>
+            <div className="cxf-form">
+              <div className="fg">
                 <label className="fl" htmlFor="ip-version">Resume</label>
                 <select id="ip-version" className="fs" value={version?.id ?? ''} onChange={(e) => setVersionId(e.target.value)}>
                   {versions.length
@@ -222,27 +226,25 @@ export default function InterviewPrepPage() {
                     : <option value="">No analysed resume yet</option>}
                 </select>
               </div>
-              <div className="fg" style={{ marginBottom: 0 }}>
+              <div className="fg">
                 <label className="fl" htmlFor="ip-app">For application (optional)</label>
                 <select id="ip-app" className="fs" value={applicationId} onChange={(e) => setApplicationId(e.target.value)}>
                   <option value="">General practice</option>
-                  {applications.map((a) => <option key={a.id} value={a.id}>{a.job_title} — {a.company_name}</option>)}
+                  {applications.map((a) => <option key={a.id} value={a.id}>{a.job_title} at {a.company_name}</option>)}
                 </select>
               </div>
-              <div className="fg" style={{ marginBottom: 0 }}>
+              <div className="fg">
                 <label className="fl" htmlFor="ip-role">Role title</label>
-                <input id="ip-role" className="fi" placeholder="e.g. Risk Analyst" value={roleTitle} onChange={(e) => setRoleTitle(e.target.value)} />
+                <input id="ip-role" className="fi" placeholder="For example, Risk Analyst" value={roleTitle} onChange={(e) => setRoleTitle(e.target.value)} />
               </div>
-            </div>
-            <div className="grid3" style={{ marginBottom: 14 }}>
-              <div className="fg" style={{ marginBottom: 0 }}>
+              <div className="fg">
                 <label className="fl" htmlFor="ip-mode">Mode</label>
                 <select id="ip-mode" className="fs" value={kind} onChange={(e) => setKind(e.target.value as 'prep' | 'mock')}>
                   <option value="prep">Practice (see guidance, build STAR answers)</option>
                   <option value="mock">Mock interview (answer, then get scored)</option>
                 </select>
               </div>
-              <div className="fg" style={{ marginBottom: 0 }}>
+              <div className="fg">
                 <label className="fl" htmlFor="ip-diff">Difficulty</label>
                 <select id="ip-diff" className="fs" value={difficulty} onChange={(e) => setDifficulty(e.target.value as typeof difficulty)}>
                   <option value="easy">Easy</option>
@@ -251,63 +253,74 @@ export default function InterviewPrepPage() {
                   <option value="expert">Expert</option>
                 </select>
               </div>
-              <div className="fg" style={{ marginBottom: 0 }}>
+              <div className="fg">
                 <label className="fl" htmlFor="ip-count">Questions</label>
                 <select id="ip-count" className="fs" value={count} onChange={(e) => setCount(Number(e.target.value))}>
                   {[5, 10, 15, 20].map((n) => <option key={n} value={n}>{n}</option>)}
                 </select>
               </div>
+              {kind === 'mock' && (
+                <label className="cxf-check cxf-wide cx-sub">
+                  <input type="checkbox" checked={timed} onChange={(e) => setTimed(e.target.checked)} />
+                  Timed mode, {MOCK_SECONDS_PER_QUESTION / 60} minutes per question
+                </label>
+              )}
             </div>
-            {kind === 'mock' && (
-              <label className="note" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, cursor: 'pointer' }}>
-                <input type="checkbox" checked={timed} onChange={(e) => setTimed(e.target.checked)} />
-                Timed mode — {MOCK_SECONDS_PER_QUESTION / 60} minutes per question
-              </label>
-            )}
-            <button className={`btn ${starting ? 'btn-loading' : ''}`} disabled={starting || !versions.length} onClick={() => void start()}>
-              {starting ? 'Generating questions…' : kind === 'mock' ? 'Start mock interview' : 'Generate question set'}
-            </button>
-          </div>
+            <div className="cxf-actions">
+              <button type="button" className="cx-btn cx-btn-primary" disabled={starting || !versions.length} onClick={() => void start()}>
+                {starting ? 'Generating questions' : kind === 'mock' ? 'Start mock interview' : 'Generate question set'}
+              </button>            </div>
+          </section>
 
           {sessions.length > 0 && (
-            <div className="card">
-              <div className="panel-eyebrow" style={{ marginBottom: 8 }}>Previous sessions</div>
-              {sessions.map((s) => (
-                <div className="act-row" key={s.id}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <b>{s.role_title}</b> · {s.kind === 'mock' ? 'Mock' : 'Practice'} · {s.questions.length} questions · {s.difficulty}
-                    <div style={{ fontSize: 11.5, color: 'var(--ink3)' }}>
-                      {formatDate(s.created_at)}{s.completed_at ? ' · completed' : ' · in progress'}
+            <section className="cx-panel" aria-labelledby="ip-prev">
+              <div className="cx-panel-head"><h2 id="ip-prev">Previous sessions</h2></div>
+              <ul className="cx-list">
+                {sessions.map((s) => (
+                  <li key={s.id}>
+                    <div className="cx-row">
+                      <div className="cx-row-main">
+                        <p className="cx-row-title">{s.role_title}</p>
+                        <p className="cx-row-meta">
+                          <span className="cx-chip">{s.kind === 'mock' ? 'Mock' : 'Practice'}</span>
+                          <span className={`cx-chip ${s.completed_at ? 'cx-chip-good' : 'cx-chip-accent'}`}>{s.completed_at ? 'Completed' : 'In progress'}</span>
+                          <span className="cx-num">{s.questions.length} questions</span>
+                          <span>{s.difficulty}</span>
+                          <span>{formatDate(s.created_at)}</span>
+                        </p>
+                      </div>
+                      {s.score != null && <span className="cx-row-side cx-num" style={{ color: scoreColor(s.score), fontWeight: 600 }}>Score {s.score}</span>}
+                      <div className="cx-row-actions">
+                        <button type="button" className="cx-btn cx-btn-sm" onClick={() => openSession(s)}>Open</button>
+                        <button type="button" className="cx-icon-btn" aria-label={`Delete session: ${s.role_title}`} onClick={() => { if (user) void deleteSession(user.id, s.id).then(load); }}>✕</button>
+                      </div>
                     </div>
-                  </div>
-                  {s.score != null && <b style={{ color: scoreColor(s.score) }}>{s.score}</b>}
-                  <button className="btn btn-ghost btn-sm" style={{ padding: '5px 12px', fontSize: 12 }} onClick={() => openSession(s)}>Open</button>
-                  <button className="icon-btn danger" aria-label="Delete session" onClick={() => { if (user) void deleteSession(user.id, s.id).then(load); }}>✕</button>
-                </div>
-              ))}
-            </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
           )}
         </>
       ) : (
         <>
-          <div className="lib-toolbar">
-            <button className="btn btn-ghost btn-sm" onClick={() => { void persistAnswers(); setActive(null); void load(); }}>← All sessions</button>
-            <b style={{ flex: 1 }}>{active.role_title} · {active.kind === 'mock' ? 'Mock interview' : 'Practice'}</b>
+          <div className="cxf-toolbar">
+            <button type="button" className="cx-btn" onClick={() => { void persistAnswers(); setActive(null); void load(); }}>Back to all sessions</button>
+            <b style={{ flex: 1, minWidth: 0 }}>{active.role_title}, {active.kind === 'mock' ? 'mock interview' : 'practice'}</b>
             {active.kind === 'mock' && timed && secondsLeft != null && !active.completed_at && (
-              <span className="badge badge-gold" aria-live="polite">
-                ⏱ {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
+              <span className="cx-chip cx-chip-accent cx-num" role="timer" aria-label="Time left on this question">
+                Time left {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
               </span>
             )}
-            <span className="note">Question {current + 1} / {active.questions.length}</span>
+            <span className="cx-sub cx-num">Question {current + 1} of {active.questions.length}</span>
           </div>
 
           {active.kind === 'mock' && (
-            <details className="card" style={{ marginBottom: 10 }}>
-              <summary className="panel-eyebrow" style={{ cursor: 'pointer' }}>Interview workspace — schedule &amp; outcome</summary>
-              <div className="grid3" style={{ marginTop: 12 }}>
+            <details className="cx-panel">
+              <summary style={{ cursor: 'pointer', fontWeight: 600, minHeight: 32 }}>Interview details: schedule and outcome</summary>
+              <div className="cxf-form cxf-form-3" style={{ marginTop: 12 }}>
                 <div className="fg" style={{ marginBottom: 0 }}>
                   <label className="fl" htmlFor="ws-round">Round</label>
-                  <input id="ws-round" className="fi" value={active.round} placeholder="e.g. Round 2 — Panel"
+                  <input id="ws-round" className="fi" value={active.round} placeholder="For example, Round 2, panel"
                     onChange={(e) => setActive({ ...active, round: e.target.value })}
                     onBlur={() => { if (user) void updateWorkspace(user.id, active.id, { round: active.round }); }} />
                 </div>
@@ -361,58 +374,58 @@ export default function InterviewPrepPage() {
           )}
 
           {feedback ? (
-            <div className="card result-hero-anim">
+            <div className="cx-panel">
               <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
                 <ScoreRing score={feedback.overall} caption="Interview score" />
                 <div style={{ flex: 1, minWidth: 220 }}>
                   {Object.entries(feedback.scores).map(([id, score]) => (
                     <div className="cat-row" key={id}>
-                      <span className="cat-label" style={{ textTransform: 'capitalize' }}>{id}</span>
+                      <span className="cat-label">{FEEDBACK_LABELS[id as keyof InterviewFeedback['scores']] ?? capitalise(id)}</span>
                       <div className="bar"><div className="bar-fill" style={{ width: `${score}%`, background: scoreColor(score) }} /></div>
                       <span className="cat-val">{score}</span>
                     </div>
                   ))}
                 </div>
               </div>
-              <div className="grid2">
+              <div className="cx-grid cx-grid-2">
                 <div>
-                  <div className="panel-eyebrow" style={{ marginBottom: 6 }}>Strong areas</div>
-                  {feedback.strongAreas.map((s, i) => <div className="tip tip-ok" key={i}>{s}</div>)}
+                  <div className="cx-panel-head"><h2>Strong areas</h2></div>
+                  {feedback.strongAreas.map((s, i) => <div className="cx-notice" style={{ marginBottom: 8 }} key={i}>{s}</div>)}
                 </div>
                 <div>
-                  <div className="panel-eyebrow" style={{ marginBottom: 6 }}>Weak areas</div>
-                  {feedback.weakAreas.map((s, i) => <div className="tip tip-warn" key={i}>{s}</div>)}
+                  <div className="cx-panel-head"><h2>Areas to work on</h2></div>
+                  {feedback.weakAreas.map((s, i) => <div className="cx-notice" style={{ marginBottom: 8 }} key={i}>{s}</div>)}
                 </div>
               </div>
               {feedback.practicePlan.length > 0 && (
-                <div className="tip tip-info" style={{ marginTop: 8 }}>
-                  <b>Practice plan</b>
+                <div className="cx-notice" style={{ marginTop: 8, flexDirection: 'column' }}>
+                  <strong>Practice plan</strong>
                   {feedback.practicePlan.map((p, i) => <div key={i}>{i + 1}. {p}</div>)}
                 </div>
               )}
             </div>
           ) : q ? (
-            <div className="card">
+            <div className="cx-panel">
               <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-                <span className="badge badge-gold">{q.category}</span>
-                <span className="badge badge-mute">{q.difficulty}</span>
+                <span className="cx-chip cx-chip-accent">{capitalise(q.category)}</span>
+                <span className="cx-chip">{capitalise(q.difficulty)}</span>
               </div>
-              <p style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.5, marginBottom: 12 }}>{q.question}</p>
+              <p style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.5, margin: '0 0 12px', color: 'var(--ink)' }}>{q.question}</p>
 
               {active.kind === 'prep' && q.guidance && (
-                <div className="tip tip-info"><b>What a strong answer covers</b>{q.guidance}</div>
+                <div className="cx-notice" style={{ flexDirection: 'column' }}><strong>What a strong answer covers</strong>{q.guidance}</div>
               )}
               {active.kind === 'prep' && q.modelAnswer && (
                 <details style={{ marginTop: 8 }}>
-                  <summary className="note" style={{ cursor: 'pointer' }}>Show a model answer</summary>
-                  <p style={{ fontSize: 13, color: 'var(--ink2)', lineHeight: 1.6, marginTop: 6 }}>{q.modelAnswer}</p>
+                  <summary className="cx-sub" style={{ cursor: 'pointer', minHeight: 32 }}>Show a model answer</summary>
+                  <p className="cx-sub" style={{ marginTop: 6 }}>{q.modelAnswer}</p>
                 </details>
               )}
 
               <textarea
                 className="fi"
                 style={{ minHeight: 140, resize: 'vertical', lineHeight: 1.55, marginTop: 10 }}
-                placeholder={active.kind === 'mock' ? 'Type your answer as you would say it…' : 'Draft your answer (optional — STAR builder can start from it)…'}
+                placeholder={active.kind === 'mock' ? 'Type your answer as you would say it' : 'Draft your answer. The STAR builder can start from it.'}
                 aria-label="Your answer"
                 value={answerFor(q.id).text}
                 onChange={(e) => setAnswer(q.id, { text: e.target.value })}
@@ -422,57 +435,59 @@ export default function InterviewPrepPage() {
               {active.kind === 'prep' && (
                 <>
                   <button
-                    className={`btn btn-ghost btn-sm ${starBusy === q.id ? 'btn-loading' : ''}`}
+                    type="button"
+                    className="cx-btn"
                     disabled={!!starBusy}
                     style={{ marginTop: 10 }}
                     onClick={() => void runStar(q.id, q.question)}
                   >
-                    Build STAR answer from my experience
+                    {starBusy === q.id ? 'Building answer' : 'Build STAR answer from my experience'}
                   </button>
                   {answerFor(q.id).star && (
-                    <div style={{ marginTop: 12 }}>
+                    <dl className="cxf-facts" style={{ marginTop: 14, gridTemplateColumns: 'minmax(0, 1fr)' }}>
                       {(['situation', 'task', 'action', 'result', 'reflection'] as const).map((part) => (
-                        <div className="row-line" key={part} style={{ fontSize: 13, alignItems: 'flex-start' }}>
-                          <b style={{ flex: '0 0 90px', textTransform: 'capitalize', color: 'var(--gold)' }}>{part}</b>
-                          <span style={{ flex: 1, color: 'var(--ink2)' }}>{answerFor(q.id).star![part]}</span>
+                        <div key={part}>
+                          <dt style={{ textTransform: 'capitalize' }}>{part}</dt>
+                          <dd>{answerFor(q.id).star![part]}</dd>
                         </div>
                       ))}
-                      <div className="job-meta" style={{ marginTop: 8 }}>
-                        <span>Confidence: <b style={{ color: scoreColor(answerFor(q.id).star!.confidence) }}>{answerFor(q.id).star!.confidence}/100</b></span>
+                      <div>
+                        <dt>Confidence</dt>
+                        <dd className="cx-num" style={{ color: scoreColor(answerFor(q.id).star!.confidence) }}>{answerFor(q.id).star!.confidence} out of 100</dd>
                       </div>
                       {answerFor(q.id).star!.improvements.length > 0 && (
-                        <div className="tip tip-warn" style={{ marginTop: 8 }}>
-                          <b>To strengthen it</b>
-                          {answerFor(q.id).star!.improvements.map((s, i) => <div key={i}>· {s}</div>)}
+                        <div>
+                          <dt>To strengthen it</dt>
+                          <dd>
+                            <ul style={{ margin: 0, paddingLeft: 18 }}>
+                              {answerFor(q.id).star!.improvements.map((s, i) => <li key={i}>{s}</li>)}
+                            </ul>
+                          </dd>
                         </div>
                       )}
-                    </div>
+                    </dl>
                   )}
                 </>
               )}
 
               <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-                <button className="btn btn-ghost btn-sm" disabled={current === 0} onClick={() => { void persistAnswers(); setCurrent((c) => c - 1); }}>← Previous</button>
+                <button type="button" className="cx-btn" disabled={current === 0} onClick={() => { void persistAnswers(); setCurrent((c) => c - 1); }}>Previous</button>
                 {current < active.questions.length - 1 ? (
-                  <button className="btn btn-sm" onClick={() => { void persistAnswers(); setCurrent((c) => c + 1); }}>Next →</button>
+                  <button type="button" className="cx-btn cx-btn-primary" onClick={() => { void persistAnswers(); setCurrent((c) => c + 1); }}>Next</button>
                 ) : active.kind === 'mock' ? (
-                  <button className={`btn btn-sm ${finishing ? 'btn-loading' : ''}`} disabled={finishing} onClick={() => void finishMock()}>
-                    {finishing ? 'Scoring…' : 'Finish & get feedback'}
+                  <button type="button" className="cx-btn cx-btn-primary" disabled={finishing} onClick={() => void finishMock()}>
+                    {finishing ? 'Scoring' : 'Finish and get feedback'}
                   </button>
                 ) : (
-                  <button className="btn btn-sm" onClick={() => { void persistAnswers(); setActive(null); void load(); }}>Done</button>
+                  <button type="button" className="cx-btn cx-btn-primary" onClick={() => { void persistAnswers(); setActive(null); void load(); }}>Done</button>
                 )}
               </div>
             </div>
           ) : (
-            <div className="card"><EmptyState icon="warn" title="No questions in this session" /></div>
+            <div className="cx-panel"><Empty title="No questions in this session" /></div>
           )}
         </>
       )}
-
-      <ToolFoot>
-        <b>Interview Prep</b> · STAR answers only ever use your real, stored experience
-      </ToolFoot>
     </div>
   );
 }

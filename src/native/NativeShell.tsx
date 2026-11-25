@@ -31,10 +31,17 @@ export default function NativeShell() {
       if (cancelled) return;
       stopReminderTaps = listenForReminderTaps((to) => navigateRef.current(to));
     }).catch(() => {});
+    // Images shared from another app open the screenshot import (step 3.3).
+    let stopShares: (() => void) | undefined;
+    void import('./shareIntake').then(({ listenForShares }) => {
+      if (cancelled) return;
+      stopShares = listenForShares((to) => navigateRef.current(to));
+    }).catch(() => {});
     return () => {
       cancelled = true;
       dispose?.();
       stopReminderTaps?.();
+      stopShares?.();
     };
   }, []);
 

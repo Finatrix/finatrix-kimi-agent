@@ -202,12 +202,12 @@ export default function Login() {
         </PrimaryButton>
       </form>
 
-      <div className="mt-5 flex items-center justify-between text-[12px] text-ink-3">
+      <div className="mt-3 flex items-center justify-between text-[14px] text-ink-2">
         <button
           type="button"
           onClick={onReset}
           disabled={busy || !configured}
-          className="hover:text-accent-text transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex min-h-[44px] items-center hover:text-ink transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Forgot password?
         </button>
@@ -215,7 +215,7 @@ export default function Login() {
           type="button"
           onClick={onResend}
           disabled={busy || !configured}
-          className="hover:text-accent-text transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex min-h-[44px] items-center hover:text-ink transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Resend verification
         </button>

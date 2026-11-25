@@ -8,6 +8,10 @@
  * came from, and anything we are unsure about is flagged rather than quietly
  * ticked. The primary action states the count it is about to import.
  *
+ * Every field on a row can be corrected, the amount included: a misread digit,
+ * a bill that was split. What the statement printed stays on show under
+ * whatever replaced it.
+ *
  * Rows the parser could not fully read, credits, and suspected duplicates all
  * arrive unticked. That is the safe direction to be wrong in: a transaction the
  * user has to tick back on is a small annoyance, a transaction that silently
@@ -24,6 +28,7 @@ import { ymdLocal } from '../../lib/date';
 import { useInertOutside } from '../../hooks/useInertOutside';
 import { createPortal } from 'react-dom';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
+import { AmountInput } from './AmountInput';
 import { Icon } from './Icon';
 import type { FlatCat } from './TransactionModal';
 import type { ExpenseItem } from '../lib/expense';
@@ -40,12 +45,24 @@ interface Props {
   existing: ExpenseItem[];
   /** Formats an amount in the active display currency. */
   cfmt: (n: number) => string;
+  /** Symbol of the active display currency, shown beside each editable amount. */
+  sym: string;
   /** ISO code of the active display currency, for the mismatch warning. */
   currencyCode: string;
-  onImport: (items: ExpenseItem[]) => void;
+  /**
+   * Write the confirmed transactions. Return `false` when they could not be
+   * saved: the sheet then stays open, review intact, and says why.
+   */
+  onImport: (items: ExpenseItem[]) => boolean | void;
   onClose: () => void;
   /** False when the assistant should not be called at all. */
   aiEnabled?: boolean;
+  /**
+   * Files to read the moment the sheet opens: screenshots shared to FinatriX
+   * from another app. They go through the same review as a chosen file, and
+   * nothing is saved until Import is pressed.
+   */
+  initialFiles?: readonly File[];
 }
 
 type Filter = 'all' | 'review' | 'duplicates' | 'credits';
@@ -61,7 +78,7 @@ const ORIGIN_LABEL: Record<CategoryOrigin, string> = {
 };
 
 export default function StatementImport({
-  cats, existing, cfmt, currencyCode, onImport, onClose, aiEnabled = true,
+  cats, existing, cfmt, sym, currencyCode, onImport, onClose, aiEnabled = true, initialFiles,
 }: Props) {
   const categories = useMemo(
     () => cats.map((c) => ({ key: c.k, label: c.l, section: c.section })),
@@ -72,7 +89,9 @@ export default function StatementImport({
   const {
     phase, message, fileName, drafts, summary, extraction,
     aiPhase, aiMessage, resumable, dateOrder, dateOrderAssumed, flipDateOrder, allowAi, declineAi,
-    start, submitPassword, updateDraft, setAllIncluded, resume, discardResumable, confirm, reset,
+    directionsUncertain, swapDirections,
+    start, submitPassword, updateDraft, amountEdit, amountRefusal, editAmount, settleAmount, dropAmountEdit,
+    setAllIncluded, resume, discardResumable, confirm, saveError, reset, discard, stash,
   } = trip;
 
   const [filter, setFilter] = useState<Filter>('all');
@@ -91,13 +110,29 @@ export default function StatementImport({
   useBodyScrollLock(true);
 
   // Remember the opener and restore focus on close, so a keyboard user is not
-  // dropped at the top of the document.
+  // dropped at the top of the document. Focus then moves INTO the dialog: the
+  // page behind is inert, so focus left on the opener is focus on nothing —
+  // Enter did nothing and a screen reader announced no dialog at all.
   useEffect(() => {
     lastFocused.current = document.activeElement as HTMLElement | null;
+    const card = cardRef.current;
+    (card?.querySelector<HTMLElement>('[data-autofocus]') ?? card)?.focus();
     return () => { lastFocused.current?.focus?.(); };
   }, []);
 
-  const close = useCallback(() => { reset(); onClose(); }, [reset, onClose]);
+  /**
+   * Put the sheet away without deciding anything.
+   *
+   * The ✕, Escape and the backdrop all mean "not now", not "throw this away",
+   * so an unfinished review is stashed and offered again next time. All three
+   * used to delete it — including a review staged on an earlier visit, which
+   * merely opening and closing this sheet destroyed. Only the Cancel button in
+   * the review footer discards, because that is the one control that says so.
+   */
+  const close = useCallback(() => { stash(); onClose(); }, [stash, onClose]);
+
+  /** The user chose to abandon this import. */
+  const cancelImport = useCallback(() => { discard(); onClose(); }, [discard, onClose]);
 
   // Escape closes; Tab is trapped inside the dialog.
   useEffect(() => {
@@ -135,18 +170,28 @@ export default function StatementImport({
     setShown(PAGE_SIZE);
   }, []);
 
-  const onFile = useCallback((file: File | undefined | null) => {
-    if (!file) return;
+  const onFiles = useCallback((list: FileList | readonly File[] | undefined | null) => {
+    const files = list ? Array.from(list) : [];
+    if (!files.length) return;
     setFilter('all');
     setShown(PAGE_SIZE);
     setPassword('');
-    start(file);
+    start(files);
   }, [start]);
 
+  // Shared files are read once, on open. The ref keeps a second effect run
+  // (React's development double-mount) from starting a second recognition.
+  const startedShared = useRef(false);
+  useEffect(() => {
+    if (startedShared.current || !initialFiles?.length) return;
+    startedShared.current = true;
+    start(initialFiles);
+  }, [initialFiles, start]);
+
+  // Closes only when the transactions were actually written. A refused write
+  // leaves the sheet open with the reason shown beside the button.
   const doImport = useCallback(() => {
-    const items = confirm();
-    if (items.length) onImport(items);
-    onClose();
+    if (confirm(onImport)) onClose();
   }, [confirm, onImport, onClose]);
 
   const currencyMismatch =
@@ -156,10 +201,12 @@ export default function StatementImport({
 
   return createPortal(
     <div className="fx-tools fx-scope">
-      <div className="fx-imp-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}>
+      {/* A click on the backdrop closes the sheet — except mid-review, where a
+          stray click beside a four-hundred-row table should not put it away. */}
+      <div className="fx-imp-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget && phase !== 'review') close(); }}>
         <style>{STYLES}</style>
 
-        <div ref={cardRef} className="fx-imp-card" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descId}>
+        <div ref={cardRef} tabIndex={-1} className="fx-imp-card" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descId}>
           <header className="fx-imp-head">
             <div>
               <h2 id={titleId} className="fx-imp-title">Import a statement</h2>
@@ -177,7 +224,7 @@ export default function StatementImport({
               <IdlePane
                 dragging={dragging}
                 setDragging={setDragging}
-                onFile={onFile}
+                onFiles={onFiles}
                 resumable={resumable}
                 onResume={resume}
                 onDiscard={discardResumable}
@@ -247,6 +294,40 @@ export default function StatementImport({
                       Read as {dateOrder === 'dmy' ? 'MM/DD' : 'DD/MM'}
                     </button>
                   </p>
+                )}
+
+                {extraction?.doc.columnsInferred && (
+                  <p className="fx-imp-banner" role="status">
+                    This file has no header row, so the columns were worked out from what is
+                    in them. Check the first few rows before importing.
+                  </p>
+                )}
+
+                {/* Only when the file settled nothing AND there is something to
+                    swap: a statement read as all spending has no second reading. */}
+                {directionsUncertain && summary.credits > 0 && summary.credits < drafts.length && (
+                  <p className="fx-imp-banner" role="status">
+                    <span>
+                      This file does not say which rows are money out and which are money in,
+                      so we read <b>{drafts.length - summary.credits}</b> as spending
+                      and <b>{summary.credits}</b> as money in. If that is the wrong way round,
+                      swap them here rather than fixing each row.
+                    </span>
+                    <button type="button" className="fx-imp-btn fx-imp-sm" onClick={swapDirections}>
+                      Swap money in and out
+                    </button>
+                  </p>
+                )}
+
+                {extraction?.skipped && extraction.skipped.length > 0 && (
+                  <div className="fx-imp-banner fx-imp-warn" role="status">
+                    <span>
+                      {extraction.skipped.length === 1 ? 'One file was' : `${extraction.skipped.length} files were`} not read:
+                      <ul className="fx-imp-skipped">
+                        {extraction.skipped.map((s, i) => <li key={i}><b>{s.name}</b>: {s.reason}</li>)}
+                      </ul>
+                    </span>
+                  </div>
                 )}
 
                 {currencyMismatch && (
@@ -336,7 +417,14 @@ export default function StatementImport({
                       </thead>
                       <tbody>
                         {visible.slice(0, shown).map((draft) => (
-                          <Row key={draft.id} draft={draft} cats={cats} cfmt={cfmt} onChange={updateDraft} />
+                          <Row
+                            key={draft.id} draft={draft} cats={cats} cfmt={cfmt} sym={sym}
+                            onChange={updateDraft}
+                            typedAmount={amountEdit?.id === draft.id ? amountEdit.text : null}
+                            amountRefusal={amountRefusal?.id === draft.id ? amountRefusal.reason : ''}
+                            onAmountTyped={editAmount} onAmountSettled={settleAmount}
+                            onAmountGone={dropAmountEdit}
+                          />
                         ))}
                       </tbody>
                     </table>
@@ -359,13 +447,16 @@ export default function StatementImport({
 
           {phase === 'review' && (
             <footer className="fx-imp-foot">
+              {saveError && (
+                <p className="fx-imp-banner fx-imp-warn fx-imp-foot-error" role="alert">{saveError}</p>
+              )}
               <p className="fx-imp-note fx-imp-foot-note">
                 Only merchant descriptions are sent for AI categorisation — never amounts,
                 balances or account numbers. For a screenshot, the assistant may also see its
                 text with every digit hidden, to tell which lines are one transaction.
               </p>
               <div className="fx-imp-actions">
-                <button type="button" className="fx-imp-btn" onClick={close}>Cancel</button>
+                <button type="button" className="fx-imp-btn" onClick={cancelImport}>Cancel</button>
                 <button
                   type="button"
                   className="fx-imp-btn fx-imp-primary"
@@ -389,16 +480,16 @@ export default function StatementImport({
 /* ── Panes ───────────────────────────────────────────────────────────── */
 
 function IdlePane({
-  dragging, setDragging, onFile, resumable, onResume, onDiscard,
+  dragging, setDragging, onFiles, resumable, onResume, onDiscard,
 }: {
   dragging: boolean;
   setDragging: (v: boolean) => void;
-  onFile: (f: File | null | undefined) => void;
+  onFiles: (files: FileList | null | undefined) => void;
   resumable: { fileName: string; savedAt: string; count: number } | null;
   onResume: () => void;
   onDiscard: () => void;
 }) {
-  const inputId = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
   const pdfUnavailable = pdfCompatibilityMessage();
 
   return (
@@ -419,21 +510,36 @@ function IdlePane({
         className={`fx-imp-drop${dragging ? ' is-dragging' : ''}`}
         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
-        onDrop={(e) => { e.preventDefault(); setDragging(false); onFile(e.dataTransfer.files?.[0]); }}
+        onDrop={(e) => { e.preventDefault(); setDragging(false); onFiles(e.dataTransfer.files); }}
       >
         <p className="fx-imp-state-title">Drop a bank or credit card statement</p>
         <p className="fx-imp-note">
-          CSV, Excel{pdfUnavailable ? '' : ', PDF'} — or a screenshot or photo of one.
+          CSV, Excel (.xlsx){pdfUnavailable ? '' : ', PDF'} — or a screenshot or photo of one. Several screenshots can be chosen at once.
           {!pdfUnavailable && ' Password-protected PDFs are supported.'}
         </p>
         {pdfUnavailable && <p className="fx-imp-note" role="status">{pdfUnavailable}</p>}
-        <label className="fx-imp-btn fx-imp-primary fx-imp-filebtn" htmlFor={inputId}>Choose a file</label>
+        {/* A real button, not a <label> styled as one. A label is not focusable
+            and the input it pointed at was visually hidden, so a keyboard user
+            tabbed onto an invisible control with no focus ring at all. The
+            button takes focus, shows it, and opens the same picker. */}
+        <button
+          type="button"
+          className="fx-imp-btn fx-imp-primary fx-imp-filebtn"
+          data-autofocus
+          onClick={() => inputRef.current?.click()}
+        >
+          Choose a file
+        </button>
         <input
-          id={inputId}
+          ref={inputRef}
           className="fx-imp-sr"
           type="file"
           accept={ACCEPT_ATTRIBUTE}
-          onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ''; }}
+          multiple
+          aria-label="Statement file"
+          aria-hidden="true"
+          tabIndex={-1}
+          onChange={(e) => { onFiles(e.target.files); e.target.value = ''; }}
         />
       </div>
 
@@ -514,12 +620,21 @@ function FilterChip({ active, onClick, label, count }: { active: boolean; onClic
 /* ── Row ─────────────────────────────────────────────────────────────── */
 
 function Row({
-  draft, cats, cfmt, onChange,
+  draft, cats, cfmt, sym, onChange, typedAmount, amountRefusal, onAmountTyped, onAmountSettled, onAmountGone,
 }: {
   draft: DraftRow;
   cats: FlatCat[];
   cfmt: (n: number) => string;
+  sym: string;
   onChange: (id: string, patch: Partial<DraftRow>) => void;
+  /** What is being typed into this row's amount, or null when nothing is. */
+  typedAmount: string | null;
+  /** Why the last amount typed into this row was turned away. Empty otherwise. */
+  amountRefusal: string;
+  onAmountTyped: (id: string, text: string) => void;
+  onAmountSettled: () => void;
+  /** This row's amount field has left the screen. */
+  onAmountGone: (id: string) => void;
 }) {
   const cat = cats.find((c) => c.k === draft.category);
   const blocked = !isImportable(draft);
@@ -601,13 +716,98 @@ function Row({
         </span>
       </td>
 
-      <td className={`fx-imp-num${draft.amount < 0 ? ' fx-imp-credit' : ''}`}>
-        {cfmt(draft.amount)}
+      <td className={`fx-imp-num${credit ? ' fx-imp-credit' : ''}`}>
+        <AmountField
+          draft={draft} label={label} credit={credit} sym={sym}
+          typed={typedAmount} refusal={amountRefusal}
+          onTyped={onAmountTyped} onSettled={onAmountSettled} onGone={onAmountGone}
+        />
         {draft.source.balance !== null && (
           <span className="fx-imp-bal">bal {cfmt(draft.source.balance)}</span>
         )}
       </td>
     </tr>
+  );
+}
+
+/**
+ * An amount as its field shows it: ungrouped, because the field's own grammar
+ * has no commas, and to the cent only when there are cents to show.
+ */
+function amountText(n: number): string {
+  if (!Number.isFinite(n)) return '';
+  return Number.isInteger(n) ? String(n) : n.toFixed(2);
+}
+
+/** Amounts this close are the same amount — the cent duplicates are matched at. */
+const SAME_AMOUNT = 0.005;
+
+/**
+ * A row's amount, editable.
+ *
+ * The field holds the size of the transaction and nothing else. Which way the
+ * money moved stays with the row, and is shown beside the field rather than
+ * typed into it. What is typed is a draft until focus leaves or Enter is
+ * pressed, so the totals above do not lurch through every half-typed number
+ * and duplicates are re-checked once per correction, not once per keystroke.
+ * That draft is held by the import itself, not here, so that Import and
+ * closing the sheet can settle it too (see `useStatementImport`).
+ *
+ * An entry that is turned away never stays in the field. On this screen the
+ * figure on show has to be the figure that will be imported, so the field goes
+ * back to the amount the row still has and the line under it says why — naming
+ * the row, for someone who hears the message rather than sees where it is.
+ *
+ * Once an amount differs from what the statement printed, the printed figure
+ * is shown under it, the same way the raw description sits under the merchant.
+ */
+function AmountField({
+  draft, label, credit, sym, typed, refusal, onTyped, onSettled, onGone,
+}: {
+  draft: DraftRow;
+  label: string;
+  credit: boolean;
+  sym: string;
+  typed: string | null;
+  refusal: string;
+  onTyped: (id: string, text: string) => void;
+  onSettled: () => void;
+  onGone: (id: string) => void;
+}) {
+  const id = useId();
+  const magnitude = Math.abs(draft.amount);
+  const printed = draft.source.amount;
+
+  // A field that leaves the screen takes whatever was half typed into it along
+  // (see `dropAmountEdit`). Unmount only: both dependencies are stable.
+  const rowId = draft.id;
+  useEffect(() => () => onGone(rowId), [onGone, rowId]);
+
+  return (
+    <div className="fx-imp-amtcell">
+      <div className="fx-imp-amtrow">
+        <span className="fx-imp-amtsym" aria-hidden="true">{credit ? '−' : ''}{sym}</span>
+        <AmountInput
+          id={id}
+          className="fx-imp-input fx-imp-input-sm fx-imp-amt"
+          sym={sym}
+          value={typed ?? (magnitude ? amountText(magnitude) : '')}
+          onChange={(text) => onTyped(draft.id, text)}
+          onBlur={onSettled}
+          onKeyDown={(e) => { if (e.key === 'Enter') onSettled(); }}
+          ariaLabel={`Amount for ${label}${credit ? ', money in' : ''}`}
+        />
+      </div>
+      {refusal && (
+        <span className="fx-imp-amterr" role="alert">
+          <span className="fx-imp-sr">Amount for {label}. </span>
+          {refusal}{magnitude ? ` Kept ${sym}${amountText(magnitude)}.` : ''}
+        </span>
+      )}
+      {printed !== null && Number.isFinite(printed) && Math.abs(printed - magnitude) >= SAME_AMOUNT && (
+        <span className="fx-imp-bal">statement {sym}{amountText(printed)}</span>
+      )}
+    </div>
   );
 }
 
@@ -617,9 +817,9 @@ const STYLES = `
 .fx-imp-overlay{position:fixed;inset:0;z-index:var(--z-modal);display:flex;align-items:center;justify-content:center;
   padding:20px;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
   animation:fxImpFade .2s ease both;}
-.fx-imp-card{display:flex;flex-direction:column;width:100%;max-width:1080px;max-height:min(92vh,900px);
+.fx-imp-card{display:flex;flex-direction:column;width:100%;max-width:1080px;max-height:min(92dvh,900px);
   background:var(--card-solid,var(--card));border:1px solid var(--hair2);border-radius:22px;
-  box-shadow:0 40px 90px -30px rgba(0,0,0,.7);animation:fxImpIn .3s cubic-bezier(.34,1.3,.5,1) both;overflow:hidden;}
+  box-shadow:0 40px 90px -30px rgba(0,0,0,.7);animation:fxImpIn .3s cubic-bezier(0.23, 1, 0.32, 1) both;overflow:hidden;}
 @keyframes fxImpFade{from{opacity:0}to{opacity:1}}
 @keyframes fxImpIn{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:none}}
 
@@ -635,10 +835,15 @@ const STYLES = `
 .fx-imp-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;padding:0 14px;
   border-radius:10px;border:1px solid var(--hair2);background:var(--fill-03);color:var(--ink);
   font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s,border-color .15s;}
-.fx-imp-btn:hover:not(:disabled){background:var(--fill-06);}
+@media (hover: hover) and (pointer: fine){
+.fx-imp-btn:hover:not(:disabled){background:var(--fill-06);}}
 .fx-imp-btn:disabled{opacity:.5;cursor:not-allowed;}
+.fx-imp-btn:focus-visible,.fx-imp-chip:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+.fx-imp-card:focus{outline:none;}
+.fx-imp-foot-error{flex:1 1 100%;margin:0;}
 .fx-imp-primary{background:var(--gold);border-color:var(--fab-border);color:#1a1608;}
-.fx-imp-primary:hover:not(:disabled){background:var(--gold-2);}
+@media (hover: hover) and (pointer: fine){
+.fx-imp-primary:hover:not(:disabled){background:var(--gold-2);}}
 .fx-imp-sm{height:30px;padding:0 10px;font-size:12px;}
 .fx-imp-icon{width:38px;padding:0;flex-shrink:0;}
 .fx-imp-actions{display:flex;gap:8px;align-items:center;}
@@ -651,7 +856,7 @@ const STYLES = `
 .fx-imp-input{height:38px;padding:0 10px;border-radius:10px;border:1px solid var(--hair2);
   background:var(--well);color:var(--ink);font-size:13px;font-family:inherit;width:100%;max-width:320px;}
 .fx-imp-input:focus-visible{outline:none;border-color:var(--gold);box-shadow:var(--ring-gold);}
-.fx-imp-input-sm{height:30px;font-size:12.5px;max-width:none;}
+.fx-imp-input-sm{height:30px;font-size:max(12.5px, var(--field-min-fs));max-width:none;}
 .fx-imp-select{cursor:pointer;}
 
 .fx-imp-drop{width:100%;border:1.5px dashed var(--hair2);border-radius:16px;padding:34px 20px;
@@ -675,6 +880,7 @@ const STYLES = `
   font-variant-numeric:tabular-nums;}
 .fx-imp-amber{color:var(--orange);}
 
+.fx-imp-skipped{margin:4px 0 0;padding-left:18px;}
 .fx-imp-banner{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:space-between;
   font-size:12.5px;line-height:1.5;border:1px solid var(--hair2);background:var(--fill-03);
   border-radius:12px;padding:9px 12px;margin:0 0 10px;}
@@ -697,7 +903,8 @@ const STYLES = `
 .fx-imp-chip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:980px;
   border:1.5px solid var(--hair2);background:var(--card);color:var(--ink);font-size:12px;font-weight:600;
   font-family:inherit;cursor:pointer;transition:border-color .15s,background .15s;}
-.fx-imp-chip:hover{border-color:var(--ink3);}
+@media (hover: hover) and (pointer: fine){
+.fx-imp-chip:hover{border-color:var(--ink3);}}
 .fx-imp-chip[aria-pressed="true"]{border-color:var(--ink);background:var(--hair);}
 .fx-imp-chip-n{font-variant-numeric:tabular-nums;color:var(--ink3);}
 .fx-imp-chip[aria-pressed="true"] .fx-imp-chip-n{color:var(--ink2);}
@@ -722,7 +929,7 @@ const STYLES = `
 .fx-imp-raw{display:block;font-size:11px;color:var(--ink3);margin-top:3px;overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap;max-width:38ch;}
 .fx-imp-badges{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;}
-.fx-imp-badge{font-size:10px;font-weight:650;padding:1px 6px;border-radius:980px;border:1px solid var(--hair2);
+.fx-imp-badge{font-size:11px;font-weight:650;padding:1px 6px;border-radius:980px;border:1px solid var(--hair2);
   color:var(--ink3);white-space:nowrap;}
 .fx-imp-origin-learned,.fx-imp-origin-user{color:var(--green);border-color:color-mix(in srgb,var(--green) 40%,transparent);}
 .fx-imp-origin-ai{color:var(--purple);border-color:color-mix(in srgb,var(--purple) 40%,transparent);}
@@ -731,14 +938,26 @@ const STYLES = `
 .fx-imp-badge-info{color:var(--blue);border-color:color-mix(in srgb,var(--blue) 40%,transparent);}
 .fx-imp-catwrap{display:flex;align-items:center;gap:6px;min-width:150px;}
 .fx-imp-num{text-align:right;font-variant-numeric:tabular-nums;font-weight:650;white-space:nowrap;}
+/* The heading sits over the figures' right edge, where the fields end. */
+.fx-imp-table th.fx-imp-num{text-align:right;}
 .fx-imp-credit{color:var(--green);}
-.fx-imp-bal{display:block;font-size:10.5px;color:var(--ink3);font-weight:500;margin-top:2px;}
+.fx-imp-bal{display:block;font-size:11px;color:var(--ink3);font-weight:500;margin-top:2px;}
+/* The amount field. The cell is a fixed width so a message under the field
+   wraps beneath it instead of widening the column, and it is sized in the
+   field's own font so the room for digits grows with the 16px touch size. */
+.fx-imp-amtcell{display:inline-block;width:15ch;min-width:112px;font-size:max(12.5px, var(--field-min-fs));white-space:normal;}
+.fx-imp-amtrow{display:flex;flex-wrap:wrap;align-items:center;column-gap:5px;}
+.fx-imp-amtsym{flex:none;font-size:12.5px;font-weight:600;color:var(--ink3);}
+.fx-imp-amt{flex:1;min-width:0;text-align:right;font-weight:650;font-variant-numeric:tabular-nums;}
+.fx-imp-credit .fx-imp-amt,.fx-imp-credit .fx-imp-amtsym{color:var(--green);}
+.fx-imp-amtrow .fx-amt-hint{flex:0 0 100%;margin-top:3px;}
+.fx-imp-amterr{display:block;margin-top:4px;font-size:11.5px;font-weight:600;line-height:1.35;color:var(--red);}
 .fx-imp-more{width:100%;margin-top:10px;}
 .fx-imp-empty{text-align:center;color:var(--ink3);font-size:13px;padding:26px 0;}
 
 @media (max-width:720px){
   .fx-imp-overlay{padding:0;align-items:flex-end;}
-  .fx-imp-card{max-width:none;max-height:96vh;border-radius:20px 20px 0 0;}
+  .fx-imp-card{max-width:none;max-height:96dvh;border-radius:20px 20px 0 0;}
   .fx-imp-body{padding:14px;}
   .fx-imp-head,.fx-imp-foot{padding-left:14px;padding-right:14px;}
   .fx-imp-foot{flex-direction:column;align-items:stretch;}

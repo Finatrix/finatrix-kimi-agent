@@ -24,7 +24,8 @@
  * ---------------------------------
  * Anything that is not a same-origin GET. That excludes every Supabase call by
  * construction (cross-origin) and every mutation. A finance app must never
- * answer "is this payment saved?" from a cache.
+ * answer "is this payment saved?" from a cache. The Worker's own `/api/` routes
+ * are left to the network too: they serve data that changes daily.
  *
  * UPDATES
  * -------
@@ -132,7 +133,8 @@ self.addEventListener('message', (event) => {
     await Promise.all(data.urls.slice(0, 120).filter(isWarmable).map(async (url) => {
       try {
         if (await cache.match(url, MATCH)) return; // already held; don't refetch
-        await cache.add(url);
+        const res = await fetch(url);
+        if (isAssetResponse(res)) await cache.put(url, res);
       } catch {
         // One unreachable asset must not abandon the rest.
       }
@@ -199,12 +201,32 @@ async function cachedResponse(cache, request) {
   try { return await cache?.match(request, MATCH); } catch { return undefined; }
 }
 
+/**
+ * Is this a response worth keeping as a build asset?
+ *
+ * Everything under /assets and /fonts is a script, a stylesheet, a font, an
+ * image or WebAssembly — never a web page. A host that answers a missing file
+ * with its app shell under a 200 (any SPA fallback does; `vite preview` does)
+ * would otherwise have that page stored as the script, cache-first, for as long
+ * as this worker lives: the chunk can then never load again, even once the real
+ * file is back, because the network is never asked. Refusing to store a page
+ * under an asset URL makes that impossible whatever the host does.
+ */
+function isAssetResponse(res) {
+  if (!res || !res.ok) return false;
+  const type = (res.headers.get('content-type') || '').toLowerCase();
+  return !type.startsWith('text/html');
+}
+
 async function cacheFirst(event, request, cacheName) {
   const cache = await openCache(cacheName);
   const hit = await cachedResponse(cache, request);
-  if (hit) return hit;
+  if (hit && isAssetResponse(hit)) return hit;
+  // A page stored under an asset URL by an earlier worker: not an answer.
+  // Forget it and ask the network, so the cache heals instead of staying broken.
+  if (hit && cache) event.waitUntil(cache.delete(request, MATCH).catch(() => undefined));
   const res = await fetch(request);
-  if (cache && res && res.ok) {
+  if (cache && isAssetResponse(res)) {
     event.waitUntil(cache.put(request, res.clone()).catch(() => undefined));
   }
   return res;
@@ -283,8 +305,69 @@ async function navigationHandler(event, request) {
   }
 }
 
+/* ── Web share target ──────────────────────────────────────────────────
+ * manifest.webmanifest's `share_target` makes the installed web app appear in
+ * the phone's share sheet. The browser POSTs the shared images here. They go
+ * into the same IndexedDB inbox the page reads (src/lib/shareInbox.ts, whose
+ * names these must match: src/test/shareInbox.test.ts), and the page is sent
+ * to the Expense Tracker, which opens the screenshot import with them. Nothing
+ * is uploaded: the POST never leaves this device, because this worker answers
+ * it. Nothing is saved to the ledger until the user reviews it there.
+ */
+const SHARE_TARGET_PATH = '/share-target';
+const SHARE_DB = 'fx-share-inbox';
+const SHARE_STORE = 'files';
+const SHARE_DB_VERSION = 1;
+const SHARE_MAX_FILES = 10;
+const SHARE_MAX_BYTES = 15 * 1024 * 1024;
+const SHARE_LANDING = '/tools/expenses?share=1';
+const SHARE_FAILED = '/tools/expenses?share=failed';
+
+function openShareInbox() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(SHARE_DB, SHARE_DB_VERSION);
+    req.onupgradeneeded = () => {
+      if (!req.result.objectStoreNames.contains(SHARE_STORE)) {
+        req.result.createObjectStore(SHARE_STORE, { autoIncrement: true });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function receiveShare(request) {
+  try {
+    const form = await request.formData();
+    const files = form.getAll('files')
+      .filter((f) => f instanceof Blob && f.size > 0 && f.size <= SHARE_MAX_BYTES && /^image\//i.test(f.type || ''))
+      .slice(0, SHARE_MAX_FILES);
+    if (!files.length) return Response.redirect(SHARE_FAILED, 303);
+    const db = await openShareInbox();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(SHARE_STORE, 'readwrite');
+      const store = tx.objectStore(SHARE_STORE);
+      store.clear();
+      const at = Date.now();
+      for (const file of files) store.add({ name: file.name || '', type: file.type || '', blob: file, at });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+    db.close();
+    return Response.redirect(SHARE_LANDING, 303);
+  } catch {
+    return Response.redirect(SHARE_FAILED, 303);
+  }
+}
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
+  if (request.method === 'POST' && new URL(request.url).pathname === SHARE_TARGET_PATH
+    && new URL(request.url).origin === self.location.origin) {
+    event.respondWith(receiveShare(request));
+    return;
+  }
   if (request.method !== 'GET') return;
 
   let url;
@@ -298,6 +381,11 @@ self.addEventListener('fetch', (event) => {
   // partial-content request, and answering one with the whole body breaks media.
   if (request.headers.has('range')) return;
   if (url.pathname === '/healthz') return;
+  // The Worker's API routes (today: /api/fx/latest) answer with data that
+  // changes. Stale-while-revalidate would hand the page yesterday's answer and
+  // keep today's for tomorrow, so the app's once-a-day rate check would always
+  // be a day behind. The page keeps its own copy for offline use (fxLive.ts).
+  if (url.pathname.startsWith('/api/')) return;
 
   if (request.mode === 'navigate') {
     event.respondWith(navigationHandler(event, request));

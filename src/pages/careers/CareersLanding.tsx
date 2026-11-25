@@ -57,14 +57,14 @@ export default function CareersLanding() {
       <div className="-mt-6 mb-14 flex flex-wrap items-center gap-3">
         <Link
           to={user ? '/careers/dashboard' : '/signup'}
-          className="fx-btn-gold inline-flex items-center gap-2 rounded-full px-7 py-3.5 font-mono text-[12px] uppercase tracking-[0.1em]"
+          className="fx-btn-gold inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-[14px] font-semibold"
         >
           {user ? 'Open your workspace' : 'Start with a free account'}{' '}
           <span aria-hidden="true">→</span>
         </Link>
         <Link
           to="/pricing"
-          className="fx-btn-ghost inline-flex items-center rounded-full px-6 py-3.5 font-mono text-[12px] uppercase tracking-[0.1em]"
+          className="fx-btn-ghost inline-flex items-center rounded-full px-6 py-3.5 text-[14px] font-medium"
         >
           See pricing
         </Link>

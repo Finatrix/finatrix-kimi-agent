@@ -37,6 +37,7 @@ What the app does differently from the website:
 | System BACK | Closes the top dialog/drawer/menu → walks history → backgrounds the app at a top-level screen | `bridge.ts` `onBack` |
 | Edge to edge | Draws under the system bars; `--fx-safe-*` tokens pad headers, tab bar, sheets | `tokens.css`, `index.css` |
 | System bars | Icon colour + backdrop follow the **in-app** theme, not just the OS | `bridge.ts` + `SystemUiPlugin.java` |
+| App lock | Optional and off by default (Settings, App lock). Fingerprint or face with the screen lock as the fallback; the app is left out of recents while it is on (below Android 13 that also blocks screenshots). A privacy gate, not encryption | `src/native/appLock/` + `AppLockPlugin.java` |
 | Splash | Android 12 splash (mark on charcoal disc), held until the first screen paints | `bridge.ts`, `styles.xml` |
 | Keyboard | Tab bar and floating buttons hide while typing | `html.fx-kb-open` in `index.css` |
 | Haptics | Named haptic events route to Android's haptic engine | `lib/haptics.ts` |
@@ -276,6 +277,8 @@ If `android/` is ever regenerated with `npx cap add android`, re-apply:
 - `AndroidManifest.xml` — App Links + OAuth intent filters, `adjustResize`, no cleartext
 - `MainActivity.java` — edge-to-edge after `super.onCreate`, font scale, WebView background
 - `SystemUiPlugin.java` — window colour behind the bars
+- `AppLockPlugin.java` — the optional app lock: the system unlock prompt, and
+  keeping the app out of recents
 - `res/values*/colors.xml`, `styles.xml`, `drawable/splash.xml`, `mipmap-*` (run `npm run android:assets`)
 - `app/build.gradle` — signing from `keystore.properties`, R8, versioning, asset exclusions
 - `.gitignore` — keystores

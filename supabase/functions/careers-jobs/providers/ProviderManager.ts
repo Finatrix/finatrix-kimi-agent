@@ -20,6 +20,11 @@ import { toWireJob, applySkillMatch } from './ProviderNormalizer.ts';
 import { snapshotFor, isDisabled, classifyError, DEFAULT_HEALTH_POLICY, type HealthPolicy } from './ProviderHealth.ts';
 import { ProviderError, NO_QUOTA } from './BaseProvider.ts';
 
+/** Provider keys can sit in a request URL, and runtime errors can quote it. */
+export function safeErrorText(message: string): string {
+  return message.replace(/https?:\/\/\S+/g, '[url]').slice(0, 160);
+}
+
 export interface ManagerDeps {
   cache: TieredCache;
   health: HealthStore;
@@ -150,7 +155,7 @@ export class ProviderManager {
         // Defensive: runProvider is written never to reject, but honour it anyway.
         status[p.id] = 'error';
         counts[p.id] = 0; latency[p.id] = 0;
-        errors[p.id] = String(res.reason).slice(0, 160);
+        errors[p.id] = safeErrorText(String(res.reason));
         healthEvents.push({ provider: p.id, ok: false, ms: 0, errorKind: 'unknown', quotaRemaining: null, jobsRemaining: null, at: now() });
         metricEvents.push({ provider: p.id, kind: 'search', ok: false, ms: 0, jobs: 0, at: now(), costMicroUsd: p.costPerSearchMicroUsd });
       }
@@ -197,7 +202,7 @@ export class ProviderManager {
       return { jobs, ms: Date.now() - t, error: null, errorKind: null, quota };
     } catch (e) {
       const err = e instanceof ProviderError ? e : new ProviderError(String(e), null, classifyError(null, String(e)));
-      return { jobs: [], ms: Date.now() - t, error: err.message.slice(0, 160), errorKind: err.kind, quota: NO_QUOTA };
+      return { jobs: [], ms: Date.now() - t, error: safeErrorText(err.message), errorKind: err.kind, quota: NO_QUOTA };
     }
   }
 

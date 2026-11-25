@@ -82,13 +82,24 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 
-	<!-- The ONLY permission the app asks for, and only when the person taps
+	<!-- The camera. Asked for only when the person taps
 	     "Take Photo" in the file picker to photograph a statement or a payslip.
 	     Without this string iOS terminates the app at that moment rather than
 	     prompting. The image is read by Tesseract on the device (src/lib/ocr.ts)
 	     and never uploaded, which is what the sentence has to earn belief for. -->
 	<key>NSCameraUsageDescription</key>
 	<string>FinatriX uses the camera so you can photograph a bank statement or payslip and have its figures read on this device. The photo is never uploaded.</string>
+
+	<!-- The optional app lock (Settings > App lock; FxAppLockPlugin.swift) asks
+	     iOS to check Face ID before showing the app. Without this string iOS
+	     terminates the app the first time it does. Touch ID and the passcode
+	     fallback need no string. -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>FinatriX uses Face ID to unlock the app when you have switched on app lock.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>FinatriX uses the microphone only while you talk to FinatriX AI, so you can ask about your money by voice instead of typing.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>FinatriX turns what you say to FinatriX AI into text, so you can ask questions hands-free. The audio is not sent to FinatriX.</string>
 
 	<key>LSRequiresIPhoneOS</key>
 	<true/>

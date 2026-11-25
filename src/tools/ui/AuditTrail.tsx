@@ -470,7 +470,8 @@ const AUDIT_STYLES = `
 .fx-tools .au-btn{padding:6px 12px;border-radius:9px;border:1px solid var(--hair2);background:var(--card);color:var(--ink);
   font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;
   transition:background-color var(--ctl-trans),border-color var(--ctl-trans);}
-.fx-tools .au-btn:hover{background:var(--fill-06);}
+@media (hover: hover) and (pointer: fine){
+.fx-tools .au-btn:hover{background:var(--fill-06);}}
 .fx-tools .au-btn.danger{color:var(--red);border-color:color-mix(in srgb,var(--red) 40%,transparent);}
 .fx-tools .au-confirm{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;padding:11px 13px;
   border-radius:12px;font-size:12.5px;color:var(--ink2);line-height:1.5;
@@ -483,7 +484,8 @@ const AUDIT_STYLES = `
 .fx-tools .au-chip{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:980px;border:1px solid var(--hair2);
   background:var(--card);color:var(--ink2);font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;
   transition:background-color var(--ctl-trans),border-color var(--ctl-trans),color var(--ctl-trans);}
-.fx-tools .au-chip:hover{border-color:var(--ink3);}
+@media (hover: hover) and (pointer: fine){
+.fx-tools .au-chip:hover{border-color:var(--ink3);}}
 .fx-tools .au-chip.on{border-color:var(--ink);background:var(--hair);color:var(--ink);}
 .fx-tools .au-result{margin:0 2px 4px;}
 
@@ -498,7 +500,8 @@ const AUDIT_STYLES = `
 .fx-tools .au-row{display:flex;align-items:flex-start;gap:11px;width:100%;padding:11px 6px;
   text-align:left;color:inherit;font:inherit;background:none;border:none;border-radius:10px;}
 .fx-tools .au-row-btn{cursor:pointer;transition:background-color var(--ctl-trans);}
-.fx-tools .au-row-btn:hover{background:var(--fill-04);}
+@media (hover: hover) and (pointer: fine){
+.fx-tools .au-row-btn:hover{background:var(--fill-04);}}
 .fx-tools .au-row-nested{padding:8px 6px 8px 40px;}
 .fx-tools .au-sublist{border-top:1px solid var(--hair2);margin-left:6px;}
 .fx-tools .au-sublist > li + li{border-top:1px solid var(--hair2);}
@@ -517,7 +520,8 @@ const AUDIT_STYLES = `
   border:1px solid color-mix(in srgb,var(--gold) 45%,transparent);background:color-mix(in srgb,var(--gold) 10%,transparent);
   color:var(--ink);font-size:11.5px;font-weight:600;font-family:inherit;cursor:pointer;
   transition:background-color var(--ctl-trans),border-color var(--ctl-trans);}
-.fx-tools .au-restore:hover{background:color-mix(in srgb,var(--gold) 18%,transparent);border-color:var(--gold);}
+@media (hover: hover) and (pointer: fine){
+.fx-tools .au-restore:hover{background:color-mix(in srgb,var(--gold) 18%,transparent);border-color:var(--gold);}}
 
 .fx-tools .au-diffs{display:flex;flex-direction:column;gap:3px;margin-top:5px;}
 .fx-tools .au-diff{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px;font-size:11.5px;color:var(--ink3);}
@@ -528,7 +532,8 @@ const AUDIT_STYLES = `
 .fx-tools .au-more{display:block;width:100%;margin-top:12px;padding:10px;border-radius:11px;border:1px solid var(--hair2);
   background:var(--card);color:var(--ink2);font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;
   transition:background-color var(--ctl-trans),color var(--ctl-trans);}
-.fx-tools .au-more:hover{background:var(--fill-06);color:var(--ink);}
+@media (hover: hover) and (pointer: fine){
+.fx-tools .au-more:hover{background:var(--fill-06);color:var(--ink);}}
 .fx-tools .au-cap{margin-top:12px;}
 
 @media (max-width:480px){

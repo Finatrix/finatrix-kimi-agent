@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useSta
 import { useInertOutside } from '../../hooks/useInertOutside';
 import { createPortal } from 'react-dom';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
+import { useSheetDrag } from '../../hooks/useSheetDrag';
 import { Icon, type IconName } from './Icon';
 import { SECTION_LABEL, type CatKey } from '../lib/budget';
 import { SECTION_COLOR } from '../lib/sectionColors';
@@ -15,6 +16,10 @@ import { evaluateFormula, formulaSignedAmount } from '../lib/formula';
 import { AmountInput } from './AmountInput';
 import { suggestExpenseCategory } from '../lib/quickAdd';
 import { validRecordDate } from '../lib/recordReview';
+import {
+  chargedMoney, contextOf, feeApplies, fmtExact, fmtRate, fmtTripDay, isHomeTrip, nextTripAfter,
+  spendMoney, tripDefaults, tripLabel, tripOn, type FxContext, type Trip,
+} from '../lib/trips';
 import { useAskAi } from './AiAssistant';
 
 
@@ -46,6 +51,10 @@ interface Props {
   history?: AuditEntry[];
   /** Formats an amount in the active currency, for the history's diffs. */
   cfmt?: (n: number) => string;
+  /** Travel mode: the user's trips, so a spend dated inside one is entered in its currency. */
+  trips?: readonly Trip[];
+  /** The home currency code (`fx_currency`) that `amount` is kept in. */
+  homeCode?: string;
 }
 
 interface Draft {
@@ -67,7 +76,8 @@ const emptyDraft = (defaultCat: string): Draft => ({
 
 function draftFromItem(it: ExpenseItem): Draft {
   return {
-    amount: String(it.amount ?? ''),
+    // A spend paid abroad is edited in the currency it was paid in.
+    amount: String(it.fxAmount ?? it.amount ?? ''),
     category: it.category,
     date: it.date || etToday(),
     merchant: it.merchant ?? '',
@@ -80,6 +90,20 @@ function draftFromItem(it: ExpenseItem): Draft {
 }
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
+/**
+ * Travel mode: which currency this entry is typed in, and which trip it counts
+ * towards. The trip's default (`tripDefaults`) unless the user tapped to switch.
+ * Paid abroad is trip spending whatever the category; in the home currency it
+ * is the trip's unless it stays home.
+ */
+function entryCurrency(
+  travel: { ctx: FxContext | null; defaults: { paidInTrip: boolean; tripId: string | null } },
+  pick: 'trip' | 'home' | null,
+): { paidInTrip: boolean; tripId: string | null } {
+  const paidInTrip = !!travel.ctx && (pick ? pick === 'trip' : travel.defaults.paidInTrip);
+  return { paidInTrip, tripId: paidInTrip ? (travel.ctx?.tripId ?? null) : travel.defaults.tripId };
+}
 
 /**
  * Premium, fully accessible add/edit sheet for a transaction.
@@ -95,7 +119,7 @@ const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:n
  */
 export default function TransactionModal({
   editing, cats, sym, defaultCat, recentCats = [], learned, todayKey, scheduleLimit,
-  onSave, onClose, onDelete, onDuplicate, history = [], cfmt,
+  onSave, onClose, onDelete, onDuplicate, history = [], cfmt, trips = [], homeCode = 'INR',
 }: Props) {
   const isEdit = !!editing;
   const [draft, setDraft] = useState<Draft>(() => (editing ? draftFromItem(editing) : emptyDraft(defaultCat)));
@@ -105,14 +129,140 @@ export default function TransactionModal({
   ), [draft.merchant, draft.note, cats, learned]);
   const selectedCategory = manualCategory ? draft.category : suggestion?.category ?? defaultCat;
   const categoryLabel = cats.find((c) => c.k === selectedCategory)?.l;
-  const [errors, setErrors] = useState<{ amount?: string; category?: string; date?: string }>({});
+
+  /*
+   * Travel mode (lib/trips.ts). A spend dated inside a trip is entered in the
+   * trip's currency, unless it stays home (rent, bills, recurring...). One tap
+   * switches a single spend. `amount` is still saved in the home currency.
+   *
+   * An expense already paid abroad keeps its own saved rate and fee when
+   * edited, even if its trip was deleted since; a spend that was entered in
+   * the home currency is never silently re-read as foreign.
+   */
+  /*
+   * Booked ahead (travel stage 2): a spend dated before a trip, such as the
+   * flight, can be added to it with one tick. It is entered in the home
+   * currency unless switched, and counts as the trip's whatever its category.
+   */
+  const editingTrip = editing?.tripId ? trips.find((t) => t.id === editing.tripId) ?? null : null;
+  const datedTrip = tripOn(trips, draft.date);
+  const aheadTrip = datedTrip ? null
+    : editingTrip && draft.date < editingTrip.start ? editingTrip
+      : nextTripAfter(trips, draft.date);
+  const [aheadOn, setAheadOn] = useState(
+    !!editing && !!editingTrip && editing.date < editingTrip.start,
+  );
+  const travel = useMemo(() => {
+    // A spend whose home amount came from the statement keeps the trip's own
+    // rate and fee for re-entry; its saved rate is the implied one, fee inside.
+    const editingCtx: FxContext | null = editing?.fxAmount != null && editing.fxCurrency && editing.fxRate
+      ? editing.fxCharged && editingTrip
+        ? contextOf(editingTrip)
+        : {
+          tripId: editing.tripId ?? null,
+          currency: editing.fxCurrency,
+          rate: editing.fxRate,
+          feePct: editing.fxCharged ? undefined : editing.fxFee ?? editingTrip?.feePct,
+        }
+      : null;
+    if (aheadTrip) {
+      if (!aheadOn) return { trip: null, ctx: null, defaults: tripDefaults(null, selectedCategory, draft.recurring) };
+      const ctx = isHomeTrip(aheadTrip) ? null : contextOf(aheadTrip);
+      return { trip: aheadTrip, ctx: editingCtx ?? ctx, defaults: { ctx, paidInTrip: false, tripId: aheadTrip.id } };
+    }
+    const trip = editingTrip ?? datedTrip;
+    const defaults = tripDefaults(trip, selectedCategory, draft.recurring);
+    return { trip, ctx: editingCtx ?? defaults.ctx, defaults };
+  }, [editing, editingTrip, datedTrip, aheadTrip, aheadOn, draft.recurring, selectedCategory]);
+  const { trip, ctx } = travel;
+  const [currencyPick, setCurrencyPick] = useState<'trip' | 'home' | null>(
+    editing ? (editing.fxAmount != null ? 'trip' : 'home') : null,
+  );
+  const { paidInTrip } = entryCurrency(travel, currencyPick);
+  /*
+   * "Charged a different amount?" The bank's home figure from the statement,
+   * kept with the foreign amount; the rate saved is the one it implies
+   * (lib/trips.ts `chargedMoney`). Empty means the trip's rate applies.
+   */
+  const [chargedOpen, setChargedOpen] = useState(!!editing?.fxCharged);
+  const [charged, setCharged] = useState(editing?.fxCharged ? String(Math.abs(editing.amount)) : '');
+  const { chargedValue, chargedError } = useMemo(() => {
+    const parsed = paidInTrip && chargedOpen && charged.trim() ? evaluateFormula(charged) : null;
+    if (!parsed) return { chargedValue: null, chargedError: undefined };
+    if (!parsed.ok) return { chargedValue: null, chargedError: parsed.error };
+    if (parsed.value === 0) return { chargedValue: null, chargedError: 'Enter what the statement shows, or use the trip rate.' };
+    return { chargedValue: parsed.value, chargedError: undefined };
+  }, [paidInTrip, chargedOpen, charged]);
+  // What will be saved in the home currency, shown under the amount as it is typed.
+  const fxPreview = (() => {
+    if (!paidInTrip || !ctx) return null;
+    const parsed = evaluateFormula(draft.amount);
+    const typed = parsed.ok && parsed.value !== 0 ? parsed.value : null;
+    const withFee = feeApplies(ctx.feePct, draft.paymentMethod);
+    const home = typed === null ? null
+      : spendMoney(typed, { ctx, paidInTrip: true, tripId: null, paymentMethod: draft.paymentMethod }).amount;
+    const statement = typed !== null && chargedValue !== null
+      ? chargedMoney(spendMoney(typed, { ctx, paidInTrip: true, tripId: null }), chargedValue)
+      : null;
+    return { home, withFee, statement, typed };
+  })();
+  const [errors, setErrors] = useState<{ amount?: string; charged?: string; category?: string; date?: string }>({});
   /** A date the user has pushed forward: a plan, not a record. */
   const scheduled = !!todayKey && draft.date > todayKey;
   const [submitted, setSubmitted] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
 
+  /*
+   * Receipt scan (step 3.3): a photo of a paper bill fills in the amount, the
+   * shop and the date. It is read on this device (lib/import/receipt.ts, the
+   * screenshot import's own text recognition), never uploaded, and nothing is
+   * saved until the user checks the form and presses Save.
+   */
+  const receiptInputRef = useRef<HTMLInputElement>(null);
+  const [receipt, setReceipt] = useState<{ busy: boolean; message: string; tone: 'info' | 'error' }>(
+    { busy: false, message: '', tone: 'info' },
+  );
+  const readReceipt = async (file: File | undefined | null) => {
+    if (!file || receipt.busy) return;
+    setReceipt({ busy: true, message: 'Reading the bill on this device…', tone: 'info' });
+    let outcome: Awaited<ReturnType<typeof import('../lib/import/receipt').readReceiptPhoto>>;
+    try {
+      const { readReceiptPhoto } = await import('../lib/import/receipt');
+      outcome = await readReceiptPhoto(file);
+    } catch {
+      outcome = { ok: false, message: 'The bill reader could not be loaded. Check your connection and try again.' };
+    }
+    if (!outcome.ok) {
+      setReceipt({ busy: false, message: outcome.message, tone: 'error' });
+      return;
+    }
+    const { amount, merchant, date } = outcome.reading;
+    // Only what was found is filled in; anything already typed stays when the bill had nothing for it.
+    setDraft((prev) => {
+      const next = {
+        ...prev,
+        ...(amount !== null ? { amount: String(amount) } : {}),
+        ...(merchant ? { merchant } : {}),
+        ...(date ? { date } : {}),
+      };
+      if (submitted) setErrors(validate(next));
+      return next;
+    });
+    const found = [amount !== null && 'amount', merchant && 'shop', date && 'date'].filter(Boolean) as string[];
+    const list = found.length > 1 ? `${found.slice(0, -1).join(', ')} and ${found[found.length - 1]}` : found[0];
+    setReceipt({
+      busy: false,
+      tone: amount === null ? 'error' : 'info',
+      message: `Filled in the ${list} from the bill. Check ${found.length > 1 ? 'them' : 'it'} before you save.`
+        + (amount === null ? ' No total was found, so enter the amount.' : ''),
+    });
+  };
+
   const cardRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<HTMLDivElement>(null);
+  useSheetDrag(cardRef, dragRef, onClose);
   const amountRef = useRef<HTMLInputElement>(null);
+  const chargedRef = useRef<HTMLInputElement>(null);
   const dateRef = useRef<HTMLInputElement>(null);
   const confirmRef = useRef<HTMLDivElement>(null);
   const cancelDeleteRef = useRef<HTMLButtonElement>(null);
@@ -180,9 +330,12 @@ export default function TransactionModal({
     const nowIso = new Date().toISOString();
     const created = editing?.createdAt ?? nowIso;
     const editCount = editing ? (editing.editCount ?? 0) + 1 : 0;
+    const money = spendMoney(formulaSignedAmount(draft.amount), {
+      ctx: travel.ctx, ...entryCurrency(travel, currencyPick), paymentMethod: draft.paymentMethod,
+    });
     return {
       id: editing ? editing.id : genExpenseId(),
-      amount: formulaSignedAmount(draft.amount),
+      ...(chargedValue !== null ? chargedMoney(money, chargedValue) : money),
       category: selectedCategory,
       date: draft.date,
       ...(draft.note.trim() ? { note: draft.note.trim() } : {}),
@@ -195,20 +348,22 @@ export default function TransactionModal({
       updatedAt: nowIso,
       ...(editCount > 0 ? { editCount } : {}),
     };
-  }, [draft, editing, selectedCategory]);
+  }, [draft, editing, selectedCategory, travel, currencyPick, chargedValue]);
 
   const submit = useCallback(() => {
     setSubmitted(true);
     const e = validate({ ...draft, category: selectedCategory });
+    if (chargedError) e.charged = chargedError;
     setErrors(e);
     if (Object.keys(e).length > 0) {
       // Move focus to the first offending field for keyboard/AT users.
       if (e.amount) amountRef.current?.focus();
+      else if (e.charged) chargedRef.current?.focus();
       else if (e.date) dateRef.current?.focus();
       return;
     }
     onSave(buildItem());
-  }, [draft, selectedCategory, validate, onSave, buildItem]);
+  }, [draft, selectedCategory, validate, onSave, buildItem, chargedError]);
 
   // Body scroll lock — reference-counted, safe under overlapping overlays.
   // The parent mounts this component only while the modal is open.
@@ -310,24 +465,38 @@ export default function TransactionModal({
         .fx-tx-overlay{position:fixed;inset:0;z-index:var(--z-modal);display:flex;align-items:center;justify-content:center;
           padding:20px;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
           animation:fxTxFade .2s ease both;}
-        .fx-tx-card{position:relative;width:100%;max-width:560px;max-height:min(92vh,860px);overflow-y:auto;
+        .fx-tx-card{position:relative;width:100%;max-width:560px;max-height:min(92dvh,860px);overflow-y:auto;
           background:var(--card-solid,var(--card));border:1px solid var(--hair2);border-radius:22px;
           padding:22px 22px 18px;box-shadow:0 40px 90px -30px rgba(0,0,0,.7);
-          animation:fxTxIn .32s cubic-bezier(.34,1.3,.5,1) both;}
+          animation:fxTxIn 300ms cubic-bezier(0.23, 1, 0.32, 1) both;}
         @keyframes fxTxFade{from{opacity:0}to{opacity:1}}
         @keyframes fxTxIn{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:none}}
         @keyframes fxTxSheet{from{transform:translateY(100%)}to{transform:none}}
         .fx-tx-catbtn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 4px;border-radius:12px;
           border:1.5px solid var(--hair2);background:var(--card);cursor:pointer;transition:border-color .15s,background .15s,transform .1s;}
-        .fx-tx-catbtn:hover{border-color:var(--ink3);}
+        @media (hover: hover) and (pointer: fine){
+        .fx-tx-catbtn:hover{border-color:var(--ink3);}}
         .fx-tx-catbtn[aria-pressed="true"]{border-color:var(--ink);background:var(--hair);}
-        .fx-tx-catbtn:active{transform:scale(.96);}
+        .fx-tx-catbtn:active{scale: .96;}
         .fx-tx-recent{display:inline-flex;align-items:center;gap:6px;max-width:150px;padding:7px 12px;border-radius:980px;
           border:1.5px solid var(--hair2);background:var(--card);color:var(--ink);cursor:pointer;font-size:12px;font-weight:600;
           font-family:inherit;transition:border-color .15s,background .15s;}
-        .fx-tx-recent:hover{border-color:var(--ink3);}
+        @media (hover: hover) and (pointer: fine){
+        .fx-tx-recent:hover{border-color:var(--ink3);}}
         .fx-tx-recent[aria-pressed="true"]{border-color:var(--ink);background:var(--hair);}
+.fx-tx-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px;position:relative;}
+        .fx-tx-grab{display:none;}
         .fx-tx-err{color:var(--red);font-size:11.5px;margin-top:5px;font-weight:600;}
+        .fx-tx-amtrow{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+        .fx-tx-amtrow .fl{margin-bottom:0;}
+        .fx-tx-cur{display:inline-flex;align-items:center;min-height:var(--ctl-h-xs,28px);padding:0 10px;border-radius:980px;
+          border:1.5px solid color-mix(in srgb, var(--blue) 45%, transparent);background:color-mix(in srgb, var(--blue) 8%, var(--card));
+          color:var(--ink);font:inherit;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:6px;}
+        .fx-tx-fx{margin-top:5px;}
+        .fx-tx-link{display:inline-flex;align-items:center;min-height:var(--ctl-h-sm,34px);padding:0;border:none;background:none;
+          color:var(--ink);font:inherit;font-size:13px;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer;}
+        .fx-tx-charged{margin-top:8px;}
+        .fx-tx-ahead{padding:8px 0 0;font-size:13px;font-weight:600;}
         /* Sticky to the card's EDGE, not to its padding: a sticky box stops at the
            scrollport inset by the card's bottom padding, which left an 18px
            strip under Save where the form scrolled visibly past. Pulling it
@@ -337,13 +506,25 @@ export default function TransactionModal({
         .fx-tx-iconbtn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;padding:0 14px;
           border-radius:10px;border:1px solid var(--hair2);background:var(--fill-03);color:var(--ink);
           font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s,border-color .15s;}
-        .fx-tx-iconbtn:hover{background:var(--fill-06);}
+        @media (hover: hover) and (pointer: fine){
+        .fx-tx-iconbtn:hover{background:var(--fill-06);}}
         .fx-tx-danger{color:var(--red);}
-        .fx-tx-danger:hover{border-color:var(--red);background:rgba(215,0,21,.08);}
+        .fx-tx-scan{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:-4px 0 14px;}
+        .fx-tx-scanbtn{min-height:44px;}
+        .fx-tx-scanbtn:disabled{opacity:.6;cursor:progress;}
+        .fx-tx-scanmsg{margin:0;flex:1 1 180px;font-size:12px;}
+        .fx-tx-scanmsg.is-error{color:var(--red);}
+        .fx-tx-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
+        @media (hover: hover) and (pointer: fine){
+        .fx-tx-danger:hover{border-color:var(--red);background:rgba(215,0,21,.08);}}
         @media (max-width:560px){
           .fx-tx-overlay{padding:0;align-items:flex-end;}
-          .fx-tx-card{max-width:none;max-height:94vh;border-radius:22px 22px 0 0;padding-bottom:calc(18px + var(--fx-safe-bottom));
-            animation:fxTxSheet .3s cubic-bezier(.34,1.2,.5,1) both;}
+          /* The grabber says the sheet can be pulled down; the header row is
+             the drag handle (hooks/useSheetDrag), so it does not scroll. */
+          .fx-tx-head{touch-action:none;padding-top:14px;margin-top:-8px;cursor:grab;}
+          .fx-tx-grab{display:block;position:absolute;top:0;left:50%;width:36px;height:5px;margin-left:-18px;border-radius:3px;background:var(--hair);}
+          .fx-tx-card{max-width:none;max-height:94dvh;border-radius:22px 22px 0 0;padding-bottom:calc(18px + var(--fx-safe-bottom));
+            animation:fxTxSheet .3s cubic-bezier(0.23, 1, 0.32, 1) both;}
           .fx-tx-footer{bottom:calc(-18px - var(--fx-safe-bottom));margin-bottom:calc(-18px - var(--fx-safe-bottom));
             padding-bottom:calc(32px + var(--fx-safe-bottom));}
         }
@@ -360,7 +541,8 @@ export default function TransactionModal({
         aria-labelledby={titleId}
         aria-describedby={descId}
       >
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
+        <div ref={dragRef} className="fx-tx-head">
+          <span className="fx-tx-grab" aria-hidden="true" />
           <div>
             <h2 id={titleId} style={{ fontSize: 17, fontWeight: 700, margin: 0, letterSpacing: '-.01em' }}>
               {isEdit ? 'Edit transaction' : 'Add a transaction'}
@@ -369,10 +551,32 @@ export default function TransactionModal({
               {isEdit ? 'Your dashboard updates the moment you save.' : 'Log a spend — totals update instantly.'}
             </p>
           </div>
-          <button type="button" className="fx-tx-iconbtn" onClick={onClose} aria-label="Close" style={{ width: 38, padding: 0 }}>
+          <button type="button" className="fx-tx-iconbtn" onClick={onClose} aria-label="Close" style={{ width: 'var(--ctl-h-md, 38px)', padding: 0 }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
           </button>
         </div>
+
+        {!isEdit && (
+          <div className="fx-tx-scan">
+            <button
+              type="button"
+              className="fx-tx-iconbtn fx-tx-scanbtn"
+              onClick={() => receiptInputRef.current?.click()}
+              disabled={receipt.busy}
+              aria-describedby={receipt.message ? `${titleId}-scan` : undefined}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></svg>
+              {receipt.busy ? 'Reading the bill…' : 'Scan a receipt'}
+            </button>
+            <p
+              id={`${titleId}-scan`}
+              className={`note fx-tx-scanmsg${receipt.tone === 'error' ? ' is-error' : ''}`}
+              aria-live="polite"
+            >
+              {receipt.message || 'Read on this device. The photo is never uploaded.'}
+            </p>
+          </div>
+        )}
 
         <form
           onSubmit={(e) => { e.preventDefault(); submit(); }}
@@ -380,7 +584,20 @@ export default function TransactionModal({
         >
           <div className="grid2">
             <div className="fg" style={{ marginBottom: 10 }}>
-              <label className="fl" htmlFor="tx-amount">Amount ({sym})</label>
+              <div className="fx-tx-amtrow">
+                <label className="fl" htmlFor="tx-amount">Amount ({paidInTrip && ctx ? ctx.currency : sym})</label>
+                {/* Travel mode: one tap enters this one spend in the other
+                    currency, e.g. a hotel booked in ₹ during a trip. */}
+                {ctx && (
+                  <button
+                    type="button"
+                    className="fx-tx-cur"
+                    onClick={() => setCurrencyPick(paidInTrip ? 'home' : 'trip')}
+                  >
+                    Enter in {paidInTrip ? sym : ctx.currency}
+                  </button>
+                )}
+              </div>
               {/* Accepts arithmetic as well as a number, with a live preview of
                   what will be saved. The placeholder is the only place this is
                   advertised — the capability existed for months behind a bare
@@ -389,14 +606,66 @@ export default function TransactionModal({
               <AmountInput
                 id="tx-amount"
                 inputRef={amountRef}
-                sym={sym}
+                sym={paidInTrip && ctx ? `${ctx.currency} ` : sym}
                 placeholder="0  or  =10+5+3"
                 value={draft.amount}
                 onChange={(v) => set('amount', v)}
                 invalid={!!err('amount')}
                 errorId={err('amount') ? 'tx-amount-err' : undefined}
+                describedBy={paidInTrip ? 'tx-amount-fx' : undefined}
               />
               {err('amount') && <div className="fx-tx-err" id="tx-amount-err" role="alert">{errors.amount}</div>}
+              {paidInTrip && ctx && fxPreview && (fxPreview.statement ? (
+                <p id="tx-amount-fx" className="note fx-tx-fx">
+                  <b>= {fmtExact(fxPreview.statement.amount, homeCode)}</b> from your statement
+                  {' · '}1 {ctx.currency} = {sym}{fmtRate(fxPreview.statement.fxRate!)} with fees
+                  {trip && <> · {tripLabel(trip)}</>}
+                </p>
+              ) : (
+                <p id="tx-amount-fx" className="note fx-tx-fx">
+                  {fxPreview.home !== null && <b>= {fmtExact(fxPreview.home, homeCode)}</b>}
+                  {fxPreview.home !== null && ' · '}
+                  1 {ctx.currency} = {sym}{fmtRate(ctx.rate)}
+                  {fxPreview.withFee ? ` + ${ctx.feePct}% card fee` : ctx.feePct ? ' · no card fee on cash' : ''}
+                  {trip && <> · {tripLabel(trip)}</>}
+                </p>
+              ))}
+              {/* Travel stage 2: the bank's own figure, when it differs. */}
+              {paidInTrip && ctx && (chargedOpen ? (
+                <div className="fx-tx-charged">
+                  <label className="fl" htmlFor="tx-charged">Charged in {sym.trim() || homeCode}, from your statement</label>
+                  <AmountInput
+                    id="tx-charged"
+                    inputRef={chargedRef}
+                    sym={sym}
+                    placeholder={fxPreview?.home != null ? String(Math.abs(fxPreview.home)) : '0'}
+                    value={charged}
+                    onChange={(v) => { setCharged(v); if (submitted) setErrors((prev) => ({ ...prev, charged: undefined })); }}
+                    invalid={!!err('charged')}
+                    errorId={err('charged') ? 'tx-charged-err' : undefined}
+                    describedBy="tx-charged-help"
+                  />
+                  {err('charged') && <div className="fx-tx-err" id="tx-charged-err" role="alert">{errors.charged}</div>}
+                  <p id="tx-charged-help" className="note fx-tx-fx">
+                    Totals use what you actually paid. The {ctx.currency} amount stays as typed.{' '}
+                    <button
+                      type="button"
+                      className="fx-tx-link"
+                      onClick={() => { setChargedOpen(false); setCharged(''); setErrors((prev) => ({ ...prev, charged: undefined })); }}
+                    >
+                      Use the trip rate
+                    </button>
+                  </p>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="fx-tx-link"
+                  onClick={() => { setChargedOpen(true); requestAnimationFrame(() => chargedRef.current?.focus()); }}
+                >
+                  Charged a different amount?
+                </button>
+              ))}
             </div>
             <div className="fg" style={{ marginBottom: 10 }}>
               <label className="fl" htmlFor="tx-date">Date</label>
@@ -421,6 +690,24 @@ export default function TransactionModal({
                 <p id="tx-date-hint" className="note" style={{ marginTop: 5 }}>
                   Scheduled — it will be waiting on that date, not counted as spent today.
                 </p>
+              )}
+              {aheadTrip && (
+                <label className="fx-checkrow fx-tx-ahead">
+                  <input
+                    type="checkbox"
+                    className="fx-check"
+                    checked={aheadOn}
+                    onChange={(e) => {
+                      setAheadOn(e.target.checked);
+                      // Off the trip, nothing is in its currency any more.
+                      if (!e.target.checked) { setCurrencyPick(null); setChargedOpen(false); setCharged(''); }
+                    }}
+                  />
+                  <span>
+                    Part of the {tripLabel(aheadTrip)} trip
+                    <span className="note"> · starts {fmtTripDay(aheadTrip.start)}</span>
+                  </span>
+                </label>
               )}
             </div>
           </div>
@@ -496,7 +783,7 @@ export default function TransactionModal({
                           onClick={() => set('category', c.k)}
                         >
                           <Icon name={c.ic} size={17} style={{ color: SECTION_COLOR[sec] }} />
-                          <span style={{ fontSize: 10, color: 'var(--ink2)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{c.l}</span>
+                          <span style={{ fontSize: 11, color: 'var(--ink2)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{c.l}</span>
                         </button>
                       ))}
                     </div>
@@ -571,6 +858,22 @@ export default function TransactionModal({
             </p>
           </div>
         </form>
+
+        {/* The receipt camera's picker, after the form so the amount stays the
+            first field in it. Opened by the "Scan a receipt" button above. */}
+        {!isEdit && (
+          <input
+            ref={receiptInputRef}
+            className="fx-tx-sr"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            aria-label="Photo of a receipt"
+            aria-hidden="true"
+            tabIndex={-1}
+            onChange={(e) => { void readReceipt(e.target.files?.[0]); e.target.value = ''; }}
+          />
+        )}
 
         {/* Delete confirmation (the only confirmation in the flow).
             position:fixed, not absolute — an absolute inset-0 overlay in a

@@ -5,6 +5,14 @@
  */
 
 import type { JobAnalysis, JobKeywordReport } from '../types/jobs';
+import { capitalise } from '../utils/format';
+
+const ACRONYMS: Record<string, string> = { aml: 'AML', kyc: 'KYC' };
+
+/** "project-management" → "Project management"; the prompt's category keys are lower-case. */
+function categoryLabel(key: string): string {
+  return ACRONYMS[key] ?? capitalise(key.replace(/-/g, ' '));
+}
 
 function Fact({ label, value }: { label: string; value: string }) {
   if (!value) return null;
@@ -53,7 +61,7 @@ export function JobIntelView({
           <Fact label="Experience required" value={e.experienceRequired} />
           <Fact label="Education" value={e.education} />
           <Fact label="Location" value={e.location} />
-          <Fact label="Work mode" value={e.workMode} />
+          <Fact label="Work mode" value={capitalise(e.workMode)} />
           <Fact label="Salary" value={e.salaryInfo} />
           <Fact label="Visa sponsorship" value={e.visaSponsorship} />
           <Fact label="Travel" value={e.travel} />
@@ -61,7 +69,7 @@ export function JobIntelView({
         </div>
         <div>
           <div className="panel-eyebrow" style={{ marginBottom: 4 }}>Intelligence</div>
-          <Fact label="Difficulty" value={intel.difficulty ? `${intel.difficulty}/100` : ''} />
+          <Fact label="Difficulty to land" value={intel.difficulty ? `${intel.difficulty} out of 100` : ''} />
           <Fact label="Suits graduates" value={intel.suitsGraduates ? 'Yes' : 'No'} />
           <Fact label="Suits experienced" value={intel.suitsExperienced ? 'Yes' : 'No'} />
           <Fact label="Workload" value={intel.workload} />
@@ -89,7 +97,7 @@ export function JobIntelView({
           <div className="panel-eyebrow" style={{ margin: '14px 0 8px' }}>Skills by category</div>
           {[...byCategory.entries()].map(([category, names]) => (
             <div key={category} style={{ marginBottom: 8 }}>
-              <span className="badge badge-mute" style={{ marginRight: 8 }}>{category}</span>
+              <span className="badge badge-mute" style={{ marginRight: 8 }}>{categoryLabel(category)}</span>
               {names.map((n) => <span className="tag" key={n}>{n}</span>)}
             </div>
           ))}
@@ -99,20 +107,21 @@ export function JobIntelView({
       {keywords && keywords.keywords.length > 0 && (
         <>
           <div className="panel-eyebrow" style={{ margin: '14px 0 8px' }}>
-            ATS keywords {resumeText ? '(green = in your resume)' : '(by importance)'}
+            ATS keywords {resumeText ? '(ticked = already in your resume)' : '(by importance)'}
           </div>
           <div>
             {keywords.keywords.map((k) => {
-              const cls = resumeText
-                ? haystack.includes(k.keyword.toLowerCase()) ? 'kw hit' : 'kw miss'
-                : 'kw';
+              const hit = resumeText ? haystack.includes(k.keyword.toLowerCase()) : null;
+              const cls = hit == null ? 'kw' : hit ? 'kw hit' : 'kw miss';
               return (
                 <span
                   className={cls}
                   key={`${k.tier}:${k.keyword}`}
                   title={`${k.tier} · importance ${k.weight}/100 · seen ${k.frequency}×`}
                 >
+                  {hit && <span aria-hidden="true">✓ </span>}
                   {k.keyword} <span style={{ opacity: 0.6 }}>·{k.weight}</span>
+                  {hit != null && <span className="sr-only">{hit ? ', in your resume' : ', missing from your resume'}</span>}
                 </span>
               );
             })}

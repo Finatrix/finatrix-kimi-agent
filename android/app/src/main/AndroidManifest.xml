@@ -71,6 +71,17 @@
                 <data android:scheme="co.finatrix.app" android:host="auth" />
             </intent-filter>
 
+            <!-- Share to FinatriX: images from another app's share sheet (a
+                 GPay or bank-app screenshot, a photo of a bill). SharePlugin
+                 copies them into the app's cache and the page opens the
+                 screenshot import's review with them. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+
         </activity>
 
         <provider
@@ -84,10 +95,34 @@
         </provider>
     </application>
 
-    <!-- Permissions. Only the network: no location, contacts, SMS, camera or
+    <!-- Permissions. The network, the app lock's prompt and the microphone for
+         voice: no location, contacts, SMS, camera or
          storage permission is requested, and none is needed — files are chosen
          through the system picker, which grants access per file. -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- The optional app lock (Settings > App lock; AppLockPlugin.java) asks
+         the system to check a fingerprint or face, with the screen lock as the
+         fallback. The prompt is the system's own: the app never sees the
+         biometric, only whether the check passed. -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+
+    <!-- FinatriX AI's voice conversation (VoicePlugin.java). Asked for the
+         first time the mic button is tapped, and used only while a voice
+         conversation runs in the open app: the plugin stops listening when the
+         app is paused. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Android 11+ hides other apps' services unless declared: the phone's
+         speech recogniser and its text-to-speech engine. -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
 
     <!-- Reminders (the local-notifications plugin) are scheduled inexactly:
          a nudge a few minutes late is fine. The plugin's manifest also asks

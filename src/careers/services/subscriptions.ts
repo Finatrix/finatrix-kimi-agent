@@ -1,25 +1,21 @@
 /**
  * Subscription Platform (Phase 4, Module 1). Plans, the user's current
  * subscription, usage counters (for quota gating) and billing history.
- * Manual provider only — Stripe/Razorpay checkout is Module 2 (deferred);
- * `changePlan` and `cancelSubscription` mutate the subscription row directly,
- * which is exactly what a payment webhook will do once wired up.
+ * Read-only apart from creating a new user's free row: RLS leaves every other
+ * subscription write to the Stripe webhook and to admins.
  */
 
 import { supabase } from '../../lib/supabase';
 import { ymLocal } from '../../lib/date';
 import { invokeAuthed } from '../../lib/functions';
 import { track } from '../../lib/analytics';
-import { logAudit } from './audit';
 import { mapSupabaseError } from '../utils/errors';
 import type {
   BillingHistoryRow,
-  PlanId,
   QuotaCheck,
   QuotaKind,
   SubscriptionPlanRow,
   SubscriptionRow,
-  SubscriptionStatus,
   UsageCounterRow,
 } from '../types/phase4';
 
@@ -56,65 +52,6 @@ export async function ensureFreeSubscription(userId: string): Promise<Subscripti
     .select()
     .single();
   if (error) throw mapSupabaseError(error, 'Starting your subscription');
-  return data as SubscriptionRow;
-}
-
-/** Change plan (upgrade or downgrade) — takes effect immediately, no proration logic yet. */
-export async function changePlan(userId: string, subscriptionId: string, planId: PlanId | string, trialDays = 0): Promise<SubscriptionRow> {
-  const patch: Partial<SubscriptionRow> = {
-    plan_id: planId,
-    status: trialDays > 0 ? 'trialing' : 'active',
-    trial_ends_at: trialDays > 0 ? new Date(Date.now() + trialDays * 86_400_000).toISOString() : null,
-    cancel_at_period_end: false,
-  };
-  const { data, error } = await supabase
-    .from('subscriptions')
-    .update(patch)
-    .eq('user_id', userId)
-    .eq('id', subscriptionId)
-    .select()
-    .single();
-  if (error) throw mapSupabaseError(error, 'Changing your plan');
-  logAudit(userId, 'subscription.plan_changed', { type: 'subscription', id: subscriptionId }, { planId });
-  return data as SubscriptionRow;
-}
-
-export async function cancelSubscription(userId: string, subscriptionId: string, immediately = false): Promise<SubscriptionRow> {
-  const patch: Partial<SubscriptionRow> = immediately
-    ? { status: 'canceled' as SubscriptionStatus, cancel_at_period_end: true }
-    : { cancel_at_period_end: true };
-  const { data, error } = await supabase
-    .from('subscriptions')
-    .update(patch)
-    .eq('user_id', userId)
-    .eq('id', subscriptionId)
-    .select()
-    .single();
-  if (error) throw mapSupabaseError(error, 'Cancelling your subscription');
-  logAudit(userId, 'subscription.canceled', { type: 'subscription', id: subscriptionId }, { immediately });
-  return data as SubscriptionRow;
-}
-
-export async function applyCoupon(userId: string, subscriptionId: string, code: string): Promise<SubscriptionRow> {
-  // Validate via the SECURITY DEFINER RPC. The coupons table is not client-
-  // readable (a broad select policy would let anyone enumerate all codes); the
-  // RPC checks active/expiry/redemption-limit server-side and returns only the
-  // single submitted code when it is redeemable, or nothing when it is not.
-  const { data: rows, error: cErr } = await supabase.rpc('validate_coupon', {
-    p_code: code.trim().toUpperCase(),
-  });
-  const coupon = Array.isArray(rows) ? rows[0] : rows;
-  if (cErr || !coupon) {
-    throw mapSupabaseError(cErr ?? new Error('not found'), 'That coupon code is invalid or expired.');
-  }
-  const { data, error } = await supabase
-    .from('subscriptions')
-    .update({ coupon_code: coupon.code })
-    .eq('user_id', userId)
-    .eq('id', subscriptionId)
-    .select()
-    .single();
-  if (error) throw mapSupabaseError(error, 'Applying the coupon');
   return data as SubscriptionRow;
 }
 
@@ -208,25 +145,6 @@ export async function getUsageCounter(userId: string): Promise<UsageCounterRow> 
   if (error) throw mapSupabaseError(error, 'Loading usage');
   if (data) return data as UsageCounterRow;
   return { user_id: userId, period, ai_calls: 0, storage_bytes: 0, resumes_count: 0, applications_count: 0, updated_at: new Date().toISOString() };
-}
-
-/**
- * Bump one usage counter for the current period.
- *
- * NOT atomic, despite what this comment used to claim: it is a read followed by
- * an upsert, so two features metering concurrently both read N and both write
- * N+1, and one unit of usage goes unrecorded. The under-count is bounded by how
- * many requests a single user can genuinely overlap, and it only ever errs
- * toward the user. It is recorded here rather than quietly relied upon —
- * closing it properly means a Postgres RPC of the `increment_ai_usage` shape
- * (see the careers-ai edge function, which already meters atomically for the
- * quota that actually costs money).
- */
-export async function incrementUsage(userId: string, kind: QuotaKind, by = 1): Promise<void> {
-  const current = await getUsageCounter(userId);
-  const patch = { ...current, [kind]: (current[kind] as number) + by };
-  const { error } = await supabase.from('usage_counters').upsert(patch, { onConflict: 'user_id,period' });
-  if (error) throw mapSupabaseError(error, 'Recording usage');
 }
 
 /** Deterministic quota check — no AI, used to gate features before they run. */

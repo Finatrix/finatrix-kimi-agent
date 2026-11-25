@@ -82,7 +82,7 @@ export default function GoalPlannerPage() {
 
   return (
     <div className="fx-page">
-      <PageHead marketNotice chip="Goal planner" chipColor="var(--gold)" chipBg="rgba(176,138,54,.12)" icon="goal" title="What would it take to reach your goal?">
+      <PageHead marketNotice chip="Goal planner" chipColor="var(--gold)" icon="goal" title="What would it take to reach your goal?">
         Estimate a monthly contribution, then compare what changes with a different target or deadline.
       </PageHead>
 
@@ -95,12 +95,12 @@ export default function GoalPlannerPage() {
                 key={p[0]}
                 type="button"
                 onClick={() => set({ name: p[0], target: String(p[2]), years: String(p[3]) })}
-                style={{ padding: '13px 6px', borderRadius: 13, border: '1.5px solid var(--hair2)', background: 'var(--card)', textAlign: 'center', cursor: 'pointer', transition: 'all .15s', fontFamily: 'inherit' }}
+                style={{ padding: '13px 6px', borderRadius: 13, border: '1.5px solid var(--hair2)', background: 'var(--card)', textAlign: 'center', cursor: 'pointer', transition: 'border-color .15s, background-color .15s, color .15s', fontFamily: 'inherit' }}
               >
                 <span style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 26, marginBottom: 4, color: 'var(--ink2)' }}>
                   <Icon name={p[1].replace('ic-', '') as IconName} size={22} />
                 </span>
-                <span style={{ fontSize: 10.5, color: 'var(--ink2)', fontWeight: 600, display: 'block' }}>{p[0]}</span>
+                <span style={{ fontSize: 11, color: 'var(--ink2)', fontWeight: 600, display: 'block' }}>{p[0]}</span>
               </button>
             ))}
           </div>

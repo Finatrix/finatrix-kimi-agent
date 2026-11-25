@@ -35,7 +35,7 @@ export function PublishedPeerComparison({ market }: { market: MarketPack }) {
   const secondPlain = plainAmount(second);
   const secondNumber = secondPlain.trim() && Number.isFinite(Number(secondPlain)) && Math.abs(Number(secondPlain)) <= 1e12 && (row.negativeAllowed || Number(secondPlain) >= 0) ? Number(secondPlain) : null;
   return <div className="fx-page">
-    <PageHead chip="PeerCompare" chipColor="var(--purple)" chipBg="rgba(110,59,212,.09)" icon="peer" title="Put a published figure in context.">
+    <PageHead chip="PeerCompare" chipColor="var(--purple)" icon="peer" title="Put a published figure in context.">
       Explore official statistics for {market.name}. Compare the same population, period and definition; a national median is not a financial target.
     </PageHead>
     <RegionBar tour="peercompare-region" />

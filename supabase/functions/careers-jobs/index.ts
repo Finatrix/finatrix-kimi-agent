@@ -25,6 +25,8 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { rateLimited } from '../_shared/ratelimit.ts';
 import { corsHeaders } from '../_shared/origins.ts';
+import { CAREERS_AVAILABLE, CAREERS_LAUNCH_MESSAGE } from '../_shared/careersAvailability.ts';
+import { checkCareersEntitlement, type EntitlementClient } from '../_shared/careersEntitlement.ts';
 import { MARKETS, isCareersMarket } from '../_shared/careers-engine/markets/index.ts';
 // ── Multi-provider architecture (providers/*). The manager owns the entire
 //    search flow; nothing provider-specific lives in this composition root. ──
@@ -557,6 +559,17 @@ async function handle(
     return json(429, { error: 'Too many searches. Wait a minute and try again.' });
   }
 
+  // Each search can call several paid providers, so the paywall has to hold here too.
+  const entitlement = await checkCareersEntitlement(
+    supabase as unknown as EntitlementClient, userData.user, CAREERS_AVAILABLE,
+  );
+  if (!entitlement.allowed) {
+    const message = entitlement.reason === 'not-launched' ? CAREERS_LAUNCH_MESSAGE
+      : entitlement.reason === 'not-subscribed' ? 'Job search needs a paid Careers plan.'
+      : 'Job search is unavailable right now. Please try again.';
+    return json(entitlement.status, { error: message });
+  }
+
   let body: Partial<SearchParams> & { providers?: string[] };
   try {
     body = await req.json();
@@ -609,13 +622,16 @@ async function handle(
   recordSearchHistory(userData.user.id, input, res.jobs.length);
 
   // Structured, secret-free observability log (no PII, no provider payloads).
+  // Provider errors stay here: Jooble and Adzuna keep their keys in the request
+  // URL, and a runtime network error can quote that URL back.
   console.info(JSON.stringify({
     fn: 'careers-jobs', country: params.country, ran: res.ran,
     returned: res.jobs.length, cached: res.cached, totalMs: Date.now() - started,
+    errors: res.errors,
   }));
 
   return json(200, {
     jobs: res.jobs, status: res.status, counts: res.counts, latency: res.latency,
-    errors: res.errors, page: res.page, providersUp: res.providersUp, ran: res.ran,
+    page: res.page, providersUp: res.providersUp, ran: res.ran,
   });
 }

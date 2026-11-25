@@ -21,7 +21,7 @@ export default function PrivacyControls() {
   }, []);
   return <section className="fx-planning card" aria-labelledby="privacy-controls-title" data-tour="settings-privacy">
     <h2 id="privacy-controls-title">Privacy control centre</h2>
-    <p>Know what is saved, what is shared and which choices apply to this device.</p>
+    <p>Know what is saved, what is shared and which choices apply to this device. <Link to="/security" className="fx-prose-link">Who stores your data and who can see it</Link>.</p>
     <dl className="fx-plan-stats">
       <div><dt>Finance records</dt><dd style={{ fontSize: 14 }}>{user ? 'Local storage + account sync' : 'Stored on this device'}</dd></div>
       <div><dt>FinatriX AI</dt><dd style={{ fontSize: 14 }}>{aiConsent ? 'Allowed on this device' : 'Asks before sending anything'}</dd></div>
@@ -44,7 +44,7 @@ export default function PrivacyControls() {
         setStatus(e.target.checked ? 'FinatriX AI may send data to its AI provider when you ask.' : 'FinatriX AI will ask again before sending anything.');
       }} />Allow FinatriX AI to send data to its AI provider
     </label>
-    <p className="fx-plan-muted">When allowed, an AI answer sends your question, the recent conversation and the figures it needs — and a statement import sends unrecognised merchant descriptions — to {AI_RECIPIENT}. Your name, email address and account ID are never sent. Turning this off stops future requests; it does not recall ones already answered.</p>
+    <p className="fx-plan-muted">When allowed, an AI answer sends your question, the recent conversation and the figures it needs — a statement import sends unrecognised merchant descriptions, and Careers sends the resume and job text an analysis needs — to {AI_RECIPIENT}. Your name, email address and account ID are never sent. Turning this off stops future requests; it does not recall ones already answered.</p>
     <h3>Chat history</h3>
     <p>AI questions, recent conversation and relevant financial context are sent to the AI service to generate answers, only with your permission. Chat history is saved on this device for signed-in users. Clearing it here does not delete records already held by service providers.</p>
     {!confirmChat ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirmChat(true)} data-tour="settings-chat-history">Clear chat history…</button> : <div className="fx-plan-note">

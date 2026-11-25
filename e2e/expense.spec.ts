@@ -191,23 +191,60 @@ test('logs a spend from the quick-add line, category and all', async ({ page }) 
   expect(stored[0].paymentMethod).toBe('UPI');
 });
 
-test('closed mobile drawer is not reachable by keyboard', async ({ page }) => {
+test('the add sheet is dismissed by pulling its header down, and stays for a short pull', async ({ page }) => {
+  const width = page.viewportSize()?.width ?? 1280;
+  test.skip(width > 560, 'the form is a centred dialog above 560px; only the bottom sheet drags');
+  await gotoFresh(page);
+  await openAddModal(page);
+  const dialog = page.getByRole('dialog');
+  // Measure once the sheet has finished sliding up, not mid-entrance.
+  await dialog.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
+  // Pointer events are dispatched in the page rather than synthesised from
+  // page.mouse: mobile emulation turns mouse input into pointer events
+  // differently per platform (it passed on macOS and failed on Linux CI), and
+  // what is under test is the gesture logic, not the emulator.
+  const pull = (steps: number, px: number, gapMs: number) => page.evaluate(async ({ steps, px, gapMs }) => {
+    const head = document.querySelector<HTMLElement>('.fx-tx-head')!;
+    const r = head.getBoundingClientRect();
+    const x = r.left + 40;
+    const y = r.top + 12;
+    const fire = (target: EventTarget, type: string, cy: number) =>
+      target.dispatchEvent(new PointerEvent(type, { pointerId: 7, isPrimary: true, pointerType: 'touch', button: 0, buttons: 1, clientX: x, clientY: cy, bubbles: true }));
+    fire(head, 'pointerdown', y);
+    for (let i = 1; i <= steps; i++) {
+      await new Promise((resolve) => setTimeout(resolve, gapMs));
+      fire(window, 'pointermove', y + i * px);
+    }
+    fire(window, 'pointerup', y + steps * px);
+  }, { steps, px, gapMs });
+
+  // A short, slow pull (24px at ~0.07 px/ms, under both thresholds) settles back.
+  await pull(6, 4, 60);
+  await page.waitForTimeout(400);
+  await expect(dialog).toBeVisible();
+
+  // A long pull past the threshold closes it.
+  await pull(10, 22, 8);
+  await expect(dialog).toHaveCount(0);
+});
+
+test('mobile navigation is one tab bar of real links, with no hidden menu', async ({ page }) => {
   await gotoFresh(page);
   const state = await page.evaluate(() => {
-    const shell = document.getElementById('fx-tools-drawer')!;
-    const link = shell.querySelector<HTMLElement>('a[href]')!;
-    link.focus();
+    const bar = document.querySelector<HTMLElement>('nav[aria-label="Primary"]');
     return {
-      inert: shell.inert,
-      ariaHidden: shell.getAttribute('aria-hidden'),
-      links: shell.querySelectorAll('a[href],button').length,
-      focusTook: document.activeElement === link,
+      // The off-canvas drawer and its hamburger are gone: nothing navigable
+      // sits hidden in the DOM waiting to be tabbed into.
+      drawer: document.getElementById('fx-tools-drawer') !== null,
+      menuButton: document.querySelector('[aria-label="Open menu"]') !== null,
+      tabs: bar ? [...bar.querySelectorAll('a[href]')].map((a) => a.getAttribute('href')) : [],
+      buttons: bar ? bar.querySelectorAll('button').length : -1,
     };
   });
-  expect(state.inert).toBe(true);
-  expect(state.ariaHidden).toBe('true');
-  expect(state.links).toBeGreaterThan(10); // still rendered, so it can animate
-  expect(state.focusTook).toBe(false);     // …but the browser refuses focus
+  expect(state.drawer).toBe(false);
+  expect(state.menuButton).toBe(false);
+  expect(state.tabs).toEqual(['/tools/dashboard', '/tools/budget', '/tools/expenses', '/tools/goals', '/tools/all']);
+  expect(state.buttons).toBe(0);
 });
 
 test('edits a transaction in place, then deletes with confirm + undo', async ({ page }) => {

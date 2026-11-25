@@ -30,7 +30,7 @@ export default function Badge({ tone = 'neutral', className = '', style, childre
   return (
     <span
       className={
-        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10px] ' +
+        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[11px] ' +
         'uppercase tracking-[0.1em] ' +
         className
       }

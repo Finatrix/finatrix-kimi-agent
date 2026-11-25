@@ -13,7 +13,6 @@ import { useAuth } from '../../context/AuthContext';
 // be written, and the alias makes which one is meant unmissable at the call site.
 import { track as trackEvent } from '../../lib/analytics';
 import { useToast } from '../../tools/ui/Toast';
-import { PageHead, ToolFoot } from '../../tools/ui/common';
 import { Tabs } from '../../tools/ui/Tabs';
 import { MoneyField } from '../../tools/ui/MoneyField';
 import { CountryOptions } from '../components/CountryOptions';
@@ -21,8 +20,9 @@ import { CoverLetterModal } from '../components/CoverLetterModal';
 import { JobIntelView } from '../components/JobIntelView';
 import { MatchPanel } from '../components/MatchPanel';
 import { EmptyState, ErrorCard, ModalShell, SkeletonCards, PageLoading } from '../components/states';
-import { WorkRightsChip } from '../components/WorkRightsChip';
-import { ScoreRing } from '../components/ScoreRing';
+import { JobCard } from '../areas/jobs/JobCard';
+import { CxIcon } from '../ui/icons';
+import { Empty } from '../ui/primitives';
 import { CAREERS_ROUTES, INDUSTRY_OPTIONS } from '../constants';
 import { useCareers } from '../context/CareersContext';
 import { tailorResumeWithAI } from '../ai/tasks-jobs';
@@ -41,12 +41,11 @@ import { withRegistryJobs } from '../services/registryJobs';
 import { saveTailoredVersion, setSectionAccepted } from '../services/resumeTailoring';
 import type { ResumeTailoredVersionRow } from '../types/phase3';
 import { runSearchPipeline, type ScoredJob, type SearchReport } from '../search/pipeline';
-import { enrichScoredJobs, intelBadges } from '../search/enrich';
+import { enrichScoredJobs } from '../search/enrich';
 import { intelBoost, type RankPreferences } from '../search/rerank';
 import { searchCompanies } from '../services/companyIntelligence';
 import { listSavedCompanies } from '../services/companyIntelUser';
 import type { CompanyIntel, CompanyFilters } from '../types/companyIntel';
-import { categoryLabel } from '../search/taxonomy';
 import { classifyApplyUrl } from '../search/applyUrl';
 import type { QuickMatchInput } from '../search/quickMatch';
 import type { ResumeVersionRow, ResumeWithVersions } from '../types';
@@ -61,25 +60,8 @@ import {
   type TailoringReport,
 } from '../types/jobs';
 import { toCareersError, withRetry, type CareersError } from '../utils/errors';
-import { formatDate, scoreColor } from '../utils/format';
+import { capitalise, formatDate, scoreColor } from '../utils/format';
 import { safeHttpUrl } from '../../lib/sanitize';
-
-/**
- * Truthful trust/quality chips shown on each result. Every label maps to an
- * observable fact the backend computed (a real date, a real score, an
- * enrichment that actually ran) — see providers/badges.ts. We deliberately do
- * NOT show a generic "Verified" chip on unverified aggregated listings.
- */
-const TRUST_BADGES: Record<string, string> = {
-  posted_today: 'Posted today',
-  fresh_this_week: 'Fresh listing',
-  updated_recently: 'Updated recently',
-  salary_listed: 'Salary listed',
-  remote_friendly: 'Remote-friendly',
-  high_confidence: 'High-confidence match',
-  ai_summary: 'AI summary',
-  skills_matched: 'Matches your skills',
-};
 
 // ─────────────────────────── resume version picker ───────────────────────────
 
@@ -248,10 +230,15 @@ function JobWorkbench({
     }
   };
 
+  // A pasted description has no title or company until the analysis reads them from the text.
+  const title = target.title || intel?.analysis.extraction.title || 'Job description';
+  const company = target.company || intel?.analysis.extraction.company || '';
+  const heading = company ? `${title} — ${company}` : title;
+
   return (
-    <ModalShell label={`Job details — ${target.title}`} onClose={onClose} wide>
+    <ModalShell label={heading} onClose={onClose} wide>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-          <h3 style={{ flex: 1, marginBottom: 0 }}>{target.title || 'Job'} — {target.company || 'company'}</h3>
+          <h3 style={{ flex: 1, marginBottom: 0 }}>{heading}</h3>
           <button className="icon-btn" aria-label="Close" onClick={onClose}>✕</button>
         </div>
         <div className="job-meta" style={{ marginBottom: 14 }}>
@@ -273,7 +260,8 @@ function JobWorkbench({
                 target.jobRow?.raw && typeof target.jobRow.raw.via === 'string'
                   ? target.jobRow.raw.via
                   : target.normalized?.via ?? ''
-              ).label} ↗
+              ).label}
+              <span className="jb-sr"> (opens in a new tab)</span>
             </a>
           )}
         </div>
@@ -352,11 +340,13 @@ function JobWorkbench({
                 Tailored summary: {tailor.summary}
               </div>
               {tailor.sections.map((s, i) => {
-                const accepted = tailorRow?.accepted_sections.includes(s.section) ?? false;
+                // Several suggestions can share a section ("experience"), so each is accepted on its own.
+                const key = `${s.section}#${i}`;
+                const accepted = tailorRow?.accepted_sections.includes(key) ?? false;
                 return (
                   <div className="card" key={i} style={{ padding: 16, marginBottom: 10 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                      <span className="badge badge-gold">{s.section}</span>
+                      <span className="badge badge-gold">{capitalise(s.section)}</span>
                       {s.addedKeywords.length > 0 && (
                         <span className="note">+ {s.addedKeywords.join(', ')}</span>
                       )}
@@ -374,7 +364,7 @@ function JobWorkbench({
                     {s.reason && <p className="note" style={{ marginTop: 6 }}>Why: {s.reason}</p>}
                     {tailorRow && (
                       <label className="note" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, cursor: 'pointer' }}>
-                        <input type="checkbox" checked={accepted} onChange={(e) => void toggleAccepted(s.section, e.target.checked)} />
+                        <input type="checkbox" checked={accepted} onChange={(e) => void toggleAccepted(key, e.target.checked)} />
                         Accept this change
                       </label>
                     )}
@@ -422,7 +412,12 @@ async function workbenchKey(target: WorkbenchTarget): Promise<string> {
 
 type View = 'search' | 'saved' | 'analyzer';
 
-export default function JobsPage() {
+/**
+ * `view` is set by the Jobs area, whose tabs choose the sub-view; the page
+ * then hides its own switch. Without it (direct render) the page keeps its
+ * own switch and the `?view=` deep link.
+ */
+export default function JobsPage({ view: areaView }: { view?: View } = {}) {
   const { user } = useAuth();
   const { loading, error, profile, resumes, refresh, settings } = useCareers();
   const { notify } = useToast();
@@ -434,11 +429,14 @@ export default function JobsPage() {
 
   // Deep-linkable views (?view=analyzer|saved) so other pages can send users
   // straight to the JD analyzer workflow.
-  const [view, setView] = useState<View>(() => {
+  const [ownView, setView] = useState<View>(() => {
     const wanted = new URLSearchParams(location.search).get('view');
     return wanted === 'analyzer' || wanted === 'saved' ? wanted : 'search';
   });
-  const [params, setParams] = useState<JobSearchParams>({ ...DEFAULT_SEARCH_PARAMS });
+  const view = areaView ?? ownView;
+  // `?q=` (e.g. "Find live jobs" on a company page) prefills the search and runs it once.
+  const [initialQuery] = useState(() => new URLSearchParams(location.search).get('q')?.trim() ?? '');
+  const [params, setParams] = useState<JobSearchParams>(() => ({ ...DEFAULT_SEARCH_PARAMS, query: initialQuery }));
   const [searching, setSearching] = useState(false);
   const [report, setReport] = useState<SearchReport | null>(null);
   const [searchError, setSearchError] = useState<CareersError | null>(null);
@@ -447,7 +445,6 @@ export default function JobsPage() {
   const [matches, setMatches] = useState<Map<string, { report: MatchReport; intel: JobIntelResult }>>(new Map());
   const [resultKeys, setResultKeys] = useState<Map<ScoredJob, string>>(new Map());
   // Phase 4.1 — Company Intelligence enrichment (never mutates the job source).
-  const [intelMap, setIntelMap] = useState<Map<ScoredJob, CompanyIntel | null>>(new Map());
   const [boostMap, setBoostMap] = useState<Map<ScoredJob, { boost: number; why: string[] }>>(new Map());
   const [companyFallback, setCompanyFallback] = useState<CompanyIntel[]>([]);
   const [savedCompanyIds, setSavedCompanyIds] = useState<string[]>([]);
@@ -480,6 +477,7 @@ export default function JobsPage() {
   // automatically when a saved/deep-linked search arrives with some already
   // set, so an active filter is never invisible.
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const queryRef = useRef<HTMLInputElement>(null);
 
   /**
@@ -594,13 +592,10 @@ export default function JobsPage() {
       try {
         const enriched = await enrichScoredJobs(out.jobs);
         if (seq !== searchSeq.current) return;
-        const im = new Map<ScoredJob, CompanyIntel | null>();
         const bm = new Map<ScoredJob, { boost: number; why: string[] }>();
         out.jobs.forEach((s, i) => {
-          im.set(s, enriched[i]?.intel ?? null);
           if (enriched[i]) bm.set(s, intelBoost(enriched[i], rankPrefs));
         });
-        setIntelMap(im);
         setBoostMap(bm);
         if (!out.jobs.length) {
           const filters: CompanyFilters = {
@@ -611,7 +606,6 @@ export default function JobsPage() {
         }
         if (seq === searchSeq.current) setCompanyFallback(fallback);
       } catch {
-        setIntelMap(new Map());
         setCompanyFallback([]);
       }
 
@@ -783,114 +777,92 @@ export default function JobsPage() {
     })
     .map((x) => x.s);
 
+  // Run the `?q=` search once, on arrival.
+  const autoSearched = useRef(false);
+  useEffect(() => {
+    if (!initialQuery || autoSearched.current) return;
+    autoSearched.current = true;
+    void runSearch(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on arrival
+  }, [initialQuery]);
+
   if (loading) return <PageLoading />;
 
   return (
-    <div className="fx-page">
-      <PageHead
-        chip="Job Intelligence"
-        chipColor="#D4AF37"
-        chipBg="rgba(212,175,55,.12)"
-        icon="compass"
-        title="Find jobs that fit you"
-      >
-        Search across providers, let AI explain every posting, and score each one
-        against your resume in 14 dimensions before you spend a minute applying.
-      </PageHead>
-
+    <div className="cx-grid">
       {error && <ErrorCard error={error} onRetry={() => void refresh()} />}
 
       {/* Resume version selector — powers matching everywhere on this page */}
-      <div className="lib-toolbar" style={{ justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <label className="fl" style={{ marginBottom: 0 }} htmlFor="jobs-version">Match against</label>
-          {versions.length ? (
-            <select id="jobs-version" className="fs" style={{ width: 'auto' }} value={version?.id ?? ''} onChange={(e) => setVersionId(e.target.value)}>
-              {versions.map((v) => <option key={v.version.id} value={v.version.id}>{v.label}</option>)}
-            </select>
-          ) : (
-            <Link to={CAREERS_ROUTES.upload} className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}>
-              Upload a resume to enable matching
-            </Link>
-          )}
-        </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Kept out of the 7-item tab bar (see CAREERS_NAV) — Job Search is
-              where the intent to review roles already lives, so this is the
-              door to the queue. */}
-          <Link
-            to={CAREERS_ROUTES.queue}
-            className="btn btn-ghost btn-sm"
-            style={{ width: 'auto', textDecoration: 'none' }}
-          >
-            Review one at a time →
+      <div className="jb-version">
+        <label htmlFor="jobs-version">Match against</label>
+        {versions.length ? (
+          <select id="jobs-version" className="fs" value={version?.id ?? ''} onChange={(e) => setVersionId(e.target.value)}>
+            {versions.map((v) => <option key={v.version.id} value={v.version.id}>{v.label}</option>)}
+          </select>
+        ) : (
+          <Link to={CAREERS_ROUTES.upload} className="cx-btn cx-btn-sm">
+            Upload a resume to enable matching
           </Link>
-          <Tabs
-            variant="nav"
-            label="Jobs view"
-            style={{ padding: 0 }}
-            active={view}
-            onChange={setView}
-            items={[
-              { key: 'search', label: 'Search' },
-              { key: 'saved', label: `Saved (${saved.length})` },
-              { key: 'analyzer', label: 'JD Analyzer' },
-            ]}
-          />
-        </div>
+        )}
+        {!areaView && <Tabs
+          variant="nav"
+          label="Jobs view"
+          style={{ padding: 0, marginLeft: 'auto' }}
+          active={view}
+          onChange={setView}
+          items={[
+            { key: 'search', label: 'Search' },
+            { key: 'saved', label: `Saved (${saved.length})` },
+            { key: 'analyzer', label: 'JD analyser' },
+          ]}
+        />}
       </div>
 
       {view === 'search' && (
         <>
-          {/* Nine controls used to sit here permanently, eight of them
-              optional, so the resting state of the page a user comes to
-              SEARCH with was a form. The three that carry a real query stay
-              out; the refinements collapse behind one disclosure that says how
-              many are on, so nothing is hidden without a signal. */}
-          <div className="card" style={{ padding: 18 }}>
-            <div className="grid3" style={{ marginBottom: 12 }}>
-              <input ref={queryRef} className="fi" placeholder="Job title or keyword *" aria-label="Job title or keyword" value={params.query}
+          {/* Three controls carry a real query; the refinements collapse behind
+              one disclosure that says how many are on, so nothing is hidden
+              without a signal. */}
+          <section className="cx-panel" aria-label="Search jobs">
+            <div className="jb-form">
+              <input ref={queryRef} className="fi" placeholder="Job title or keyword" aria-label="Job title or keyword" value={params.query}
                 onChange={(e) => setParams((p) => ({ ...p, query: e.target.value }))}
                 onKeyDown={(e) => e.key === 'Enter' && void runSearch(0)} />
-              <input className="fi" placeholder="City / state" aria-label="Location" value={params.location}
+              <input className="fi" placeholder="City or state" aria-label="Location" value={params.location}
                 onChange={(e) => setParams((p) => ({ ...p, location: e.target.value }))}
                 onKeyDown={(e) => e.key === 'Enter' && void runSearch(0)} />
-              <button className={`btn ${searching ? 'btn-loading' : ''}`} disabled={searching} onClick={() => void runSearch(0)}>
+              <button className="cx-btn cx-btn-primary" disabled={searching} onClick={() => void runSearch(0)}>
+                <CxIcon name="search" size={16} />
                 {searching ? 'Searching…' : 'Search jobs'}
               </button>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <div className="jb-filter-row">
               <button
                 type="button"
-                className="btn btn-ghost btn-sm"
+                className="cx-btn cx-btn-quiet cx-btn-sm"
                 aria-expanded={filtersOpen}
                 aria-controls="jobs-filters"
                 onClick={() => setFiltersOpen((o) => !o)}
               >
                 Filters
-                {activeFilters > 0 && (
-                  <span className="badge badge-gold" style={{ marginLeft: 8 }}>{activeFilters}</span>
-                )}
-                <span aria-hidden="true" style={{ marginLeft: 6, fontSize: 9, opacity: .7 }}>
-                  {filtersOpen ? '▴' : '▾'}
-                </span>
+                {activeFilters > 0 && <span className="cx-chip cx-chip-accent">{activeFilters}</span>}
               </button>
               {activeFilters > 0 && (
-                <button type="button" className="btn btn-ghost btn-sm" onClick={clearFilters}>
+                <button type="button" className="cx-btn cx-btn-quiet cx-btn-sm" onClick={clearFilters}>
                   Clear filters
                 </button>
               )}
-              <span className="note" style={{ flex: 1, minWidth: 0 }}>
+              <span className="cx-muted" style={{ fontSize: 13 }}>
                 {activeFilters > 0
-                  ? `${activeFilters} filter${activeFilters === 1 ? '' : 's'} narrowing this search.`
-                  : 'Searching everywhere. Add filters to narrow it down.'}
+                  ? `${activeFilters} filter${activeFilters === 1 ? '' : 's'} narrowing this search`
+                  : 'No filters on'}
               </span>
             </div>
 
             {filtersOpen && (
-              <div id="jobs-filters" style={{ marginTop: 12 }}>
-                <div className="grid3" style={{ marginBottom: 10 }}>
+              <div id="jobs-filters">
+                <div className="jb-filters">
                   <select className="fs" aria-label="Country" value={params.country}
                     onChange={(e) => setParams((p) => ({ ...p, country: e.target.value }))}>
                     <CountryOptions />
@@ -898,7 +870,7 @@ export default function JobsPage() {
                   <select className="fs" aria-label="Work mode" value={params.workMode}
                     onChange={(e) => setParams((p) => ({ ...p, workMode: e.target.value as JobSearchParams['workMode'] }))}>
                     <option value="">Any work mode</option>
-                    <option value="remote">Remote / WFH only</option>
+                    <option value="remote">Remote only</option>
                     <option value="hybrid">Hybrid only</option>
                     <option value="onsite">On-site</option>
                   </select>
@@ -908,21 +880,19 @@ export default function JobsPage() {
                     <option value="fulltime">Full-time</option>
                     <option value="parttime">Part-time</option>
                     <option value="contract">Contract</option>
-                    <option value="intern">Internship / graduate</option>
+                    <option value="intern">Internship or graduate</option>
                   </select>
-                </div>
-                {/* Money is never `type="number"` here — see MoneyField: the
-                    browser reports an empty value for anything not yet a valid
-                    number, so the field blanked itself the moment someone typed
-                    a decimal point. MoneyField keeps the user's draft string
-                    while focused. Empty commits as 0, mapped back to null so
-                    "no minimum" stays distinct from "at least ₹0". */}
-                <div className="grid3" style={{ marginBottom: 4 }}>
                   <select className="fs" aria-label="Industry" value={params.industry}
                     onChange={(e) => setParams((p) => ({ ...p, industry: e.target.value }))}>
                     <option value="">Any industry</option>
                     {INDUSTRY_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
                   </select>
+                  {/* Money is never `type="number"` here — see MoneyField: the
+                      browser reports an empty value for anything not yet a valid
+                      number, so the field blanked itself the moment someone typed
+                      a decimal point. MoneyField keeps the user's draft string
+                      while focused. Empty commits as 0, mapped back to null so
+                      "no minimum" stays distinct from "at least ₹0". */}
                   <MoneyField
                     id="jobs-salary-min" className="fi" sym="₹"
                     placeholder="Min salary (₹/yr)" ariaLabel="Minimum salary"
@@ -938,91 +908,70 @@ export default function JobsPage() {
                 </div>
               </div>
             )}
-
-            <div className="note" style={{ marginTop: 12 }}>
-              Listings are aggregated from a broad set of trusted job sources across the web and refreshed
-              continuously. Each posting shows its original source, and duplicate listings are merged automatically.
-            </div>
-          </div>
+          </section>
 
           {searchError && <ErrorCard error={searchError} onRetry={() => void runSearch(params.page)} />}
 
-          {report && !searching && (
-            <div className="lib-toolbar" style={{ flexWrap: 'wrap' }}>
-              <label className="fl" style={{ marginBottom: 0 }} htmlFor="jobs-threshold">
-                Match threshold: <b style={{ color: 'var(--gold)' }}>{threshold}%</b>
-              </label>
-              <input
-                id="jobs-threshold" type="range" min={0} max={100} step={5} value={threshold}
-                onChange={(e) => setThreshold(Number(e.target.value))}
-                style={{ flex: '0 1 200px', accentColor: '#D4AF37' }}
-              />
-              <select
-                className="fs" aria-label="Sort results" value={sortMode}
-                style={{ width: 'auto', padding: '8px 34px 8px 12px', fontSize: 13 }}
-                onChange={(e) => setSortMode(e.target.value as SortMode)}
-              >
-                <option value="best">Best match first</option>
-                <option value="newest">Newest first</option>
-                <option value="salary">Highest salary first</option>
-              </select>
-              <span className="note">
-                {resumeInput
-                  ? `Jobs below ${threshold}% Resume Match are never shown.`
-                  : 'Upload a resume to enable Resume Match filtering.'}
-              </span>
-            </div>
-          )}
-
-          {/* One search-quality strip: result counts + provider health. Partial
-              provider failures never fail the whole search. */}
           {report && !searching && (() => {
             const q = report.quality;
             const cov = q.providerCoverage;
             // Source names are deliberately not shown to users — the experience is
             // native to FinatriX. Detailed per-source health lives in the internal
             // admin dashboard. Here we surface only an honest aggregate.
-            const ran = Object.values(cov).filter((s) => s === 'ok' || s === 'error' || s === 'timeout').length;
+            const vals = Object.values(cov);
+            const ran = vals.filter((s) => s === 'ok' || s === 'error' || s === 'timeout').length;
+            const live = vals.filter((st) => st === 'ok').length;
+            const degraded = vals.filter((st) => st === 'timeout' || st === 'error').length;
             const cb = q.confidenceBreakdown;
+            const order = sortMode === 'newest' ? 'newest first' : sortMode === 'salary' ? 'highest salary first' : 'best match first';
             return (
-              <div className="card" role="status" style={{ padding: '12px 18px', marginBottom: 10 }}>
-                <div className="job-meta" style={{ gap: 16 }}>
-                  <span><b style={{ color: 'var(--ink)' }}>{visibleResults.length}</b> relevant jobs shown</span>
-                  <span>{q.rejected} filtered out
-                    {q.rejected > 0 && (
-                      <span className="note">
-                        {' '}({Object.entries(q.rejectedByReason).map(([r, n]) => `${n} ${r.replace('-', ' ')}`).join(', ')})
-                      </span>
-                    )}
-                  </span>
-                  {q.averageMatch != null && (
-                    <span>Avg match <b style={{ color: scoreColor(q.averageMatch) }}>{q.averageMatch}%</b></span>
-                  )}
-                  <span
-                    title={cb ? `Providers ${cb.providerCoverage}% · Resume ${cb.resume}% · Query ${cb.query}% · Classification ${cb.classification}%` : undefined}
-                    style={{ cursor: cb ? 'help' : undefined }}
+              <div>
+                <div className="jb-toolbar">
+                  <p className="cx-sub jb-count" role="status">
+                    {visibleResults.length} job{visibleResults.length === 1 ? '' : 's'}, {order}
+                  </p>
+                  <label htmlFor="jobs-threshold">Minimum match {threshold}%</label>
+                  <input
+                    id="jobs-threshold" type="range" min={0} max={100} step={5} value={threshold}
+                    onChange={(e) => setThreshold(Number(e.target.value))}
+                  />
+                  <select
+                    className="fs" aria-label="Sort results" value={sortMode}
+                    onChange={(e) => setSortMode(e.target.value as SortMode)}
                   >
-                    Search confidence <b style={{ color: scoreColor(q.searchConfidence) }}>{q.searchConfidence}%</b>
-                  </span>
+                    <option value="best">Best match first</option>
+                    <option value="newest">Newest first</option>
+                    <option value="salary">Highest salary first</option>
+                  </select>
+                  <button
+                    type="button" className="cx-btn cx-btn-quiet cx-btn-sm"
+                    aria-expanded={detailsOpen} aria-controls="jobs-details"
+                    onClick={() => setDetailsOpen((o) => !o)}
+                  >
+                    Details
+                  </button>
                 </div>
-                {Object.keys(cov).length > 0 && (
-                  <div className="job-meta" style={{ gap: 14, marginTop: 6 }}>
-                    <span><b style={{ color: 'var(--ink)' }}>{ran}</b> source{ran === 1 ? '' : 's'} searched</span>
-                    {(() => {
-                      const vals = Object.values(cov);
-                      const live = vals.filter((st) => st === 'ok').length;
-                      const degraded = vals.filter((st) => st === 'timeout' || st === 'error').length;
-                      return (
-                        <>
-                          <span style={{ color: 'var(--green)' }}>✓ {live} live</span>
-                          {degraded > 0 && (
-                            <span style={{ color: 'var(--orange)' }}>· {degraded} temporarily unavailable</span>
-                          )}
-                        </>
-                      );
-                    })()}
-                    {q.duplicatesRemoved > 0 && <span className="note">· {q.duplicatesRemoved} duplicate{q.duplicatesRemoved === 1 ? '' : 's'} removed</span>}
-                    {q.timings?.totalMs != null && <span className="note">· ranked in {Math.round(q.timings.totalMs)}ms</span>}
+                {!resumeInput && (
+                  <p className="cx-muted" style={{ fontSize: 13, margin: '0 0 12px' }}>
+                    Upload a resume to filter by match.
+                  </p>
+                )}
+                {detailsOpen && (
+                  <div id="jobs-details" className="jb-details">
+                    <div className="jb-details-body">
+                      <span>{q.rejected} filtered out
+                        {q.rejected > 0 && ` (${Object.entries(q.rejectedByReason).map(([r, n]) => `${n} ${r.replace('-', ' ')}`).join(', ')})`}
+                      </span>
+                      {q.averageMatch != null && <span>Average match {q.averageMatch}%</span>}
+                      <span>
+                        Search confidence {q.searchConfidence}%
+                        {cb && ` (providers ${cb.providerCoverage}%, resume ${cb.resume}%, query ${cb.query}%, classification ${cb.classification}%)`}
+                      </span>
+                      {vals.length > 0 && <span>{ran} source{ran === 1 ? '' : 's'} searched, {live} live</span>}
+                      {degraded > 0 && <span>{degraded} temporarily unavailable</span>}
+                      {q.duplicatesRemoved > 0 && <span>{q.duplicatesRemoved} duplicate{q.duplicatesRemoved === 1 ? '' : 's'} removed</span>}
+                      {q.timings?.totalMs != null && <span>Ranked in {Math.round(q.timings.totalMs)} ms</span>}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1037,130 +986,38 @@ export default function JobsPage() {
             const key = resultKeys.get(s);
             const ai = key ? matches.get(key) : undefined;
             const pct = effectiveMatch(s);
+            const opening = openingKey === `${job.source}-${job.external_id}`;
             return (
-              <div className="card result-card-anim" key={`${job.source}-${job.external_id}-${i}`} style={{ padding: 18, marginBottom: 10 }}>
-                <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 15.5, fontWeight: 650 }}>{job.title}</div>
-                    <div className="job-meta">
-                      <span><b style={{ color: 'var(--ink)' }}>{job.company || 'Unknown company'}</b></span>
-                      {job.location && <span>{job.location}</span>}
-                      {job.classification.category !== 'other' && (
-                        <span className="badge badge-gold">{categoryLabel(job.classification.category)}</span>
-                      )}
-                      {(job.workMode || job.work_mode) && <span className="badge badge-blue">{job.workMode || job.work_mode}</span>}
-                      {job.employment && <span>{job.employment}</span>}
-                      {(job.salary_min || job.salary_max) && (
-                        <span>{[job.salary_min, job.salary_max].filter(Boolean).map((n) => n!.toLocaleString()).join(' – ')} {job.currency}</span>
-                      )}
-                      {job.posted_at && <span>Posted {formatDate(job.posted_at)}</span>}
-                      <WorkRightsChip job={job} declared={settings.declaredRights} />
-                      {/* Sourcing, stated plainly. A posting read off the
-                          employer's own ATS is the canonical one and says so;
-                          an aggregated listing names the aggregator instead of
-                          implying the company published it here. */}
-                      {classifyApplyUrl(job.apply_url, job.via).direct ? (
-                        <span className="badge badge-green">Direct from employer</span>
-                      ) : (
-                        <span className="badge badge-mute">Listed via {job.via}</span>
-                      )}
-                    </div>
-                    {/* Truthful, earned trust/quality chips (freshness, salary,
-                        remote, confidence, skill match) — each reflects a real
-                        fact the search backend computed, never a vendor name. */}
-                    {job.badges && job.badges.length > 0 && (
-                      <div className="job-meta" style={{ marginTop: 4 }}>
-                        {job.badges
-                          .filter((b) => TRUST_BADGES[b])
-                          .slice(0, 4)
-                          .map((b) => (
-                            <span key={b} className="badge badge-green">{TRUST_BADGES[b]}</span>
-                          ))}
-                      </div>
-                    )}
-                    {intelMap.get(s) && (
-                      <div className="job-meta" style={{ marginTop: 4 }}>
-                        {intelBadges(intelMap.get(s)!).map((b) => (
-                          <span key={b} className="badge badge-blue">{b}</span>
-                        ))}
-                        <Link
-                          className="badge badge-gold"
-                          style={{ textDecoration: 'none' }}
-                          to={`${CAREERS_ROUTES.companyProfile}?id=${encodeURIComponent(intelMap.get(s)!.id)}`}
-                        >
-                          Company intelligence ↗
-                        </Link>
-                        {(boostMap.get(s)?.why ?? []).map((w) => (
-                          <span key={w} className="badge" style={{ background: 'rgba(18,183,106,.12)', color: 'var(--green, #12b76a)' }}>★ {w}</span>
-                        ))}
-                      </div>
-                    )}
-                    {s.why.length > 0 && (
-                      <div className="note" style={{ marginTop: 6 }}>
-                        Why this job: {s.why.slice(0, 2).join(' · ')}
-                      </div>
-                    )}
-                    {s.match && s.match.addableTerms.length > 0 && (
-                      <div className="note" style={{ marginTop: 2 }}>
-                        On your profile but not your resume: {s.match.addableTerms.slice(0, 4).join(', ')}
-                      </div>
-                    )}
-                    {s.match && s.match.missingTerms.length > s.match.addableTerms.length && (
-                      <div className="note" style={{ marginTop: 2 }}>
-                        Missing from your experience: {s.match.missingTerms.filter((t) => !s.match!.addableTerms.includes(t)).slice(0, 4).join(', ')}
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ textAlign: 'center', flexShrink: 0 }}>
-                    {pct != null ? (
-                      <>
-                        <ScoreRing score={pct} caption={ai ? 'AI match' : 'match'} size={62} />
-                        {/* A percentage computed from two signals is not the
-                            same claim as one computed from eight. Saying so is
-                            the difference between a score and a guess wearing
-                            a score's clothes. */}
-                        {!ai && s.match && s.match.confidence < 50 && (
-                          <div className="note" style={{ fontSize: 10, marginTop: 3, lineHeight: 1.3 }}>
-                            thin data
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <span className="note">no resume</span>
-                    )}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+              <JobCard
+                key={`${job.source}-${job.external_id}-${i}`}
+                job={job}
+                declaredRights={settings.declaredRights}
+                score={pct}
+                aiMatch={!!ai}
+                // A percentage computed from two signals is not the same claim
+                // as one computed from eight; say so.
+                thinData={!!s.match && s.match.confidence < 50}
+                why={[...s.why, ...(boostMap.get(s)?.why ?? []).map((w) => `Ranked higher: ${w}`)]}
+                addable={s.match?.addableTerms}
+                missing={s.match?.missingTerms}
+                primary={
                   <button
-                    className={`btn btn-sm ${openingKey === `${job.source}-${job.external_id}` ? 'btn-loading' : ''}`}
-                    disabled={openingKey === `${job.source}-${job.external_id}`}
+                    className="cx-btn cx-btn-primary cx-btn-sm"
+                    disabled={opening}
                     onClick={() => void openNormalized(job)}
                   >
-                    {openingKey === `${job.source}-${job.external_id}` ? 'Opening…' : 'Analyse & match'}
+                    {opening ? 'Opening…' : 'Analyse & match'}
                   </button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => {
+                }
+                secondary={
+                  <button className="cx-btn cx-btn-quiet cx-btn-sm" aria-label={`Save ${job.title}`} onClick={() => {
                     if (user) void saveJob(user.id, job).then(() => { notify('Job saved.', 'ok'); void loadSaved(); })
                       .catch((e) => notify(toCareersError(e).message, 'error'));
                   }}>
                     Save
                   </button>
-                  {/* The label states the real destination. This button used
-                      to say "Apply" for every result, including Adzuna's
-                      redirect_url and Remotive's listing page — neither of
-                      which is an application form. See search/applyUrl.ts. */}
-                  {safeHttpUrl(job.apply_url) && (
-                    <a
-                      className="btn btn-ghost btn-sm"
-                      style={{ width: 'auto', textDecoration: 'none' }}
-                      href={safeHttpUrl(job.apply_url)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {classifyApplyUrl(job.apply_url, job.via).label} ↗
-                    </a>
-                  )}
-                </div>
-              </div>
+                }
+              />
             );
           })}
 
@@ -1170,62 +1027,64 @@ export default function JobsPage() {
           {!searching && results.length > 0 && visibleResults.length === 0 && (() => {
             const best = Math.max(...results.map((s) => effectiveMatch(s) ?? 0));
             return (
-              <div className="card">
-                <EmptyState
-                  icon="goal"
-                  title={`${results.length} job${results.length === 1 ? '' : 's'} matched — all below your ${threshold}% threshold`}
+              <section className="cx-panel" aria-label="No jobs above your minimum match">
+                <Empty
+                  title={`${results.length} job${results.length === 1 ? '' : 's'} found, all below ${threshold}%`}
                   action={
-                    <button className="btn btn-sm" style={{ width: 'auto' }} onClick={() => setThreshold(0)}>
+                    <button className="cx-btn cx-btn-primary" onClick={() => setThreshold(0)}>
                       Show all {results.length} jobs
                     </button>
                   }
                 >
-                  The strongest Resume Match in this search scored {best}%. Lower the
-                  threshold above, or show everything and judge for yourself.
-                </EmptyState>
-              </div>
+                  The strongest match in this search is {best}%. Lower the minimum match, or show everything.
+                </Empty>
+              </section>
             );
           })()}
 
           {!searching && results.length > 0 && visibleResults.length > 0 && (
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 6 }}>
+            <div className="jb-pager">
               {params.page > 0 && (
-                <button className="btn btn-ghost btn-sm" disabled={searching} onClick={() => void runSearch(params.page - 1)}>← Previous</button>
+                <button className="cx-btn cx-btn-sm" disabled={searching} onClick={() => void runSearch(params.page - 1)}>Previous page</button>
               )}
-              <button className="btn btn-ghost btn-sm" disabled={searching} onClick={() => void runSearch(params.page + 1)}>Next page →</button>
+              <button className="cx-btn cx-btn-sm" disabled={searching} onClick={() => void runSearch(params.page + 1)}>Next page</button>
             </div>
           )}
 
           {/* No live jobs (or backend down) → Company Intelligence fallback. */}
           {results.length === 0 && companyFallback.length > 0 && (
-            <section aria-label="Matching companies from your intelligence base" style={{ marginTop: 4 }}>
-              <div className="note" style={{ marginBottom: 8 }}>
-                {searchError ? 'Live job search is unavailable right now, but ' : 'No live job listings matched, but '}
-                {companyFallback.length} compan{companyFallback.length === 1 ? 'y' : 'ies'} in your intelligence base match this search:
+            <section className="cx-panel" aria-label="Matching companies">
+              <div className="cx-panel-head">
+                <h2>Matching companies</h2>
               </div>
-              {companyFallback.map((c) => (
-                <div className="card" key={c.id} style={{ padding: 16, marginBottom: 8 }}>
-                  <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 15, fontWeight: 650 }}>{c.name}</div>
-                      <div className="job-meta">
-                        {c.industry && <span className="badge badge-gold">{c.industry}</span>}
-                        {(c.hqCity || c.hqCountry) && <span>{[c.hqCity, c.hqCountry].filter(Boolean).join(', ')}</span>}
-                        {(c.graduateFriendly || c.graduatePrograms.length > 0) && <span className="badge badge-blue">Graduate program</span>}
-                        {(c.internFriendly || c.internships.length > 0) && <span className="badge badge-blue">Internships</span>}
-                        {c.confidenceScore != null && <span className="badge badge-mute">Intel {c.confidenceScore}%</span>}
+              <p className="cx-sub" style={{ marginBottom: 8 }}>
+                {searchError ? 'Live job search is unavailable right now, but ' : 'No live job listings matched, but '}
+                {companyFallback.length} compan{companyFallback.length === 1 ? 'y' : 'ies'} in your intelligence base match this search.
+              </p>
+              <ul className="cx-list">
+                {companyFallback.map((c) => (
+                  <li key={c.id}>
+                    <div className="cx-row">
+                      <div className="cx-row-main">
+                        <h3 className="cx-row-title">{c.name}</h3>
+                        <div className="cx-row-meta">
+                          {c.industry && <span>{c.industry}</span>}
+                          {(c.hqCity || c.hqCountry) && <span>{[c.hqCity, c.hqCountry].filter(Boolean).join(', ')}</span>}
+                          {(c.graduateFriendly || c.graduatePrograms.length > 0) && <span>Graduate program</span>}
+                          {(c.internFriendly || c.internships.length > 0) && <span>Internships</span>}
+                        </div>
                       </div>
+                      <Link
+                        className="cx-btn cx-btn-sm"
+                        aria-label={`View company profile for ${c.name}`}
+                        to={`${CAREERS_ROUTES.companyProfile}?id=${encodeURIComponent(c.id)}`}
+                      >
+                        View company
+                      </Link>
                     </div>
-                    <Link
-                      className="btn btn-ghost btn-sm"
-                      style={{ width: 'auto', textDecoration: 'none', flexShrink: 0 }}
-                      to={`${CAREERS_ROUTES.companyProfile}?id=${encodeURIComponent(c.id)}`}
-                    >
-                      View intelligence ↗
-                    </Link>
-                  </div>
-                </div>
-              ))}
+                  </li>
+                ))}
+              </ul>
             </section>
           )}
         </>
@@ -1233,59 +1092,66 @@ export default function JobsPage() {
 
       {view === 'saved' && (
         !saved.length ? (
-          <div className="card">
-            <EmptyState icon="park" title="No saved jobs yet">
-              Analyse a search result or paste a job description — everything you keep lands here.
-            </EmptyState>
-          </div>
+          <section className="cx-panel" aria-label="Saved jobs">
+            <Empty title="No saved jobs yet">
+              Save a search result or analyse a pasted job description, and it will appear here.
+            </Empty>
+          </section>
         ) : (
           saved.map((row) => (
-            <div className="card" key={row.id} style={{ padding: 18, marginBottom: 10 }}>
-              <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 15.5, fontWeight: 650 }}>{row.title}</div>
-                  <div className="job-meta">
-                    <span><b style={{ color: 'var(--ink)' }}>{row.company}</b></span>
-                    {row.location && <span>{row.location}</span>}
-                    <span className="badge badge-mute">{row.source}</span>
-                    {row.analysis ? <span className="badge badge-green">analysed</span> : <span className="badge badge-mute">not analysed</span>}
-                    <span>Saved {formatDate(row.created_at)}</span>
-                  </div>
-                </div>
-                <button className="btn btn-sm" style={{ width: 'auto' }} onClick={() => openSaved(row)}>Open</button>
+            <JobCard
+              key={row.id}
+              job={row}
+              declaredRights={settings.declaredRights}
+              hideFit
+              primary={
+                <button className="cx-btn cx-btn-primary cx-btn-sm" aria-label={`Open ${row.title}`} onClick={() => openSaved(row)}>
+                  Open
+                </button>
+              }
+              secondary={
                 <button
-                  className="icon-btn danger" aria-label={`Remove ${row.title}`}
+                  className="cx-btn cx-btn-quiet cx-btn-sm" aria-label={`Remove ${row.title}`}
                   onClick={() => { if (user) void deleteJob(user.id, row.id).then(loadSaved).catch((e) => notify(toCareersError(e).message, 'error')); }}
-                >✕</button>
+                >
+                  Remove
+                </button>
+              }
+            >
+              <div className="cx-row-meta" style={{ marginTop: 8 }}>
+                <span>{row.analysis ? 'Analysed' : 'Not analysed'}</span>
+                <span>Saved {formatDate(row.created_at)}</span>
               </div>
-            </div>
+            </JobCard>
           ))
         )
       )}
 
       {view === 'analyzer' && (
-        <div className="card">
-          <div className="panel-eyebrow">Job description analyzer</div>
-          <p className="panel-sub" style={{ margin: '8px 0 14px' }}>
-            Paste any job description — or upload it as PDF/DOCX — and get the full
-            intelligence + match + tailoring workflow, even for jobs found elsewhere.
+        <section className="cx-panel" aria-labelledby="jobs-analyzer-title">
+          <div className="cx-panel-head">
+            <h2 id="jobs-analyzer-title">Analyse a job description</h2>
+          </div>
+          <p className="cx-sub" style={{ marginBottom: 12 }}>
+            Paste a job description, or upload it as a PDF or Word file. You get the
+            job breakdown, a resume match and tailoring suggestions.
           </p>
           <textarea
-            className="fi"
-            style={{ minHeight: 200, resize: 'vertical', lineHeight: 1.55 }}
-            placeholder="Paste the job description here…"
+            className="fi jb-text"
+            placeholder="Paste the job description here"
             aria-label="Job description text"
             value={pasteText}
             onChange={(e) => setPasteText(e.target.value)}
           />
-          <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
-            <button className={`btn btn-sm ${analyzing ? 'btn-loading' : ''}`} disabled={analyzing} onClick={() => void analyzePasted()}>
-              Analyse pasted text
+          <div className="jb-actions">
+            <button className="cx-btn cx-btn-primary" disabled={analyzing} onClick={() => void analyzePasted()}>
+              {analyzing ? 'Analysing…' : 'Analyse pasted text'}
             </button>
-            <label className="btn btn-ghost btn-sm" style={{ width: 'auto', cursor: 'pointer' }}>
-              Upload PDF / DOCX
+            <label className="cx-btn jb-upload" style={{ cursor: 'pointer' }}>
+              <CxIcon name="upload" size={16} />
+              Upload PDF or Word file
               <input
-                type="file" hidden accept=".pdf,.docx,.doc"
+                type="file" className="jb-sr" accept=".pdf,.docx,.doc"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (f) void analyzeFile(f);
@@ -1294,7 +1160,7 @@ export default function JobsPage() {
               />
             </label>
           </div>
-        </div>
+        </section>
       )}
 
       {workbench && (
@@ -1307,10 +1173,6 @@ export default function JobsPage() {
           onClose={() => { setWorkbench(null); void loadSaved(); }}
         />
       )}
-
-      <ToolFoot>
-        <b>Job Intelligence</b> · identical postings are analysed once and cached — AI spend stays minimal
-      </ToolFoot>
     </div>
   );
 }

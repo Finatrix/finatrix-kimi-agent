@@ -35,6 +35,8 @@ interface Candidate {
   /** Days since the epoch, so a window comparison is integer subtraction. */
   day: number;
   key: string;
+  /** Position in the pool, so "the earliest match" survives the indexing. */
+  order: number;
 }
 
 /** Local calendar day → day number. Parsed from parts; never through UTC. */
@@ -62,17 +64,48 @@ function sameMerchant(a: string, b: string): boolean {
 function candidateOf(id: string, amount: number, date: string, key: string): Candidate | null {
   const day = dayNumber(date);
   if (day === null || !Number.isFinite(amount)) return null;
-  return { id, amount: Math.abs(amount), day, key };
+  return { id, amount: Math.abs(amount), day, key, order: 0 };
 }
 
-function findMatch(target: Candidate, pool: readonly Candidate[]): string | null {
-  for (const c of pool) {
-    if (Math.abs(c.amount - target.amount) >= EPSILON) continue;
-    if (Math.abs(c.day - target.day) > DAY_WINDOW) continue;
-    if (!sameMerchant(c.key, target.key)) continue;
-    return c.id;
+/**
+ * Candidates indexed by amount.
+ *
+ * Two rows can only be the same transaction if their amounts agree to the
+ * cent, so a lookup need only visit the rows sharing an amount — not the whole
+ * ledger. A plain scan made a 20,000-row statement against a 20,000-row ledger
+ * several hundred million comparisons, repeated on every re-check (after the
+ * AI pass, after a date-order flip, on resume), which is a frozen tab on a
+ * phone. Answers are unchanged: still the earliest matching row.
+ */
+class Pool {
+  private readonly byCents = new Map<number, Candidate[]>();
+  private size = 0;
+
+  add(candidate: Candidate): void {
+    const cents = Math.round(candidate.amount * 100);
+    const bucket = this.byCents.get(cents);
+    const entry = { ...candidate, order: this.size++ };
+    if (bucket) bucket.push(entry);
+    else this.byCents.set(cents, [entry]);
   }
-  return null;
+
+  find(target: Candidate): string | null {
+    const cents = Math.round(target.amount * 100);
+    let best: Candidate | null = null;
+    // Amounts within EPSILON of each other round to the same cent or to
+    // neighbouring ones, so the neighbours are checked too.
+    for (const key of [cents - 1, cents, cents + 1]) {
+      for (const c of this.byCents.get(key) ?? []) {
+        if (best && c.order > best.order) break; // buckets are in insertion order
+        if (Math.abs(c.amount - target.amount) >= EPSILON) continue;
+        if (Math.abs(c.day - target.day) > DAY_WINDOW) continue;
+        if (!sameMerchant(c.key, target.key)) continue;
+        best = c;
+        break;
+      }
+    }
+    return best ? best.id : null;
+  }
 }
 
 /**
@@ -90,22 +123,22 @@ export function markDuplicates(
   drafts: readonly DraftRow[],
   existing: readonly ExpenseItem[],
 ): DraftRow[] {
-  const existingPool: Candidate[] = [];
+  const existingPool = new Pool();
   for (const item of existing) {
     const key = dedupeKey(item.merchant ?? '', item.note ?? '');
     const candidate = candidateOf(item.id, item.amount, item.date, key);
-    if (candidate) existingPool.push(candidate);
+    if (candidate) existingPool.add(candidate);
   }
 
-  const seen: Candidate[] = [];
+  const seen = new Pool();
   return drafts.map((draft) => {
     const key = dedupeKey(draft.merchant, draft.source.description);
     const candidate = candidateOf(draft.id, draft.amount, draft.date, key);
     if (!candidate) return { ...draft, duplicateOf: null, duplicateInBatch: null };
 
-    const duplicateOf = findMatch(candidate, existingPool);
-    const duplicateInBatch = findMatch(candidate, seen);
-    seen.push(candidate);
+    const duplicateOf = existingPool.find(candidate);
+    const duplicateInBatch = seen.find(candidate);
+    seen.add(candidate);
 
     const isDuplicate = Boolean(duplicateOf || duplicateInBatch);
     return {

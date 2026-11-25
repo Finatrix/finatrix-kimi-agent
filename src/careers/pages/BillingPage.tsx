@@ -13,9 +13,10 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../tools/ui/Toast';
 import { Tabs } from '../../tools/ui/Tabs';
-import { PageHead, ToolFoot } from '../../tools/ui/common';
+import { ToolFoot } from '../../tools/ui/common';
 import { track } from '../../lib/analytics';
 import { canPurchaseInApp } from '../../native/platform';
+import { CAREERS_AVAILABLE } from '../../shared/careersAvailability';
 import { EmptyState, PageLoading, ErrorCard } from '../components/states';
 import { useCareers } from '../context/CareersContext';
 import {
@@ -27,6 +28,7 @@ import type { BillingHistoryRow, SubscriptionPlanRow, SubscriptionRow, UsageCoun
 import type { QuotaKind } from '../types/phase4';
 import { toCareersError, type CareersError } from '../utils/errors';
 import { formatDate } from '../utils/format';
+import { safeHttpUrl } from '../../lib/sanitize';
 
 const QUOTA_LABELS: Record<QuotaKind, string> = {
   ai_calls: 'AI analyses this month',
@@ -201,13 +203,13 @@ export default function BillingPage() {
   };
 
   if (loading) return <PageLoading />;
-  const purchasable = canPurchaseInApp();
+  // Plans go on sale with the public launch. Until then the beta is free and
+  // there is nothing to buy, so no plan list, price or Subscribe button.
+  const onSale = CAREERS_AVAILABLE;
+  const purchasable = canPurchaseInApp() && onSale;
 
   return (
     <div className="fx-page">
-      <PageHead chip="Billing" chipColor="#D4AF37" chipBg="rgba(212,175,55,.12)" icon="goal" title="Plans &amp; billing">
-        Finance tools stay free, always. Compare Careers plans and manage your subscription.
-      </PageHead>
 
       {(ctxError || loadError) && <ErrorCard error={(ctxError ?? loadError)!} onRetry={() => { void refresh(); void load(); }} />}
 
@@ -241,9 +243,11 @@ export default function BillingPage() {
           its receipts; the plan list and its checkout are web-only. */}
       {!purchasable ? (
         <div className="card" style={{ marginBottom: 20 }}>
-          <div className="panel-eyebrow">Plans</div>
+          <div className="panel-eyebrow">{onSale ? 'Plans' : 'Free during beta'}</div>
           <p style={{ fontSize: 13.5, color: 'var(--ink2)', margin: 0 }}>
-            Plans can't be purchased in the app. Your current plan and receipts are shown here.
+            {onSale
+              ? "Plans can't be purchased in the app. Your current plan and receipts are shown here."
+              : 'Everything in Careers is included while it is in beta, and nothing is charged. Plans and prices will be announced before the public launch.'}
           </p>
         </div>
       ) : (<>
@@ -289,7 +293,7 @@ export default function BillingPage() {
             <div className="act-row" key={h.id}>
               <span style={{ flex: 1 }}>{h.currency} {h.amount.toLocaleString()} · {h.provider}</span>
               <span className={`badge ${h.status === 'paid' ? 'badge-green' : h.status === 'failed' ? 'badge-red' : 'badge-mute'}`}>{h.status}</span>
-              {h.invoice_url ? <a className="note" href={h.invoice_url} target="_blank" rel="noopener noreferrer">Receipt</a> : <span className="note">{formatDate(h.created_at)}</span>}
+              {h.invoice_url ? <a className="note" href={safeHttpUrl(h.invoice_url)} target="_blank" rel="noopener noreferrer">Receipt</a> : <span className="note">{formatDate(h.created_at)}</span>}
             </div>
           ))}
         </div>

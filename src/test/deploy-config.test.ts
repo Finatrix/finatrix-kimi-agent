@@ -229,7 +229,10 @@ describe('deploy configuration', () => {
       // The backend is named, not wildcarded: `*.supabase.co` would let a script
       // that ever ran here send data to ANY Supabase project, an attacker's included.
       expect(policy).not.toMatch(/\*\.supabase\.co/);
-      expect(policy).toMatch(/connect-src 'self' https:\/\/[a-z0-9]{20}\.supabase\.co wss:\/\/[a-z0-9]{20}\.supabase\.co;/);
+      // The public site by name, for the installed apps: their pages load from a
+      // bundle on the device, so 'self' there is not this site, and the exchange
+      // rate feed (/api/fx/latest, worker/fxLatest.ts) would be blocked.
+      expect(policy).toMatch(/connect-src 'self' https:\/\/[a-z0-9]{20}\.supabase\.co wss:\/\/[a-z0-9]{20}\.supabase\.co https:\/\/finatrix\.co;/);
     }
   });
 
@@ -252,11 +255,14 @@ describe('deploy configuration', () => {
       .split('\n')
       .find((l) => l.includes('Permissions-Policy:')) ?? '';
     for (const feature of [
-      'camera', 'microphone', 'geolocation', 'payment', 'usb', 'bluetooth',
+      'camera', 'geolocation', 'payment', 'usb', 'bluetooth',
       'serial', 'midi', 'display-capture', 'idle-detection',
     ]) {
       expect(policy, `${feature} must be disabled`).toContain(`${feature}=()`);
     }
+    // Voice in FinatriX AI needs the microphone, for this origin and no frame.
+    expect(policy).toContain('microphone=(self)');
+    expect(policy).not.toMatch(/microphone=\((?!self\))/);
   });
 
   /**
@@ -384,9 +390,17 @@ describe('observability wiring', () => {
   it('the analytics ingest re-validates the event allowlist and never stores IP', () => {
     const fn = read('supabase/functions/analytics-collect/index.ts');
     expect(fn).toContain('ALLOWED_EVENTS'); // server-side re-validation (never trust client)
-    expect(fn).toContain('CF-Connecting-IP'); // IP read for rate-limiting…
+    expect(fn).toContain('clientIp(req.headers)'); // IP read for rate-limiting…
     // …but the inserted row object has no `ip` field (session_id/event/props/client_t only).
     expect(fn).not.toContain('ip:');
+    // …and no quota counter persists it either: provider_quota is a table, not memory.
+    expect(fn).not.toMatch(/overSharedQuota\([^)]*\bip\b/);
+  });
+
+  it('careers-ai keeps raw IPs out of the shared quota table', () => {
+    const fn = read('supabase/functions/careers-ai/index.ts');
+    expect(fn).toContain('privateQuotaKey(ip,');
+    expect(fn).not.toMatch(/overSharedQuota\(admin, '[^']+', ip\b/);
   });
 });
 
@@ -545,6 +559,15 @@ describe('edge function deploy coverage', () => {
     expect(functionSlugs).toContain('careers-billing-checkout');
   });
 
+  it('runs every function deploy on a pinned CLI that cannot stop to ask for confirmation', () => {
+    const deploys = workflow.split('\n').filter((line) => line.trim().startsWith('run:') && line.includes('functions deploy'));
+    expect(deploys.length).toBeGreaterThanOrEqual(6);
+    for (const line of deploys) {
+      expect(line).toMatch(/npx --yes supabase@\d+\.\d+\.\d+ functions deploy/);
+      expect(line).toMatch(/ --yes$/);
+    }
+  });
+
   it.each(functionSlugs)('%s is deployed by the deploy workflow', (slug) => {
     expect(workflow).toMatch(new RegExp(`functions deploy[^\\n]*\\b${slug}\\b`));
   });
@@ -600,5 +623,36 @@ describe('edge function deploy coverage', () => {
 
   it('careers-billing-checkout keeps the JWT gate — it derives the buyer from the caller', () => {
     expect(workflow).not.toMatch(/functions deploy careers-billing-checkout --no-verify-jwt/);
+  });
+
+  /**
+   * A group's room code is all that stands between a stranger and a family's
+   * shared spending, so the join function's guess limits must be real: shared
+   * across isolates, keyed by person and by a hash of the IP, and closed when
+   * they can't be checked.
+   */
+  it('group-join verifies the caller itself and limits code lookups without storing IPs', () => {
+    expect(workflow).toMatch(/functions deploy group-join --no-verify-jwt/);
+    const src = read('supabase/functions/group-join/index.ts');
+    expect(src).toMatch(/auth\.getUser\(\)/);
+    expect(src).toMatch(/return json\(401/);
+    // The person joining comes from the verified token, never the request body.
+    expect(src).not.toMatch(/body\.(uid|user_?id|userId)/i);
+    expect(src).toContain("sharedQuotaState(admin, 'group-join:user:hour', uid,");
+    expect(src).toContain('privateQuotaKey(ip, serviceKey)');
+    expect(src).not.toMatch(/sharedQuotaState\(admin, '[^']+', ip\b/);
+    expect(src).toMatch(/includes\('unavailable'\)\) return json\(503/);
+  });
+
+  it('every quota scope group-join counts in is pruned', () => {
+    const src = read('supabase/functions/group-join/index.ts');
+    const scopes = [...new Set([...src.matchAll(/'(group-join:[a-z]+:[a-z]+)'/g)].map((m) => m[1]))];
+    expect(scopes.sort()).toEqual(['group-join:ip:hour', 'group-join:user:hour']);
+    const migrations = readdirSync(join(root, 'supabase/migrations')).filter((f) => f.endsWith('.sql')).sort();
+    const latestPrune = migrations
+      .map((f) => read(`supabase/migrations/${f}`))
+      .filter((sql) => sql.includes('function public.prune_quota_windows'))
+      .pop() ?? '';
+    for (const scope of scopes) expect(latestPrune).toContain(`'${scope}'`);
   });
 });
