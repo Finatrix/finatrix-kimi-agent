@@ -431,6 +431,22 @@ describe('deep links', () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
+  it('opens the add-expense form from the widget\'s Add, and the Expenses page from its figure', () => {
+    handleOpenUrl(`${APP_ID}://widget/add`, navigate);
+    expect(navigate).toHaveBeenLastCalledWith('/tools/expenses?new=1');
+    handleOpenUrl(`${APP_ID}://widget/open`, navigate);
+    expect(navigate).toHaveBeenLastCalledWith('/tools/expenses');
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('carries nothing from a widget link into the app', () => {
+    handleOpenUrl(`${APP_ID}://widget/add?next=https%3A%2F%2Fevil.example#access_token=a`, navigate);
+    handleOpenUrl(`${APP_ID}://widget/../../login`, navigate);
+    expect(navigate).toHaveBeenNthCalledWith(1, '/tools/expenses?new=1');
+    expect(navigate).toHaveBeenNthCalledWith(2, '/tools/expenses');
+    expect(replace).not.toHaveBeenCalled();
+  });
+
   it('ignores links for any other host or scheme', () => {
     handleOpenUrl('https://evil.example/tools', navigate);
     handleOpenUrl('not a url', navigate);

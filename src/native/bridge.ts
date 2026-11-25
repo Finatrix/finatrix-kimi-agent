@@ -36,7 +36,8 @@ import { Keyboard, KeyboardStyle } from '@capacitor/keyboard';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { setNativeHapticDriver, type Haptic } from '../lib/haptics';
 import { safeInternalPath } from '../lib/safePath';
-import { NATIVE_AUTH_CALLBACK, PUBLIC_ORIGIN, nativePlatform } from './platform';
+import { APP_ID, NATIVE_AUTH_CALLBACK, NATIVE_WIDGET_HOST, PUBLIC_ORIGIN, nativePlatform } from './platform';
+import { WIDGET_ADD_PATH, WIDGET_OPEN_PATH } from '../tools/lib/widgetLinks';
 
 export interface BridgeOptions {
   /** Client-side navigation (react-router's `navigate`). */
@@ -251,6 +252,14 @@ export function handleOpenUrl(raw: string, navigate: BridgeOptions['navigate']):
     login.set('error', 'invalid_request');
     login.set('error_description', 'Sign-in could not be completed. Please try again.');
     reloadAt(`/login?${login.toString()}`);
+    return;
+  }
+
+  // Home-screen widget: co.finatrix.app://widget/add | /open. Only these two
+  // fixed destinations — nothing from the URL is carried into the app, so a
+  // page that opens our scheme can do no more than open the add form.
+  if (url.protocol === `${APP_ID}:` && url.host === NATIVE_WIDGET_HOST) {
+    navigate(url.pathname === '/add' ? WIDGET_ADD_PATH : WIDGET_OPEN_PATH);
     return;
   }
 
