@@ -23,7 +23,7 @@
  * want the twelve that need review, not row 214.
  */
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ymdLocal } from '../../lib/date';
 import { useInertOutside } from '../../hooks/useInertOutside';
 import { createPortal } from 'react-dom';
@@ -134,10 +134,18 @@ export default function StatementImport({
   /** The user chose to abandon this import. */
   const cancelImport = useCallback(() => { discard(); onClose(); }, [discard, onClose]);
 
+  // The key listener calls `close` through a ref that a layout effect keeps
+  // current. Re-subscribing on every `close` change left a gap: `close` changes
+  // as soon as the review renders, but a passive effect only re-subscribes
+  // after paint, so an Escape in between ran the previous `close` — which saw
+  // no review and stashed nothing.
+  const closeRef = useRef(close);
+  useLayoutEffect(() => { closeRef.current = close; }, [close]);
+
   // Escape closes; Tab is trapped inside the dialog.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { e.stopPropagation(); close(); return; }
+      if (e.key === 'Escape') { e.stopPropagation(); closeRef.current(); return; }
       if (e.key !== 'Tab' || !cardRef.current) return;
       const focusable = cardRef.current.querySelectorAll<HTMLElement>(
         'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])',
@@ -150,7 +158,7 @@ export default function StatementImport({
     };
     document.addEventListener('keydown', onKey, true);
     return () => document.removeEventListener('keydown', onKey, true);
-  }, [close]);
+  }, []);
 
   const visible = useMemo(() => {
     switch (filter) {

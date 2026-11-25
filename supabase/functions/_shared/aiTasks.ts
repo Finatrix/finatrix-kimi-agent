@@ -35,6 +35,12 @@ export const PUBLIC_AI_TASKS: Readonly<Record<string, PublicAiTask>> = {
     models: [],
     systemHashes: ['f86f2bcc39ec92e7145ae95ed34e5e5ac200d8b5db98b1f3330a5d1326633df7'],
   },
+  // FinatriX AI's action picker (step 3.2): picks one action from a fixed list
+  // and copies the user's words. Small and cheap, so the server's default chain.
+  'money-action': {
+    models: [],
+    systemHashes: ['4e0a74e0e15cf39a1dbd8edd5e618169cbf41cfde175006bc255676a7cadaf73'],
+  },
   'statement-layout': {
     models: [],
     systemHashes: ['bfbc30f94253fec994c89a7f0cf60a1bcd20caa00c6aa5446f2d081be4cbe1b1'],
