@@ -24,7 +24,7 @@ If these two docs aren't in your checkout, they were untracked files in `/Users/
 | 2.2 | Groups: server tables, security, join by code | — | ☑ [PR 29](https://github.com/Finatrix/finatrix-kimi-agent/pull/29) |
 | 2.3 | Groups: create and join, Budget together, live feed | 1.2, 2.2 | ☑ [PR 38](https://github.com/Finatrix/finatrix-kimi-agent/pull/38) |
 | 2.4 | Groups: Split costs, settle up, your share in your tracker | 2.3 | ☑ [PR 42](https://github.com/Finatrix/finatrix-kimi-agent/pull/42) |
-| 2.5 | Splits with people not on FinatriX | 2.4 | ☐ |
+| 2.5 | Splits with people not on FinatriX | 2.4 | ☑ [PR 46](https://github.com/Finatrix/finatrix-kimi-agent/pull/46) |
 | 2.6 | Subscription radar and bill reminders | — | ☑ [PR 27](https://github.com/Finatrix/finatrix-kimi-agent/pull/27) |
 | 2.7 | Monthly money story | — | ☑ [PR 26](https://github.com/Finatrix/finatrix-kimi-agent/pull/26) |
 | 2.8 | Money calendar | 2.6 | ☑ [PR 32](https://github.com/Finatrix/finatrix-kimi-agent/pull/32) |
