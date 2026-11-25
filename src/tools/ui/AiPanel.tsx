@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useInRouterContext } from 'react-router';
 import { useInertOutside } from '../../hooks/useInertOutside';
 import { useAuth } from '../../context/AuthContext';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
@@ -11,7 +12,7 @@ import { currentMonth } from '../lib/month';
 import { getJSON } from '../lib/storage';
 import { loadExpenses } from '../lib/expense';
 import { loadCatViewFor } from '../lib/budgetCatsMonth';
-import { type BudgetStore } from '../lib/budget';
+import { allCategories, type BudgetStore } from '../lib/budget';
 import { ask, askForMonthlyReview, type AskResult } from '../ai/assistant';
 import { describeFocus, type AiFocus, type FocusDescription } from '../ai/focus';
 import { sendUserReport, track } from '../../lib/analytics';
@@ -30,6 +31,15 @@ import { BRIEFING_QUESTION } from '../ai/briefing';
 import { useVoiceConversation } from '../../lib/voice/useVoiceConversation';
 import { speechTextFor } from '../../lib/voice/speechText';
 import { MicIcon, VoiceBar } from './VoiceBar';
+import { ActionCard, ActionStyles, NavBridge } from './ActionCard';
+import { looksLikeAction } from '../ai/actions/prompt';
+import { pickAction } from '../ai/actions/pick';
+import { actionSummary } from '../ai/actions/summary';
+import type { AssistantAction, Resolution } from '../ai/actions/plan';
+import { learnCategoryWords } from '../lib/quickAdd';
+import { loadTrips } from '../lib/trips';
+import { loadMarket, marketFor } from '../lib/markets';
+import { ymdLocal } from '../../lib/date';
 
 /**
  * FinatriX AI — the conversation surface.
@@ -74,6 +84,10 @@ export default function AiPanel(props: AiPanelProps) {
 function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedAt = 0 }: AiPanelProps) {
   const { user, configured } = useAuth();
   const { code, cfmt } = useCurrency();
+  // The panel is also rendered outside a router (in tests); only inside one
+  // does it get the router's navigate for "open my budget".
+  const inRouter = useInRouterContext();
+  const navRef = useRef<((href: string) => void) | null>(null);
   const uid = user?.id ?? '';
 
   // The subject the panel is pointed at. Tracked as state keyed on `openedAt`
@@ -222,6 +236,50 @@ function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedA
     };
   }, [code, focusMonth]);
 
+  /**
+   * A card for a message that asks for an action, or null to answer it in the
+   * chat instead. The model picks the action and copies the user's words; the
+   * app reads the numbers and does the maths (ai/actions/plan.ts).
+   */
+  const prepareAction = useCallback(async (text: string): Promise<ChatMessage | null> => {
+    const data = readData();
+    const categories = allCategories(data.cats).map((c) => ({ k: c.k, l: c.l }));
+    const trips = loadTrips();
+    let resolution: Resolution;
+    try {
+      resolution = await pickAction({
+        utterance: text, now: data.now, homeCurrency: code, month: data.month, categories,
+        learned: learnCategoryWords(data.items, new Set(categories.map((c) => c.k))),
+        trips, budgets: data.budgetStore, market: marketFor(loadMarket()),
+      });
+    } catch {
+      return null;
+    }
+    if (resolution.kind === 'none') return null;
+    const base = { id: newMessageId(), role: 'assistant' as const, at: new Date().toISOString(), model: 'FinatriX actions' };
+    if (resolution.kind === 'refuse') {
+      return { ...base, text: resolution.message, ...(resolution.href ? { link: { href: resolution.href, label: resolution.hrefLabel ?? 'Open' } } : {}) };
+    }
+    const categoryLabel = (key: string, month: string) => allCategories(loadCatViewFor(month).active).find((c) => c.k === key)?.l ?? key;
+    return {
+      ...base,
+      text: actionSummary(resolution.action, { money: cfmt, categoryLabel, trips, today: ymdLocal(data.now) }),
+      action: resolution.action,
+    };
+  }, [readData, code, cfmt]);
+
+  /** Go to a screen the assistant opened or linked to. The panel closes, so the screen is visible. */
+  const openHref = useCallback((href: string) => {
+    if (navRef.current) navRef.current(href);
+    else window.location.assign(href);
+    onClose();
+  }, [onClose]);
+
+  /** A card's new state (saved, undone, a category changed), written into its turn. */
+  const updateAction = useCallback((messageId: string, next: AssistantAction) => {
+    persist(messagesRef.current.map((m) => (m.id === messageId ? { ...m, action: next } : m)));
+  }, [persist]);
+
   /** Resolves with the reply it added, or null when nothing was asked. */
   const send = useCallback(async (question: string, kind: 'chat' | 'review' = 'chat'): Promise<ChatMessage | null> => {
     const text = question.trim();
@@ -262,6 +320,24 @@ function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedA
       inputRef.current?.focus();
       return guide;
     }
+    // "Add 450 for lunch", "open my budget": a card instead of an answer. Only
+    // messages that could be an action are asked about, and anything the
+    // picker cannot act on (or a picker that is unavailable) goes on to the
+    // chat below exactly as before.
+    if (kind === 'chat' && looksLikeAction(text)) {
+      const acted = await prepareAction(text);
+      if (!active.current) return null;
+      if (acted) {
+        pending.current = false;
+        persist([...withQuestion, acted]);
+        setBusy(false);
+        track('ai_message_sent', { kind, where: focus?.kind ?? 'none', ok: true });
+        if (acted.action?.kind === 'open') openHref(acted.action.href);
+        else inputRef.current?.focus();
+        return acted;
+      }
+    }
+
     let result: AskResult;
     try {
       const data = readData();
@@ -317,7 +393,7 @@ function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedA
     setBusy(false);
     inputRef.current?.focus();
     return reply;
-  }, [busy, persist, readData, focus, subject, uid]);
+  }, [busy, persist, readData, focus, subject, uid, prepareAction, openHref]);
 
   // Voice: the same `send`, with the reply turned into speech. Every figure
   // read aloud is one on screen, formatted the way the screen shows it.
@@ -379,6 +455,8 @@ function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedA
   const body = (
     <div className="fx-tools fx-scope fx-ai-shell">
       <style>{PANEL_STYLES}</style>
+      <ActionStyles />
+      {inRouter && <NavBridge navigateRef={navRef} />}
       <div className="fx-ai-backdrop" onClick={onClose} aria-hidden="true" />
 
       <div
@@ -455,7 +533,10 @@ function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedA
           )}
 
           {messages.map((m) => (
-            <Turn key={m.id} message={m} onFollowUp={(q) => void send(q)} busy={busy} />
+            <Turn
+              key={m.id} message={m} onFollowUp={(q) => void send(q)} busy={busy}
+              onAction={(next) => updateAction(m.id, next)} onOpen={openHref}
+            />
           ))}
 
           {/* An existing conversation, newly pointed at something. The empty
@@ -633,10 +714,12 @@ function EmptyState({ signedOut, configured, subject, onPick, onReview }: {
   );
 }
 
-function Turn({ message, onFollowUp, busy }: {
+function Turn({ message, onFollowUp, busy, onAction, onOpen }: {
   message: ChatMessage;
   onFollowUp: (q: string) => void;
   busy: boolean;
+  onAction: (next: AssistantAction) => void;
+  onOpen: (href: string) => void;
 }) {
   if (message.role === 'user') {
     return (
@@ -672,7 +755,13 @@ function Turn({ message, onFollowUp, busy }: {
             should be able to tell those from their own figures at a glance. */}
         {message.grounding && <GroundingNote report={message.grounding} />}
       </div>
-      {!message.failed && message.origin !== 'local' && <ReportAnswer text={message.text} />}
+      {message.action && <ActionCard action={message.action} onChange={onAction} onOpen={onOpen} />}
+      {message.link && (
+        <a className="fx-act-link" href={message.link.href} onClick={(e) => { e.preventDefault(); onOpen(message.link!.href); }}>
+          {message.link.label}
+        </a>
+      )}
+      {!message.failed && message.origin !== 'local' && !message.action && !message.link && <ReportAnswer text={message.text} />}
       {!!message.followUps?.length && (
         <div className="fx-ai-chips">
           {message.followUps.map((f) => (

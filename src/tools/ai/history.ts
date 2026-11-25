@@ -16,6 +16,7 @@ import { store, getJSON, setJSON } from '../lib/storage';
 import type { Confidence } from './confidence';
 import type { GroundingReport } from './grounding';
 import type { AiChart, AiHighlight } from './validate';
+import type { AssistantAction } from './actions/plan';
 
 const PREFIX = 'fx_ai_chat_';
 /** Kept short: this is context for a follow-up, not an archive. */
@@ -44,6 +45,10 @@ export interface ChatMessage {
   focusTitle?: string;
   /** True when this turn is a failure notice rather than an answer. */
   failed?: boolean;
+  /** An action the assistant prepared (a confirm card) or ran (a calculator, a screen). */
+  action?: AssistantAction;
+  /** A place to go next, offered with an action it could not prepare. */
+  link?: { href: string; label: string };
 }
 
 function keyFor(uid: string): string {
