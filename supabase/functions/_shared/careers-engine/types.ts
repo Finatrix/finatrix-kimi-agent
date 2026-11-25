@@ -71,8 +71,9 @@ export interface EmployerEntry {
      * Only crawl postings Workday itself places in this market. Reads the tenant's location facet, slices on the
      * values inside the market and skips the rest of a multinational board (minutes become seconds). A tenant with no
      * postings in the market returns nothing; a tenant with no location facet falls back to a full crawl with a warning.
+     * Several markets crawl the union of their slices.
      */
-    marketOnly?: CareersMarket;
+    marketOnly?: CareersMarket | readonly CareersMarket[];
   };
 }
 
@@ -82,7 +83,9 @@ export type TruncationReason =
   | 'unrecognised-page'
   | 'budget'
   | 'split-incomplete'
-  | 'no-date-skip';
+  | 'no-date-skip'
+  /** Set by a resuming caller: the scan stopped part-way on purpose and its next call carries on (FetchResult.cursor). */
+  | 'paused';
 
 /** A scan that did not see every posting says so, in data, not just in logs. */
 export interface Truncation {
@@ -95,6 +98,11 @@ export interface Truncation {
 export interface FetchResult {
   jobs: Job[];
   truncation?: Truncation;
+  /**
+   * Only for a call made with FetchContext.resume: the crawl paused before the end of the board, and passing this
+   * back carries on from there. Absent, the call read the rest of the board.
+   */
+  cursor?: unknown;
 }
 
 export interface RequestOptions {
@@ -138,6 +146,13 @@ export interface FetchContext {
    * reason 'budget'. The first request is always made, so every call makes progress.
    */
   deadline?: number;
+  /**
+   * Set by a caller that can carry one board's scan across calls. `cursor` is what the last call returned (null starts
+   * a new pass). A provider that can resume pauses at the deadline, or (once it has read something new) before a
+   * request that could take it past `maxJobs` jobs, and returns FetchResult.cursor instead of a 'budget' truncation.
+   * Providers that cannot resume ignore it.
+   */
+  resume?: { cursor: unknown; maxJobs?: number };
 }
 
 export interface Provider {

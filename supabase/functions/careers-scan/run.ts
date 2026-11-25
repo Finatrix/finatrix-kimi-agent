@@ -6,6 +6,9 @@
  * A complete scan (status ok, nothing truncated) is the board telling us every open job, so an active
  * posting it no longer lists is marked expired. A partial or failed scan expires nothing; the search RPC
  * stops showing a posting that has not been seen for 14 days either way.
+ *
+ * A board too big for one call is read as a pass over several runs (see ScanPass): each run carries on from the
+ * provider's cursor, and the run that reads the last of the board expires what the whole pass did not see.
  */
 import { describePosting } from '../_shared/careers-engine/describe.ts';
 import { createRegistry, scanEmployers, type EmployerStatus, type ProviderRegistry } from '../_shared/careers-engine/discovery/index.ts';
@@ -25,6 +28,25 @@ export interface SourceRow {
   api_url: string | null;
   markets: string[] | null;
   options: Record<string, unknown> | null;
+  scan_pass?: unknown;
+}
+
+/**
+ * A pass over a board too big for one run (career_sources.scan_pass): where the provider paused, the day the pass
+ * began (a posting not seen since then has left the board), and whether any run of it saw less than its whole part,
+ * in which case the pass expires nothing.
+ */
+interface ScanPass {
+  started_on: string;
+  cursor: unknown;
+  lossy: boolean;
+}
+
+function readPass(raw: unknown): ScanPass | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const pass = raw as Record<string, unknown>;
+  if (typeof pass.started_on !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(pass.started_on)) return null;
+  return { started_on: pass.started_on, cursor: pass.cursor ?? null, lossy: pass.lossy === true };
 }
 
 /** Provider options a source row may carry; anything else in `options` is ignored. */
@@ -53,7 +75,10 @@ export function toEmployerEntry(source: SourceRow): { entry: EmployerEntry; mark
   }
   if (isWorkday(entry)) {
     const workday = { ...(entry.workday ?? {}) };
-    if (workday.marketOnly && !isCareersMarket(workday.marketOnly)) delete workday.marketOnly;
+    const asked: unknown = workday.marketOnly;
+    // verify-employers.mjs writes `true`: crawl only the employer's own markets.
+    if (asked === true) workday.marketOnly = markets.length === 1 ? markets[0] : markets;
+    else if (asked !== undefined && !isCareersMarket(asked)) delete workday.marketOnly;
     // A single-market employer crawls only that market's slice of a multinational board.
     if (!workday.marketOnly && markets.length === 1) workday.marketOnly = markets[0];
     entry.workday = workday;
@@ -100,7 +125,7 @@ export interface ScanBatchOptions {
   budgetMs?: number;
   /** Stop starting new employers once this many jobs have been fetched in the run. Default 600. */
   jobBudget?: number;
-  /** In-market postings ingested per employer per run. Default 800. */
+  /** In-market postings ingested per employer per run, and the most a resumable board reads per run. Default 800. */
   maxPostingsPerEmployer?: number;
   /** New postings added per run, across employers. Default 250. */
   newPostingBudget?: number;
@@ -170,7 +195,7 @@ export async function runScanBatch(options: ScanBatchOptions): Promise<ScanBatch
       'load due employers',
       await db
         .from('career_sources')
-        .select('id, name, provider, careers_url, api_url, markets, options')
+        .select('id, name, provider, careers_url, api_url, markets, options, scan_pass')
         .eq('enabled', true)
         .order('last_scanned_at', { ascending: true, nullsFirst: true })
         .limit(options.batchSize ?? 8),
@@ -194,6 +219,9 @@ export async function runScanBatch(options: ScanBatchOptions): Promise<ScanBatch
     const today = now();
     const todayISO = toISODate(today);
     const mapped = toEmployerEntry(source);
+    const pass = readPass(source.scan_pass);
+    // Left undefined, the board's pass is not touched; null ends it.
+    let nextPass: ScanPass | null | undefined;
     const row: EmployerSummary = { name: source.name, status: 'error', fetched: 0, inMarket: 0, added: 0, expired: 0 };
     let detail: { provider?: string; kept: number; droppedByTitle: number; duplicatesInScan: number; truncation?: { reason: string; transient: boolean }; durationMs: number } = {
       kept: 0,
@@ -210,9 +238,11 @@ export async function runScanBatch(options: ScanBatchOptions): Promise<ScanBatch
       row.error = 'source has no supported market';
     } else {
       try {
-        // A slow board stops paging when the run's time is up and keeps what it has, rather than outlive the call.
+        // A slow board stops when the run's time is up rather than outlive the call. One that can resume pauses there
+        // (or once it holds a run's worth of postings) and the next run carries on from its cursor.
         const deadline = Date.now() + Math.max(0, budgetMs - (clock() - t0));
-        const scan = await scanEmployers([mapped.entry], { registry, ctx: { ...ctx, deadline }, concurrency: 1 });
+        const resume = { cursor: pass?.cursor ?? null, maxJobs: maxPostings };
+        const scan = await scanEmployers([mapped.entry], { registry, ctx: { ...ctx, deadline, resume }, concurrency: 1 });
         const result = scan.employers[0]!;
         detail = result;
         row.status = result.status;
@@ -233,6 +263,8 @@ export async function runScanBatch(options: ScanBatchOptions): Promise<ScanBatch
           row.status = 'truncated';
           detail = { ...detail, truncation: { reason: 'cap', transient: false } };
         }
+        // This run saw less than its part of the board: a pass it belongs to expires nothing.
+        const lossy = Boolean(detail.truncation);
 
         // One unit of work per employer: look every key up at once, ingest in memory, then write in bulk.
         const store = base.forSource(source.id);
@@ -247,7 +279,8 @@ export async function runScanBatch(options: ScanBatchOptions): Promise<ScanBatch
             batch.push(job);
           }
         });
-        if (batch.length < inMarket.length) {
+        const leftForLater = batch.length < inMarket.length;
+        if (leftForLater) {
           row.status = 'truncated';
           detail = { ...detail, truncation: detail.truncation ?? { reason: 'budget', transient: true } };
         }
@@ -257,9 +290,21 @@ export async function runScanBatch(options: ScanBatchOptions): Promise<ScanBatch
         addedInRun += row.added;
         summary.jobsKept += ingest.results.length;
 
+        if (leftForLater) {
+          // The postings left for later are still new on the next read of this part, so the cursor stays put.
+          if (pass && lossy && !pass.lossy) nextPass = { ...pass, lossy: true };
+        } else if (result.cursor !== undefined) {
+          nextPass = { started_on: pass?.started_on ?? todayISO, cursor: result.cursor, lossy: (pass?.lossy ?? false) || lossy };
+          row.status = 'truncated';
+          detail = { ...detail, truncation: detail.truncation ?? { reason: 'paused', transient: true } };
+        } else if (pass) {
+          // This run read the rest of the board, so the pass is over.
+          nextPass = null;
+        }
+
         // Only after the flush: the database must already know which postings this scan saw.
-        if (row.status === 'ok' && !detail.truncation) {
-          const unseen = await store.unseenSince(todayISO);
+        if (row.status === 'ok' && !detail.truncation && !pass?.lossy) {
+          const unseen = await store.unseenSince(pass?.started_on ?? todayISO);
           if (unseen.length > 0) {
             const tally = await applyLivenessVerdicts(
               store,
@@ -303,7 +348,10 @@ export async function runScanBatch(options: ScanBatchOptions): Promise<ScanBatch
     await bestEffort(
       ctx,
       'mark employer scanned',
-      db.from('career_sources').update({ last_scanned_at: now().toISOString(), last_status: row.status }).eq('id', source.id),
+      db
+        .from('career_sources')
+        .update({ last_scanned_at: now().toISOString(), last_status: row.status, ...(nextPass !== undefined ? { scan_pass: nextPass } : {}) })
+        .eq('id', source.id),
     );
     summary.employers.push(row);
   }

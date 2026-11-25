@@ -153,6 +153,11 @@ describe('toEmployerEntry', () => {
     expect(toEmployerEntry({ ...base, markets: ['au', 'nz'] })?.entry.workday).toEqual({});
     expect(toEmployerEntry({ ...base, options: { workday: { marketOnly: 'mars' } } })?.entry.workday).toEqual({ marketOnly: 'au' });
   });
+  it("reads `marketOnly: true` (what the employer verifier writes) as the employer's own markets", () => {
+    const asked: SourceRow = { ...base, options: { workday: { marketOnly: true } } };
+    expect(toEmployerEntry({ ...asked, markets: ['us', 'gb'] })?.entry.workday).toEqual({ marketOnly: ['us', 'gb'] });
+    expect(toEmployerEntry(asked)?.entry.workday).toEqual({ marketOnly: 'au' });
+  });
   it('keeps only known provider options and rejects unsupported markets', () => {
     const mapped = toEmployerEntry({ ...base, careers_url: 'https://jobs.ashbyhq.com/acme', options: { ashby: { board: 'acme' }, provider: 'evil', careers_url: 'https://evil' } });
     expect(mapped?.entry).toEqual({ name: 'Bank', careers_url: 'https://jobs.ashbyhq.com/acme', registryId: 'x', ashby: { board: 'acme' } });
@@ -273,6 +278,82 @@ describe('runScanBatch', () => {
     const summary = await runScanBatch({ db, ctx, registry: createRegistry({ extra: [boardProvider({ jobs })] }), now: () => day1, newPostingBudget: 4 });
     expect(summary.employers.map((e) => [e.name, e.added])).toEqual([['Acme', 4]]);
     expect(summary.deferred).toBe(1);
+  });
+
+  describe('a board too big for one run', () => {
+    // Reads `size` postings a call and says where to carry on, as a resumable Workday board does.
+    function pagedProvider(board: { jobs: Job[]; partialAt?: number }, size: number, seen: Array<FetchContext['resume']>): Provider {
+      return {
+        id: 'fakeboard',
+        detect: () => null,
+        fetch: async (_entry, c) => {
+          seen.push(c.resume);
+          const from = typeof c.resume?.cursor === 'number' ? c.resume.cursor : 0;
+          return {
+            jobs: board.jobs.slice(from, from + size),
+            ...(from + size < board.jobs.length ? { cursor: from + size } : {}),
+            ...(board.partialAt === from ? { truncation: { reason: 'fetch-error' as const, transient: true } } : {}),
+          };
+        },
+      };
+    }
+    const setup = (board: { jobs: Job[]; partialAt?: number }, newPostingBudget?: number) => {
+      const db = new FakeDb();
+      seed(db);
+      const seen: Array<FetchContext['resume']> = [];
+      const registry = createRegistry({ extra: [pagedProvider(board, 2, seen)] });
+      const run = (day: string) => runScanBatch({ db, ctx, registry, now: () => new Date(`${day}T03:00:00Z`), ...(newPostingBudget ? { newPostingBudget } : {}) });
+      return { db, seen, run, source: () => db.rows('career_sources')[0]! };
+    };
+    const statuses = (db: FakeDb) => db.rows('career_postings').map((p) => [p.title, p.status]);
+
+    it('reads it as one pass over several runs, and expires only what the whole pass did not see', async () => {
+      const board = { jobs: Array.from({ length: 5 }, (_, i) => job(i, 'Sydney NSW')) };
+      const { db, seen, run, source } = setup(board);
+
+      expect((await run('2026-10-20')).employers[0]).toMatchObject({ status: 'truncated', added: 2, expired: 0 });
+      expect(source().scan_pass).toEqual({ started_on: '2026-10-20', cursor: 2, lossy: false });
+      expect(db.rows('scan_run_employers')[0]).toMatchObject({ status: 'truncated', truncation_reason: 'paused', truncation_transient: true });
+      await run('2026-10-21');
+      expect(source().scan_pass).toEqual({ started_on: '2026-10-20', cursor: 4, lossy: false });
+      expect((await run('2026-10-22')).employers[0]).toMatchObject({ status: 'ok', added: 1, expired: 0 });
+      expect(source().scan_pass).toBeNull();
+      expect(seen.map((r) => r?.cursor)).toEqual([null, 2, 4]);
+      expect(seen[0]?.maxJobs).toBe(800);
+
+      // The board drops posting 1. The next pass expires it once it has read the whole board, and nothing else:
+      // postings 0 and 2 were seen on the pass's first day, not its last.
+      board.jobs = board.jobs.filter((_, i) => i !== 1);
+      expect((await run('2026-10-23')).employers[0]).toMatchObject({ status: 'truncated', expired: 0 });
+      expect((await run('2026-10-24')).employers[0]).toMatchObject({ status: 'ok', expired: 1 });
+      expect(statuses(db)).toEqual([0, 1, 2, 3, 4].map((i) => [`Risk Analyst ${i}`, i === 1 ? 'expired' : 'active']));
+    });
+
+    it('expires nothing after a pass in which any run saw less than its part', async () => {
+      const board: { jobs: Job[]; partialAt?: number } = { jobs: Array.from({ length: 4 }, (_, i) => job(i, 'Sydney NSW')) };
+      const { db, run, source } = setup(board);
+      await run('2026-10-20');
+      await run('2026-10-21');
+
+      board.jobs = board.jobs.slice(1);
+      board.partialAt = 0;
+      await run('2026-10-22');
+      expect(source().scan_pass).toMatchObject({ started_on: '2026-10-22', lossy: true });
+      expect((await run('2026-10-23')).employers[0]).toMatchObject({ status: 'ok', expired: 0 });
+      expect(source().scan_pass).toBeNull();
+      expect(statuses(db).every(([, status]) => status === 'active')).toBe(true);
+    });
+
+    it('reads the same part again while postings in it wait for the new-posting budget', async () => {
+      const { db, seen, run, source } = setup({ jobs: Array.from({ length: 3 }, (_, i) => job(i, 'Sydney NSW')) }, 1);
+      expect((await run('2026-10-20')).employers[0]).toMatchObject({ status: 'truncated', added: 1 });
+      expect(source().scan_pass).toBeUndefined();
+      await run('2026-10-21');
+      await run('2026-10-22');
+      expect(seen.map((r) => r?.cursor)).toEqual([null, null, 2]);
+      expect(db.rows('career_postings')).toHaveLength(3);
+      expect(source().scan_pass).toBeNull();
+    });
   });
 
   it("gives each board a deadline inside the run's time budget", async () => {

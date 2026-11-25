@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildTitleFilter, createRegistry, scanEmployers } from './index.ts';
 import type { EmployerEntry, FetchContext, Provider, RequestOptions } from '../types.ts';
 import { silentLogger } from '../types.ts';
-import { chooseSplitFacet, flattenFacets, isMarketFacetValue, isMultiLocationPlaceholder, planMarketFacet, parsePostedOn, stripWorkdayRepostSuffix, trueTotalFromFacets, workdayDedupKey, workdayProvider } from './providers/workday.ts';
+import { chooseSplitFacet, flattenFacets, isMarketFacetValue, isMultiLocationPlaceholder, planMarketFacet, planMarketSlices, parsePostedOn, stripWorkdayRepostSuffix, trueTotalFromFacets, workdayDedupKey, workdayProvider } from './providers/workday.ts';
 import { oracleCloudProvider, resolveSite } from './providers/oraclecloud.ts';
 import { pageUpProvider, parsePageupListing, resolveConfig as resolvePageUp } from './providers/pageup.ts';
 import { ashbyProvider, greenhouseProvider, leverProvider, parseAshbyCompensation, parseRecruiteeResponse, parseWorkableWidget, recruiteeProvider, smartRecruitersProvider, workableProvider } from './providers/atsApis.ts';
@@ -411,6 +411,164 @@ describe('Workday: market-only mode and nested facets', () => {
     await workdayProvider.fetch({ ...entry, workday: { searchText: ' compliance ', appliedFacets: { timeType: ['ft'], junk: [] as string[] } } }, ctx);
     expect(JSON.parse(ctx.calls[0]!.body!)).toMatchObject({ searchText: 'compliance', appliedFacets: { timeType: ['ft'] } });
     expect(JSON.parse(ctx.calls[0]!.body!).appliedFacets).not.toHaveProperty('junk');
+  });
+});
+
+describe('Workday: resuming a board across calls', () => {
+  const entry: EmployerEntry = { name: 'Big Bank', careers_url: 'https://bigbank.wd3.myworkdayjobs.com/en-US/BigBank_Careers' };
+  const posting = (n: number, extra: Record<string, unknown> = {}) => ({ title: `Analyst ${n}`, externalPath: `/job/Sydney-NSW/Analyst-${n}_JR-10${n}`, locationsText: 'Sydney, NSW', postedOn: 'Posted 3 Days Ago', ...extra });
+  type Body = { limit: number; offset: number; appliedFacets: Record<string, string[]> };
+  const body = (raw?: string | null) => JSON.parse(raw!) as Body;
+  const flat = (total: number): Handler => (_url, init) => {
+    const { offset } = body(init?.body);
+    return { total, jobPostings: Array.from({ length: Math.max(0, Math.min(20, total - offset)) }, (_, i) => posting(offset + i)), facets: [] };
+  };
+
+  /** Call until the provider stops returning a cursor; every call's result, in order. */
+  async function pass(handler: Handler, maxJobs: number, target: EmployerEntry = entry) {
+    const calls: Array<{ jobs: string[]; cursor?: unknown; truncation?: unknown; requests: Body[] }> = [];
+    let cursor: unknown = null;
+    do {
+      const ctx = mockCtx(handler, { resume: { cursor, maxJobs } });
+      const out = await workdayProvider.fetch(target, ctx);
+      calls.push({ jobs: out.jobs.map((j) => j.url), cursor: out.cursor, truncation: out.truncation, requests: ctx.calls.map((c) => body(c.body)) });
+      cursor = out.cursor;
+    } while (cursor !== undefined && calls.length < 20);
+    return calls;
+  }
+
+  it('reads a board too big for one call over several, carrying on one page before where it stopped', async () => {
+    const calls = await pass(flat(100), 60);
+    expect(calls.map((c) => c.jobs.length)).toEqual([60, 60, 60]);
+    expect(calls.map((c) => c.cursor === undefined)).toEqual([false, false, true]);
+    expect(new Set(calls.flatMap((c) => c.jobs)).size).toBe(100);
+    // The first page (totals and facets) again, then the overlap page, then new pages.
+    expect(calls[1]!.requests.map((r) => r.offset)).toEqual([0, 40, 60]);
+    expect(calls.every((c) => c.truncation === undefined)).toBe(true);
+  });
+
+  it('pauses at the deadline with a cursor instead of reporting the scan cut short', async () => {
+    const ctx = mockCtx(flat(100), { deadline: Date.now() - 1, resume: { cursor: null, maxJobs: 800 } });
+    const out = await workdayProvider.fetch(entry, ctx);
+    expect(ctx.calls).toHaveLength(1);
+    expect(out.jobs).toHaveLength(20);
+    expect(out.truncation).toBeUndefined();
+    expect(out.cursor).toEqual({ v: 1, next: { '': 20 }, done: [], splitOn: {} });
+  });
+
+  it('always reads something new, even when re-reading takes the whole allowance', async () => {
+    const calls = await pass(flat(100), 20);
+    expect(calls.at(-1)!.cursor).toBeUndefined();
+    expect(new Set(calls.flatMap((c) => c.jobs)).size).toBe(100);
+  });
+
+  it('starts a new pass from a cursor it did not write, or one for a finished crawl', async () => {
+    for (const cursor of ['garbage', { v: 2 }, { v: 1, next: { '': 80 }, done: [''], splitOn: {} }]) {
+      const ctx = mockCtx(flat(40), { resume: { cursor, maxJobs: 800 } });
+      const out = await workdayProvider.fetch(entry, ctx);
+      expect(out.jobs).toHaveLength(40);
+      expect(ctx.calls.map((c) => body(c.body).offset)).toEqual([0, 20]);
+    }
+  });
+
+  it('never keeps half a page: a pause while resolving "N Locations" reads the page again next call', async () => {
+    let detailCalls = 0;
+    let ctx: FetchContext | null = null;
+    const handler: Handler = (url) => {
+      if (url.endsWith('/jobs')) return { total: 2, jobPostings: [posting(1, { locationsText: '2 Locations' }), posting(2, { locationsText: '3 Locations' })], facets: [] };
+      // The run's time runs out after the first detail document.
+      if (++detailCalls === 1) ctx!.deadline = Date.now() - 1;
+      return { jobPostingInfo: { location: 'Sydney, NSW', additionalLocations: ['Melbourne, VIC'] } };
+    };
+    const call = (cursor: unknown) => workdayProvider.fetch(entry, (ctx = mockCtx(handler, { resume: { cursor, maxJobs: 800 }, deadline: Date.now() + 60_000 })));
+    const first = await call(null);
+    expect(first.jobs).toEqual([]);
+    expect(first.cursor).toBeDefined();
+    const second = await call(first.cursor);
+    expect(second.cursor).toBeUndefined();
+    expect(second.jobs.map((j) => j.location)).toEqual(['Sydney, NSW · Melbourne, VIC', 'Sydney, NSW · Melbourne, VIC']);
+  });
+
+  it('resumes a split board slice by slice, never reading a finished slice again', async () => {
+    const facets = [{ facetParameter: 'locations', descriptor: 'Location', values: [{ id: 'syd', descriptor: 'Sydney', count: 1500 }, { id: 'mel', descriptor: 'Melbourne', count: 1000 }] }];
+    const handler: Handler = (_url, init) => {
+      const { offset, appliedFacets } = body(init?.body);
+      const slice = appliedFacets.locations?.[0];
+      if (!slice) return { total: 2000, jobPostings: Array.from({ length: 20 }, (_, i) => posting(offset + i)), facets };
+      const base = slice === 'syd' ? 10_000 : 20_000;
+      const count = slice === 'syd' ? 40 : 20;
+      return { total: count, jobPostings: Array.from({ length: Math.min(20, count - offset) }, (_, i) => posting(base + offset + i)), facets: [] };
+    };
+    const calls = await pass(handler, 60, { ...entry, max_pages: 3 });
+    expect(calls.map((c) => c.requests.map((r) => r.appliedFacets.locations?.[0] ?? 'board'))).toEqual([['board', 'board', 'board'], ['board', 'syd', 'syd'], ['board', 'mel']]);
+    expect(calls[0]!.cursor).toEqual({ v: 1, next: { '': -1 }, done: [], splitOn: { '': 'locations' } });
+    expect(calls[1]!.cursor).toEqual({ v: 1, next: { '': -1 }, done: ['locations=syd'], splitOn: { '': 'locations' } });
+    expect(calls[2]!.cursor).toBeUndefined();
+    expect(new Set(calls.flatMap((c) => c.jobs)).size).toBe(60 + 40 + 20);
+    expect(calls.every((c) => c.truncation === undefined)).toBe(true);
+  });
+
+  it('keeps splitting on the facet a resumed crawl began with while Workday still offers it', () => {
+    const facets = [
+      { facetParameter: 'locations', values: [{ id: 'a', count: 1500 }, { id: 'b', count: 1000 }] },
+      { facetParameter: 'jobFamily', values: [{ id: 'x', count: 1300 }, { id: 'y', count: 1200 }] },
+    ];
+    expect(chooseSplitFacet(facets)?.facetParameter).toBe('jobFamily');
+    expect(chooseSplitFacet(facets, { prefer: 'locations' })?.facetParameter).toBe('locations');
+    expect(chooseSplitFacet(facets, { prefer: 'gone' })?.facetParameter).toBe('jobFamily');
+  });
+});
+
+describe('Workday: several markets on one board', () => {
+  const entry: EmployerEntry = { name: 'Global Co', careers_url: 'https://globalco.wd5.myworkdayjobs.com/en-US/External', workday: { marketOnly: ['au', 'in'] } };
+  const posting = (n: number) => ({ title: `Analyst ${n}`, externalPath: `/job/x/Analyst-${n}_JR-${n}`, locationsText: 'Somewhere', postedOn: 'Posted Today' });
+  const countries = (us = 90) => [
+    { facetParameter: 'locationCountry', descriptor: 'Country', values: [{ id: 'au-id', descriptor: 'Australia', count: 3 }, { id: 'in-id', descriptor: 'India', count: 5 }, { id: 'us-id', descriptor: 'United States of America', count: us }] },
+  ];
+  type Body = { limit: number; offset: number; appliedFacets: Record<string, string[]> };
+
+  it("plans the union of each market's slices, once each", () => {
+    const au = { facetParameter: 'locationCountry', id: 'au-id', descriptor: 'Australia', count: 3 };
+    const india = { facetParameter: 'locationCountry', id: 'in-id', descriptor: 'India', count: 5 };
+    expect(planMarketSlices(countries(), ['au', 'in'])).toEqual({ kind: 'slices', slices: [au, india] });
+    expect(planMarketSlices(countries(), ['au', 'au'])).toEqual({ kind: 'slices', slices: [au] });
+    expect(planMarketSlices(countries(), ['nz', 'gb'])).toEqual({ kind: 'no-match' });
+    expect(planMarketSlices([{ facetParameter: 'jobFamily', values: [{ id: 'x', count: 3 }] }], ['au', 'in'])).toEqual({ kind: 'no-location-facet' });
+    expect(planMarketFacet(countries(), 'in')).toEqual({ kind: 'slices', facetParameter: 'locationCountry', values: [{ id: 'in-id', descriptor: 'India', count: 5 }] });
+  });
+
+  it("crawls only the slices in the employer's markets", async () => {
+    const ctx = mockCtx((_url, init) => {
+      const b = JSON.parse(init!.body!) as Body;
+      if (b.limit === 1) return { total: 98, jobPostings: [posting(0)], facets: countries() };
+      const slice = b.appliedFacets.locationCountry?.[0];
+      if (slice === 'au-id') return { total: 3, jobPostings: [1, 2, 3].map(posting), facets: [] };
+      if (slice === 'in-id') return { total: 5, jobPostings: [4, 5, 6, 7, 8].map(posting), facets: [] };
+      throw new Error("crawled outside the employer's markets");
+    });
+    const out = await workdayProvider.fetch(entry, ctx);
+    expect(out.jobs).toHaveLength(8);
+    expect(out.truncation).toBeUndefined();
+    expect(ctx.calls).toHaveLength(3);
+  });
+
+  it('splits a market slice past the offset ceiling instead of stopping at 2,000', async () => {
+    const sliceFacets = [
+      { facetParameter: 'locationCountry', values: [{ id: 'us-id', count: 2500 }] },
+      { facetParameter: 'state', descriptor: 'State', values: [{ id: 'ca', count: 1300 }, { id: 'ny', count: 1200 }] },
+    ];
+    const ctx = mockCtx((_url, init) => {
+      const b = JSON.parse(init!.body!) as Body;
+      if (b.limit === 1) return { total: 2000, jobPostings: [posting(0)], facets: countries(2500) };
+      const state = b.appliedFacets.state?.[0];
+      if (!state) return { total: 2000, jobPostings: Array.from({ length: 20 }, (_, i) => posting(b.offset + i)), facets: sliceFacets };
+      return { total: 20, jobPostings: Array.from({ length: 20 }, (_, i) => posting((state === 'ca' ? 10_000 : 20_000) + i)), facets: [] };
+    });
+    const out = await workdayProvider.fetch({ ...entry, max_pages: 2, workday: { marketOnly: 'us' } }, ctx);
+    const asked = ctx.calls.map((c) => (JSON.parse(c.body!) as Body).appliedFacets).filter((f) => f.state);
+    expect(asked).toEqual([{ locationCountry: ['us-id'], state: ['ca'] }, { locationCountry: ['us-id'], state: ['ny'] }]);
+    expect(out.jobs).toHaveLength(40 + 20 + 20);
+    expect(out.truncation).toBeUndefined();
   });
 });
 
