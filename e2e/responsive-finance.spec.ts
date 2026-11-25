@@ -30,6 +30,7 @@ const TOOLS = [
   '/tools/calendar',
   '/tools/moneycalendar',
   '/tools/groups',
+  '/tools/splits',
   '/tools/subscriptions',
   '/tools/locker',
   '/tools/settings',

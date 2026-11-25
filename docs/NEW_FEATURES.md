@@ -251,6 +251,7 @@ Split a bill and log only your share, and keep track of who owes whom.
 - **Fits the current code:** a new synced list, which needs a cloud-sync key and a merge rule. Only your share counts as spending. What friends owe you is not spending.
 - **Effort:** medium to large.
 - **To decide:** do friends need FinatriX too, or does it all live on the user's phone? The second is much simpler.
+- **Built (step 2.5, 25 Nov 2026):** the second. The list is the user's own data, synced between their devices and never shared; friends who use FinatriX go through Groups. Each entry is between you and one person, so it never suggests one friend pays another. The maths is in [SPLITS.md](SPLITS.md).
 
 ---
 
