@@ -25,6 +25,7 @@
 		FA5800000000000000000002 /* FxSharePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5800000000000000000001 /* FxSharePlugin.swift */; };
 		FA5800000000000000000004 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5800000000000000000003 /* ShareViewController.swift */; };
 		FA5800000000000000000008 /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = FA5800000000000000000007 /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		FA5E00000000000000000002 /* FxOnDeviceAiPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5E00000000000000000001 /* FxOnDeviceAiPlugin.swift */; };
 		FA5900000000000000000002 /* FxWidgetPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5900000000000000000001 /* FxWidgetPlugin.swift */; };
 		FA5900000000000000000004 /* FinatriXWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5900000000000000000003 /* FinatriXWidget.swift */; };
 		FA5900000000000000000006 /* WidgetPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5900000000000000000005 /* WidgetPayload.swift */; };
@@ -136,6 +137,7 @@
 		FA5800000000000000000005 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		FA5800000000000000000006 /* ShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ShareExtension.entitlements; sourceTree = "<group>"; };
 		FA5800000000000000000007 /* ShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		FA5E00000000000000000001 /* FxOnDeviceAiPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FxOnDeviceAiPlugin.swift; sourceTree = "<group>"; };
 		FA5900000000000000000001 /* FxWidgetPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FxWidgetPlugin.swift; sourceTree = "<group>"; };
 		FA5900000000000000000003 /* FinatriXWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinatriXWidget.swift; sourceTree = "<group>"; };
 		FA5900000000000000000005 /* WidgetPayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetPayload.swift; sourceTree = "<group>"; };
@@ -235,6 +237,7 @@
 				FA5700000000000000000007 /* FileExportPlugin.swift */,
 				FA5800000000000000000001 /* FxSharePlugin.swift */,
 				FA5900000000000000000001 /* FxWidgetPlugin.swift */,
+				FA5E00000000000000000001 /* FxOnDeviceAiPlugin.swift */,
 				FA5A00000000000000000012 /* WatchBridge.swift */,
 				FA5A00000000000000000013 /* FxWatchPlugin.swift */,
 				FA5700000000000000000004 /* PrivacyInfo.xcprivacy */,
@@ -512,6 +515,7 @@
 				FA5700000000000000000008 /* FileExportPlugin.swift in Sources */,
 				FA5800000000000000000002 /* FxSharePlugin.swift in Sources */,
 				FA5900000000000000000002 /* FxWidgetPlugin.swift in Sources */,
+				FA5E00000000000000000002 /* FxOnDeviceAiPlugin.swift in Sources */,
 				FA5A0000000000000000001D /* WatchBridge.swift in Sources */,
 				FA5A0000000000000000001E /* FxWatchPlugin.swift in Sources */,
 			);

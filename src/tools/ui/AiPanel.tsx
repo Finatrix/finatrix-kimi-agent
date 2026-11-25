@@ -27,6 +27,7 @@ import type { GroundingReport } from '../ai/grounding';
 import { setupHelp, SETUP_QUESTIONS } from '../ai/setupHelp';
 import { readPlanContext } from '../ai/planContext';
 import { AI_RECIPIENT, hasAiConsent, setAiConsent } from '../../lib/ai/consent';
+import { useOnDeviceAi, useOnDevicePreference } from '../../lib/ai/onDevice';
 import { BRIEFING_QUESTION } from '../ai/briefing';
 import { useVoiceConversation } from '../../lib/voice/useVoiceConversation';
 import { speechTextFor } from '../../lib/voice/speechText';
@@ -125,6 +126,11 @@ function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedA
   // third-party AI (lib/ai/consent). Nothing has been sent while this is set.
   // `voice` holds no question: it is the mic, asking before it starts.
   const [consentFor, setConsentFor] = useState<{ text: string; kind: 'chat' | 'review' | 'voice' } | null>(null);
+  // Only to describe it honestly in the consent card: the phone's own model is
+  // tried inside the transport, after the same permission.
+  const onDevice = useOnDeviceAi();
+  const [onDeviceOn] = useOnDevicePreference();
+  const answersOnPhone = onDeviceOn && onDevice != null && onDevice.state !== 'unsupported';
   const allowRef = useRef<HTMLButtonElement>(null);
 
   const cardRef = useRef<HTMLDivElement>(null);
@@ -584,6 +590,11 @@ function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedA
               the figures from your tools that it needs to {AI_RECIPIENT}. Your name, email address and account ID are
               not sent. Answers are educational, not financial advice.
             </p>
+            {answersOnPhone && (
+              <p className="fx-ai-consent-body">
+                Where it can, the AI built into this phone answers instead, and then nothing leaves the phone.
+              </p>
+            )}
             <div className="fx-ai-consent-actions">
               <button ref={allowRef} type="button" className="fx-ai-review" onClick={allowAi}>
                 {consentFor.kind === 'voice' ? 'Allow and start talking' : 'Allow and send'}
@@ -744,6 +755,7 @@ function Turn({ message, onFollowUp, busy, onAction, onOpen }: {
             basis is spelled out because "Low confidence" without a reason is
             just a hedge. */}
         {message.origin === 'local' && <p className="fx-ai-conf">Calculated on your device · no AI request</p>}
+        {message.origin === 'device' && <p className="fx-ai-conf">Answered on this phone by {message.model} · nothing was sent</p>}
         {message.confidence && (
           <p className={`fx-ai-conf is-${message.confidence.level}`}>
             <span>{message.confidence.label}</span> · {message.confidence.basis}

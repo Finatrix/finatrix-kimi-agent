@@ -166,11 +166,14 @@ export async function categorizeDescriptions(
     return { ok: false, message: 'No categories are set up yet, so there is nothing to sort transactions into.', retryable: false };
   }
 
+  const validKeys = new Set(categories.map((c) => c.key));
   const result = await requestCompletion({
     task: 'statement-categorize',
     system: SYSTEM_PROMPT,
     user: buildCategorizePayload(descriptions, categories),
     maxTokens: MAX_OUTPUT_TOKENS,
+    // An on-device reply that labels nothing goes to the cloud instead.
+    acceptLocal: (content) => parseSuggestions(content, descriptions, validKeys).size > 0,
   });
 
   if (!result.ok) {
@@ -181,7 +184,6 @@ export async function categorizeDescriptions(
     };
   }
 
-  const validKeys = new Set(categories.map((c) => c.key));
   const suggestions = parseSuggestions(result.content, descriptions, validKeys);
 
   if (!suggestions.size) {

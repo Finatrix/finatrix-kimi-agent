@@ -50,7 +50,11 @@ export interface AskSuccess extends AiAnswer {
   ok: true;
   /** Which model answered, after any server-side fallback. */
   model: string;
-  origin?: 'local' | 'ai';
+  /**
+   * `local`: FinatriX's own engine, no AI at all. `device`: the phone's own AI
+   * model, so nothing left the phone. Absent: the cloud AI.
+   */
+  origin?: 'local' | 'ai' | 'device';
   /**
    * How much data the answer stands on. Measured from the snapshot before the
    * model was called — never something the model was asked to rate about
@@ -144,9 +148,12 @@ export async function ask(opts: AskOptions): Promise<AskResult> {
       confidenceInstruction: confidenceInstruction(confidence),
     }),
     maxTokens: MAX_OUTPUT_TOKENS,
+    // An on-device reply that is not a well-formed answer goes to the cloud.
+    acceptLocal: (content) => parseAiAnswer(content) != null,
   });
 
   if (!result.ok) return failureFor(result.kind, result.message);
+  const origin = result.onDevice ? { origin: 'device' as const } : {};
 
   const parsed = parseAiAnswer(result.content);
   if (!parsed) {
@@ -158,7 +165,7 @@ export async function ask(opts: AskOptions): Promise<AskResult> {
   }
 
   if (parsed.mode === 'general') {
-    return { ok: true, model: result.model, ...parsed, confidence: null, grounding: null };
+    return { ok: true, model: result.model, ...origin, ...parsed, confidence: null, grounding: null };
   }
 
   // The structural half of the grounding contract. The prompt asks for it; this
@@ -177,6 +184,7 @@ export async function ask(opts: AskOptions): Promise<AskResult> {
   return {
     ok: true,
     model: result.model,
+    ...origin,
     ...parsed,
     highlights,
     chart: chartWithheld ? null : parsed.chart,

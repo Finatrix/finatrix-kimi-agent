@@ -17,7 +17,7 @@ The list of new features we are planning, with what was decided for each. The bu
 | 11 | [Hide amounts](#11-hide-amounts) | Suggested, not discussed |
 | 12 | [Family budget and groups](#12-family-budget-and-groups) | All decided, not started |
 | 13 | [Money calendar](#13-money-calendar) | Suggested, not discussed |
-| 14 | [Private on-device AI](#14-private-on-device-ai) | Suggested, not discussed |
+| 14 | [Private on-device AI](#14-private-on-device-ai) | Built in step 3.7; decisions below (25 Nov 2026) |
 | 15 | [Indian languages](#15-indian-languages) | **Dropped** by the owner (25 Nov 2026). Was step 3.6 |
 | 16 | [Watch app](#16-watch-app) | Suggested, not discussed |
 
@@ -375,7 +375,7 @@ The next 30–90 days on one calendar: salary in; rent, EMIs, bills and subscrip
 
 ## 14. Private on-device AI
 
-Added 24 Nov 2026. Suggested, not discussed yet.
+Added 24 Nov 2026. Built in step 3.7 (25 Nov 2026).
 
 Newer iPhones and some Android phones have AI built in. FinatriX could use it to suggest categories, write summaries and run the voice assistant (item 1).
 
@@ -384,6 +384,19 @@ Newer iPhones and some Android phones have AI built in. FinatriX could use it to
 - The rule stays the same: the AI never sets a number.
 - **Fits the current code:** a second AI path beside the current one, behind the same consent and grounding rules. Needs native code in each app.
 - **Effort:** medium to large.
+
+### Decided
+
+Decided by the building session under the owner's delegation (25 Nov 2026), safest and simplest option each time. The reasons are in the step 3.7 PR.
+
+- **One path, inside the transport.** `requestCompletion` tries the phone's model first (`src/lib/ai/onDevice.ts`), after the same consent gate, and every caller's own checks (the money chat's grounding and same-line rule, the action resolver, category validation) run on its answer unchanged.
+- **Consent still applies.** `fx_ai_consent` gates the on-device path too, even though nothing leaves the phone, so there is one permission and one set of rules.
+- **Which tasks:** the money chat, the voice assistant's action picker and statement category suggestions. Careers and statement layout stay in the cloud.
+- **Only when the request fits.** Apple's and Google's models take about 4,000 tokens. Today's money-chat prompt alone is larger, so chat answers stay in the cloud until a phone reports a bigger window; voice actions and category suggestions fit now.
+- **The cloud is the fallback** whenever the phone has no model, the model is still downloading or switched off, the request is too long, the model refuses or errors, takes over 30 seconds, or its reply fails the caller's check.
+- **On by default** where supported, with a switch in Settings → Privacy shown only on phones that have a model. Answers from the phone are labelled in the chat.
+- **Android downloads Gemini Nano** through AICore only when a request is about to use it, never when a screen merely describes it.
+- **Not on the web** for now (Chrome's built-in model is a possible later step).
 
 ---
 
