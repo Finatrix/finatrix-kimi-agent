@@ -49,7 +49,7 @@ export function CreateGroupSheet({ defaultName, needsAdult, currency, onCreated,
     setBusy(true);
     setError(null);
     try {
-      const made = await createGroup({ name: groupName, emoji, type, displayName: myName, currency, confirmAdult: adult || !needsAdult });
+      const made = await createGroup({ name: groupName, emoji, type, displayName: myName, currency, confirmAdult: adult });
       onCreated({ ...made, name: groupName, emoji });
     } catch (err) {
       setError(groupErrorMessage(err instanceof GroupsError ? err.code : undefined));

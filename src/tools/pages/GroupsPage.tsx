@@ -99,7 +99,8 @@ export default function GroupsPage() {
   }
 
   const open = openId ? groups.find((g) => g.id === openId) ?? null : null;
-  const needsAdult = adult === false;
+  // Until the answer arrives, ask: the box is never assumed ticked.
+  const needsAdult = adult !== true;
 
   return (
     <div className="fx-page">

@@ -21,7 +21,9 @@ export function JoinSheet({ initialCode, defaultName, needsAdult, onJoined, onCl
   const [preview, setPreview] = useState<JoinPreview | null>(null);
   const [me, setMe] = useState(defaultName);
   const [adult, setAdult] = useState(false);
-  const [askAdult, setAskAdult] = useState(needsAdult);
+  // Shown when the account hasn't confirmed yet (or we can't tell), or the server asked.
+  const [serverAsked, setServerAsked] = useState(false);
+  const askAdult = needsAdult || serverAsked;
   const [busy, setBusy] = useState(!!initialCode);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,14 +63,15 @@ export function JoinSheet({ initialCode, defaultName, needsAdult, onJoined, onCl
     if (askAdult && !adult) { setError(groupErrorMessage('adult_confirmation_required')); return; }
     setBusy(true);
     setError(null);
-    const res = await joinByCode(code, 'join', { displayName: myName, confirmAdult: adult || !askAdult })
+    // Only ever sent as true when the person ticked the box.
+    const res = await joinByCode(code, 'join', { displayName: myName, confirmAdult: adult })
       .catch(() => ({ status: 'failed' as JoinStatus, group: null }));
     setBusy(false);
     if ((res.status === 'joined' || res.status === 'already_member') && res.group?.id) {
       onJoined(res.group.id, res.status);
       return;
     }
-    if (res.status === 'adult_confirmation_required') setAskAdult(true);
+    if (res.status === 'adult_confirmation_required') setServerAsked(true);
     if (res.group) setPreview(res.group);
     setError(groupErrorMessage(res.status));
   };
