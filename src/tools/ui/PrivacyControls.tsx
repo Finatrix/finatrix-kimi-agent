@@ -6,6 +6,7 @@ import { analyticsOptedOut, browserPrivacyRequested, setAnalyticsOptOut } from '
 import { initAnalytics } from '../../lib/analytics';
 import { clearHistory, pruneOtherUsers } from '../ai/history';
 import { AI_RECIPIENT, useAiConsent } from '../../lib/ai/consent';
+import { useOnDeviceAi, useOnDevicePreference } from '../../lib/ai/onDevice';
 import './planning.css';
 
 export default function PrivacyControls() {
@@ -14,6 +15,10 @@ export default function PrivacyControls() {
   const [status, setStatus] = useState('');
   const [confirmChat, setConfirmChat] = useState(false);
   const [aiConsent, setAiConsent] = useAiConsent();
+  const onDevice = useOnDeviceAi();
+  const [onDeviceOn, setOnDeviceOn] = useOnDevicePreference();
+  // Shown only on a phone that has (or is getting) its own AI model.
+  const hasOnDevice = onDevice != null && onDevice.state !== 'unsupported';
   useEffect(() => {
     const refresh = () => setOptOut(analyticsOptedOut());
     window.addEventListener('storage', refresh);
@@ -45,6 +50,17 @@ export default function PrivacyControls() {
       }} />Allow FinatriX AI to send data to its AI provider
     </label>
     <p className="fx-plan-muted">When allowed, an AI answer sends your question, the recent conversation and the figures it needs — a statement import sends unrecognised merchant descriptions, and Careers sends the resume and job text an analysis needs — to {AI_RECIPIENT}. Your name, email address and account ID are never sent. Turning this off stops future requests; it does not recall ones already answered.</p>
+    {hasOnDevice && <>
+      <label className="fx-checkrow" style={{ display: 'flex', gap: 10 }} data-tour="settings-ai-on-device">
+        <input className="fx-check" type="checkbox" checked={onDeviceOn} onChange={e => {
+          setOnDeviceOn(e.target.checked);
+          setStatus(e.target.checked ? 'FinatriX AI will use the AI built into this phone when it can.' : 'FinatriX AI will use its cloud AI provider only.');
+        }} />Use the AI built into this phone when it can
+      </label>
+      <p className="fx-plan-muted">{onDevice.state === 'preparing'
+        ? 'This phone’s AI is not ready yet (it may still be downloading, or be switched off in the phone’s settings). Until it is, answers come from the AI provider above.'
+        : 'Short requests, such as voice actions and category suggestions, are answered on this phone and nothing leaves it. Longer ones, and anything the phone cannot answer, go to the AI provider above. Either way FinatriX asks first, and its checks on every figure stay the same.'}</p>
+    </>}
     <h3>Chat history</h3>
     <p>AI questions, recent conversation and relevant financial context are sent to the AI service to generate answers, only with your permission. Chat history is saved on this device for signed-in users. Clearing it here does not delete records already held by service providers.</p>
     {!confirmChat ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirmChat(true)} data-tour="settings-chat-history">Clear chat history…</button> : <div className="fx-plan-note">

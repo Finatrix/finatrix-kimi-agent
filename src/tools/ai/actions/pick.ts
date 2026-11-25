@@ -19,6 +19,8 @@ export async function pickAction(ctx: ResolveContext): Promise<Resolution> {
     system: ACTION_SYSTEM_PROMPT,
     user: buildActionMessage(ctx.utterance, { categories: ctx.categories, screens: SCREENS }),
     maxTokens: MAX_OUTPUT_TOKENS,
+    // An on-device reply that names no known action goes to the cloud instead.
+    acceptLocal: (content) => parsePlan(content) != null,
   });
   if (!result.ok) return { kind: 'none' };
   return resolvePlan(parsePlan(result.content), ctx);
