@@ -28,6 +28,7 @@ import { useGroupLive } from '../../lib/useGroupLive';
 import { reportDropped } from '../../lib/useGroupExpenseAdd';
 import { InviteSheet } from './InviteSheet';
 import { SplitCosts } from './SplitCosts';
+import { GroupExtras } from './GroupExtras';
 import { SplitFields } from './SplitFields';
 
 const errCode = (e: unknown) => (e instanceof GroupsError ? e.code : e instanceof Error ? e.message : undefined);
@@ -218,6 +219,9 @@ export function GroupDetail({ choice, onBack, onLeft, onChanged }: {
           </ul>
         </section>
       )}
+
+      <GroupExtras groupId={choice.id} currency={currency} members={g.members} meId={meId} isAdmin={isAdmin} month={month}
+        showChildren={(group?.type ?? choice.type) === 'family' || (group?.type ?? choice.type) === 'couple'} />
 
       {(!budgetTogether || !splitCosts) && (
         <section className="card" style={{ marginBottom: 14 }} aria-labelledby="grp-off-h">

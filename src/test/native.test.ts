@@ -510,6 +510,40 @@ describe('deep links', () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
+  it('Siri / Google\'s assistant: voice asks for a conversation, add_expense opens the form, nothing else is read', async () => {
+    const { takeVoiceLaunch } = await import('../lib/voiceLaunch');
+    takeVoiceLaunch();
+    handleOpenUrl(`${APP_ID}://voice`, navigate);
+    expect(takeVoiceLaunch()).toBe(true);
+    expect(takeVoiceLaunch()).toBe(false);
+    handleOpenUrl(`${APP_ID}://voice?feature=add_expense`, navigate);
+    expect(navigate).toHaveBeenLastCalledWith('/tools/expenses?new=1');
+    expect(takeVoiceLaunch()).toBe(false);
+    handleOpenUrl(`${APP_ID}://voice?feature=voice_chat&next=https%3A%2F%2Fevil.example#q=pay`, navigate);
+    expect(takeVoiceLaunch()).toBe(true);
+    expect(navigate.mock.calls.flat().join(' ')).not.toMatch(/evil|pay/);
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('a voice request goes stale after a minute', async () => {
+    const { requestVoiceLaunch, takeVoiceLaunch, VOICE_LAUNCH_TTL_MS } = await import('../lib/voiceLaunch');
+    requestVoiceLaunch(1_000);
+    expect(takeVoiceLaunch(1_000 + VOICE_LAUNCH_TTL_MS + 1)).toBe(false);
+  });
+
+  it('declares the assistant shortcuts on both platforms', () => {
+    const read = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8');
+    const manifest = read('android/app/src/main/AndroidManifest.xml');
+    expect(manifest).toContain('android:resource="@xml/shortcuts"');
+    const shortcuts = read('android/app/src/main/res/xml/shortcuts.xml');
+    expect(shortcuts).toContain('actions.intent.OPEN_APP_FEATURE');
+    expect(shortcuts).toContain(`${APP_ID}://voice?feature=add_expense`);
+    const intents = read('ios/App/App/FxAppIntents.swift');
+    expect(intents).toContain(`"${APP_ID}://voice"`);
+    expect(intents).toContain(`"${APP_ID}://widget/add"`);
+    expect(read('ios/App/App.xcodeproj/project.pbxproj')).toContain('FxAppIntents.swift in Sources');
+  });
+
   it('ignores links for any other host or scheme', () => {
     handleOpenUrl('https://evil.example/tools', navigate);
     handleOpenUrl('not a url', navigate);

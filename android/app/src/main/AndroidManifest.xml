@@ -39,6 +39,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- Launcher shortcuts and App Actions for Google's assistant:
+                 "Talk to FinatriX AI" and "Add an expense" (res/xml/shortcuts.xml).
+                 Must sit on the launcher activity. -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+
             <!-- Verified App Links. A finatrix.co link to one of the product's
                  own screens — an email confirmation, a password reset, a shared
                  guide — opens here instead of the browser when the app is

@@ -101,6 +101,13 @@ export const NATIVE_AUTH_CALLBACK = `${APP_ID}://auth/callback`;
  */
 export const NATIVE_WIDGET_HOST = 'widget';
 
+/**
+ * `co.finatrix.app://voice`: Siri and Google's assistant open FinatriX AI with
+ * a voice conversation through it (src/lib/voiceLaunch.ts). "Add an expense"
+ * from either assistant reuses the widget's `widget/add` link.
+ */
+export const NATIVE_VOICE_HOST = 'voice';
+
 /** The public website. Also the host App Links / Universal Links are verified for. */
 export const PUBLIC_ORIGIN = 'https://finatrix.co';
 

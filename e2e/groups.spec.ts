@@ -25,6 +25,9 @@ interface Fake {
   members: Array<Record<string, unknown>>;
   expenses: Array<Record<string, unknown>>;
   budgets: Array<Record<string, unknown>>;
+  goals: Array<Record<string, unknown>>;
+  contributions: Array<Record<string, unknown>>;
+  children: Array<Record<string, unknown>>;
   confirmed: boolean;
   joinCalls: Array<Record<string, unknown>>;
   expensePosts: Array<{ body: unknown; url: string; prefer: string }>;
@@ -42,7 +45,7 @@ async function setUp(page: Page, opts: { inGroup?: boolean; confirmed?: boolean 
   const fake: Fake = {
     groups: opts.inGroup ? [family()] : [],
     members: opts.inGroup ? [memberRow(ME, 'Amma', 'admin'), memberRow(PRIYA, 'Priya')] : [],
-    expenses: [], budgets: [], confirmed: !!opts.confirmed, joinCalls: [], expensePosts: [], socket: null, bindings: [],
+    expenses: [], budgets: [], goals: [], contributions: [], children: [], confirmed: !!opts.confirmed, joinCalls: [], expensePosts: [], socket: null, bindings: [],
   };
   const user = { id: uid, aud: 'authenticated', role: 'authenticated', email: 'synthetic@example.invalid', email_confirmed_at: '2025-01-01T00:00:00Z', created_at: '2025-01-01T00:00:00Z', app_metadata: { provider: 'email' }, user_metadata: { full_name: 'Amma Sharma' } };
   const expires = Math.floor(Date.now() / 1000) + 3600;
@@ -80,6 +83,15 @@ async function setUp(page: Page, opts: { inGroup?: boolean; confirmed?: boolean 
     if (path.endsWith('/rest/v1/group_members')) return route.fulfill({ json: fake.members });
     if (path.endsWith('/rest/v1/group_invites')) return route.fulfill({ json: [{ code: '7K2P9Q', expires_at: '2099-12-01T00:00:00Z' }] });
     if (path.endsWith('/rest/v1/group_budgets')) return route.fulfill({ json: fake.budgets });
+    // Step 3.9: goals, contributions and children. Inserts are kept, stamped as the server would.
+    for (const [table, list] of [['group_goals', fake.goals], ['group_goal_contributions', fake.contributions], ['group_dependents', fake.children]] as const) {
+      if (!path.endsWith(`/rest/v1/${table}`)) continue;
+      if (method === 'POST') {
+        list.push({ ...(body as Record<string, unknown>), created_by: ME, created_at: now(), updated_by: ME, updated_at: now(), deleted_at: null });
+        return route.fulfill({ status: 201, body: '' });
+      }
+      return route.fulfill({ json: list });
+    }
     if (path.endsWith('/rest/v1/group_expenses')) {
       if (method === 'POST') {
         fake.expensePosts.push({ body, url: req.url(), prefer: req.headers().prefer ?? '' });
@@ -104,7 +116,8 @@ async function setUp(page: Page, opts: { inGroup?: boolean; confirmed?: boolean 
       const [joinRef, ref, topic, event, payload] = JSON.parse(String(raw));
       if (event === 'phx_join') {
         const changes = (payload?.config?.postgres_changes ?? []) as Array<{ event: string; table: string }>;
-        fake.bindings = changes.map((c, i) => ({ id: i + 1, event: c.event, table: c.table }));
+        // pushLive speaks for the group's own channel; other channels (goals) only need their join answered.
+        if (topic === `realtime:group:${GROUP}`) fake.bindings = changes.map((c, i) => ({ id: i + 1, event: c.event, table: c.table }));
         ws.send(JSON.stringify([joinRef, ref, topic, 'phx_reply', { status: 'ok', response: { postgres_changes: changes.map((c, i) => ({ ...c, id: i + 1 })) } }]));
       } else {
         ws.send(JSON.stringify([joinRef, ref, topic, 'phx_reply', { status: 'ok', response: {} }]));
@@ -224,6 +237,41 @@ test.describe('Groups', () => {
 
     const results = await new AxeBuilder({ page }).include('main').analyze();
     expect(results.violations.map((v) => v.id)).toEqual([]);
+  });
+
+  test('save together: a goal, money put aside, and the progress everyone sees (step 3.9)', async ({ page }) => {
+    const fake = await setUp(page, { inGroup: true, confirmed: true });
+    await page.goto(`/tools/groups?g=${GROUP}`);
+    const goals = page.getByTestId('grp-goals');
+    await goals.getByRole('button', { name: 'New goal' }).click();
+    // The amount first: on phones its formula key bar sits over the sheet's button until focus moves on.
+    await page.getByLabel(/^Target/).fill('60000');
+    await page.getByLabel('Name', { exact: true }).fill('Goa holiday');
+    await page.getByRole('button', { name: 'Add goal' }).click();
+    await expect(goals.getByText('Goa holiday')).toBeVisible();
+    expect(fake.goals[0]).toMatchObject({ group_id: GROUP, name: 'Goa holiday', target: 60000 });
+
+    await goals.getByRole('button', { name: 'Add money' }).click();
+    await page.getByLabel(/^Amount/).fill('15000');
+    await page.getByLabel('Note (optional)').fill('Diwali bonus');
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await expect(goals.getByRole('progressbar', { name: 'Goa holiday: 25% saved' })).toBeVisible();
+    expect(fake.contributions[0]).toMatchObject({ goal_id: fake.goals[0].id, member_id: ME, amount: 15000 });
+  });
+
+  test('children: a first name with the parent’s confirmation, never without (step 3.9)', async ({ page }) => {
+    const fake = await setUp(page, { inGroup: true, confirmed: true });
+    await page.goto(`/tools/groups?g=${GROUP}`);
+    const kids = page.getByTestId('grp-children');
+    await kids.getByRole('button', { name: 'Add a child' }).click();
+    await page.getByLabel('First name', { exact: true }).fill('Aarav');
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await expect(page.getByRole('alert')).toHaveText('Confirm you’re their parent or guardian.');
+    expect(fake.children).toHaveLength(0);
+    await page.getByLabel(/I’m their parent or guardian/).check();
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await expect(kids.getByText('Aarav')).toBeVisible();
+    expect(fake.children[0]).toMatchObject({ group_id: GROUP, display_name: 'Aarav', guardian_confirmed: true });
   });
 
   test('signed out, an invite link asks to sign in and keeps the code', async ({ page }) => {

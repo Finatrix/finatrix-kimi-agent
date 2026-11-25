@@ -4,6 +4,7 @@ import {
 import type { AiFocus } from '../ai/focus';
 import { registerDockSlot } from './dockSlots';
 import { useAiMonth } from './AiMonthScope';
+import { VOICE_LAUNCH_EVENT, takeVoiceLaunch } from '../../lib/voiceLaunch';
 
 /**
  * The FinatriX AI entry point.
@@ -88,6 +89,21 @@ export function AiProvider({ enabled = true, children }: {
 
   const close = useCallback(() => setOpen(false), []);
 
+  // Siri / Google's assistant asked for a voice conversation (lib/voiceLaunch).
+  // A request made before the shell was ready is picked up once it is.
+  const [voiceAt, setVoiceAt] = useState(0);
+  useEffect(() => {
+    if (!enabled) return;
+    const pick = () => {
+      if (!takeVoiceLaunch()) return;
+      open(null);
+      setVoiceAt((n) => n + 1);
+    };
+    pick();
+    window.addEventListener(VOICE_LAUNCH_EVENT, pick);
+    return () => window.removeEventListener(VOICE_LAUNCH_EVENT, pick);
+  }, [enabled, open]);
+
   const value = useMemo(
     () => ({ open, close, isOpen, enabled }),
     [open, close, isOpen, enabled],
@@ -101,7 +117,7 @@ export function AiProvider({ enabled = true, children }: {
         // where a dialog is about to appear reads as a glitch. The trigger keeps
         // focus until the panel mounts and takes it.
         <Suspense fallback={null}>
-          <AiPanel id={PANEL_ID} focus={focus} openedAt={openedAt} onClose={close} returnFocus={returnFocus} />
+          <AiPanel id={PANEL_ID} focus={focus} openedAt={openedAt} voiceAt={voiceAt} onClose={close} returnFocus={returnFocus} />
         </Suspense>
       )}
     </AiCtx.Provider>

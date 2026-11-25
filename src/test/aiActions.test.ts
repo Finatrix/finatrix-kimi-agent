@@ -308,3 +308,79 @@ describe('confirm, save and undo', () => {
     expect(getJSON<BudgetStore>('fx_bb_data', {})['2026-11']!.vals.transport).toBe(3500);
   });
 });
+
+describe('multi-step plans (step 3.9): one card per step, never a reused number', () => {
+  const reply = (steps: unknown[]) => JSON.stringify({ action: 'plan', steps });
+
+  it('parses up to four write steps and nothing else', () => {
+    const p = parsePlan(reply([
+      { action: 'log_expense', amount: '15k', category: 'rent', note: 'rent' },
+      { action: 'set_budget', amount: '10,000', category: 'groceries' },
+    ]));
+    expect(p?.steps).toHaveLength(2);
+    expect(parsePlan(reply([{ action: 'open_screen', screen: 'budget' }, { action: 'log_expense', amount: '1' }]))).toBeNull();
+    expect(parsePlan(reply([{ action: 'plan', steps: [] }]))).toBeNull();
+    expect(parsePlan(reply(Array.from({ length: 5 }, () => ({ action: 'log_expense', amount: '1' }))))).toBeNull();
+    expect(parsePlan('{"action":"plan"}')).toBeNull();
+  });
+
+  it('"paid 15k rent and 800 for the electricity bill" is two expense cards, each with its own category', () => {
+    const u = 'paid 15k rent and 800 for the electricity bill';
+    const r = resolvePlan(parsePlan(reply([
+      { action: 'log_expense', amount: '15k', category: 'rent', note: 'rent' },
+      { action: 'log_expense', amount: '800', category: 'utilities', note: 'electricity bill' },
+    ])), ctx(u));
+    expect(r.kind).toBe('plan');
+    if (r.kind !== 'plan') return;
+    expect(r.skipped).toEqual([]);
+    expect(r.actions.map((a) => [a.kind, (a as ExpenseAction).typed, a.category, a.status])).toEqual([
+      ['expense', 15000, 'rent', 'pending'],
+      ['expense', 800, 'utilities', 'pending'],
+    ]);
+  });
+
+  it('a number said once cannot become two steps; said twice, it can', () => {
+    const once = resolvePlan(parsePlan(reply([
+      { action: 'log_expense', amount: '450', category: 'eating_out', note: 'lunch' },
+      { action: 'log_expense', amount: '450', category: 'eating_out', note: 'dinner' },
+    ])), ctx('450 for lunch and dinner'));
+    expect(once.kind).toBe('plan');
+    if (once.kind === 'plan') {
+      expect(once.actions).toHaveLength(1);
+      expect(once.skipped[0]).toMatch(/^Step 2: that amount was already used/);
+    }
+    const twice = resolvePlan(parsePlan(reply([
+      { action: 'log_expense', amount: '450', note: 'lunch' },
+      { action: 'log_expense', amount: '450', note: 'dinner' },
+    ])), ctx('450 for lunch and 450 for dinner'));
+    expect(twice.kind === 'plan' && twice.actions).toHaveLength(2);
+  });
+
+  it('a step with a number the user never said is left out, the rest still get cards', () => {
+    const r = resolvePlan(parsePlan(reply([
+      { action: 'set_budget', amount: '6,000', category: 'groceries' },
+      { action: 'set_budget', amount: '9,999', category: 'transport' },
+    ])), ctx('set groceries to 6,000 and transport to 2,000'));
+    expect(r.kind).toBe('plan');
+    if (r.kind !== 'plan') return;
+    expect(r.actions).toEqual([{ kind: 'budget', status: 'pending', month: '2026-11', category: 'groceries', amount: 6000 }]);
+    expect(r.skipped).toHaveLength(1);
+  });
+
+  it('nothing it can do is a refusal, so the chat explains instead of showing empty cards', () => {
+    const r = resolvePlan(parsePlan(reply([{ action: 'log_expense', amount: '5' }, { action: 'log_expense', amount: '6' }])), ctx('lunch and dinner'));
+    expect(r.kind).toBe('refuse');
+  });
+
+  it('saving one card of a plan never saves the others', () => {
+    localStorage.clear();
+    const r = resolvePlan(parsePlan(reply([
+      { action: 'log_expense', amount: '15k', category: 'rent', note: 'rent' },
+      { action: 'log_expense', amount: '800', category: 'utilities', note: 'electricity bill' },
+    ])), ctx('paid 15k rent and 800 for the electricity bill'));
+    if (r.kind !== 'plan') throw new Error('expected a plan');
+    const saved = saveExpenseAction(r.actions[0] as ExpenseAction, NOW);
+    expect(saved.ok).toBe(true);
+    expect(loadExpenses().map((e) => e.amount)).toEqual([15000]);
+  });
+});

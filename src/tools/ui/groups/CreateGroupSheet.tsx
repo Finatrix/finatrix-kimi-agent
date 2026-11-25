@@ -4,6 +4,8 @@ import {
   GROUP_EMOJIS, GROUP_NAME_MAX, GROUP_TYPES, MEMBER_NAME_MAX, groupErrorMessage, type GroupType,
 } from '../../lib/groups';
 import { createGroup, GroupsError } from '../../lib/groupsApi';
+import { CURRENCY_CODES } from '../../lib/format';
+import { groupTripCurrency } from '../../lib/groupCurrency';
 
 export interface CreatedGroup {
   groupId: string;
@@ -31,11 +33,17 @@ export function CreateGroupSheet({ defaultName, needsAdult, currency, onCreated,
   const [name, setName] = useState('');
   const [me, setMe] = useState(defaultName);
   const [adult, setAdult] = useState(false);
+  // One currency per group, fixed once it's made. A Trip group starts in the
+  // currency of your current or next trip (travel mode), anything else in yours.
+  const trip = groupTripCurrency(currency);
+  const [money, setMoney] = useState(currency);
+  const [moneyTouched, setMoneyTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const pickType = (next: GroupType) => {
     setType(next);
+    if (!moneyTouched) setMoney(next === 'trip' && trip ? trip.currency : currency);
     if (!emojiTouched) setEmoji(GROUP_TYPES.find((t) => t.id === next)!.emoji);
   };
 
@@ -49,7 +57,7 @@ export function CreateGroupSheet({ defaultName, needsAdult, currency, onCreated,
     setBusy(true);
     setError(null);
     try {
-      const made = await createGroup({ name: groupName, emoji, type, displayName: myName, currency, confirmAdult: adult });
+      const made = await createGroup({ name: groupName, emoji, type, displayName: myName, currency: money, confirmAdult: adult });
       onCreated({ ...made, name: groupName, emoji });
     } catch (err) {
       setError(groupErrorMessage(err instanceof GroupsError ? err.code : undefined));
@@ -98,6 +106,20 @@ export function CreateGroupSheet({ defaultName, needsAdult, currency, onCreated,
             </label>
           ))}
         </fieldset>
+
+        <div className="fg" style={{ marginBottom: 12 }}>
+          <label className="fl" htmlFor="grp-currency">Currency</label>
+          <select id="grp-currency" className="fs" value={money} aria-describedby="grp-currency-help"
+            onChange={(e) => { setMoney(e.target.value); setMoneyTouched(true); }}>
+            {[...new Set([currency, ...CURRENCY_CODES])].map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <p id="grp-currency-help" className="note" style={{ marginTop: 5 }}>
+            {money !== currency
+              ? `Everyone adds expenses in ${money}. Your share goes into your tracker in ${currency}${trip && trip.currency === money ? ` at your ${trip.name} rate` : ' at the live rate'}.`
+              : 'Members in other countries see their share in their own currency.'}
+            {' '}It can’t be changed later.
+          </p>
+        </div>
 
         <div className="fg" style={{ marginBottom: 12 }}>
           <label className="fl" htmlFor="grp-me">Your name in the group</label>

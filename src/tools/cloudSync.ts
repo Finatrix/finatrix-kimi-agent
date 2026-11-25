@@ -92,7 +92,7 @@ export const SYNC_KEYS = [
  * groups live in their own server tables. The queue is also tagged with the
  * account that made each change, and only that account's session sends it.
  */
-export const ACCOUNT_LOCAL_KEYS = ['fx_import_staged', 'fx_sub_radar', 'fx_money_cal', 'fx_groups', 'fx_group_outbox', 'fx_group_share_cursor', 'fx_locker'];
+export const ACCOUNT_LOCAL_KEYS = ['fx_import_staged', 'fx_sub_radar', 'fx_money_cal', 'fx_groups', 'fx_group_outbox', 'fx_group_share_cursor', 'fx_group_seen', 'fx_locker'];
 const LAST_UID_KEY = 'fx_last_uid';
 const PENDING_KEY = 'fx_sync_pending';
 

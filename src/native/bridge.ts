@@ -36,7 +36,8 @@ import { Keyboard, KeyboardStyle } from '@capacitor/keyboard';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { setNativeHapticDriver, type Haptic } from '../lib/haptics';
 import { safeInternalPath } from '../lib/safePath';
-import { APP_ID, NATIVE_AUTH_CALLBACK, NATIVE_WIDGET_HOST, PUBLIC_ORIGIN, nativePlatform } from './platform';
+import { APP_ID, NATIVE_AUTH_CALLBACK, NATIVE_VOICE_HOST, NATIVE_WIDGET_HOST, PUBLIC_ORIGIN, nativePlatform } from './platform';
+import { requestVoiceLaunch } from '../lib/voiceLaunch';
 import { WIDGET_ADD_PATH, WIDGET_OPEN_PATH } from '../tools/lib/widgetLinks';
 
 export interface BridgeOptions {
@@ -260,6 +261,21 @@ export function handleOpenUrl(raw: string, navigate: BridgeOptions['navigate']):
   // page that opens our scheme can do no more than open the add form.
   if (url.protocol === `${APP_ID}:` && url.host === NATIVE_WIDGET_HOST) {
     navigate(url.pathname === '/add' ? WIDGET_ADD_PATH : WIDGET_OPEN_PATH);
+    return;
+  }
+
+  // Siri / Google's assistant: co.finatrix.app://voice. The only thing read is
+  // Android's shortcut id, compared with one fixed value: `add_expense` opens
+  // the add form. Anything else asks for a voice conversation. FinatriX AI
+  // lives in the money-tools shell, so a launch from outside it lands on the
+  // Expense Tracker; inside it, the person stays where they are.
+  if (url.protocol === `${APP_ID}:` && url.host === NATIVE_VOICE_HOST) {
+    if (url.searchParams.get('feature') === 'add_expense') {
+      navigate(WIDGET_ADD_PATH);
+      return;
+    }
+    requestVoiceLaunch();
+    if (!/^\/tools(\/|$)/.test(window.location.pathname)) navigate(WIDGET_OPEN_PATH);
     return;
   }
 

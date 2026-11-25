@@ -72,6 +72,10 @@ const REQUIRED_RELATIONS = [
   'group_settlements',
   'group_budgets',
   'group_age_confirmations',
+  // Group goals and children's names (migration 20261125000200, step 3.9).
+  'group_goals',
+  'group_goal_contributions',
+  'group_dependents',
 ];
 
 /**

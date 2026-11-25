@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- What people say for each shortcut in res/xml/shortcuts.xml. -->
+    <string-array name="fx_shortcut_voice_synonyms">
+        <item>voice chat</item>
+        <item>voice assistant</item>
+        <item>FinatriX AI</item>
+        <item>talk</item>
+    </string-array>
+    <string-array name="fx_shortcut_add_synonyms">
+        <item>add expense</item>
+        <item>log expense</item>
+        <item>new expense</item>
+    </string-array>
+</resources>

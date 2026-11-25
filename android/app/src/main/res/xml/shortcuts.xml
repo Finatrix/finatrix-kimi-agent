@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Google's assistant and the launcher (step 3.9, NEW_FEATURES item 1 stage 3).
+
+  "Hey Google, open voice chat on FinatriX" and "Hey Google, add expense on
+  FinatriX": App Actions' built-in intent OPEN_APP_FEATURE, with the two
+  shortcuts below as its inline inventory. Long-pressing the app icon shows
+  them too.
+
+  Both open MainActivity at co.finatrix.app://voice. src/native/bridge.ts reads
+  only `feature`, and only as one of these two shortcut ids: `add_expense`
+  opens the add form, anything else starts a voice conversation in FinatriX AI
+  behind the existing AI consent (src/lib/voiceLaunch.ts).
+
+  targetPackage is the release applicationId. App Actions are tested with the
+  Google Assistant plugin's App Actions Test Tool against a build uploaded to
+  Play (owed, see the PR).
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <capability android:name="actions.intent.OPEN_APP_FEATURE">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="co.finatrix.app"
+            android:targetClass="co.finatrix.app.MainActivity">
+            <url-template android:value="co.finatrix.app://voice{?feature}" />
+            <parameter android:name="feature" android:key="feature" />
+        </intent>
+    </capability>
+
+    <shortcut
+        android:shortcutId="voice_chat"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/fx_shortcut_voice_short"
+        android:shortcutLongLabel="@string/fx_shortcut_voice_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="co.finatrix.app"
+            android:targetClass="co.finatrix.app.MainActivity"
+            android:data="co.finatrix.app://voice?feature=voice_chat" />
+        <capability-binding android:key="actions.intent.OPEN_APP_FEATURE">
+            <parameter-binding
+                android:key="feature"
+                android:value="@array/fx_shortcut_voice_synonyms" />
+        </capability-binding>
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="add_expense"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/fx_shortcut_add_short"
+        android:shortcutLongLabel="@string/fx_shortcut_add_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="co.finatrix.app"
+            android:targetClass="co.finatrix.app.MainActivity"
+            android:data="co.finatrix.app://voice?feature=add_expense" />
+        <capability-binding android:key="actions.intent.OPEN_APP_FEATURE">
+            <parameter-binding
+                android:key="feature"
+                android:value="@array/fx_shortcut_add_synonyms" />
+        </capability-binding>
+    </shortcut>
+</shortcuts>

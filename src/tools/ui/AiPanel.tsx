@@ -74,6 +74,8 @@ export interface AiPanelProps {
    * a signal that a *new* open happened in order to re-prime its subject line.
    */
   openedAt?: number;
+  /** Bumped when Siri or Google's assistant asked for a voice conversation. */
+  voiceAt?: number;
 }
 
 export default function AiPanel(props: AiPanelProps) {
@@ -82,7 +84,7 @@ export default function AiPanel(props: AiPanelProps) {
   return <AccountAiPanel key={user?.id ?? 'signed-out'} {...props} />;
 }
 
-function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedAt = 0 }: AiPanelProps) {
+function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedAt = 0, voiceAt = 0 }: AiPanelProps) {
   const { user, configured } = useAuth();
   const { code, cfmt } = useCurrency();
   // The panel is also rendered outside a router (in tests); only inside one
@@ -247,7 +249,7 @@ function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedA
    * chat instead. The model picks the action and copies the user's words; the
    * app reads the numbers and does the maths (ai/actions/plan.ts).
    */
-  const prepareAction = useCallback(async (text: string): Promise<ChatMessage | null> => {
+  const prepareAction = useCallback(async (text: string): Promise<ChatMessage[] | null> => {
     const data = readData();
     const categories = allCategories(data.cats).map((c) => ({ k: c.k, l: c.l }));
     const trips = loadTrips();
@@ -264,14 +266,20 @@ function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedA
     if (resolution.kind === 'none') return null;
     const base = { id: newMessageId(), role: 'assistant' as const, at: new Date().toISOString(), model: 'FinatriX actions' };
     if (resolution.kind === 'refuse') {
-      return { ...base, text: resolution.message, ...(resolution.href ? { link: { href: resolution.href, label: resolution.hrefLabel ?? 'Open' } } : {}) };
+      return [{ ...base, text: resolution.message, ...(resolution.href ? { link: { href: resolution.href, label: resolution.hrefLabel ?? 'Open' } } : {}) }];
     }
     const categoryLabel = (key: string, month: string) => allCategories(loadCatViewFor(month).active).find((c) => c.k === key)?.l ?? key;
-    return {
-      ...base,
-      text: actionSummary(resolution.action, { money: cfmt, categoryLabel, trips, today: ymdLocal(data.now) }),
-      action: resolution.action,
-    };
+    const summaryCtx = { money: cfmt, categoryLabel, trips, today: ymdLocal(data.now) };
+    if (resolution.kind === 'plan') {
+      // Several writes: one card each, saved one tap at a time (step 3.9).
+      const n = resolution.actions.length;
+      const cards = resolution.actions.map((action, i): ChatMessage => ({
+        ...base, id: newMessageId(), text: `${n > 1 ? `${i + 1} of ${n}. ` : ''}${actionSummary(action, summaryCtx)}`, action,
+      }));
+      const skipped = resolution.skipped.map((t): ChatMessage => ({ ...base, id: newMessageId(), text: t }));
+      return [...cards, ...skipped];
+    }
+    return [{ ...base, text: actionSummary(resolution.action, summaryCtx), action: resolution.action }];
   }, [readData, code, cfmt]);
 
   /** Go to a screen the assistant opened or linked to. The panel closes, so the screen is visible. */
@@ -333,14 +341,16 @@ function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedA
     if (kind === 'chat' && looksLikeAction(text)) {
       const acted = await prepareAction(text);
       if (!active.current) return null;
-      if (acted) {
+      if (acted && acted.length) {
         pending.current = false;
-        persist([...withQuestion, acted]);
+        persist([...withQuestion, ...acted]);
         setBusy(false);
         track('ai_message_sent', { kind, where: focus?.kind ?? 'none', ok: true });
-        if (acted.action?.kind === 'open') openHref(acted.action.href);
+        const [first] = acted;
+        if (acted.length === 1 && first.action?.kind === 'open') openHref(first.action.href);
         else inputRef.current?.focus();
-        return acted;
+        // Voice reads every card of a plan, in order; the transcript keeps them apart.
+        return acted.length === 1 ? first : { ...first, text: acted.map((m) => m.text).join(' ') };
       }
     }
 
@@ -432,6 +442,18 @@ function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedA
   useEffect(() => {
     if (consentFor) allowRef.current?.focus();
   }, [consentFor]);
+
+  // Siri / Google's assistant: start talking as if the mic had been tapped,
+  // consent card first when it has not been given. Once per request. Where
+  // the phone cannot listen, the panel stays open for typing.
+  const startVoiceRef = useRef(startVoice);
+  useLayoutEffect(() => { startVoiceRef.current = startVoice; });
+  const voiceHandled = useRef(0);
+  useEffect(() => {
+    if (!voiceAt || voiceHandled.current === voiceAt || !canTalk) return;
+    voiceHandled.current = voiceAt;
+    if (!voice.active) startVoiceRef.current();
+  }, [voiceAt, canTalk, voice.active]);
 
   const allowAi = () => {
     const held = consentFor;

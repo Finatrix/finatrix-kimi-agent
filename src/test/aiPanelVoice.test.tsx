@@ -77,6 +77,22 @@ beforeEach(() => {
 });
 
 describe('voice in FinatriX AI', () => {
+  it('Siri / Google\'s assistant: starts talking straight away once consent is given', async () => {
+    localStorage.setItem('fx_ai_consent', '1');
+    h.heard = [{ kind: 'heard', text: 'What is an index fund?' }, { kind: 'silence' }];
+    render(<CurrencyProvider><AiPanel id="fx-ai-panel" onClose={() => {}} voiceAt={1} /></CurrencyProvider>);
+    await waitFor(() => expect(h.spoken).toHaveLength(1));
+    expect(h.questions).toHaveLength(1);
+  });
+
+  it('Siri / Google\'s assistant: asks for consent first, and the mic stays shut until allowed', async () => {
+    h.heard = [{ kind: 'heard', text: 'What is an index fund?' }];
+    render(<CurrencyProvider><AiPanel id="fx-ai-panel" onClose={() => {}} voiceAt={1} /></CurrencyProvider>);
+    expect(await screen.findByText('Talk to FinatriX AI?')).toBeInTheDocument();
+    expect(h.questions).toHaveLength(0);
+    expect(h.spoken).toHaveLength(0);
+  });
+
   it('asks for the AI consent, worded for voice, before the microphone opens', async () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: 'Talk hands-free' }));

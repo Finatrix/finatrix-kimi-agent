@@ -23,4 +23,9 @@
     <string name="fx_widget_open_app">Open FinatriX to update</string>
     <string name="fx_widget_small_desc">Today\'s safe-to-spend figure, with Add.</string>
     <string name="fx_widget_medium_desc">Today\'s safe-to-spend figure and a quick Add button.</string>
+    <!-- Launcher and Google's assistant shortcuts (res/xml/shortcuts.xml). -->
+    <string name="fx_shortcut_voice_short">Talk to AI</string>
+    <string name="fx_shortcut_voice_long">Talk to FinatriX AI</string>
+    <string name="fx_shortcut_add_short">Add expense</string>
+    <string name="fx_shortcut_add_long">Add an expense</string>
 </resources>
