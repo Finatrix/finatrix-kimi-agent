@@ -91,6 +91,7 @@ beforeEach(() => {
   localStorage.clear();
   localStorage.setItem('fx_ai_consent', '1');
   localStorage.setItem('fx_currency', 'INR');
+  localStorage.setItem('fx_market', 'IN');
   h.plan = '';
   h.pickerOk = true;
   h.tasks = [];
@@ -182,8 +183,11 @@ describe('FinatriX AI actions', () => {
     renderPanel();
     ask('If I invest 10,000 a month for 15 years what do I get?');
     expect(await screen.findByRole('group', { name: 'Investment growth' })).toBeInTheDocument();
-    // Moderate path, 12%: the worked example in calculators.ts.
-    console.log('DD', Array.from(document.querySelectorAll('.fx-act-rows dd')).map((d) => d.textContent).join(' | '));
+    // Moderate path, 12%: the worked example in calculators.ts (₹50,45,760).
+    const figures = Array.from(document.querySelectorAll('.fx-act-rows.is-strong dd')).map((d) => d.textContent);
+    // The Goal Planner's three paths, in the panel's money format.
+    expect(figures).toHaveLength(3);
+    expect(figures[1]).toBe('₹50.46 L');
   });
 
   it('by voice: the card is read aloud and nothing is saved until Save is tapped', async () => {
