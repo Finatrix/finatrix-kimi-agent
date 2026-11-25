@@ -1,4 +1,5 @@
-import { expect, test, type Page, type WebSocketRoute } from '@playwright/test';
+import type { Page, WebSocketRoute } from '@playwright/test';
+import { expect, test } from './support/fixtures';
 import AxeBuilder from '@axe-core/playwright';
 import { loadEnv } from 'vite';
 
@@ -36,6 +37,8 @@ const family = () => ({ id: GROUP, name: 'Sharma Family', emoji: '🏠', type: '
 const memberRow = (id: string, name: string, role = 'member') => ({ id, group_id: GROUP, role, display_name: name, joined_at: '2026-11-01T00:00:00Z', left_at: null });
 
 async function setUp(page: Page, opts: { inGroup?: boolean; confirmed?: boolean } = {}): Promise<Fake> {
+  // CI's unconfigured bundle has no backend URL to stub; the deploy-time run (test:e2e:release) does.
+  test.skip(!backend, 'This browser fixture requires a configured client URL.');
   const fake: Fake = {
     groups: opts.inGroup ? [family()] : [],
     members: opts.inGroup ? [memberRow(ME, 'Amma', 'admin'), memberRow(PRIYA, 'Priya')] : [],
