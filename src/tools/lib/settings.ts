@@ -6,6 +6,7 @@
  */
 import { ACCOUNT_LOCAL_KEYS, SYNC_KEYS } from '../cloudSync';
 import { ymdLocal } from '../../lib/date';
+import { clearPhotos } from '../../lib/billPhotos';
 import { downloadBlob } from './exporters';
 import { clearNotificationState } from './notifications';
 import { store } from './storage';
@@ -86,6 +87,7 @@ export function resetAllData(): number {
   // Clear notification read/dismiss state first, then hard-remove every key so
   // nothing is written back afterwards (leaves storage genuinely empty).
   clearNotificationState();
+  void clearPhotos(); // the bill locker's photos live outside the key store
   let n = 0;
   for (const k of [...SYNC_KEYS, ...ACCOUNT_LOCAL_KEYS, ...LOCAL_ONLY_KEYS]) {
     try {

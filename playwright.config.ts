@@ -17,7 +17,7 @@ const IOS_SPEC = /ios-webkit\.spec\.ts/;
 // engine-specific failures in the flows people use to save their records.
 // `release-smoke` is the Deploy workflow's browser gate, so Safari's engine
 // checks the shipped bundle too.
-const IOS_SHARED_FLOWS = /(?:expense|travel|networth|smart-entry|auth-navigation|seven-markets|sitewide-automation|finance-upgrade|command-palette|export-downloads|dialog-inert|compatibility-import|compact-tools|money-story|ai-voice|ai-actions|release-smoke|groups|groups-split)\.spec\.ts/;
+const IOS_SHARED_FLOWS = /(?:expense|travel|networth|smart-entry|auth-navigation|seven-markets|sitewide-automation|finance-upgrade|command-palette|export-downloads|dialog-inert|compatibility-import|compact-tools|money-story|ai-voice|ai-actions|release-smoke|groups|groups-split|locker)\.spec\.ts/;
 
 export default defineConfig({
   testDir: './e2e',

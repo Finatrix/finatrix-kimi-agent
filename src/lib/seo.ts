@@ -376,6 +376,7 @@ const PRIVATE_TITLES: Record<string, string> = {
   '/tools/groups': 'Groups',
   '/tools/splits': 'Splits',
   '/tools/subscriptions': 'Subscriptions',
+  '/tools/locker': 'Bill locker',
   '/tools/settings': 'Settings',
   '/tools/all': 'All Tools',
   '/tools/reference': 'Reference Data',
