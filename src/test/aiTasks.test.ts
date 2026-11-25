@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { SYSTEM_PROMPT as MONEY_CHAT } from '../tools/ai/prompts';
 import { SYSTEM_PROMPT as CATEGORIZE } from '../tools/ai/statementCategorize';
 import { SYSTEM_PROMPT as LAYOUT } from '../tools/ai/statementLayout';
+import { ACTION_SYSTEM_PROMPT as ACTION, ACTION_TASK } from '../tools/ai/actions/prompt';
 import { CHAT_MODEL } from '../tools/ai/assistant';
 import { PUBLIC_AI_TASKS, isPinnedSystemPrompt } from '../../supabase/functions/_shared/aiTasks';
 
@@ -14,6 +15,7 @@ describe('free-tier AI prompts are pinned on the server', () => {
     ['money-chat', MONEY_CHAT],
     ['statement-categorize', CATEGORIZE],
     ['statement-layout', LAYOUT],
+    [ACTION_TASK, ACTION],
   ])('%s: the current prompt is on the list', async (task, prompt) => {
     expect(await isPinnedSystemPrompt(PUBLIC_AI_TASKS[task]!, prompt)).toBe(true);
   });
