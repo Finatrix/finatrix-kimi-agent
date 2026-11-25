@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { runRemoteApply, store } from './lib/storage';
 import { TOMBSTONE_KEY } from './lib/expenseTombstones';
+import { clearPhotos } from '../lib/billPhotos';
 import { mergeCloudBlob, TRIPS_KEY } from './lib/syncMerge';
 
 /**
@@ -86,7 +87,7 @@ export const SYNC_KEYS = [
  * groups live in their own server tables. The queue is also tagged with the
  * account that made each change, and only that account's session sends it.
  */
-export const ACCOUNT_LOCAL_KEYS = ['fx_import_staged', 'fx_sub_radar', 'fx_money_cal', 'fx_groups', 'fx_group_outbox', 'fx_group_share_cursor'];
+export const ACCOUNT_LOCAL_KEYS = ['fx_import_staged', 'fx_sub_radar', 'fx_money_cal', 'fx_groups', 'fx_group_outbox', 'fx_group_share_cursor', 'fx_locker'];
 const LAST_UID_KEY = 'fx_last_uid';
 const PENDING_KEY = 'fx_sync_pending';
 
@@ -160,6 +161,8 @@ export function clearSyncedLocal() {
   localGeneration += 1;
   [...SYNC_KEYS, ...ACCOUNT_LOCAL_KEYS].forEach((k) => store.remove(k));
   store.remove(PENDING_KEY);
+  // The bill locker's photos belong to the same account as its records.
+  void clearPhotos();
 }
 
 export function getLastUid(): string | null {

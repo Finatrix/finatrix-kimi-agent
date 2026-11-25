@@ -31,6 +31,7 @@ const TOOLS = [
   '/tools/moneycalendar',
   '/tools/groups',
   '/tools/subscriptions',
+  '/tools/locker',
   '/tools/settings',
   // The reference page carries the only data tables under /tools. They scroll
   // inside their own container by design, and this is what proves the page

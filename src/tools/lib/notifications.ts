@@ -10,6 +10,8 @@ import { store, getJSON, setJSON } from './storage';
 import { currentMonth } from './month';
 import { readDashboard } from './dashboard';
 import { getUpcomingEvents } from './calendar';
+import { endingSoon, loadLocker } from './locker';
+import { ymdLocal } from '../../lib/date';
 
 export type NotifTone = 'ok' | 'info' | 'warn';
 
@@ -106,6 +108,17 @@ export function buildNotifications(now = new Date()): FinNotification[] {
       body: e.detail,
       icon: e.icon, href: e.href,
       weight: 60 - Math.min(d, 7), // sooner = higher
+    });
+  }
+
+  // ── Warranties in the bill locker ending within 30 days ───────────────────
+  for (const w of endingSoon(loadLocker(), ymdLocal(now))) {
+    out.push({
+      id: `warranty-${w.id}-${w.warrantyEnd}`, tone: 'info',
+      title: `${w.product} warranty ends ${w.left === 0 ? 'today' : w.left === 1 ? 'tomorrow' : `in ${w.left} days`}`,
+      body: 'Open the bill locker to see the bill before you claim.',
+      icon: 'shield', href: '/tools/locker',
+      weight: 55 - Math.min(w.left, 30) / 10,
     });
   }
 

@@ -31,6 +31,7 @@ const TOOL_PAGES: Record<string, ComponentType> = {
   reports: lazy(() => import('./pages/ReportsPage')),
   calendar: lazy(() => import('./pages/CalendarPage')),
   subscriptions: lazy(() => import('./pages/SubscriptionsPage')),
+  locker: lazy(() => import('./pages/LockerPage')),
   moneycalendar: lazy(() => import('./pages/MoneyCalendarPage')),
   groups: lazy(() => import('./pages/GroupsPage')),
   settings: lazy(() => import('./pages/SettingsPage')),

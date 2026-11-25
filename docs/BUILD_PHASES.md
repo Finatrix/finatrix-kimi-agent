@@ -32,7 +32,7 @@ If these two docs aren't in your checkout, they were untracked files in `/Users/
 | 3.2 | Voice assistant: safe actions with confirm cards | 3.1, 1.2 | ☑ [PR 40](https://github.com/Finatrix/finatrix-kimi-agent/pull/40) |
 | 3.3 | Share to FinatriX, and receipt scan | — | ☑ [PR 34](https://github.com/Finatrix/finatrix-kimi-agent/pull/34) |
 | 3.4 | Home-screen widget | 2.1 | ☑ [PR 36](https://github.com/Finatrix/finatrix-kimi-agent/pull/36) |
-| 3.5 | Warranty and bill locker | 3.3 | ☐ |
+| 3.5 | Warranty and bill locker | 3.3 | ☑ [PR 35](https://github.com/Finatrix/finatrix-kimi-agent/pull/35) |
 | 3.6 | ~~Indian-language app~~ | — | Dropped by the owner, 25 Nov 2026 |
 | 3.7 | Private on-device AI | 3.2 | ☐ |
 | 3.8 | Watch app | 3.4 | ☑ [PR 41](https://github.com/Finatrix/finatrix-kimi-agent/pull/41) (watchOS only; Wear OS is designed in docs/WATCH.md, not built) |
