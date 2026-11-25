@@ -4,22 +4,22 @@ The list of new features we are planning, with what was decided for each. The bu
 
 | # | Feature | Status |
 | --- | --- | --- |
-| 1 | [FinatriX AI voice assistant](#1-finatrix-ai-voice-assistant) | All decided, not started |
-| 2 | [Travel mode in the Expense Tracker](#2-travel-mode-in-the-expense-tracker) | Stage 1 built ([PR 25](https://github.com/Finatrix/finatrix-kimi-agent/pull/25)); stage 2 is step 2.1 |
-| 3 | [Home-screen widget](#3-home-screen-widget) | Lock-screen amount decided: hidden until the user turns it on (24 Nov 2026). Step 3.4 |
-| 4 | [Share to FinatriX](#4-share-to-finatrix) | Suggested, not discussed |
-| 5 | [Receipt scan](#5-receipt-scan) | Suggested, not discussed |
-| 6 | [Subscription radar](#6-subscription-radar) | Suggested, not discussed |
-| 7 | [Bill reminders](#7-bill-reminders) | Suggested, not discussed |
-| 8 | [Monthly money story](#8-monthly-money-story) | Suggested, not discussed |
-| 9 | [Splits and money lent](#9-splits-and-money-lent) | Suggested, not discussed |
-| 10 | [Warranty and bill locker](#10-warranty-and-bill-locker) | Storage decided: device-only to start (24 Nov 2026). Step 3.5 |
-| 11 | [Hide amounts](#11-hide-amounts) | Suggested, not discussed |
-| 12 | [Family budget and groups](#12-family-budget-and-groups) | All decided, not started |
-| 13 | [Money calendar](#13-money-calendar) | Suggested, not discussed |
-| 14 | [Private on-device AI](#14-private-on-device-ai) | Built in step 3.7 ([PR 44](https://github.com/Finatrix/finatrix-kimi-agent/pull/44)); decisions below (25 Nov 2026) |
+| 1 | [FinatriX AI voice assistant](#1-finatrix-ai-voice-assistant) | Built: steps 3.1, 3.2, 3.9 (PRs 28, 40, 45). Siri / Google launch and 11-language mic need real-phone checks |
+| 2 | [Travel mode in the Expense Tracker](#2-travel-mode-in-the-expense-tracker) | Built: steps 1.1, 1.2, 2.1 (PRs 25, 33) |
+| 3 | [Home-screen widget](#3-home-screen-widget) | Built: step 3.4 (PR 36). Real-phone check owed |
+| 4 | [Share to FinatriX](#4-share-to-finatrix) | Built: step 3.3 (PRs 34, 39). iOS needs the App Group set up by the owner |
+| 5 | [Receipt scan](#5-receipt-scan) | Built: step 3.3 (PR 34) |
+| 6 | [Subscription radar](#6-subscription-radar) | Built: step 2.6 (PR 27) |
+| 7 | [Bill reminders](#7-bill-reminders) | Built: step 2.6 (PR 27) |
+| 8 | [Monthly money story](#8-monthly-money-story) | Built: step 2.7 (PR 26) |
+| 9 | [Splits and money lent](#9-splits-and-money-lent) | Built: steps 2.4, 2.5 (PRs 42, 46) |
+| 10 | [Warranty and bill locker](#10-warranty-and-bill-locker) | Built: step 3.5 (PR 35). Device-only photos |
+| 11 | [Hide amounts](#11-hide-amounts) | Built: step 2.1 (PR 33) |
+| 12 | [Family budget and groups](#12-family-budget-and-groups) | Built: steps 2.2 to 2.4, 3.9 (PRs 29, 38, 42, 45). Push delivery not built: needs FCM and APNs keys |
+| 13 | [Money calendar](#13-money-calendar) | Built: step 2.8 (PR 32) |
+| 14 | [Private on-device AI](#14-private-on-device-ai) | Built: step 3.7 (PR 44). Real-phone checks owed |
 | 15 | [Indian languages](#15-indian-languages) | **Dropped** by the owner (25 Nov 2026). Was step 3.6 |
-| 16 | [Watch app](#16-watch-app) | Suggested, not discussed |
+| 16 | [Watch app](#16-watch-app) | Built: step 3.8 (PR 41), Apple Watch only. Wear OS designed in WATCH.md, not built |
 
 ---
 

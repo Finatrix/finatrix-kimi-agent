@@ -38,6 +38,14 @@ If these two docs aren't in your checkout, they were untracked files in `/Users/
 | 3.8 | Watch app | 3.4 | ☑ [PR 41](https://github.com/Finatrix/finatrix-kimi-agent/pull/41) (watchOS only; Wear OS is designed in docs/WATCH.md, not built) |
 | 3.9 | Later stages: voice from Siri and Google's assistant, group notifications, children as names, group goals, trip groups | 3.2, 2.4 | Partially built, [PR 45](https://github.com/Finatrix/finatrix-kimi-agent/pull/45): everything except push delivery for group activity, which needs the owner's FCM and APNs keys (an in-app "new" badge stands in) |
 
+## Final state, 25 Nov 2026
+
+Every step above is built and merged to `main`. Step 3.6 was dropped. Step 3.9 is built except push delivery for group activity, which needs the owner's FCM and APNs keys (an in-app "new" badge stands in). What no agent can do is listed in [DEVICE_CHECKLIST.md](DEVICE_CHECKLIST.md): real-phone checks (voice, Siri and Google, on-device AI, widget, watch, share, app lock) and the store submissions. User-facing summary: [RELEASE_NOTES.md](RELEASE_NOTES.md).
+
+Final gate on `main` (`20ac7f5`), 25 Nov 2026: `npm run build`, `npm test` (5,135 passed, 14 skipped), `eslint --max-warnings 0`, `audit:prod`, the full Playwright suite on chromium, mobile and ios-webkit (1,473 passed, 4 skipped), `test:e2e:release` (64 passed) and `verify:deploy` (21 relations, all 10 edge functions match) all pass. Local `verify:production` is 11 of 12 because release parity compares against a local build; the Deploy job's own "Verify production domain" step passed on that commit.
+
+Other open pull requests were settled separately and are not part of this plan: PR 1 (Worker name, already true on `main`) and PR 12 (Careers paywall; `main` already enforces it in the database) are recommended to close, and PR 11 (benchmarks, tax and debt maths) is parked until the owner approves each formula change.
+
 ## Size
 
 Estimated 24 Nov 2026 with low confidence: nothing this big has been built here before, so these are analogies with past FinatriX tasks. Costs are API-equivalent. A Pro 5-hour window is about $28–35, and a week about $267.
