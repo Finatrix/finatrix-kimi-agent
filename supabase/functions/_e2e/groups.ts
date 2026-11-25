@@ -56,24 +56,29 @@ await db.exec(pick(/create table if not exists public\.provider_quota[\s\S]*?\n\
 await db.exec(pick(/create or replace function public\.increment_provider_quota[\s\S]*?end \$\$;/));
 await db.exec('revoke execute on function public.increment_provider_quota(text, text, int, int) from public, anon, authenticated;');
 
-const migration = await read('supabase/migrations/20261124000100_groups.sql');
-await db.exec(migration);
-try {
+// Step 2.2's migration, then step 3.9's (goals and children) on top. Each runs twice.
+for (const file of ['20261124000100_groups.sql', '20261125000200_group_goals_children.sql']) {
+  const migration = await read(`supabase/migrations/${file}`);
   await db.exec(migration);
-  check('the migration can run twice', true);
-} catch (e) {
-  check('the migration can run twice', false, (e as Error).message);
+  try {
+    await db.exec(migration);
+    check(`${file} can run twice`, true);
+  } catch (e) {
+    check(`${file} can run twice`, false, (e as Error).message);
+  }
 }
 
-// ── 1. The policy probe ───────────────────────────────────────────────────
-try {
-  await db.exec(await read('supabase/probes/groups_rls_probe.sql'));
-  check('the probe rolls itself back', false, 'it finished without raising RESULT');
-} catch (e) {
-  const message = String((e as Error).message);
-  const m = message.match(/RESULT (\[[\s\S]*\])/);
-  if (!m) check('the probe ran to the end', false, message);
-  else for (const r of JSON.parse(m[1]) as Array<{ check: string; ok: boolean }>) check(`probe: ${r.check}`, r.ok);
+// ── 1. The policy probes ──────────────────────────────────────────────────
+for (const probe of ['groups_rls_probe.sql', 'group_goals_children_probe.sql']) {
+  try {
+    await db.exec(await read(`supabase/probes/${probe}`));
+    check(`${probe} rolls itself back`, false, 'it finished without raising RESULT');
+  } catch (e) {
+    const message = String((e as Error).message);
+    const m = message.match(/RESULT (\[[\s\S]*\])/);
+    if (!m) check(`${probe} ran to the end`, false, message);
+    else for (const r of JSON.parse(m[1]) as Array<{ check: string; ok: boolean }>) check(`probe: ${r.check}`, r.ok);
+  }
 }
 const leftover = await db.query<{ n: number }>(
   'select ((select count(*) from auth.users) + (select count(*) from public.groups) + (select count(*) from public.group_members))::int as n',
