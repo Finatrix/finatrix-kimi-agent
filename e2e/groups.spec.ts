@@ -227,6 +227,8 @@ test.describe('Groups', () => {
   });
 
   test('signed out, an invite link asks to sign in and keeps the code', async ({ page }) => {
+    // Without a backend the page can't offer sign-in at all (the unconfigured CI bundle).
+    test.skip(!backend, 'This browser fixture requires a configured client URL.');
     await page.goto('/tools/groups?join=FX-7K2P9Q');
     await expect(page.getByText('Sign in to join the group')).toBeVisible();
     await expect(page.locator('.fx-page').getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', /next=%2Ftools%2Fgroups%3Fjoin%3DFX-7K2P9Q/);
