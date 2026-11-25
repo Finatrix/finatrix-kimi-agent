@@ -244,17 +244,19 @@ test.describe('Groups', () => {
     await page.goto(`/tools/groups?g=${GROUP}`);
     const goals = page.getByTestId('grp-goals');
     await goals.getByRole('button', { name: 'New goal' }).click();
-    await page.getByLabel('Name', { exact: true }).fill('Goa holiday');
+    // The amount first: on phones its formula key bar sits over the sheet's button until focus moves on.
     await page.getByLabel(/^Target/).fill('60000');
+    await page.getByLabel('Name', { exact: true }).fill('Goa holiday');
     await page.getByRole('button', { name: 'Add goal' }).click();
     await expect(goals.getByText('Goa holiday')).toBeVisible();
     expect(fake.goals[0]).toMatchObject({ group_id: GROUP, name: 'Goa holiday', target: 60000 });
 
     await goals.getByRole('button', { name: 'Add money' }).click();
     await page.getByLabel(/^Amount/).fill('15000');
+    await page.getByLabel('Note (optional)').fill('Diwali bonus');
     await page.getByRole('button', { name: 'Add', exact: true }).click();
-    expect(fake.contributions[0]).toMatchObject({ goal_id: fake.goals[0].id, member_id: ME, amount: 15000 });
     await expect(goals.getByRole('progressbar', { name: 'Goa holiday: 25% saved' })).toBeVisible();
+    expect(fake.contributions[0]).toMatchObject({ goal_id: fake.goals[0].id, member_id: ME, amount: 15000 });
   });
 
   test('children: a first name with the parent’s confirmation, never without (step 3.9)', async ({ page }) => {
@@ -262,7 +264,7 @@ test.describe('Groups', () => {
     await page.goto(`/tools/groups?g=${GROUP}`);
     const kids = page.getByTestId('grp-children');
     await kids.getByRole('button', { name: 'Add a child' }).click();
-    await page.getByLabel('First name').fill('Aarav');
+    await page.getByLabel('First name', { exact: true }).fill('Aarav');
     await page.getByRole('button', { name: 'Add', exact: true }).click();
     await expect(page.getByRole('alert')).toHaveText('Confirm you’re their parent or guardian.');
     expect(fake.children).toHaveLength(0);

@@ -104,7 +104,7 @@ function GoalsSection({ groupId, currency, members, meId, data }: {
                 <span className="fx-grp-name" style={{ flex: 1, minWidth: 0 }}>{goal.emoji} {goal.name}</span>
                 <span style={{ fontSize: 14, fontWeight: 700 }}>{p.percent}%</span>
               </div>
-              <span className="fx-grp-bar" role="progressbar" aria-label={`${goal.name}: ${p.percent}% saved`}
+              <span className="fx-grp-bar" style={{ display: 'block' }} role="progressbar" aria-label={`${goal.name}: ${p.percent}% saved`}
                 aria-valuemin={0} aria-valuemax={100} aria-valuenow={p.percent}>
                 <span style={{ width: `${p.percent}%`, background: 'var(--green)' }} />
               </span>
