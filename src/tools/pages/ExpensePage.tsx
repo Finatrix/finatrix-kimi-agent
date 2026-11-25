@@ -23,6 +23,7 @@ import {
 } from '../lib/exporters';
 import { currentMonth, monthLabel, nextMonthUnclamped, prevMonth } from '../lib/month';
 import { getJSON, setJSON, onLocalWrite, store } from '../lib/storage';
+import { amountsHidden } from '../lib/hideAmounts';
 import { reloadIfBuildIsStale } from '../../lib/chunkRecovery';
 import {
   loadExpenses, saveExpenses, etToday, etMonthsWithData, computeDashboard, genExpenseId,
@@ -51,6 +52,7 @@ import { AskAiButton } from '../ui/AskAiButton';
 import { BudgetTimeline } from '../ui/BudgetTimeline';
 import TransactionModal from '../ui/TransactionModal';
 import { AddExpenseFab } from '../ui/AddExpenseFab';
+import { takeShared } from '../../lib/shareInbox';
 import TransactionList, { type ExportKind, type TransactionListHandle } from '../ui/TransactionList';
 import { Tabs, type TabItem } from '../ui/Tabs';
 import {
@@ -70,7 +72,7 @@ import {
 } from '../lib/panelPrefs';
 import {
   TRIP_CARD_HIDDEN_KEY, addDays, fmtForeign, overlappingTrip, repriceTripExpenses, repriceableCount, spendMoney,
-  tripDefaults, tripLabel, tripOn, type Trip,
+  tripDefaults, tripLabel, tripOn, tripSpendInMonth, type Trip,
 } from '../lib/trips';
 import { TravelBar } from '../travel/TravelBar';
 import { TripSheet } from '../travel/TripSheet';
@@ -295,6 +297,9 @@ export default function ExpensePage() {
   }, [todayKey]);
 
   const r = computeDashboard(selMonth, items, cats, budget.vals, now, budget.income);
+  // Travel mode: how much of this month's spending came from a trip, so a
+  // budget that moved is never a mystery (part of `r.monthlySpent`, same filter).
+  const tripShare = tripSpendInMonth(items, trips, selMonth);
   /**
    * How well this month followed the plan.
    *
@@ -609,6 +614,41 @@ export default function ExpensePage() {
     const q = params.toString();
     navigate({ pathname: location.pathname, search: q ? `?${q}` : '' }, { replace: true });
   }, [location.search, location.pathname, navigate]);
+
+  /**
+   * Images shared to FinatriX from another app (src/lib/shareInbox.ts) open the
+   * screenshot import with them already chosen. The review is the same one a
+   * chosen file gets, so nothing is saved until the user presses Import. The
+   * parameter is consumed at once; the ref stops one share from being opened
+   * twice when the effect runs again for the same navigation.
+   */
+  const [sharedFiles, setSharedFiles] = useState<File[] | null>(null);
+  const handledShare = useRef<string | null>(null);
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const share = params.get('share');
+    if (!share || handledShare.current === location.key) return;
+    handledShare.current = location.key;
+    params.delete('share');
+    const q = params.toString();
+    navigate({ pathname: location.pathname, search: q ? `?${q}` : '' }, { replace: true });
+    if (share === 'failed') {
+      notify('The shared image did not reach FinatriX. Open Import and choose it from your photos instead.', 'error');
+      return;
+    }
+    void takeShared().then(async (files) => {
+      if (!files.length) {
+        notify('Nothing is waiting to import. The shared images were already opened.', 'info');
+        return;
+      }
+      await loadStatementImport();
+      setTab('overview');
+      setSharedFiles(files);
+      setImporting(true);
+    }).catch(() => {
+      notify('Import could not be loaded. Check your connection and try again.', 'error');
+    });
+  }, [location.search, location.pathname, location.key, navigate, notify]);
 
   /**
    * Take the user from an empty Analytics tab to the thing that fills it.
@@ -1072,7 +1112,8 @@ export default function ExpensePage() {
             sym={sym}
             currencyCode={code}
             onImport={importTransactions}
-            onClose={() => setImporting(false)}
+            onClose={() => { setImporting(false); setSharedFiles(null); }}
+            initialFiles={sharedFiles ?? undefined}
           />
         </Suspense>
       )}
@@ -1082,7 +1123,7 @@ export default function ExpensePage() {
       <div role="tabpanel" id={`fx-exp-panel-${tab}`} aria-labelledby={`fx-exp-tab-${tab}`}>
         {tab === 'overview' && (
           <OverviewTab
-            r={r} items={items} monthTx={monthTx} selMonth={selMonth} flatCats={flatCats}
+            r={r} items={items} monthTx={monthTx} selMonth={selMonth} flatCats={flatCats} tripShare={tripShare}
             defaultCatKey={defaultCatKey} learnedWords={learnedWords}
             cfmt={cfmt} sym={sym} now={now} catMeta={catMeta}
             addFromQuickAdd={addFromQuickAdd} quickAddAmountLabel={quickAddAmountLabel} quickSeed={quickSeed}
@@ -1280,6 +1321,8 @@ export default function ExpensePage() {
 
 interface OverviewProps {
   r: DashResult; items: ExpenseItem[]; monthTx: ExpenseItem[]; selMonth: string;
+  /** This month's spending per trip (lib/trips.ts `tripSpendInMonth`), for the "Includes" line. */
+  tripShare: ReadonlyArray<{ trip: Trip; home: number }>;
   flatCats: Array<{ k: string; l: string; ic: IconName; section: CatKey }>;
   /** The category a fresh entry starts on — the one this user logs most. */
   defaultCatKey: string;
@@ -1317,7 +1360,7 @@ interface OverviewProps {
 }
 
 function OverviewTab({
-  r, items, monthTx, selMonth, flatCats, defaultCatKey, learnedWords,
+  r, items, monthTx, selMonth, flatCats, tripShare, defaultCatKey, learnedWords,
   cfmt, sym, now, catMeta,
   addFromQuickAdd, quickAddAmountLabel, quickSeed, openAdd, openEdit, duplicateTransaction, deleteTransaction,
   bulkDelete, bulkDuplicate, bulkCategory, bulkAddTags, exportTransactions,
@@ -1414,6 +1457,21 @@ function OverviewTab({
           color={TONE_COLOR[r.tone]}
         />
       </div>
+      {tripShare.length > 0 && (
+        <p className="note fx-trip-share" style={{ display: 'flex', alignItems: 'baseline', gap: 6, margin: '-2px 0 12px' }}>
+          <Icon name="travel" size={14} aria-hidden="true" />
+          <span>
+            Includes{' '}
+            {tripShare.map(({ trip, home }, i) => (
+              <span key={trip.id}>
+                {i > 0 && (i === tripShare.length - 1 ? ' and ' : ', ')}
+                {cfmt(home)} from the {tripLabel(trip)} trip
+              </span>
+            ))}
+            .
+          </span>
+        </p>
+      )}
 
       {/* Month pacing & cash flow */}
       <div className="card" data-tour="expenses-pacing">
@@ -2765,6 +2823,8 @@ function segmentLabels(fmt: (n: number) => string, ink: string): Plugin<'bar'> {
   return {
     id: 'fxSegmentLabels',
     afterDatasetsDraw(chart) {
+      // Hide amounts: the bars keep their shape, the figures go.
+      if (amountsHidden()) return;
       const { ctx } = chart;
       ctx.save();
       ctx.font = '600 10px ui-sans-serif, system-ui, sans-serif';
@@ -2826,7 +2886,8 @@ function TrendChart({ trend, cfmt, code }: { trend: DashResult['trend']; cfmt: (
   const ref = useRef<HTMLCanvasElement>(null);
   const chartRef = useRef<Chart | null>(null);
   const { theme } = useTheme();
-  const { cfmtSh } = useCurrency();
+  // `hidden` (Hide amounts) rebuilds the chart without value labels.
+  const { cfmtSh, hidden } = useCurrency();
   const labels = useMemo(() => trend.map((t) => t.label), [trend]);
 
   useEffect(() => {
@@ -2848,13 +2909,13 @@ function TrendChart({ trend, cfmt, code }: { trend: DashResult['trend']; cfmt: (
         },
         scales: {
           x: { stacked: true, ticks: { color: ct.tick, font: { size: 10 } }, grid: { display: false } },
-          y: { stacked: true, ticks: { color: ct.tick, font: { size: 10 }, maxTicksLimit: 6, callback: (v) => cfmtSh(v as number) }, grid: { color: ct.grid } },
+          y: { stacked: true, ticks: { display: !hidden, color: ct.tick, font: { size: 10 }, maxTicksLimit: 6, callback: (v) => cfmtSh(v as number) }, grid: { color: ct.grid } },
         },
       },
     });
     return () => { chartRef.current?.destroy(); chartRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code, theme]);
+  }, [code, theme, hidden]);
 
   useEffect(() => {
     const ch = chartRef.current;
@@ -2879,7 +2940,8 @@ function TrendChart({ trend, cfmt, code }: { trend: DashResult['trend']; cfmt: (
 function Trend12Chart({ trend, cfmt, code, theme }: { trend: MonthlyTrend[]; cfmt: (n: number) => string; code: string; theme: string | undefined }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const chartRef = useRef<Chart | null>(null);
-  const { cfmtSh } = useCurrency();
+  // `hidden` (Hide amounts) rebuilds the chart without value labels.
+  const { cfmtSh, hidden } = useCurrency();
   const labels = useMemo(() => trend.map((t) => t.label), [trend]);
   const avgData = useMemo(() => {
     const avg = trend.length > 0 ? trend.reduce((s, t) => s + t.spent, 0) / trend.length : 0;
@@ -2925,13 +2987,13 @@ function Trend12Chart({ trend, cfmt, code, theme }: { trend: MonthlyTrend[]; cfm
         },
         scales: {
           x: { stacked: true, ticks: { color: ct.tick, font: { size: 10 } }, grid: { display: false } },
-          y: { stacked: true, ticks: { color: ct.tick, font: { size: 10 }, maxTicksLimit: 6, callback: (v) => cfmtSh(v as number) }, grid: { color: ct.grid } },
+          y: { stacked: true, ticks: { display: !hidden, color: ct.tick, font: { size: 10 }, maxTicksLimit: 6, callback: (v) => cfmtSh(v as number) }, grid: { color: ct.grid } },
         },
       },
     });
     return () => { chartRef.current?.destroy(); chartRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code, theme]);
+  }, [code, theme, hidden]);
 
   useEffect(() => {
     const ch = chartRef.current;

@@ -226,9 +226,13 @@ html:has(.fx-tools) { --scroll-offset: 60px; }
 .fx-tools .fx-appbar { position: sticky; top: var(--fx-safe-top); z-index: 51; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 56px; padding: 0 12px; background: var(--nav-bg); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); }
 .fx-tools .fx-appbar-brand { display: inline-flex; align-items: center; min-width: 0; border-radius: 12px; color: inherit; text-decoration: none; -webkit-tap-highlight-color: transparent; }
 .fx-tools .fx-appbar-brand:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+/* Under 360px the header holds the logo and five 44px controls (search, AI, hide amounts, alerts, account) only by dropping the wordmark text; the link keeps its name ("FinatriX home"). */
+@media(max-width:359.98px){ .fx-tools .fx-appbar-brand { min-width: 44px; min-height: 44px; justify-content: center; } .fx-tools .fx-appbar-brand .fx-wordmark { display: none; } }
 .fx-tools .fx-appbar-actions { display: flex; align-items: center; gap: 4px; min-width: 0; }
 @media(min-width:375px){ .fx-tools .fx-appbar-actions { gap: 6px; } }
 @media(min-width:640px){ .fx-tools .fx-appbar { padding: 0 16px; } .fx-tools .fx-appbar-actions { gap: 10px; } }
+/* Hide amounts on: the eye reads as on, like an open menu's button. */
+.fx-tools .fx-icon-btn[aria-pressed='true'] { color: var(--ink); background: var(--fill-06, var(--tile-bg)); }
 @media(min-width:768px){ .fx-tools .fx-appbar .fx-phone-only { display: none; } }
 @media(max-width:767px){ .fx-tools .fx-appbar .fx-desktop-only { display: none; } }
 .fx-tools .fx-sync-label { font-size: 12px; white-space: nowrap; }

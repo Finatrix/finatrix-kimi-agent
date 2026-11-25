@@ -120,15 +120,33 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_ANALYTICS_URL: ${{ secrets.VITE_ANALYTICS_URL }}
-      # CI runs separately and cannot block this workflow. Exercise the actual
-      # production bundle before publishing: browser-only regressions must gate
-      # deployment just like unit tests and the dependency audit do.
+      # A browser gate for THIS bundle, not a second run of the whole suite.
+      #
+      # CI runs the full Playwright suite (about 1,400 tests across Chromium,
+      # the Pixel 7 viewport and WebKit) on every pull request and again on
+      # every push to main. Running all of it here too took 22–44 minutes of
+      # every deploy, re-proving what the merged pull request had just proved.
+      # What CI cannot prove is the bundle built above: CI builds with no client
+      # config, so the Supabase client and analytics are compiled out of
+      # everything it drives. `test:e2e:release` boots this bundle on each kind
+      # of page in all three engines, checks it honours Global Privacy Control,
+      # and runs the AI specs that need a configured client (CI skips them).
+      #
+      # FX_E2E_PREBUILT=1 serves the dist/ built above instead of rebuilding it,
+      # so the browsers drive exactly what `wrangler deploy` uploads next.
+      # No analytics leave the runner (e2e/support/fixtures.ts): the full suite
+      # used to post to the real endpoint, and each deploy counted several
+      # hundred of its own test sessions as visitors.
       - name: Install browsers for release checks
-        # WebKit too: the iOS app's engine (see e2e/ios-webkit.spec.ts).
+        # WebKit too: Safari's engine, and the iOS app's (see e2e/ios-webkit.spec.ts).
         run: npx playwright install --with-deps chromium webkit
-      - name: Browser and accessibility release checks
-        run: npm run test:e2e
+      - name: Release smoke (this bundle, every engine)
+        run: npm run test:e2e:release
+        # A few dozen tests that finish in a few minutes. A hang must fail the
+        # deploy, not hold the production concurrency group for six hours.
+        timeout-minutes: 15
         env:
+          FX_E2E_PREBUILT: '1'
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_ANALYTICS_URL: ${{ secrets.VITE_ANALYTICS_URL }}
@@ -260,6 +278,16 @@ jobs:
       # Apple token only after Apple confirms it belongs to that caller.
       - name: Deploy Apple sign-in token store (verifies the caller in-function)
         run: npx --yes supabase@3.0.0 functions deploy apple-token --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF" --yes
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      # group-join verifies the caller in-function like account-delete
+      # (auth.getUser), limits every room-code lookup per person and per IP in
+      # the shared quota table, and only then asks Postgres, through the
+      # service-role-only group_join_by_code. Its tables come from migration
+      # 20261124000100_groups.sql, which must be applied first.
+      - name: Deploy group join by room code (verifies the caller in-function)
+        run: npx --yes supabase@3.0.0 functions deploy group-join --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF" --yes
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}

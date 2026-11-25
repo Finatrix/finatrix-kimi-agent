@@ -14,6 +14,7 @@ import {
   currencySym,
 } from './lib/format';
 import { store, onLocalWrite } from './lib/storage';
+import { setAmountsHidden, useAmountsHidden } from './lib/hideAmounts';
 
 /**
  * Active display currency for the tools. Persists to `fx_currency` (a SYNC_KEY,
@@ -37,12 +38,18 @@ interface CurrencyCtx {
   fmt: (n: number) => string;
   cfmt: (n: number) => string;
   cfmtSh: (n: number) => string;
+  /** Hide amounts (lib/hideAmounts.ts): `cfmt`/`cfmtSh` print "₹ ••••" while on. */
+  hidden: boolean;
+  setHidden: (on: boolean) => void;
 }
 
 const Ctx = createContext<CurrencyCtx | undefined>(undefined);
 
 export function CurrencyProvider({ children }: { children: ReactNode }) {
   const [code, setCodeState] = useState<string>(readCode);
+  // Subscribed here so flipping the switch re-renders every consumer: `cfmt`
+  // reads the switch itself, but only a render shows its new output.
+  const hidden = useAmountsHidden();
 
   const setCode = useCallback((next: string) => {
     if (!CURRENCIES[next]) return;
@@ -75,6 +82,8 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     fmt: fmtBase,
     cfmt: (n) => cfmtBase(n, code),
     cfmtSh: (n) => cfmtShBase(n, code),
+    hidden,
+    setHidden: setAmountsHidden,
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

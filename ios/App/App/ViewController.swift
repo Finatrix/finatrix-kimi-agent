@@ -18,6 +18,8 @@ class ViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(FxSystemUiPlugin())
         bridge?.registerPluginInstance(FileExportPlugin())
         bridge?.registerPluginInstance(FxAppLockPlugin())
+        bridge?.registerPluginInstance(FxVoicePlugin())
+        bridge?.registerPluginInstance(FxSharePlugin())
     }
 
     override func webView(with frame: CGRect, configuration: WKWebViewConfiguration) -> WKWebView {
