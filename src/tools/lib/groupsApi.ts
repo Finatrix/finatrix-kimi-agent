@@ -1,7 +1,7 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import {
-  loadOutbox, newRowId, normalizeBudget, normalizeExpense, normalizeMember, normalizeSettlement, saveGroupsCache, saveOutbox,
+  currentMembers, loadOutbox, memberName, newRowId, normalizeBudget, normalizeExpense, normalizeMember, normalizeSettlement, saveGroupsCache, saveOutbox,
   type GroupBudgetRow, type GroupChoice, type GroupExpenseRow, type GroupMemberRow, type GroupRow, type GroupSettlementRow,
   type GroupType, type NewGroupExpense, type NewGroupSettlement, type OutboxOp,
 } from './groups';
@@ -68,6 +68,7 @@ export async function fetchMyGroups(): Promise<GroupChoice[]> {
       id: group.id, name: group.name, emoji: group.emoji, type: group.type, currency: group.currency,
       budgetTogether: group.budget_together, splitCosts: group.split_costs,
       memberId: mm.member_id, role: mm.role, members: members.filter((x) => x.group_id === group.id).length,
+      people: currentMembers(members.filter((x) => x.group_id === group.id)).map((x) => ({ id: x.id, name: memberName(x) })),
     }];
   }).sort((a, b) => a.name.localeCompare(b.name));
   saveGroupsCache(uid, choices);

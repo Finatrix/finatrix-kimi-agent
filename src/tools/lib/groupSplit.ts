@@ -29,6 +29,23 @@ export const isSplitRule = (v: unknown): v is SplitRule => v === 'equal' || v ==
 export const toPaise = (amount: number): number => Math.round(Number(amount) * 100);
 export const fromPaise = (paise: number): number => paise / 100;
 
+/**
+ * "₹333.34": paise to an exact amount, never hidden or rounded to rupees (the
+ * figures that settle people up are to the paisa). Hide amounts is applied by
+ * the screens that show balances, not here: a reminder the user sends, or a
+ * field being typed in, stays readable.
+ */
+export function formatPaise(paise: number, currency: string): string {
+  const n = paise / 100;
+  try {
+    return new Intl.NumberFormat(currency === 'INR' ? 'en-IN' : 'en', {
+      style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2,
+    }).format(n).replace('-', '−');
+  } catch {
+    return `${n < 0 ? '−' : ''}${currency} ${Math.abs(n).toFixed(2)}`;
+  }
+}
+
 /** The member ids are uuids: a plain compare gives every phone the same order. */
 const byId = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 

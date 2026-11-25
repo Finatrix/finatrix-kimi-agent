@@ -32,13 +32,17 @@ export function useGroupExpenseAdd(notify: Notify): {
       .then((api) => api.flushGroupOutbox())
       .then((result) => { if (live) reportDropped(result, notify); })
       .catch(() => {});
+    const catchUp = () => void import('./groupShareSync').then((m) => m.catchUpGroupShares()).catch(() => {});
     flush();
     void import('./groupsApi')
       .then((api) => api.fetchMyGroups())
-      .then(() => { if (live) setChoices(groupChoicesForExpense()); })
+      .then(() => { if (live) setChoices(groupChoicesForExpense()); catchUp(); })
       .catch(() => {});
-    window.addEventListener('online', flush);
-    return () => { live = false; window.removeEventListener('online', flush); };
+    const onOnline = () => { flush(); catchUp(); };
+    const onVisible = () => { if (document.visibilityState === 'visible') catchUp(); };
+    window.addEventListener('online', onOnline);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { live = false; window.removeEventListener('online', onOnline); document.removeEventListener('visibilitychange', onVisible); };
   }, [notify]);
 
   const save = useCallback(async (groupId: string, entry: GroupEntry) => {
@@ -50,14 +54,19 @@ export function useGroupExpenseAdd(notify: Notify): {
     }
     try {
       const api = await import('./groupsApi');
+      // A Split costs group needs its split; Budget together alone sends none.
+      if (group.splitCosts && !entry.split) throw new Error('missing split');
       await api.queueGroupExpense({
         group_id: group.id,
         amount,
         category: groupCategoryValue(entry.category, entry.categoryLabel),
         note: groupNote(entry.merchant, entry.note),
         spent_on: entry.date,
-        paid_by: group.memberId,
+        paid_by: group.splitCosts ? entry.paidBy ?? group.memberId : group.memberId,
+        ...(group.splitCosts && entry.split ? { split_rule: entry.split.rule, shares: entry.split.shares } : {}),
       });
+      // Your share lands in the tracker once the group has it (right away when online).
+      void api.flushGroupOutbox().then(() => import('./groupShareSync')).then((m) => m.catchUpGroupShares()).catch(() => {});
       const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
       notify(offline
         ? `Saved on this phone. It goes to ${group.name} when you're back online.`

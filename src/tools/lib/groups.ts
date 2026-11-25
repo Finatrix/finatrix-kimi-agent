@@ -410,6 +410,8 @@ export interface GroupChoice {
   memberId: string;
   role: 'admin' | 'member';
   members: number;
+  /** Current members, for "Paid by" and the split. Absent in a list saved before step 2.4. */
+  people?: Array<{ id: string; name: string }>;
 }
 
 interface GroupsCache { uid: string; groups: GroupChoice[] }
