@@ -38,6 +38,14 @@ export function saidInMessage(span: string, utterance: string): boolean {
   return re.test(u);
 }
 
+/** How many times the user said this span: a plan may use a span at most that often. */
+export function timesSaid(span: string, utterance: string): number {
+  const s = normalizeSpoken(span);
+  if (!s) return 0;
+  const u = normalizeSpoken(utterance);
+  return u.match(new RegExp(`(?<![\\d.])${escapeRe(s)}(?![\\d])`, 'g'))?.length ?? 0;
+}
+
 /** Spoken size words, as the multiplier the user meant. Never a guess: an unknown word fails. */
 const SCALE: Readonly<Record<string, number>> = {
   k: 1_000, thousand: 1_000, hazar: 1_000, hazaar: 1_000, 'हज़ार': 1_000, 'हजार': 1_000,

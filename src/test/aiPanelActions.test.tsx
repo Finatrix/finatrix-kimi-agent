@@ -202,4 +202,22 @@ describe('FinatriX AI actions', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Save' }));
     expect(loadExpenses()).toHaveLength(1);
   });
+  it('a multi-step plan shows one card per step, reads them all aloud, and each saves on its own tap (step 3.9)', async () => {
+    localStorage.setItem('fx_voice_lang', 'en-IN');
+    h.plan = JSON.stringify({ action: 'plan', steps: [
+      { action: 'log_expense', amount: '450', category: 'eating_out', note: 'lunch' },
+      { action: 'log_expense', amount: '200', category: 'transport', note: 'taxi' },
+    ] });
+    h.heard = [{ kind: 'heard', text: 'add 450 for lunch and 200 for a taxi' }, { kind: 'silence' }];
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: 'Talk hands-free' }));
+    await waitFor(() => expect(h.spoken).toHaveLength(1));
+    expect(h.spoken[0]).toMatch(/^1 of 2\. Log ₹450\.00 for Eating Out.*2 of 2\. Log ₹200\.00 for Transport/);
+    const saves = await screen.findAllByRole('button', { name: 'Save' });
+    expect(saves).toHaveLength(2);
+    expect(loadExpenses()).toEqual([]);
+    fireEvent.click(saves[1]);
+    expect(loadExpenses().map((e) => e.amount)).toEqual([200]);
+    expect(screen.getAllByRole('button', { name: 'Save' })).toHaveLength(1);
+  });
 });

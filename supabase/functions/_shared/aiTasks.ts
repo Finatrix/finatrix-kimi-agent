@@ -39,7 +39,10 @@ export const PUBLIC_AI_TASKS: Readonly<Record<string, PublicAiTask>> = {
   // and copies the user's words. Small and cheap, so the server's default chain.
   'money-action': {
     models: [],
-    systemHashes: ['4e0a74e0e15cf39a1dbd8edd5e618169cbf41cfde175006bc255676a7cadaf73'],
+    systemHashes: [
+      '4e0a74e0e15cf39a1dbd8edd5e618169cbf41cfde175006bc255676a7cadaf73', // step 3.2, shipped apps
+      '80367f992d224c40e5ed25a5cf2913b12403054dac11c8ab99bbebcb8c98201d', // step 3.9: multi-step plans
+    ],
   },
   'statement-layout': {
     models: [],

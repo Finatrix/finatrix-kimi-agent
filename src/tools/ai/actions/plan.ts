@@ -21,12 +21,16 @@ import {
 import type { BudgetStore } from '../../lib/budget';
 import type { MarketPack } from '../../lib/markets/types';
 import { runCalculator, CALCULATOR_HOME, CALCULATOR_LABEL, type CalcResult, type CalculatorId } from './calculators';
-import { namedCurrency, parseSpokenAmount, parseSpokenCount, saidInMessage } from './spoken';
+import { namedCurrency, normalizeSpoken, parseSpokenAmount, parseSpokenCount, saidInMessage, timesSaid } from './spoken';
 import { SCREENS, screenById } from './screens';
 
-export type ActionName = 'log_expense' | 'log_trip_spend' | 'set_budget' | 'run_calculator' | 'open_screen' | 'none';
+export type ActionName = 'log_expense' | 'log_trip_spend' | 'set_budget' | 'run_calculator' | 'open_screen' | 'plan' | 'none';
 
-const ACTIONS: readonly ActionName[] = ['log_expense', 'log_trip_spend', 'set_budget', 'run_calculator', 'open_screen', 'none'];
+const ACTIONS: readonly ActionName[] = ['log_expense', 'log_trip_spend', 'set_budget', 'run_calculator', 'open_screen', 'plan', 'none'];
+/** What a multi-step plan may hold: writes that each get their own confirm card. */
+const STEP_ACTIONS: readonly ActionName[] = ['log_expense', 'log_trip_spend', 'set_budget'];
+/** Most steps in one plan (step 3.9). More is refused rather than cut short. */
+export const MAX_PLAN_STEPS = 4;
 const DAYS = { today: 0, yesterday: 1, day_before_yesterday: 2 } as const;
 const CALCULATORS: readonly CalculatorId[] = ['goal', 'sip', 'emergency'];
 
@@ -45,13 +49,18 @@ export interface RawPlan {
   months?: string;
   saved?: string;
   screen?: string;
+  /** `plan` only: each step, parsed like a single action. */
+  steps?: RawPlan[];
 }
 
 const FIELDS = ['amount', 'category', 'note', 'day', 'currency', 'calculator', 'target', 'monthly', 'years', 'months', 'saved', 'screen'] as const;
 
 /** Null when the reply is not a plan at all, which the caller treats as "none". */
 export function parsePlan(content: string): RawPlan | null {
-  const dict = extractJson(content);
+  return planFrom(extractJson(content), true);
+}
+
+function planFrom(dict: Record<string, unknown>, top: boolean): RawPlan | null {
   const action = dict.action;
   if (typeof action !== 'string' || !ACTIONS.includes(action as ActionName)) return null;
   const plan: RawPlan = { action: action as ActionName };
@@ -63,6 +72,16 @@ export function parsePlan(content: string): RawPlan | null {
       const s = String(v).trim().slice(0, 80);
       if (s) plan[f] = s;
     }
+  }
+  if (action === 'plan') {
+    // Steps only at the top level, and only the writes a card can confirm.
+    if (!top || !Array.isArray(dict.steps)) return null;
+    const steps = dict.steps
+      .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object' && !Array.isArray(x))
+      .map((x) => planFrom(x, false));
+    if (steps.length < 1 || steps.length > MAX_PLAN_STEPS) return null;
+    if (steps.some((st) => !st || !STEP_ACTIONS.includes(st.action))) return null;
+    plan.steps = steps as RawPlan[];
   }
   return plan;
 }
@@ -121,6 +140,8 @@ export type AssistantAction = ExpenseAction | BudgetAction | CalcAction | OpenAc
 /** What the picker's plan became. */
 export type Resolution =
   | { kind: 'action'; action: AssistantAction }
+  /** Several writes in one message (step 3.9): one confirm card each, plus what could not be done. */
+  | { kind: 'plan'; actions: Array<ExpenseAction | BudgetAction>; skipped: string[] }
   | { kind: 'refuse'; message: string; href?: string; hrefLabel?: string }
   | { kind: 'none' };
 
@@ -137,6 +158,12 @@ export interface ResolveContext {
   trips: readonly Trip[];
   budgets: BudgetStore;
   market: MarketPack;
+  /**
+   * The words a plan step is about (its note), read for the category, day and
+   * payment method instead of the whole message, so one step's "rent" can't
+   * become every step's category. Spans are still checked against the message.
+   */
+  scope?: string;
 }
 
 /** A span the user said, read as an amount. Undefined when not said or not readable. */
@@ -157,7 +184,7 @@ function countOf(span: string | undefined, utterance: string): number | undefine
  */
 function categoryFor(plan: RawPlan, ctx: ResolveContext): { category: string; date: string; paymentMethod?: string } {
   const keys = new Set(ctx.categories.map((c) => c.k));
-  const parsed = parseQuickAdd(ctx.utterance, ctx.now, { categories: ctx.categories, learned: ctx.learned });
+  const parsed = parseQuickAdd(ctx.scope ?? ctx.utterance, ctx.now, { categories: ctx.categories, learned: ctx.learned });
   const fromUser = parsed.category && (parsed.categorySource === 'history' || parsed.categorySource === 'label') ? parsed.category : '';
   const fromModel = plan.category && keys.has(plan.category) ? plan.category : '';
   const category = fromUser || fromModel || (parsed.category && keys.has(parsed.category) ? parsed.category : '');
@@ -174,6 +201,7 @@ const NO_AMOUNT = 'I didn’t catch an amount. Say it with the number, like “4
 
 export function resolvePlan(plan: RawPlan | null, ctx: ResolveContext): Resolution {
   if (!plan || plan.action === 'none') return { kind: 'none' };
+  if (plan.action === 'plan') return resolveSteps(plan.steps ?? [], ctx);
   const u = ctx.utterance;
 
   if (plan.action === 'open_screen') {
@@ -244,6 +272,42 @@ export function resolvePlan(plan: RawPlan | null, ctx: ResolveContext): Resoluti
       category, date, ...(note ? { note } : {}), ...(paymentMethod ? { paymentMethod } : {}),
     },
   };
+}
+
+/**
+ * A multi-step plan: every step resolved on its own, exactly like a single
+ * action, into its own confirm card. Nothing is saved here or together: each
+ * card is saved (and undone) by its own tap.
+ *
+ * One more guard than a single action: the model may not reuse the user's
+ * words. "450 for lunch and dinner" said once cannot become two 450s; a span
+ * is usable as many times as the user said it.
+ */
+function resolveSteps(steps: readonly RawPlan[], ctx: ResolveContext): Resolution {
+  const left = new Map<string, number>();
+  const actions: Array<ExpenseAction | BudgetAction> = [];
+  const skipped: string[] = [];
+  steps.forEach((step, i) => {
+    const label = `Step ${i + 1}`;
+    const span = step.amount ? normalizeSpoken(step.amount) : '';
+    if (span) {
+      const remaining = left.has(span) ? left.get(span)! : timesSaid(step.amount!, ctx.utterance);
+      if (remaining <= 0) {
+        skipped.push(`${label}: that amount was already used by an earlier step, so I left it out.`);
+        return;
+      }
+      left.set(span, remaining - 1);
+    }
+    const note = step.note && saidInMessage(step.note, ctx.utterance) ? step.note : '';
+    const out = resolvePlan(step, { ...ctx, scope: note });
+    if (out.kind === 'action' && (out.action.kind === 'expense' || out.action.kind === 'budget')) actions.push(out.action);
+    else if (out.kind === 'refuse') skipped.push(`${label}: ${out.message}`);
+    else skipped.push(`${label}: I couldn’t work out what to do.`);
+  });
+  if (actions.length === 0) {
+    return skipped.length ? { kind: 'refuse', message: skipped.join(' ') } : { kind: 'none' };
+  }
+  return { kind: 'plan', actions, skipped };
 }
 
 /* ── Pricing an expense (the app's maths) ────────────────────────────────── */
