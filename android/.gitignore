@@ -102,3 +102,6 @@ app/src/main/res/xml/config.xml
 
 # Archived release candidates (signed binaries + checksums); never committed
 release-candidates/
+
+# Kotlin compiler caches (the ML Kit dependency brings Kotlin into the build)
+.kotlin/
