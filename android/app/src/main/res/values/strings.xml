@@ -10,4 +10,17 @@
     <string name="webview_outdated_message">Your phone\'s WebView is too old to open FinatriX. Update Android System WebView or Google Chrome from the Play Store, then reopen FinatriX.</string>
     <string name="webview_outdated_update">Update</string>
     <string name="webview_outdated_close">Close app</string>
+    <!-- Home-screen widget (widget/SafeSpendWidget.java). -->
+    <string name="fx_widget_label">Safe to spend today</string>
+    <string name="fx_widget_add">Add</string>
+    <!-- The picker preview and the moment before the first update show the
+         mask, never a made-up figure. -->
+    <string name="fx_widget_preview_amount">₹ ••••</string>
+    <string name="fx_widget_medium_label">Safe to spend today, wide</string>
+    <string name="fx_widget_add_a11y">Add an expense</string>
+    <string name="fx_widget_hidden_a11y">Amount hidden</string>
+    <string name="fx_widget_no_budget">Set a budget to see this</string>
+    <string name="fx_widget_open_app">Open FinatriX to update</string>
+    <string name="fx_widget_small_desc">Today\'s safe-to-spend figure, with Add.</string>
+    <string name="fx_widget_medium_desc">Today\'s safe-to-spend figure and a quick Add button.</string>
 </resources>

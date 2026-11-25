@@ -20,6 +20,9 @@
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="root" path="app_webview/" />
+        <!-- The home-screen widget's copy of today's figures (widget/WidgetData.java):
+             derived from the same on-device records, so it stays with them. -->
+        <exclude domain="sharedpref" path="fx_widget.xml" />
     </cloud-backup>
     <!-- No <device-transfer> element: Android then transfers everything,
          which is the intent. Listing includes instead would silently drop any

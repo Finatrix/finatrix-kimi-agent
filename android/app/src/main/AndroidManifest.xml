@@ -82,6 +82,34 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
+        <!-- Home-screen widgets (widget/SafeSpendWidget.java), small and medium.
+             The small one also hears clock and time-zone changes, which the
+             figure depends on; it redraws both sizes. -->
+        <receiver
+            android:name=".widget.SafeSpendSmallWidget"
+            android:exported="false"
+            android:label="@string/fx_widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_safe_spend_small_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.SafeSpendMediumWidget"
+            android:exported="false"
+            android:label="@string/fx_widget_medium_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_safe_spend_medium_info" />
+        </receiver>
+
     </application>
 
     <!-- Permissions. The network, the app lock's prompt and the microphone for

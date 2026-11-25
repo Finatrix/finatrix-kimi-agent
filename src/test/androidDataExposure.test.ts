@@ -25,6 +25,13 @@ describe('Android data exposure', () => {
     expect(legacy).toMatch(/<exclude domain="root" path="app_webview\/"\s*\/>/);
   });
 
+  it('keeps the home-screen widget\'s copy of the figures out of cloud backup too', () => {
+    const widgetPrefs = /<exclude domain="sharedpref" path="fx_widget\.xml"\s*\/>/;
+    const modern = read('android/app/src/main/res/xml/data_extraction_rules.xml');
+    expect(modern.match(/<cloud-backup>([\s\S]*?)<\/cloud-backup>/)?.[1] ?? '').toMatch(widgetPrefs);
+    expect(read('android/app/src/main/res/xml/backup_rules.xml')).toMatch(widgetPrefs);
+  });
+
   it('lets the FileProvider share only the camera-capture directory', () => {
     const paths = read('android/app/src/main/res/xml/file_paths.xml').replace(/<!--[\s\S]*?-->/g, '');
     const entries = [...paths.matchAll(/<([a-z-]+-path)\b[^>]*\/>/g)].map((m) => m[0]);
