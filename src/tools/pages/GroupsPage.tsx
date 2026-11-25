@@ -84,12 +84,12 @@ export default function GroupsPage() {
         <div className="card" style={{ textAlign: 'center', padding: '32px 20px', marginBottom: 14 }}>
           <Icon name="users" size={40} style={{ color: 'var(--ink3)', marginBottom: 12 }} />
           <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>
-            {joinCode ? 'Sign in to join the group' : 'Groups need a FinatriX account'}
+            {!configured ? 'Groups aren’t available on this build' : joinCode ? 'Sign in to join the group' : 'Groups need a FinatriX account'}
           </div>
           <p className="note" style={{ maxWidth: 400, margin: '0 auto 16px' }}>
             {configured
               ? 'A group lives on FinatriX’s servers so every member’s phone sees the same thing. Your personal expenses stay private.'
-              : 'Groups aren’t available on this build.'}
+              : 'This copy of FinatriX isn’t connected to a backend, so groups can’t be used here.'}
           </p>
           {configured && <Link to={signInHref} className="btn btn-sm" style={{ textDecoration: 'none' }}>Sign in</Link>}
         </div>
