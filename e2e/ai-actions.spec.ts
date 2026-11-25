@@ -43,7 +43,7 @@ async function signIn(page: Page, plans: Record<string, unknown>) {
     else if (path.includes('/rest/v1/tool_data')) await route.fulfill({ json: { data: {} } });
     else await route.fulfill({ json: [] });
   });
-  const trip = { id: 'trip-e2e', name: 'Dubai', currency: 'AED', homeCurrency: 'INR', start: ymd(-1), end: ymd(3), rate: 22.75, rateSource: 'manual', homeCats: ['rent'], createdAt: '2025-01-01T00:00:00Z', updatedAt: '2025-01-01T00:00:00Z' };
+  const trip = { id: 'trip-e2e', name: 'Dubai', currency: 'AED', homeCurrency: 'INR', start: ymd(0), end: ymd(3), rate: 22.75, rateSource: 'manual', homeCats: ['rent'], createdAt: '2025-01-01T00:00:00Z', updatedAt: '2025-01-01T00:00:00Z' };
   await page.addInitScript(({ backend, user, token, expires, trip }) => {
     if (sessionStorage.getItem('seeded')) return;
     sessionStorage.setItem('seeded', '1');
