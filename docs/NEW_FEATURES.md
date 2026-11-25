@@ -18,7 +18,7 @@ The list of new features we are planning, with what was decided for each. The bu
 | 12 | [Family budget and groups](#12-family-budget-and-groups) | All decided, not started |
 | 13 | [Money calendar](#13-money-calendar) | Suggested, not discussed |
 | 14 | [Private on-device AI](#14-private-on-device-ai) | Suggested, not discussed |
-| 15 | [Indian languages](#15-indian-languages) | Languages decided: Tamil first, then Malayalam, Telugu, Kannada, Hindi (24 Nov 2026). Step 3.6 |
+| 15 | [Indian languages](#15-indian-languages) | **Dropped** by the owner (25 Nov 2026). Was step 3.6 |
 | 16 | [Watch app](#16-watch-app) | Suggested, not discussed |
 
 ---
@@ -389,7 +389,7 @@ Newer iPhones and some Android phones have AI built in. FinatriX could use it to
 
 ## 15. Indian languages
 
-Added 24 Nov 2026. Suggested, not discussed yet.
+Added 24 Nov 2026. **Dropped by the owner on 25 Nov 2026**, so step 3.6 will not be built. The notes below are kept for the record.
 
 The whole app in Hindi, Tamil, Telugu, Marathi, Bengali and more, to reach far more people, especially first-time budgeters.
 
