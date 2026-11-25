@@ -1,0 +1,32 @@
+# TEMPORARY diagnostic for the release-smoke WebKit failure. Never merge.
+name: Diag WebKit smoke
+on:
+  push:
+    branches: [diag/webkit-smoke]
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+      - run: npx playwright install --with-deps webkit
+      - run: npx playwright test e2e/ai-actions.spec.ts --project=ios-webkit --retries=0 --reporter=line || true
+        env:
+          FX_E2E_PREBUILT: '1'
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+      - run: find test-results -name 'error-context.md' -exec cat {} \; || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: diag
+          path: test-results
