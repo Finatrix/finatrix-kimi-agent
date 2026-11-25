@@ -57,6 +57,17 @@ const SURFACES = [
   { id: 'investmatch', path: '/tools/investmatch' },
   { id: 'lifemap', path: '/tools/lifemap' },
   { id: 'alltools', path: '/tools/all' },
+  // Step 2.5, with someone who owes you (Remind + Mark as settled) and someone you owe.
+  { id: 'splits', path: '/tools/splits', storage: {
+    fx_split_people: JSON.stringify([
+      { id: 'p_a', name: 'Asha Krishnamurthy-Venkataraman', createdAt: '2026-11-20T10:00:00Z', updatedAt: '2026-11-20T10:00:00Z' },
+      { id: 'p_b', name: 'Ben', createdAt: '2026-11-20T10:00:00Z', updatedAt: '2026-11-20T10:00:00Z' },
+    ]),
+    fx_split_entries: JSON.stringify([
+      { id: 's_1', kind: 'bill', amount: 2400, date: '2026-11-20', note: 'Saturday’s dinner at the place near the station', category: 'eating_out', paidBy: 'me', rule: 'equal', shares: [{ member: 'me', value: 1 }, { member: 'p_a', value: 1 }], createdAt: '2026-11-20T10:00:00Z', updatedAt: '2026-11-20T10:00:00Z' },
+      { id: 's_2', kind: 'borrowed', personId: 'p_b', amount: 500, date: '2026-11-21', note: '', createdAt: '2026-11-21T10:00:00Z', updatedAt: '2026-11-21T10:00:00Z' },
+    ]),
+  } },
   { id: 'careers', path: '/careers' },
   { id: 'learn', path: '/learn', follow: /^\/learn\/[^/]+\/[^/]+$/ },
   { id: 'legal', path: '/privacy' },

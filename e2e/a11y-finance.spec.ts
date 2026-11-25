@@ -28,6 +28,7 @@ const TOOLS = [
   '/tools/calendar',
   '/tools/moneycalendar',
   '/tools/groups',
+  '/tools/splits',
   '/tools/subscriptions',
   '/tools/settings',
   // Not a calculator, so not in TOOL_IDS — but it is a real reading surface

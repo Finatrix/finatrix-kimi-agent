@@ -35,6 +35,8 @@ const KEY_LABEL: Record<string, string> = {
   fx_peercompare: 'PeerCompare', fx_lifemap: 'LifeMap', fx_networth: 'Net Worth',
   fx_currency: 'Currency',
   fx_trips: 'Trips',
+  fx_split_people: 'Splits: people',
+  fx_split_entries: 'Splits: bills and money lent',
 };
 
 export interface DataArea { key: string; label: string; present: boolean; bytes: number }

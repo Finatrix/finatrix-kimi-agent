@@ -1,7 +1,7 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { runRemoteApply, store } from './lib/storage';
 import { TOMBSTONE_KEY } from './lib/expenseTombstones';
-import { mergeCloudBlob, TRIPS_KEY } from './lib/syncMerge';
+import { mergeCloudBlob, SPLIT_ENTRIES_KEY, SPLIT_PEOPLE_KEY, TRIPS_KEY } from './lib/syncMerge';
 
 /**
  * Cloud sync bridge for the tools.
@@ -70,6 +70,11 @@ export const SYNC_KEYS = [
   // travels too (`mergeTrips` in lib/syncMerge.ts). Fetched live rates
   // (`fx_fx_live`) are NOT here: every device fetches its own.
   TRIPS_KEY,
+  // Splits with people not on FinatriX (lib/splits.ts): your list of people and
+  // what passed between you. Your data only, never shared with them. Merged by
+  // id like trips, deletions kept as `deletedAt` records.
+  SPLIT_PEOPLE_KEY,
+  SPLIT_ENTRIES_KEY,
 ];
 /**
  * Sensitive statement drafts stay on this device but belong to its account.

@@ -30,6 +30,7 @@ const TOOLS = [
   '/tools/calendar',
   '/tools/moneycalendar',
   '/tools/groups',
+  '/tools/splits',
   '/tools/subscriptions',
   '/tools/settings',
   // The reference page carries the only data tables under /tools. They scroll
