@@ -52,6 +52,7 @@ import { AskAiButton } from '../ui/AskAiButton';
 import { BudgetTimeline } from '../ui/BudgetTimeline';
 import TransactionModal from '../ui/TransactionModal';
 import { AddExpenseFab } from '../ui/AddExpenseFab';
+import { takeShared } from '../../lib/shareInbox';
 import TransactionList, { type ExportKind, type TransactionListHandle } from '../ui/TransactionList';
 import { Tabs, type TabItem } from '../ui/Tabs';
 import {
@@ -615,6 +616,41 @@ export default function ExpensePage() {
   }, [location.search, location.pathname, navigate]);
 
   /**
+   * Images shared to FinatriX from another app (src/lib/shareInbox.ts) open the
+   * screenshot import with them already chosen. The review is the same one a
+   * chosen file gets, so nothing is saved until the user presses Import. The
+   * parameter is consumed at once; the ref stops one share from being opened
+   * twice when the effect runs again for the same navigation.
+   */
+  const [sharedFiles, setSharedFiles] = useState<File[] | null>(null);
+  const handledShare = useRef<string | null>(null);
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const share = params.get('share');
+    if (!share || handledShare.current === location.key) return;
+    handledShare.current = location.key;
+    params.delete('share');
+    const q = params.toString();
+    navigate({ pathname: location.pathname, search: q ? `?${q}` : '' }, { replace: true });
+    if (share === 'failed') {
+      notify('The shared image did not reach FinatriX. Open Import and choose it from your photos instead.', 'error');
+      return;
+    }
+    void takeShared().then(async (files) => {
+      if (!files.length) {
+        notify('Nothing is waiting to import. The shared images were already opened.', 'info');
+        return;
+      }
+      await loadStatementImport();
+      setTab('overview');
+      setSharedFiles(files);
+      setImporting(true);
+    }).catch(() => {
+      notify('Import could not be loaded. Check your connection and try again.', 'error');
+    });
+  }, [location.search, location.pathname, location.key, navigate, notify]);
+
+  /**
    * Take the user from an empty Analytics tab to the thing that fills it.
    *
    * Switches tab, then focuses the quick-add field on the next frame — the
@@ -1076,7 +1112,8 @@ export default function ExpensePage() {
             sym={sym}
             currencyCode={code}
             onImport={importTransactions}
-            onClose={() => setImporting(false)}
+            onClose={() => { setImporting(false); setSharedFiles(null); }}
+            initialFiles={sharedFiles ?? undefined}
           />
         </Suspense>
       )}

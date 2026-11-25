@@ -43,6 +43,7 @@ import { parseCsvStatement, parseStatementMatrix, StatementParseError } from './
 import { parseTextStatement } from './statement';
 import { maskedLines, parseLooseList, rowsFromLayout, type LayoutItem } from './looseList';
 import { readWorkbookGrid } from './xlsx';
+import { receiptStatement } from './receipt';
 import { reconcile, resolveDirections, type Reconciliation } from './reconcile';
 import type { StatementDoc } from './types';
 
@@ -109,7 +110,11 @@ export async function readRecognisedText(text: string, now: Date, layout?: Layou
       if (assisted.rows.length >= local.rows.length && assisted.rows.length > 0) return assisted;
     }
   }
-  return local.rows.length > 0 ? local : statement;
+  if (local.rows.length > 0) return local;
+  // Neither a statement nor a payments list: a photo of a paper bill reads as
+  // one purchase, or as nothing at all when it prints no total.
+  const receipt = receiptStatement(text, now);
+  return receipt.rows.length > 0 ? receipt : statement;
 }
 
 export const ACCEPTED_EXTENSIONS = [
@@ -165,6 +170,8 @@ export interface ExtractedStatement {
   directionsUncertain?: boolean;
   /** Pages read, for PDFs. */
   pages: number | null;
+  /** Files in a batch that could not be read, and why. Absent for one file. */
+  skipped?: { name: string; reason: string }[];
 }
 
 function extensionOf(name: string): string {
@@ -425,5 +432,96 @@ export async function extractStatement(
     directionsAssumed: assumed,
     directionsUncertain: proved === 0 && !rows.some((r) => r.directionStated),
     pages,
+  };
+}
+
+/** Most files one import reads at once. A share sheet can send many more. */
+export const MAX_BATCH_FILES = 10;
+
+/**
+ * Read several files (screenshots shared together, usually) as one review.
+ *
+ * Each file is read on its own, exactly as `extractStatement` reads a single
+ * file, and the rows are put side by side. Recognised text is never joined
+ * across images first: the payments-list reader groups neighbouring lines, and
+ * the last row of one screenshot is not part of the first row of the next.
+ *
+ * A file that cannot be read is listed in `skipped` instead of failing the
+ * batch. Only when none can be read is that an error. Balances are not carried
+ * across files: two screenshots are two documents.
+ */
+export async function extractStatements(
+  files: readonly File[],
+  options: { now?: Date; layout?: LayoutReader } = {},
+): Promise<ExtractedStatement> {
+  if (files.length === 1) return extractStatement(files[0], options);
+  if (!files.length) {
+    throw new ImportError('empty', 'Nothing was chosen. Please pick a statement or a screenshot.');
+  }
+
+  const read: ExtractedStatement[] = [];
+  const skipped: { name: string; reason: string }[] = [];
+  let firstError: ImportError | null = null;
+
+  for (const [index, file] of files.entries()) {
+    const name = file.name || `Image ${index + 1}`;
+    if (index >= MAX_BATCH_FILES) {
+      skipped.push({ name, reason: `Only ${MAX_BATCH_FILES} files are read at a time.` });
+      continue;
+    }
+    try {
+      read.push(await extractStatement(file, options));
+    } catch (e) {
+      const error = e instanceof ImportError ? e : new ImportError('unreadable', 'Could not read this file.');
+      firstError ??= error;
+      const locked = error.kind === 'password-required' || error.kind === 'password-wrong';
+      skipped.push({ name, reason: locked ? 'It is password-protected. Import it on its own.' : error.message });
+    }
+  }
+
+  if (!read.length) {
+    throw new ImportError(
+      firstError?.kind === 'too-large' || firstError?.kind === 'unsupported' ? firstError.kind : 'no-transactions',
+      `None of these ${files.length} files could be read. ${firstError?.message ?? ''}`.trim(),
+    );
+  }
+
+  const rows: StatementDoc['rows'] = [];
+  let offset = 0;
+  for (const part of read) {
+    // Line numbers stay unique across the batch, in the order the files came.
+    // Directions were already settled file by file; a balance chain running
+    // from one file into the next would only invent a mismatch.
+    for (const row of part.doc.rows) rows.push({ ...row, line: row.line + offset, balance: null });
+    offset += Math.max(0, ...part.doc.rows.map((row) => row.line)) + 1;
+  }
+
+  const docs = read.map((part) => part.doc);
+  const currencies = new Set(docs.map((doc) => doc.currency));
+  // A file whose own dates settled dd/mm against mm/dd outranks one that assumed.
+  const decided = docs.find((doc) => !doc.dateOrderAssumed) ?? docs[0];
+  const doc: StatementDoc = {
+    // One recognised image holds the whole batch back for review. Erring that
+    // way costs a tick; erring the other way imports a misread digit.
+    source: docs.some((d) => d.source === 'ocr') ? 'ocr' : docs[0].source,
+    rows,
+    currency: currencies.size === 1 ? docs[0].currency : null,
+    openingBalance: null,
+    closingBalance: null,
+    skipped: docs.reduce((sum, d) => sum + d.skipped, 0),
+    dateOrder: decided.dateOrder,
+    dateOrderAssumed: decided.dateOrderAssumed,
+    columnsInferred: docs.some((d) => d.columnsInferred) || undefined,
+  };
+
+  const pages = read.map((part) => part.pages).filter((p): p is number => p !== null);
+  return {
+    doc,
+    reconciliation: reconcile(doc, rows),
+    directionsProved: read.reduce((sum, part) => sum + part.directionsProved, 0),
+    directionsAssumed: read.reduce((sum, part) => sum + part.directionsAssumed, 0),
+    directionsUncertain: read.every((part) => part.directionsUncertain),
+    pages: pages.length ? pages.reduce((a, b) => a + b, 0) : null,
+    skipped,
   };
 }
