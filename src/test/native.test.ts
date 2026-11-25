@@ -253,6 +253,44 @@ describe('one app identity across every file that declares it', () => {
     expect(java).toContain('protected void handleOnPause()');
   });
 
+  it('registers the widget plugin on both platforms and builds the widget on both', () => {
+    const pbx = read('ios/App/App.xcodeproj/project.pbxproj');
+    expect(read('ios/App/App/ViewController.swift')).toContain('registerPluginInstance(FxWidgetPlugin())');
+    expect(read('ios/App/App/FxWidgetPlugin.swift')).toContain('jsName = "FxWidget"');
+    expect(pbx).toContain('FxWidgetPlugin.swift in Sources');
+    // The extension target exists, compiles both files and is embedded in the app.
+    expect(pbx).toContain('FinatriXWidget.swift in Sources');
+    expect(pbx).toContain('WidgetPayload.swift in Sources');
+    expect(pbx).toContain('FinatriXWidget.appex in Embed Foundation Extensions');
+    expect(pbx).toContain('PRODUCT_BUNDLE_IDENTIFIER = co.finatrix.app.widget;');
+    expect(read('ios/App/FinatriXWidget/Info.plist')).toContain('com.apple.widgetkit-extension');
+    expect(read('android/app/src/main/java/co/finatrix/app/MainActivity.java')).toContain('registerPlugin(co.finatrix.app.widget.WidgetPlugin.class)');
+    expect(read('android/app/src/main/java/co/finatrix/app/widget/WidgetPlugin.java')).toContain('@CapacitorPlugin(name = "FxWidget")');
+    expect(read('src/native/widget.ts')).toContain("registerPlugin<FxWidgetPlugin>('FxWidget')");
+    const manifest = read('android/app/src/main/AndroidManifest.xml');
+    expect(manifest).toContain('android:name=".widget.SafeSpendSmallWidget"');
+    expect(manifest).toContain('android:name=".widget.SafeSpendMediumWidget"');
+  });
+
+  it('keeps the widget document in one App Group and under one key everywhere', () => {
+    const group = 'group.co.finatrix.app';
+    for (const f of ['ios/App/App/App.entitlements', 'ios/App/FinatriXWidget/FinatriXWidget.entitlements']) {
+      expect(read(f)).toContain(`<string>${group}</string>`);
+    }
+    for (const f of ['ios/App/App/FxWidgetPlugin.swift', 'ios/App/FinatriXWidget/WidgetPayload.swift']) {
+      const swift = read(f);
+      expect(swift).toContain(`appGroup = "${group}"`);
+      expect(swift).toContain('key = "fx_widget"');
+    }
+    expect(read('android/app/src/main/java/co/finatrix/app/widget/WidgetData.java')).toContain('PREFS = "fx_widget"');
+    // The links the widgets open are the ones the bridge handles.
+    for (const f of ['ios/App/FinatriXWidget/FinatriXWidget.swift', 'android/app/src/main/java/co/finatrix/app/widget/SafeSpendWidget.java']) {
+      const src = read(f);
+      expect(src).toContain(`${APP_ID}://widget/add`);
+      expect(src).toContain(`${APP_ID}://widget/open`);
+    }
+  });
+
   it('registers the app lock plugin on both platforms, under one name', () => {
     expect(read('ios/App/App/ViewController.swift')).toContain('registerPluginInstance(FxAppLockPlugin())');
     expect(read('ios/App/App/FxAppLockPlugin.swift')).toContain('jsName = "FxAppLock"');

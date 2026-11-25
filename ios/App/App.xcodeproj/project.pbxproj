@@ -25,6 +25,10 @@
 		FA5800000000000000000002 /* FxSharePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5800000000000000000001 /* FxSharePlugin.swift */; };
 		FA5800000000000000000004 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5800000000000000000003 /* ShareViewController.swift */; };
 		FA5800000000000000000008 /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = FA5800000000000000000007 /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		FA5900000000000000000002 /* FxWidgetPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5900000000000000000001 /* FxWidgetPlugin.swift */; };
+		FA5900000000000000000004 /* FinatriXWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5900000000000000000003 /* FinatriXWidget.swift */; };
+		FA5900000000000000000006 /* WidgetPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5900000000000000000005 /* WidgetPayload.swift */; };
+		FA590000000000000000000A /* FinatriXWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = FA5900000000000000000009 /* FinatriXWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -34,6 +38,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = FA580000000000000000000A;
 			remoteInfo = ShareExtension;
+		};
+		FA5900000000000000000010 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FA590000000000000000000C;
+			remoteInfo = FinatriXWidget;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -45,6 +56,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				FA5800000000000000000008 /* ShareExtension.appex in Embed Foundation Extensions */,
+				FA590000000000000000000A /* FinatriXWidget.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -75,6 +87,12 @@
 		FA5800000000000000000005 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		FA5800000000000000000006 /* ShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ShareExtension.entitlements; sourceTree = "<group>"; };
 		FA5800000000000000000007 /* ShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		FA5900000000000000000001 /* FxWidgetPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FxWidgetPlugin.swift; sourceTree = "<group>"; };
+		FA5900000000000000000003 /* FinatriXWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinatriXWidget.swift; sourceTree = "<group>"; };
+		FA5900000000000000000005 /* WidgetPayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetPayload.swift; sourceTree = "<group>"; };
+		FA5900000000000000000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		FA5900000000000000000008 /* FinatriXWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FinatriXWidget.entitlements; sourceTree = "<group>"; };
+		FA5900000000000000000009 /* FinatriXWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FinatriXWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -93,6 +111,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		FA590000000000000000000E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -102,6 +127,7 @@
 				958DCC722DB07C7200EA8C5F /* debug.xcconfig */,
 				504EC3061FED79650016851F /* App */,
 				FA5800000000000000000009 /* ShareExtension */,
+				FA590000000000000000000B /* FinatriXWidget */,
 				504EC3051FED79650016851F /* Products */,
 			);
 			sourceTree = "<group>";
@@ -111,6 +137,7 @@
 			children = (
 				504EC3041FED79650016851F /* App.app */,
 				FA5800000000000000000007 /* ShareExtension.appex */,
+				FA5900000000000000000009 /* FinatriXWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -125,6 +152,7 @@
 				FA570000000000000000000B /* FxVoicePlugin.swift */,
 				FA5700000000000000000007 /* FileExportPlugin.swift */,
 				FA5800000000000000000001 /* FxSharePlugin.swift */,
+				FA5900000000000000000001 /* FxWidgetPlugin.swift */,
 				FA5700000000000000000004 /* PrivacyInfo.xcprivacy */,
 				FA5700000000000000000006 /* App.entitlements */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
@@ -149,6 +177,17 @@
 			path = ShareExtension;
 			sourceTree = "<group>";
 		};
+		FA590000000000000000000B /* FinatriXWidget */ = {
+			isa = PBXGroup;
+			children = (
+				FA5900000000000000000003 /* FinatriXWidget.swift */,
+				FA5900000000000000000005 /* WidgetPayload.swift */,
+				FA5900000000000000000007 /* Info.plist */,
+				FA5900000000000000000008 /* FinatriXWidget.entitlements */,
+			);
+			path = FinatriXWidget;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -165,6 +204,7 @@
 			);
 			dependencies = (
 				FA5800000000000000000010 /* PBXTargetDependency */,
+				FA5900000000000000000011 /* PBXTargetDependency */,
 			);
 			name = App;
 			packageProductDependencies = (
@@ -191,6 +231,23 @@
 			productReference = FA5800000000000000000007 /* ShareExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		FA590000000000000000000C /* FinatriXWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FA5900000000000000000014 /* Build configuration list for PBXNativeTarget "FinatriXWidget" */;
+			buildPhases = (
+				FA590000000000000000000D /* Sources */,
+				FA590000000000000000000E /* Frameworks */,
+				FA590000000000000000000F /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FinatriXWidget;
+			productName = FinatriXWidget;
+			productReference = FA5900000000000000000009 /* FinatriXWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -206,6 +263,10 @@
 						ProvisioningStyle = Automatic;
 					};
 					FA580000000000000000000A = {
+						CreatedOnToolsVersion = 26.0;
+						ProvisioningStyle = Automatic;
+					};
+					FA590000000000000000000C = {
 						CreatedOnToolsVersion = 26.0;
 						ProvisioningStyle = Automatic;
 					};
@@ -229,6 +290,7 @@
 			targets = (
 				504EC3031FED79650016851F /* App */,
 				FA580000000000000000000A /* ShareExtension */,
+				FA590000000000000000000C /* FinatriXWidget */,
 			);
 		};
 /* End PBXProject section */
@@ -255,6 +317,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		FA590000000000000000000F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -270,6 +339,7 @@
 				FA570000000000000000000C /* FxVoicePlugin.swift in Sources */,
 				FA5700000000000000000008 /* FileExportPlugin.swift in Sources */,
 				FA5800000000000000000002 /* FxSharePlugin.swift in Sources */,
+				FA5900000000000000000002 /* FxWidgetPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -281,6 +351,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		FA590000000000000000000D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FA5900000000000000000004 /* FinatriXWidget.swift in Sources */,
+				FA5900000000000000000006 /* WidgetPayload.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -288,6 +367,11 @@
 			isa = PBXTargetDependency;
 			target = FA580000000000000000000A /* ShareExtension */;
 			targetProxy = FA580000000000000000000F /* PBXContainerItemProxy */;
+		};
+		FA5900000000000000000011 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FA590000000000000000000C /* FinatriXWidget */;
+			targetProxy = FA5900000000000000000010 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -514,6 +598,54 @@
 			};
 			name = Release;
 		};
+		FA5900000000000000000012 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FinatriXWidget/FinatriXWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 11;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FinatriXWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = co.finatrix.app.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1";
+			};
+			name = Debug;
+		};
+		FA5900000000000000000013 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FinatriXWidget/FinatriXWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 11;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FinatriXWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = co.finatrix.app.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -540,6 +672,15 @@
 			buildConfigurations = (
 				FA5800000000000000000011 /* Debug */,
 				FA5800000000000000000012 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FA5900000000000000000014 /* Build configuration list for PBXNativeTarget "FinatriXWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FA5900000000000000000012 /* Debug */,
+				FA5900000000000000000013 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
