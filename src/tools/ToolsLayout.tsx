@@ -36,6 +36,7 @@ import { warnIfOverdue } from '../reference/review';
 import { isNativeApp } from '../native/platform';
 import { useReminderSync } from './lib/useReminderSync';
 import { useWidgetSync } from './lib/useWidgetSync';
+import { useWatchSync } from './lib/useWatchSync';
 import { refreshLiveRates } from './lib/fxLive';
 import WalkthroughGate from '../walkthrough/WalkthroughGate';
 import TourGate from '../tour/TourGate';
@@ -281,6 +282,7 @@ export default function ToolsLayout() {
   const activeTool = useActiveTool();
   useReminderSync();
   useWidgetSync();
+  useWatchSync();
 
   /**
    * One line in the development console when a published reference has gone

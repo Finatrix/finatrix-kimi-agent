@@ -272,6 +272,31 @@ describe('one app identity across every file that declares it', () => {
     expect(manifest).toContain('android:name=".widget.SafeSpendMediumWidget"');
   });
 
+  it('wires the watch app: plugin, paired bundle ids, embedding and one wire format (step 3.8)', () => {
+    const pbx = read('ios/App/App.xcodeproj/project.pbxproj');
+    expect(read('ios/App/App/ViewController.swift')).toContain('registerPluginInstance(FxWatchPlugin())');
+    expect(read('ios/App/App/FxWatchPlugin.swift')).toContain('jsName = "FxWatch"');
+    expect(read('src/native/watch.ts')).toContain("registerPlugin<FxWatchPlugin>('FxWatch')");
+    // The session starts at launch: a watch can wake the app before the web layer exists.
+    expect(read('ios/App/App/AppDelegate.swift')).toContain('WatchBridge.shared.activate()');
+    // The watch app is embedded in the iPhone app, and its complication in the watch app.
+    expect(pbx).toContain('FinatriXWatch.app in Embed Watch Content');
+    expect(pbx).toContain('FinatriXWatchWidget.appex in Embed Foundation Extensions');
+    // Bundle ids nest under the iPhone app's, and the watch names its companion.
+    expect(pbx).toContain('PRODUCT_BUNDLE_IDENTIFIER = co.finatrix.app.watchkitapp;');
+    expect(pbx).toContain('PRODUCT_BUNDLE_IDENTIFIER = co.finatrix.app.watchkitapp.widget;');
+    expect(read('ios/App/FinatriXWatch/Info.plist')).toContain(`<string>${APP_ID}</string>`);
+    // The complication reads the same document, by the same reader, as the iPhone widget.
+    expect(pbx.match(/WidgetPayload\.swift in Sources/g)).toHaveLength(6); // three targets: one line in the file list, one in the phase
+    for (const f of ['ios/App/FinatriXWatch/FinatriXWatch.entitlements', 'ios/App/FinatriXWatchWidget/FinatriXWatchWidget.entitlements']) {
+      expect(read(f)).toContain('<string>group.co.finatrix.app</string>');
+    }
+    // No network from the watch.
+    for (const f of ['WatchSession', 'ContentView', 'QuickAddView', 'WatchLogic']) {
+      expect(read(`ios/App/FinatriXWatch/${f}.swift`)).not.toMatch(/URLSession|URLRequest/);
+    }
+  });
+
   it('keeps the widget document in one App Group and under one key everywhere', () => {
     const group = 'group.co.finatrix.app';
     for (const f of ['ios/App/App/App.entitlements', 'ios/App/FinatriXWidget/FinatriXWidget.entitlements']) {

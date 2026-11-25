@@ -106,9 +106,10 @@ function createStore(): FxStore {
 /**
  * Where a write came from. `'remote'` is cloud sync landing merged data:
  * ToolsLayout must not push back what it just downloaded, and a page holding
- * that data in React state must refresh instead of ignoring it.
+ * that data in React state must refresh instead of ignoring it. `'device'` is
+ * a write by this device's own native side (see `runDeviceApply`).
  */
-export type WriteOrigin = 'user' | 'remote';
+export type WriteOrigin = 'user' | 'remote' | 'device';
 
 let currentOrigin: WriteOrigin = 'user';
 
@@ -116,6 +117,22 @@ let currentOrigin: WriteOrigin = 'user';
 export function runRemoteApply<T>(fn: () => T): T {
   const previous = currentOrigin;
   currentOrigin = 'remote';
+  try {
+    return fn();
+  } finally {
+    currentOrigin = previous;
+  }
+}
+
+/**
+ * Run `fn`'s writes as ones that came from outside the page but from this
+ * device (the watch handing over an expense). Unlike `runRemoteApply` they are
+ * still pushed to the cloud, but a page holding the data in React state must
+ * re-read it instead of writing its older list back over them.
+ */
+export function runDeviceApply<T>(fn: () => T): T {
+  const previous = currentOrigin;
+  currentOrigin = 'device';
   try {
     return fn();
   } finally {
