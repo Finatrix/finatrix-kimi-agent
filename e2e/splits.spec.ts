@@ -14,6 +14,12 @@ async function gotoFresh(page: Page) {
   await expect(page.getByRole('heading', { name: 'Split it. Settle it.' })).toBeVisible();
 }
 
+/** On phones the formula keys sit over the sheet's footer while an amount field has focus (as in networth.spec.ts). */
+async function footer(page: Page, name: string) {
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.getByRole('dialog').getByRole('button', { name, exact: true }).click();
+}
+
 async function addPerson(page: Page, name: string) {
   const field = page.getByRole('dialog').getByLabel(/someone new/);
   await field.fill(name);
@@ -31,7 +37,7 @@ test('split a bill, lend money, remind and settle up', async ({ page }) => {
   await dialog.getByLabel('What was it for?').fill('Saturday’s dinner');
   for (const name of ['Asha', 'Ben', 'Chetan']) await addPerson(page, name);
   await expect(dialog.getByTestId('split-fields')).toContainText('₹600.00');
-  await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+  await footer(page, 'Save');
   await expect(page.getByRole('dialog')).toHaveCount(0);
 
   const people = page.getByTestId('splits-people');
@@ -54,14 +60,14 @@ test('split a bill, lend money, remind and settle up', async ({ page }) => {
   await page.getByRole('button', { name: 'Lent or borrowed' }).click();
   await dialog.getByLabel('With').selectOption({ label: 'Ben' });
   await dialog.getByLabel('Amount (INR)').fill('1000');
-  await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+  await footer(page, 'Save');
   await expect(people.getByTestId('splits-person').filter({ hasText: 'Ben' })).toContainText('Owes you ₹1,600.00');
   expect(await page.evaluate(() => (JSON.parse(localStorage.getItem('fx_expenses') || '[]') as unknown[]).length)).toBe(1);
 
   // Mark as settled: the full amount is filled in.
   await page.getByRole('button', { name: 'Mark as settled with Asha' }).click();
   await expect(dialog.getByLabel('Amount (INR)')).toHaveValue('600');
-  await dialog.getByRole('button', { name: 'Mark as settled' }).click();
+  await footer(page, 'Mark as settled');
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(people.getByTestId('splits-person').filter({ hasText: 'Asha' })).toContainText('Settled up');
   await expect(page.getByTestId('splits-activity')).toContainText('Asha paid you ₹600.00');
@@ -75,13 +81,13 @@ test('deleting a bill takes your share out of the tracker', async ({ page }) => 
   await dialog.getByLabel('What was it for?').fill('Chai');
   await addPerson(page, 'Asha');
   await addPerson(page, 'Ben');
-  await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+  await footer(page, 'Save');
   // ₹100 three ways: the spare paisa is yours.
   await expect(page.getByTestId('splits-activity')).toContainText('your share ₹33.34');
 
   await page.getByTestId('splits-activity').getByRole('button', { name: /Chai/ }).click();
-  await dialog.getByRole('button', { name: 'Delete' }).click();
-  await dialog.getByRole('button', { name: 'Delete' }).click();
+  await footer(page, 'Delete');
+  await footer(page, 'Delete');
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByTestId('splits-person').filter({ hasText: 'Asha' })).toContainText('Settled up');
   expect(await page.evaluate(() => (JSON.parse(localStorage.getItem('fx_expenses') || '[]') as Array<{ id: string }>)
