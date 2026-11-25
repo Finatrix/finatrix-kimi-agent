@@ -48,7 +48,7 @@ export type { ToolId } from './toolCount';
  * with the page rendered behind it — a broken status on a link the app's own
  * navigation offers.
  */
-const APP_TOOL_ROUTES = ['dashboard', 'reports', 'calendar', 'moneycalendar', 'subscriptions', 'settings'] as const;
+const APP_TOOL_ROUTES = ['dashboard', 'reports', 'calendar', 'moneycalendar', 'subscriptions', 'groups', 'settings'] as const;
 
 /**
  * Where a Supabase password-recovery link lands.

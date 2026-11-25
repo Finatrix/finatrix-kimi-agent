@@ -465,3 +465,44 @@ export function groupNote(merchant: string, note: string): string | null {
 export function pendingExpenseRow(op: Extract<OutboxOp, { op: 'expense.add' }>, meId: string | null): GroupExpenseRow {
   return { ...op.row, created_by: meId, created_at: op.at, updated_by: meId, updated_at: op.at, deleted_at: null };
 }
+
+/* ------------------------------------------------------------------------ */
+/* Words for what went wrong                                                 */
+/* ------------------------------------------------------------------------ */
+
+const MESSAGES: Record<string, string> = {
+  adult_confirmation_required: 'Please confirm you are 18 or over.',
+  too_many_groups: 'You are in 50 groups already, the most anyone can be in. Leave one first.',
+  group_full: 'This group has 20 members already, the most a group can have.',
+  not_found: 'No group has that code. Check it with the person who shared it.',
+  expired: 'That code has expired. Codes last 7 days: ask for a new one.',
+  invalid_code: 'That isn’t a room code. Codes look like FX-7K2P9Q.',
+  invalid_name: 'Use a name of 1 to 40 characters.',
+  signed_out: 'Sign in to use groups.',
+  rate_limited: 'Too many codes tried. Please wait a while and try again.',
+  unavailable: 'Joining is unavailable just now. Please try again later.',
+  not_group_admin: 'Only the group’s admin can do that.',
+  not_group_member: 'You are no longer in this group.',
+  use_leave_group: 'To take yourself out, use Leave group.',
+};
+
+export function groupErrorMessage(code: string | undefined): string {
+  if (code && MESSAGES[code]) return MESSAGES[code];
+  if (code && /fetch|network|load failed/i.test(code)) return 'You seem to be offline. Please try again when you’re connected.';
+  return 'Something went wrong. Please try again.';
+}
+
+/** "just now", "5 min ago", "3 h ago", then the date. */
+export function timeAgo(iso: string, now: Date = new Date()): string {
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return '';
+  const s = Math.max(0, Math.round((now.getTime() - t) / 1000));
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+  return new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+}
+
+export function capitalize(text: string): string {
+  return text ? text[0].toUpperCase() + text.slice(1) : text;
+}

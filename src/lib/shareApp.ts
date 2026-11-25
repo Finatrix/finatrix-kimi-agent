@@ -39,24 +39,35 @@ function isAbort(e: unknown): boolean {
   return /abort|cancel/i.test(msg);
 }
 
-export async function shareApp(): Promise<ShareOutcome> {
-  const url = shareUrl();
+/**
+ * Share a link through the phone's share sheet, or the browser's, and copy it
+ * when neither exists. Used for FinatriX itself and for group invites.
+ */
+export async function shareLink({ title, text, url, dialogTitle }: {
+  title: string; text: string; url: string; dialogTitle?: string;
+}): Promise<ShareOutcome> {
   try {
     if (isNativeApp()) {
       const { Share } = await import('@capacitor/share');
-      await Share.share({ title: SHARE_TITLE, text: SHARE_TEXT, url, dialogTitle: 'Share FinatriX' });
+      await Share.share({ title, text, url, dialogTitle: dialogTitle ?? title });
       return 'shared';
     }
     if (typeof navigator.share === 'function') {
-      await navigator.share({ title: SHARE_TITLE, text: SHARE_TEXT, url });
+      await navigator.share({ title, text, url });
       return 'shared';
     }
   } catch (e) {
     if (isAbort(e)) return 'cancelled';
     // Any other failure falls through to copying the link.
   }
-  return (await copyToClipboard(`${SHARE_TEXT} ${url}`)) ? 'copied' : 'failed';
+  return (await copyToClipboard(`${text} ${url}`)) ? 'copied' : 'failed';
 }
+
+export function shareApp(): Promise<ShareOutcome> {
+  return shareLink({ title: SHARE_TITLE, text: SHARE_TEXT, url: shareUrl(), dialogTitle: 'Share FinatriX' });
+}
+
+export { copyToClipboard };
 
 export function rateApp(): void {
   const url = rateUrl();

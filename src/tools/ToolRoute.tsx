@@ -32,6 +32,7 @@ const TOOL_PAGES: Record<string, ComponentType> = {
   calendar: lazy(() => import('./pages/CalendarPage')),
   subscriptions: lazy(() => import('./pages/SubscriptionsPage')),
   moneycalendar: lazy(() => import('./pages/MoneyCalendarPage')),
+  groups: lazy(() => import('./pages/GroupsPage')),
   settings: lazy(() => import('./pages/SettingsPage')),
   reference: lazy(() => import('./pages/ReferencePage')),
   all: lazy(() => import('./pages/AllToolsPage')),
