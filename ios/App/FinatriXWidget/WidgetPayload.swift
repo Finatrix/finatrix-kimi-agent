@@ -28,7 +28,12 @@ struct WidgetPayload: Decodable {
     let days: [Day]
 
     static func load() -> WidgetPayload? {
-        guard let json = UserDefaults(suiteName: appGroup)?.string(forKey: key),
+        load(from: UserDefaults(suiteName: appGroup))
+    }
+
+    /// The same read for a caller that already holds the defaults (the watch app).
+    static func load(from defaults: UserDefaults?) -> WidgetPayload? {
+        guard let json = defaults?.string(forKey: key),
               let data = json.data(using: .utf8),
               let payload = try? JSONDecoder().decode(WidgetPayload.self, from: data),
               payload.v == version

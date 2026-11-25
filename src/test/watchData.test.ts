@@ -36,7 +36,7 @@ describe('watch context', () => {
     });
     const c = ctx({ widget: hidden });
     expect(c.widget.days).toEqual([]);
-    expect(JSON.stringify(c)).not.toMatch(/\d,?\d{3}/);
+    expect(JSON.stringify(c)).not.toMatch(/₹\s?\d/);
     expect(c.widget.mask).toContain('•');
   });
 

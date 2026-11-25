@@ -7,7 +7,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        // Started here, not in the plugin: a watch can wake the app in the background
+        // to hand over an expense before the web layer exists (step 3.8).
+        WatchBridge.shared.activate()
         return true
     }
 

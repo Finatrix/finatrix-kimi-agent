@@ -29,6 +29,19 @@
 		FA5900000000000000000004 /* FinatriXWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5900000000000000000003 /* FinatriXWidget.swift */; };
 		FA5900000000000000000006 /* WidgetPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5900000000000000000005 /* WidgetPayload.swift */; };
 		FA590000000000000000000A /* FinatriXWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = FA5900000000000000000009 /* FinatriXWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		FA5A00000000000000000014 /* FinatriXWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5A00000000000000000007 /* FinatriXWatchApp.swift */; };
+		FA5A00000000000000000015 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5A00000000000000000008 /* ContentView.swift */; };
+		FA5A00000000000000000016 /* QuickAddView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5A00000000000000000009 /* QuickAddView.swift */; };
+		FA5A00000000000000000017 /* WatchSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5A0000000000000000000A /* WatchSession.swift */; };
+		FA5A00000000000000000018 /* WatchLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5A0000000000000000000B /* WatchLogic.swift */; };
+		FA5A00000000000000000019 /* WidgetPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5900000000000000000005 /* WidgetPayload.swift */; };
+		FA5A0000000000000000001A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FA5A0000000000000000000E /* Assets.xcassets */; };
+		FA5A0000000000000000001B /* FinatriXWatchWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5A00000000000000000011 /* FinatriXWatchWidget.swift */; };
+		FA5A0000000000000000001C /* WidgetPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5900000000000000000005 /* WidgetPayload.swift */; };
+		FA5A0000000000000000001D /* WatchBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5A00000000000000000012 /* WatchBridge.swift */; };
+		FA5A0000000000000000001E /* FxWatchPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5A00000000000000000013 /* FxWatchPlugin.swift */; };
+		FA5A0000000000000000001F /* FinatriXWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = FA5A00000000000000000003 /* FinatriXWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		FA5A00000000000000000020 /* FinatriXWatchWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = FA5A00000000000000000004 /* FinatriXWatchWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -46,6 +59,20 @@
 			remoteGlobalIDString = FA590000000000000000000C;
 			remoteInfo = FinatriXWidget;
 		};
+		FA5A00000000000000000029 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FA5A00000000000000000001;
+			remoteInfo = FinatriXWatch;
+		};
+		FA5A0000000000000000002A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FA5A00000000000000000002;
+			remoteInfo = FinatriXWatchWidget;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -57,6 +84,28 @@
 			files = (
 				FA5800000000000000000008 /* ShareExtension.appex in Embed Foundation Extensions */,
 				FA590000000000000000000A /* FinatriXWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FA5A00000000000000000028 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				FA5A0000000000000000001F /* FinatriXWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FA5A00000000000000000024 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				FA5A00000000000000000020 /* FinatriXWatchWidget.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -93,6 +142,21 @@
 		FA5900000000000000000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		FA5900000000000000000008 /* FinatriXWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FinatriXWidget.entitlements; sourceTree = "<group>"; };
 		FA5900000000000000000009 /* FinatriXWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FinatriXWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		FA5A00000000000000000007 /* FinatriXWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinatriXWatchApp.swift; sourceTree = "<group>"; };
+		FA5A00000000000000000008 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		FA5A00000000000000000009 /* QuickAddView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickAddView.swift; sourceTree = "<group>"; };
+		FA5A0000000000000000000A /* WatchSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchSession.swift; sourceTree = "<group>"; };
+		FA5A0000000000000000000B /* WatchLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchLogic.swift; sourceTree = "<group>"; };
+		FA5A0000000000000000000C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		FA5A0000000000000000000D /* FinatriXWatch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FinatriXWatch.entitlements; sourceTree = "<group>"; };
+		FA5A0000000000000000000E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		FA5A00000000000000000011 /* FinatriXWatchWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinatriXWatchWidget.swift; sourceTree = "<group>"; };
+		FA5A0000000000000000000F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		FA5A00000000000000000010 /* FinatriXWatchWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FinatriXWatchWidget.entitlements; sourceTree = "<group>"; };
+		FA5A00000000000000000012 /* WatchBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchBridge.swift; sourceTree = "<group>"; };
+		FA5A00000000000000000013 /* FxWatchPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FxWatchPlugin.swift; sourceTree = "<group>"; };
+		FA5A00000000000000000003 /* FinatriXWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FinatriXWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		FA5A00000000000000000004 /* FinatriXWatchWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FinatriXWatchWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -118,6 +182,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		FA5A00000000000000000022 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FA5A00000000000000000026 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -128,6 +206,8 @@
 				504EC3061FED79650016851F /* App */,
 				FA5800000000000000000009 /* ShareExtension */,
 				FA590000000000000000000B /* FinatriXWidget */,
+				FA5A00000000000000000005 /* FinatriXWatch */,
+				FA5A00000000000000000006 /* FinatriXWatchWidget */,
 				504EC3051FED79650016851F /* Products */,
 			);
 			sourceTree = "<group>";
@@ -138,6 +218,8 @@
 				504EC3041FED79650016851F /* App.app */,
 				FA5800000000000000000007 /* ShareExtension.appex */,
 				FA5900000000000000000009 /* FinatriXWidget.appex */,
+				FA5A00000000000000000003 /* FinatriXWatch.app */,
+				FA5A00000000000000000004 /* FinatriXWatchWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -153,6 +235,8 @@
 				FA5700000000000000000007 /* FileExportPlugin.swift */,
 				FA5800000000000000000001 /* FxSharePlugin.swift */,
 				FA5900000000000000000001 /* FxWidgetPlugin.swift */,
+				FA5A00000000000000000012 /* WatchBridge.swift */,
+				FA5A00000000000000000013 /* FxWatchPlugin.swift */,
 				FA5700000000000000000004 /* PrivacyInfo.xcprivacy */,
 				FA5700000000000000000006 /* App.entitlements */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
@@ -188,6 +272,31 @@
 			path = FinatriXWidget;
 			sourceTree = "<group>";
 		};
+		FA5A00000000000000000005 /* FinatriXWatch */ = {
+			isa = PBXGroup;
+			children = (
+				FA5A00000000000000000007 /* FinatriXWatchApp.swift */,
+				FA5A00000000000000000008 /* ContentView.swift */,
+				FA5A00000000000000000009 /* QuickAddView.swift */,
+				FA5A0000000000000000000A /* WatchSession.swift */,
+				FA5A0000000000000000000B /* WatchLogic.swift */,
+				FA5A0000000000000000000E /* Assets.xcassets */,
+				FA5A0000000000000000000C /* Info.plist */,
+				FA5A0000000000000000000D /* FinatriXWatch.entitlements */,
+			);
+			path = FinatriXWatch;
+			sourceTree = "<group>";
+		};
+		FA5A00000000000000000006 /* FinatriXWatchWidget */ = {
+			isa = PBXGroup;
+			children = (
+				FA5A00000000000000000011 /* FinatriXWatchWidget.swift */,
+				FA5A0000000000000000000F /* Info.plist */,
+				FA5A00000000000000000010 /* FinatriXWatchWidget.entitlements */,
+			);
+			path = FinatriXWatchWidget;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -199,12 +308,14 @@
 				504EC3011FED79650016851F /* Frameworks */,
 				504EC3021FED79650016851F /* Resources */,
 				FA580000000000000000000E /* Embed Foundation Extensions */,
+				FA5A00000000000000000028 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				FA5800000000000000000010 /* PBXTargetDependency */,
 				FA5900000000000000000011 /* PBXTargetDependency */,
+				FA5A0000000000000000002B /* PBXTargetDependency */,
 			);
 			name = App;
 			packageProductDependencies = (
@@ -248,6 +359,42 @@
 			productReference = FA5900000000000000000009 /* FinatriXWidget.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		FA5A00000000000000000001 /* FinatriXWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FA5A0000000000000000002D /* Build configuration list for PBXNativeTarget "FinatriXWatch" */;
+			buildPhases = (
+				FA5A00000000000000000021 /* Sources */,
+				FA5A00000000000000000022 /* Frameworks */,
+				FA5A00000000000000000023 /* Resources */,
+				FA5A00000000000000000024 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FA5A0000000000000000002C /* PBXTargetDependency */,
+			);
+			name = FinatriXWatch;
+			productName = FinatriXWatch;
+			productReference = FA5A00000000000000000003 /* FinatriXWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
+		FA5A00000000000000000002 /* FinatriXWatchWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FA5A00000000000000000030 /* Build configuration list for PBXNativeTarget "FinatriXWatchWidget" */;
+			buildPhases = (
+				FA5A00000000000000000025 /* Sources */,
+				FA5A00000000000000000026 /* Frameworks */,
+				FA5A00000000000000000027 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FinatriXWatchWidget;
+			productName = FinatriXWatchWidget;
+			productReference = FA5A00000000000000000004 /* FinatriXWatchWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -267,6 +414,14 @@
 						ProvisioningStyle = Automatic;
 					};
 					FA590000000000000000000C = {
+						CreatedOnToolsVersion = 26.0;
+						ProvisioningStyle = Automatic;
+					};
+					FA5A00000000000000000001 = {
+						CreatedOnToolsVersion = 26.0;
+						ProvisioningStyle = Automatic;
+					};
+					FA5A00000000000000000002 = {
 						CreatedOnToolsVersion = 26.0;
 						ProvisioningStyle = Automatic;
 					};
@@ -291,6 +446,8 @@
 				504EC3031FED79650016851F /* App */,
 				FA580000000000000000000A /* ShareExtension */,
 				FA590000000000000000000C /* FinatriXWidget */,
+				FA5A00000000000000000001 /* FinatriXWatch */,
+				FA5A00000000000000000002 /* FinatriXWatchWidget */,
 			);
 		};
 /* End PBXProject section */
@@ -324,6 +481,21 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		FA5A00000000000000000023 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FA5A0000000000000000001A /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FA5A00000000000000000027 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -340,6 +512,8 @@
 				FA5700000000000000000008 /* FileExportPlugin.swift in Sources */,
 				FA5800000000000000000002 /* FxSharePlugin.swift in Sources */,
 				FA5900000000000000000002 /* FxWidgetPlugin.swift in Sources */,
+				FA5A0000000000000000001D /* WatchBridge.swift in Sources */,
+				FA5A0000000000000000001E /* FxWatchPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -360,6 +534,28 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		FA5A00000000000000000021 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FA5A00000000000000000014 /* FinatriXWatchApp.swift in Sources */,
+				FA5A00000000000000000015 /* ContentView.swift in Sources */,
+				FA5A00000000000000000016 /* QuickAddView.swift in Sources */,
+				FA5A00000000000000000017 /* WatchSession.swift in Sources */,
+				FA5A00000000000000000018 /* WatchLogic.swift in Sources */,
+				FA5A00000000000000000019 /* WidgetPayload.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FA5A00000000000000000025 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FA5A0000000000000000001B /* FinatriXWatchWidget.swift in Sources */,
+				FA5A0000000000000000001C /* WidgetPayload.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -372,6 +568,16 @@
 			isa = PBXTargetDependency;
 			target = FA590000000000000000000C /* FinatriXWidget */;
 			targetProxy = FA5900000000000000000010 /* PBXContainerItemProxy */;
+		};
+		FA5A0000000000000000002B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FA5A00000000000000000001 /* FinatriXWatch */;
+			targetProxy = FA5A00000000000000000029 /* PBXContainerItemProxy */;
+		};
+		FA5A0000000000000000002C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FA5A00000000000000000002 /* FinatriXWatchWidget */;
+			targetProxy = FA5A0000000000000000002A /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -646,6 +852,114 @@
 			};
 			name = Release;
 		};
+		FA5A0000000000000000002E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FinatriXWatch/FinatriXWatch.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 11;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FinatriXWatch/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = co.finatrix.app.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+			};
+			name = Debug;
+		};
+		FA5A0000000000000000002F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FinatriXWatch/FinatriXWatch.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 11;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FinatriXWatch/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = co.finatrix.app.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+			};
+			name = Release;
+		};
+		FA5A00000000000000000031 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FinatriXWatchWidget/FinatriXWatchWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 11;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FinatriXWatchWidget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = co.finatrix.app.watchkitapp.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		FA5A00000000000000000032 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FinatriXWatchWidget/FinatriXWatchWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 11;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FinatriXWatchWidget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = co.finatrix.app.watchkitapp.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -681,6 +995,24 @@
 			buildConfigurations = (
 				FA5900000000000000000012 /* Debug */,
 				FA5900000000000000000013 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FA5A0000000000000000002D /* Build configuration list for PBXNativeTarget "FinatriXWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FA5A0000000000000000002E /* Debug */,
+				FA5A0000000000000000002F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FA5A00000000000000000030 /* Build configuration list for PBXNativeTarget "FinatriXWatchWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FA5A00000000000000000031 /* Debug */,
+				FA5A00000000000000000032 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

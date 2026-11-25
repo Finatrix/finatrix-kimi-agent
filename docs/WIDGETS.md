@@ -69,3 +69,8 @@ each formula.
 `co.finatrix.app://widget/add` opens the add-expense form and
 `co.finatrix.app://widget/open` the Expenses page (`src/native/bridge.ts`).
 Nothing else in the URL is read.
+
+## The watch
+
+The Apple Watch app (step 3.8) wraps this document unchanged inside its own
+`WatchContext` and follows the same rules. See [WATCH.md](WATCH.md).

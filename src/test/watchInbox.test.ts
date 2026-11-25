@@ -99,7 +99,7 @@ describe('ingestWatchExpenses', () => {
   });
 
   it('resolves a legacy category key like every other reader', () => {
-    ingestWatchExpenses([entry({ category: 'food' })], NOW);
+    ingestWatchExpenses([entry({ category: 'grocery' })], NOW);
     expect(loadExpenses()[0].category).toBe('groceries');
   });
 

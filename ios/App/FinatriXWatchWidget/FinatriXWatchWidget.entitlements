@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  The watch app writes what the phone sends into this App Group on the watch,
+  and the complication reads it. The group must be enabled for the watch bundle
+  ids in the Apple Developer account (docs/WATCH.md, owner follow-ups).
+-->
+<plist version="1.0">
+<dict>
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.co.finatrix.app</string>
+	</array>
+</dict>
+</plist>
