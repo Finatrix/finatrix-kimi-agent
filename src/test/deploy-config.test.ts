@@ -656,3 +656,37 @@ describe('edge function deploy coverage', () => {
     for (const scope of scopes) expect(latestPrune).toContain(`'${scope}'`);
   });
 });
+
+/**
+ * Deploy runs only `npm run test:e2e:release`; the full suite runs in CI. A
+ * spec that reads the build's client config (`loadEnv`) skips its tests on
+ * CI's unconfigured bundle, so the deploy-time run is the only place they
+ * execute. Leave one out of that script and its tests run nowhere while every
+ * gate stays green. `ai-voice.spec.ts` was nearly the first: it reached main
+ * in the same week the full suite left Deploy.
+ */
+describe('deploy-time browser run', () => {
+  const script = (JSON.parse(read('package.json')) as { scripts: Record<string, string> })
+    .scripts['test:e2e:release'] ?? '';
+  const releaseSpecs = script.match(/e2e\/[\w.-]+\.spec\.ts/g) ?? [];
+  const configuredOnly = readdirSync(join(root, 'e2e'))
+    .filter((file) => file.endsWith('.spec.ts') && /\bloadEnv\(/.test(read(`e2e/${file}`)))
+    .map((file) => `e2e/${file}`);
+
+  it('is what the Deploy workflow runs, and finds the specs it guards', () => {
+    expect(read('.github/workflows/deploy.yml')).toMatch(/run: npm run test:e2e:release\n/);
+    expect(configuredOnly).toContain('e2e/ai-intelligence.spec.ts');
+  });
+
+  it.each(configuredOnly)('%s runs at deploy time', (spec) => {
+    expect(releaseSpecs).toContain(spec);
+  });
+
+  // e2e/support/fixtures.ts keeps analytics inside the runner. A release spec
+  // that imports `test` from '@playwright/test' instead would post its page
+  // views to production analytics on every deploy.
+  it.each(releaseSpecs)('%s keeps its analytics inside the runner', (spec) => {
+    expect(read(spec)).toMatch(/import \{[^}]*\btest\b[^}]*\} from '\.\/support\/fixtures';/);
+  });
+});
+
