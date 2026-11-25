@@ -2,6 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Gemini Nano (OnDeviceAiPlugin.java) needs API 26; the app supports 24.
+         The plugin checks the version before touching these libraries. -->
+    <uses-sdk tools:overrideLibrary="com.google.mlkit.genai.prompt, com.google.mlkit.genai.common" />
+
     <!-- Backup: a phone-to-phone transfer carries everything (Android 12+);
          cloud backup excludes the WebView storage, which holds the session's
          refresh token in the same database as on-device tool data. Rules and

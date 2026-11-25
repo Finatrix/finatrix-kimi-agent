@@ -6,6 +6,7 @@
  */
 import { ACCOUNT_LOCAL_KEYS, SYNC_KEYS } from '../cloudSync';
 import { ymdLocal } from '../../lib/date';
+import { clearPhotos } from '../../lib/billPhotos';
 import { downloadBlob } from './exporters';
 import { clearNotificationState } from './notifications';
 import { store } from './storage';
@@ -35,6 +36,8 @@ const KEY_LABEL: Record<string, string> = {
   fx_peercompare: 'PeerCompare', fx_lifemap: 'LifeMap', fx_networth: 'Net Worth',
   fx_currency: 'Currency',
   fx_trips: 'Trips',
+  fx_split_people: 'Splits: people',
+  fx_split_entries: 'Splits: bills and money lent',
 };
 
 export interface DataArea { key: string; label: string; present: boolean; bytes: number }
@@ -84,6 +87,7 @@ export function resetAllData(): number {
   // Clear notification read/dismiss state first, then hard-remove every key so
   // nothing is written back afterwards (leaves storage genuinely empty).
   clearNotificationState();
+  void clearPhotos(); // the bill locker's photos live outside the key store
   let n = 0;
   for (const k of [...SYNC_KEYS, ...ACCOUNT_LOCAL_KEYS, ...LOCAL_ONLY_KEYS]) {
     try {

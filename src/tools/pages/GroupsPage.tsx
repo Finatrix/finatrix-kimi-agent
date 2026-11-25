@@ -216,9 +216,15 @@ export default function GroupsPage() {
 
 function Foot() {
   return (
-    <ToolFoot>
+    <>
+      {/* Step 2.5: friends who aren't on FinatriX go through Splits instead. */}
+      <p className="note" style={{ margin: '0 0 14px' }} data-testid="grp-splits-link">
+        Splitting with friends who aren’t on FinatriX? Use <Link to="/tools/splits" className="fx-inline-link">Splits</Link>: they don’t need the app.
+      </p>
+      <ToolFoot>
       Educational tools — not financial advice · <a href="/privacy" target="_top">Privacy</a> ·{' '}
       <a href="/terms" target="_top">Terms</a> · Built with care by <b>FinatriX</b>
-    </ToolFoot>
+      </ToolFoot>
+    </>
   );
 }

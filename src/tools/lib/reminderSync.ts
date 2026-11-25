@@ -4,6 +4,7 @@ import { getJSON, setJSON } from './storage';
 import { getUpcomingEvents } from './calendar';
 import { readDashboard } from './dashboard';
 import { currentRadarEvents, dropMutedBills } from './subscriptions';
+import { loadLocker, warrantyEvents } from './locker';
 import type { ExpenseItem } from './expense';
 import {
   REMINDER_HORIZON_DAYS, alwaysOn, loadReminderPrefs, planReminders, type PlannedReminder,
@@ -26,6 +27,7 @@ export function currentPlan(now = new Date()): PlannedReminder[] {
     // A bill whose reminder is switched off drops out of "due tomorrow" too.
     upcoming: dropMutedBills(getUpcomingEvents(now, REMINDER_HORIZON_DAYS + 1), radar.muted),
     radar: radar.events,
+    warranties: warrantyEvents(loadLocker(), ymdLocal(now)),
     overspent: snap.netCashflow != null && snap.netCashflow < 0,
   });
 }

@@ -12,6 +12,9 @@
  * inline message). Adding a second consumer must never mean a second copy of
  * the transport.
  *
+ * On a phone with its own AI model, a suitable task is answered there first
+ * (`onDevice.ts`), after the same consent gate, and the cloud is the fallback.
+ *
  * The edge function requests `response_format: json_object`, so every task
  * — including conversational ones — asks the model for a JSON object.
  */
@@ -20,6 +23,7 @@ import { supabase, isSupabaseConfigured } from '../supabase';
 import { invokeAuthed, readAccessToken } from '../functions';
 import { hasAiConsent } from './consent';
 import { logAiUsage } from './usage';
+import { tryOnDevice } from './onDevice';
 
 export interface AiCompletionRequest {
   /** Opaque label used for metering and observability (e.g. 'parse', 'chat'). */
@@ -29,6 +33,12 @@ export interface AiCompletionRequest {
   /** Preferred model id; empty/undefined lets the server pick its default chain. */
   model?: string;
   maxTokens?: number;
+  /**
+   * The caller's own test of a usable reply, applied only to an answer from
+   * the phone's on-device model: one that fails it goes to the cloud instead.
+   * See `onDevice.ts`.
+   */
+  acceptLocal?: (content: string) => boolean;
 }
 
 export interface AiCompletionSuccess {
@@ -40,6 +50,8 @@ export interface AiCompletionSuccess {
   ms: number;
   promptTokens: number;
   completionTokens: number;
+  /** True when the phone's own model answered and nothing left the device. */
+  onDevice?: boolean;
 }
 
 /**
@@ -139,6 +151,15 @@ export async function requestCompletion(req: AiCompletionRequest): Promise<AiCom
     }
     if (!token) return { ok: false, kind: 'no-session', message: '' };
     return { ok: false, kind: 'no-consent', message: '' };
+  }
+
+  // The phone's own model first, where there is one and the task suits it —
+  // behind the same gate as the cloud, never instead of it. Anything short of
+  // a usable answer falls through to the cloud below, unchanged. Not metered:
+  // it costs nothing and nothing about it leaves the device.
+  const local = await tryOnDevice(req);
+  if (local.ok) {
+    return { ok: true, content: local.content, model: local.model, ms: local.ms, promptTokens: 0, completionTokens: 0, onDevice: true };
   }
 
   const started = Date.now();

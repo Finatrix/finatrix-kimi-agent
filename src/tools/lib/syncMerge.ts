@@ -51,6 +51,15 @@ export const EXPENSES_KEY = 'fx_expenses';
 /** Travel mode's trips (`trips.ts` takes the key from here, so the two cannot drift). */
 export const TRIPS_KEY = 'fx_trips';
 
+/**
+ * Splits with people not on FinatriX (`splits.ts`): the people and the entries.
+ * Records shaped like trips (an id, `updatedAt`, a `deletedAt` mark), so they
+ * merge the same way, by `mergeTrips`.
+ */
+export const SPLIT_PEOPLE_KEY = 'fx_split_people';
+export const SPLIT_ENTRIES_KEY = 'fx_split_entries';
+const BY_ID_KEYS: ReadonlySet<string> = new Set([TRIPS_KEY, SPLIT_PEOPLE_KEY, SPLIT_ENTRIES_KEY]);
+
 type Row = Record<string, unknown>;
 
 function parseArray(raw: string | null | undefined): Row[] | null {
@@ -447,7 +456,7 @@ export function mergeCloudBlob(
       value = auditRaw;
     } else if (key === LEARNED_KEY) {
       value = mergeLearnedMerchants(localRaw, remoteRaw);
-    } else if (key === TRIPS_KEY) {
+    } else if (BY_ID_KEYS.has(key)) {
       value = mergeTrips(localRaw, remoteRaw);
     } else {
       value = pending.has(key) ? localRaw : (remoteRaw ?? localRaw);
