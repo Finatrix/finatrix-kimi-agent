@@ -227,7 +227,7 @@ export default function ExpensePage() {
     const off = onLocalWrite((key, origin) => {
       // Sync merged in rows from another device. Without re-reading, this page
       // would write its older list back on the next edit and drop them.
-      if (origin === 'remote') {
+      if (origin === 'remote' || origin === 'device') {
         if (key === 'fx_expenses') setItems(loadExpenses());
         if (key === AUDIT_KEY) setAudit(loadAuditLog());
       }
