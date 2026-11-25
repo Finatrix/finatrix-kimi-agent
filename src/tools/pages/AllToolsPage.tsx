@@ -157,6 +157,7 @@ export default function AllToolsPage() {
         <LinkRow to="/tools/calendar" label="Calendar" detail="Bills and scheduled spending by day." icon="calendar" />
         <LinkRow to="/tools/moneycalendar" label="Money calendar" detail="Your estimated balance, day by day, for 30–90 days." icon="calendar" />
         <LinkRow to="/tools/subscriptions" label="Subscriptions" detail="What they cost a year, and reminders." icon="calendar" />
+        <LinkRow to="/tools/locker" label="Bill locker" detail="Bills, photos and warranty reminders." icon="privacy" />
       </Group>
 
       <Group title="Plan ahead">

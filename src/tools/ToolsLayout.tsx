@@ -164,7 +164,7 @@ function ToolTabs() {
    for navigation between top-level destinations). */
 const BOTTOM_NAV_TOOLS = ['budget', 'expenses', 'goals'] as const;
 /** Pages that belong to the All tools tab rather than one of the other four. */
-const HUB_PATHS = new Set(['all', 'settings', 'reports', 'calendar', 'moneycalendar', 'subscriptions', 'reference', 'networth', 'investmatch', 'parksmart', 'peercompare', 'lifemap']);
+const HUB_PATHS = new Set(['all', 'settings', 'reports', 'calendar', 'moneycalendar', 'subscriptions', 'locker', 'reference', 'networth', 'investmatch', 'parksmart', 'peercompare', 'lifemap']);
 const BOTTOM_NAV_ICONS: Record<string, ReactElement> = {
   dashboard: (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -544,7 +544,7 @@ export default function ToolsLayout() {
                 from it: "Tour this page" (the breadcrumb and Back are
                 website chrome; the system BACK replaces them there). */}
             <div className="fx-crumbrow">
-              <Breadcrumb parent={{ label: 'Money tools', to: '/tools' }} current={activeTool === 'dashboard' ? 'Dashboard' : activeTool === 'reports' ? 'Reports' : activeTool === 'calendar' ? 'Calendar' : activeTool === 'moneycalendar' ? 'Money calendar' : activeTool === 'subscriptions' ? 'Subscriptions' : activeTool === 'settings' ? 'Settings' : activeTool === 'all' ? 'All tools' : (TOOLS.find((t) => t.id === activeTool)?.name ?? 'Tools')} />
+              <Breadcrumb parent={{ label: 'Money tools', to: '/tools' }} current={activeTool === 'dashboard' ? 'Dashboard' : activeTool === 'reports' ? 'Reports' : activeTool === 'calendar' ? 'Calendar' : activeTool === 'moneycalendar' ? 'Money calendar' : activeTool === 'subscriptions' ? 'Subscriptions' : activeTool === 'locker' ? 'Bill locker' : activeTool === 'settings' ? 'Settings' : activeTool === 'all' ? 'All tools' : (TOOLS.find((t) => t.id === activeTool)?.name ?? 'Tools')} />
               <div className="fx-crumbrow-end">
                 {ready && <TourPageButton />}
                 <span data-web-only className="fx-crumbrow-back"><BackButton /></span>

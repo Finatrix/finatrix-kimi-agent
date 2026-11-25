@@ -57,6 +57,11 @@ const SURFACES = [
   { id: 'investmatch', path: '/tools/investmatch' },
   { id: 'lifemap', path: '/tools/lifemap' },
   { id: 'alltools', path: '/tools/all' },
+  // Seeded with a bill that has a warranty still running and one with none, so the list rows are measured too.
+  { id: 'locker', path: '/tools/locker', storage: { fx_locker: JSON.stringify([
+    { id: 'a', product: 'Samsung TV', shop: 'Croma', purchased: '2026-03-15', warrantyEnd: '2027-03-14', price: 42000, note: '', photoIds: [], remind: true, addedAt: 2 },
+    { id: 'b', product: 'Running shoes', shop: 'Decathlon', purchased: '2026-10-01', warrantyEnd: null, price: null, note: '', photoIds: [], remind: true, addedAt: 1 },
+  ]) } },
   { id: 'careers', path: '/careers' },
   { id: 'learn', path: '/learn', follow: /^\/learn\/[^/]+\/[^/]+$/ },
   { id: 'legal', path: '/privacy' },

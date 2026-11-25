@@ -28,6 +28,7 @@ const TOOLS = [
   '/tools/calendar',
   '/tools/moneycalendar',
   '/tools/subscriptions',
+  '/tools/locker',
   '/tools/settings',
   // Not a calculator, so not in TOOL_IDS — but it is a real reading surface
   // with tables, a select and several dozen external links, and it is held to

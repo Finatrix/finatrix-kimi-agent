@@ -4,6 +4,7 @@ import type { ExpenseItem } from './expense';
 import type { FinEvent } from './calendar';
 import { MIDDAY_LINES, MORNING_LINES, dayNumber, lineForDay } from './dailyLines';
 import { RENEWAL_LEAD_DAYS, daysBetween, type RadarEvent } from './subscriptions';
+import { WARRANTY_LEAD_DAYS, type WarrantyEvent } from './locker';
 
 /**
  * Reminders — what to tell someone, and when.
@@ -147,11 +148,18 @@ export interface ReminderContext {
    * the evening slot with everything else, so they never add a notification.
    */
   radar?: ReadonlyArray<RadarEvent>;
+  /**
+   * Warranties in the bill locker (lib/locker). Same slot, same rule: they
+   * never add a notification, only a line in the evening one.
+   */
+  warranties?: ReadonlyArray<WarrantyEvent>;
 }
 
 interface RadarLine {
   text: string;
   body: string;
+  /** Where a tap goes when this is the only thing named. */
+  href: string;
 }
 
 const plural = (n: number) => (n === 1 ? 'day' : 'days');
@@ -171,14 +179,27 @@ function radarLinesFor(day: Date, offset: number, ctx: ReminderContext): RadarLi
     const ahead = daysBetween(today, e.date);
     if (e.kind === 'renews') {
       if (ahead === RENEWAL_LEAD_DAYS) {
-        lines.push({ text: `${e.title} renews in ${RENEWAL_LEAD_DAYS} days`, body: 'Open FinatriX to check it, or switch this reminder off.' });
+        lines.push({ text: `${e.title} renews in ${RENEWAL_LEAD_DAYS} days`, body: 'Open FinatriX to check it, or switch this reminder off.', href: '/tools/subscriptions' });
       } else if (ahead === -1) {
-        lines.push({ text: `Paid ${e.title}? Log it`, body: 'One tap in FinatriX logs it with the usual amount.' });
+        lines.push({ text: `Paid ${e.title}? Log it`, body: 'One tap in FinatriX logs it with the usual amount.', href: '/tools/subscriptions' });
       }
     } else if (ahead === RENEWAL_LEAD_DAYS || (offset === 0 && ahead >= 1 && ahead < RENEWAL_LEAD_DAYS)) {
       lines.push({
         text: `${e.title} free trial ends ${ahead === 1 ? 'tomorrow' : `in ${ahead} ${plural(ahead)}`}`,
         body: 'Decide before it turns into a paid plan.',
+        href: '/tools/subscriptions',
+      });
+    }
+  }
+  // A warranty is named 30 and 7 days before its last covered day. No amounts,
+  // and nothing for one added late: the bell in the app carries those.
+  for (const w of ctx.warranties ?? []) {
+    const ahead = daysBetween(today, w.end);
+    if ((WARRANTY_LEAD_DAYS as readonly number[]).includes(ahead)) {
+      lines.push({
+        text: `${w.product} warranty ends in ${ahead} days`,
+        body: 'Open FinatriX to see the bill, or switch this reminder off.',
+        href: '/tools/locker',
       });
     }
   }
@@ -233,7 +254,9 @@ function eveningFor(
     // several are counted and the list is in the app.
     const count = radar.length + due.length;
     return {
-      id, kind: 'upcoming', at, href: '/tools/subscriptions',
+      id, kind: 'upcoming', at,
+      // Several things waiting: the page they share, else the dashboard.
+      href: radar.every((l) => l.href === radar[0].href) ? radar[0].href : '/tools/dashboard',
       title: count === 1 ? radar[0].text : `${count} payments and renewals to look at`,
       body: count === 1 ? radar[0].body : 'Open FinatriX to see them all.',
     };
