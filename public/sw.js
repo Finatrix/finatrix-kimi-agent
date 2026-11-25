@@ -305,8 +305,69 @@ async function navigationHandler(event, request) {
   }
 }
 
+/* ── Web share target ──────────────────────────────────────────────────
+ * manifest.webmanifest's `share_target` makes the installed web app appear in
+ * the phone's share sheet. The browser POSTs the shared images here. They go
+ * into the same IndexedDB inbox the page reads (src/lib/shareInbox.ts, whose
+ * names these must match: src/test/shareInbox.test.ts), and the page is sent
+ * to the Expense Tracker, which opens the screenshot import with them. Nothing
+ * is uploaded: the POST never leaves this device, because this worker answers
+ * it. Nothing is saved to the ledger until the user reviews it there.
+ */
+const SHARE_TARGET_PATH = '/share-target';
+const SHARE_DB = 'fx-share-inbox';
+const SHARE_STORE = 'files';
+const SHARE_DB_VERSION = 1;
+const SHARE_MAX_FILES = 10;
+const SHARE_MAX_BYTES = 15 * 1024 * 1024;
+const SHARE_LANDING = '/tools/expenses?share=1';
+const SHARE_FAILED = '/tools/expenses?share=failed';
+
+function openShareInbox() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(SHARE_DB, SHARE_DB_VERSION);
+    req.onupgradeneeded = () => {
+      if (!req.result.objectStoreNames.contains(SHARE_STORE)) {
+        req.result.createObjectStore(SHARE_STORE, { autoIncrement: true });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function receiveShare(request) {
+  try {
+    const form = await request.formData();
+    const files = form.getAll('files')
+      .filter((f) => f instanceof Blob && f.size > 0 && f.size <= SHARE_MAX_BYTES && /^image\//i.test(f.type || ''))
+      .slice(0, SHARE_MAX_FILES);
+    if (!files.length) return Response.redirect(SHARE_FAILED, 303);
+    const db = await openShareInbox();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(SHARE_STORE, 'readwrite');
+      const store = tx.objectStore(SHARE_STORE);
+      store.clear();
+      const at = Date.now();
+      for (const file of files) store.add({ name: file.name || '', type: file.type || '', blob: file, at });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+    db.close();
+    return Response.redirect(SHARE_LANDING, 303);
+  } catch {
+    return Response.redirect(SHARE_FAILED, 303);
+  }
+}
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
+  if (request.method === 'POST' && new URL(request.url).pathname === SHARE_TARGET_PATH
+    && new URL(request.url).origin === self.location.origin) {
+    event.respondWith(receiveShare(request));
+    return;
+  }
   if (request.method !== 'GET') return;
 
   let url;
