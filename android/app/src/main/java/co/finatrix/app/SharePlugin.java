@@ -70,6 +70,7 @@ public class SharePlugin extends Plugin {
         if (!Intent.ACTION_SEND.equals(action) && !Intent.ACTION_SEND_MULTIPLE.equals(action)) return;
 
         List<Uri> uris = streams(intent, action);
+        String intentType = type;
         // Consumed: a recreated activity (or the next plugin load) must not
         // import the same share again from the intent it still holds.
         intent.setAction(Intent.ACTION_MAIN);
@@ -80,7 +81,7 @@ public class SharePlugin extends Plugin {
             List<JSObject> copied = new ArrayList<>();
             for (Uri uri : uris) {
                 if (copied.size() >= MAX_FILES) break;
-                JSObject file = copy(uri);
+                JSObject file = copy(uri, intentType);
                 if (file != null) copied.add(file);
             }
             if (copied.isEmpty()) return;
@@ -110,22 +111,32 @@ public class SharePlugin extends Plugin {
         return uris;
     }
 
-    /** One shared image into the cache, or null. Only content: URIs, which the sender granted. */
-    private JSObject copy(Uri uri) {
+    /**
+     * One shared image into the cache, or null. Only content: URIs, which the
+     * sender granted. The type is read from the file's own first bytes: many
+     * providers (MediaStore among them, for an app without media permission)
+     * answer getType with null, and a sender's label is only a hint.
+     */
+    private JSObject copy(Uri uri, String intentType) {
         if (uri == null || !ContentResolver.SCHEME_CONTENT.equals(uri.getScheme())) return null;
         ContentResolver resolver = getContext().getContentResolver();
-        String type = resolver.getType(uri);
-        if (type == null || !type.startsWith("image/")) return null;
 
         File dir = folder();
         if (!dir.isDirectory() && !dir.mkdirs()) return null;
-        File target = new File(dir, UUID.randomUUID() + extension(type));
+        File target = new File(dir, UUID.randomUUID().toString());
+        byte[] head = new byte[12];
+        int headLength = 0;
         long written = 0;
         try (InputStream in = resolver.openInputStream(uri); OutputStream out = new FileOutputStream(target)) {
-            if (in == null) return null;
+            if (in == null) throw new IOException("No stream");
             byte[] buffer = new byte[64 * 1024];
             int n;
             while ((n = in.read(buffer)) > 0) {
+                if (headLength < head.length) {
+                    int take = Math.min(n, head.length - headLength);
+                    System.arraycopy(buffer, 0, head, headLength, take);
+                    headLength += take;
+                }
                 written += n;
                 if (written > MAX_BYTES) throw new IOException("Too large");
                 out.write(buffer, 0, n);
@@ -135,16 +146,46 @@ public class SharePlugin extends Plugin {
             target.delete();
             return null;
         }
-        if (written == 0) {
+
+        String type = sniff(head, headLength);
+        if (type == null) type = imageType(safeType(resolver, uri));
+        if (type == null) type = imageType(intentType);
+        if (written == 0 || type == null) {
             //noinspection ResultOfMethodCallIgnored
             target.delete();
             return null;
         }
+        File named = new File(dir, target.getName() + extension(type));
+        if (!target.renameTo(named)) named = target;
+
         JSObject file = new JSObject();
-        file.put("path", target.getAbsolutePath());
+        file.put("path", named.getAbsolutePath());
         file.put("name", displayName(resolver, uri));
         file.put("type", type);
         return file;
+    }
+
+    /** PNG, JPEG, GIF or WebP from the first bytes, or null. */
+    static String sniff(byte[] h, int n) {
+        if (n >= 8 && (h[0] & 0xff) == 0x89 && h[1] == 'P' && h[2] == 'N' && h[3] == 'G') return "image/png";
+        if (n >= 3 && (h[0] & 0xff) == 0xff && (h[1] & 0xff) == 0xd8 && (h[2] & 0xff) == 0xff) return "image/jpeg";
+        if (n >= 4 && h[0] == 'G' && h[1] == 'I' && h[2] == 'F' && h[3] == '8') return "image/gif";
+        if (n >= 12 && h[0] == 'R' && h[1] == 'I' && h[2] == 'F' && h[3] == 'F'
+            && h[8] == 'W' && h[9] == 'E' && h[10] == 'B' && h[11] == 'P') return "image/webp";
+        return null;
+    }
+
+    /** A specific image type, or null for anything else (including the wildcard image/*). */
+    private static String imageType(String type) {
+        return type != null && type.startsWith("image/") && !type.equals("image/*") ? type : null;
+    }
+
+    private static String safeType(ContentResolver resolver, Uri uri) {
+        try {
+            return resolver.getType(uri);
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     private static String extension(String type) {
