@@ -218,15 +218,39 @@ describe('one app identity across every file that declares it', () => {
     }
   });
 
-  it('asks for exactly two iOS permissions: the camera, and Face ID for the app lock', () => {
+  it('asks for exactly four iOS permissions: the camera, Face ID, and the microphone and speech for voice', () => {
     const plist = read('ios/App/App/Info.plist');
     const asked = keysOf('ios/App/App/Info.plist').filter((k) => /^NS\w*UsageDescription$/.test(k));
-    // Face ID joined the camera with the optional app lock (FxAppLockPlugin.swift):
-    // iOS terminates an app that asks for Face ID without this string.
-    expect(asked).toEqual(['NSCameraUsageDescription', 'NSFaceIDUsageDescription']);
+    // Face ID joined the camera with the optional app lock (FxAppLockPlugin.swift),
+    // and the microphone and speech recognition with FinatriX AI's voice
+    // (FxVoicePlugin.swift): iOS terminates an app that asks without the string.
+    expect(asked).toEqual([
+      'NSCameraUsageDescription', 'NSFaceIDUsageDescription',
+      'NSMicrophoneUsageDescription', 'NSSpeechRecognitionUsageDescription',
+    ]);
     // App Review rejects an empty or boilerplate purpose string.
-    expect(plist).toMatch(/<key>NSCameraUsageDescription<\/key>\s*<string>[^<]{40,}<\/string>/);
-    expect(plist).toMatch(/<key>NSFaceIDUsageDescription<\/key>\s*<string>[^<]{40,}<\/string>/);
+    for (const key of asked) {
+      expect(plist).toMatch(new RegExp(`<key>${key}<\\/key>\\s*<string>[^<]{40,}<\\/string>`));
+    }
+  });
+
+  it('registers the voice plugin on both platforms, under one name', () => {
+    expect(read('ios/App/App/ViewController.swift')).toContain('registerPluginInstance(FxVoicePlugin())');
+    expect(read('ios/App/App/FxVoicePlugin.swift')).toContain('jsName = "FxVoice"');
+    expect(read('ios/App/App.xcodeproj/project.pbxproj')).toContain('FxVoicePlugin.swift in Sources');
+    expect(read('android/app/src/main/java/co/finatrix/app/MainActivity.java')).toContain('registerPlugin(VoicePlugin.class)');
+    const java = read('android/app/src/main/java/co/finatrix/app/VoicePlugin.java');
+    expect(java).toContain('@CapacitorPlugin(');
+    expect(java).toContain('name = "FxVoice"');
+    expect(read('src/lib/voice/nativeEngine.ts')).toContain("registerPlugin<FxVoicePlugin>('FxVoice')");
+    // The microphone, and the services Android 11+ hides unless declared.
+    const manifest = read('android/app/src/main/AndroidManifest.xml');
+    expect(manifest).toContain('android.permission.RECORD_AUDIO');
+    expect(manifest).toContain('android.speech.RecognitionService');
+    expect(manifest).toContain('android.intent.action.TTS_SERVICE');
+    // Never listening in the background: both halves stop as the app leaves.
+    expect(read('ios/App/App/FxVoicePlugin.swift')).toContain('didEnterBackgroundNotification');
+    expect(java).toContain('protected void handleOnPause()');
   });
 
   it('registers the app lock plugin on both platforms, under one name', () => {

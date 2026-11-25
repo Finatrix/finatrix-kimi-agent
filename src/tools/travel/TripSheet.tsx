@@ -8,7 +8,7 @@ import {
   tripLabel, tripRateFor, type Trip,
 } from '../lib/trips';
 import { FxAttribution } from '../ui/FxNote';
-import { PercentField } from '../ui/MoneyField';
+import { MoneyField, PercentField } from '../ui/MoneyField';
 import { ToolSheet } from '../ui/ToolSheet';
 import type { FlatCat } from '../ui/TransactionModal';
 
@@ -16,7 +16,8 @@ import type { FlatCat } from '../ui/TransactionModal';
  * Travel mode setup, and editing a trip.
  *
  * One short screen: where, when, the rate (fetched, fixed, editable), an
- * optional card fee, what stays in the home currency, and an optional name.
+ * optional card fee, an optional trip budget, what stays in the home
+ * currency, and an optional name.
  * The rate is never guessed: with no rate for the currency, the sheet asks.
  * Changing the rate or fee of a trip with expenses asks before re-pricing them.
  */
@@ -61,6 +62,8 @@ export function TripSheet({
   const [homeCats, setHomeCats] = useState<string[]>(() => seed.homeCats ?? defaultHomeCats(cats));
   const [catsOpen, setCatsOpen] = useState(false);
   const [name, setName] = useState(trip?.name ?? '');
+  /** Optional, home currency, for the whole trip. 0 means none. */
+  const [budget, setBudget] = useState(trip?.budget ?? 0);
   const [errors, setErrors] = useState<{ where?: string; dates?: string; rate?: string }>({});
   const [step, setStep] = useState<'form' | 'reprice' | 'delete'>('form');
   const [pending, setPending] = useState<Trip | null>(null);
@@ -136,6 +139,7 @@ export function TripSheet({
       ...((trip?.rateRefreshed || start <= today) ? { rateRefreshed: true } : {}),
       ...(fee && !domestic ? { feePct: fee } : {}),
       homeCats,
+      ...(budget > 0 ? { budget } : {}),
       createdAt: trip?.createdAt ?? nowIso,
       updatedAt: nowIso,
     };
@@ -377,6 +381,20 @@ export function TripSheet({
             </p>
           </fieldset>
         )}
+
+        <div className="fg fx-trip-set">
+          <label className="fl" htmlFor="trip-budget">Trip budget (optional)</label>
+          <MoneyField
+            id="trip-budget"
+            className="fi"
+            sym={homeSym}
+            value={budget}
+            onCommit={setBudget}
+          />
+          <p className="note fx-trip-hint" id="trip-budget-help">
+            For the whole trip in {homeCode}, bookings made before you leave included. The trip strip shows what is left.
+          </p>
+        </div>
 
         <fieldset className="fx-trip-set">
           <legend className="fl">These stay in {homeSym}</legend>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Chart from 'chart.js/auto';
+import { useAmountsHidden } from '../lib/hideAmounts';
 import { useTheme } from '../../context/ThemeContext';
 import { useDialogFocus } from '../../hooks/useDialogFocus';
 import { getChartTheme } from '../lib/chartTheme';
@@ -587,6 +588,8 @@ function CompareCol({ title, color, bg, border, nw, inv, debt, debtColor }: { ti
 
 function WealthChart({ profile: p, dec, applied, cfmt, code }: { profile: LifeProfile; dec: Decision[]; applied: Set<string>; cfmt: (n: number) => string; code: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  // Hide amounts rebuilds the chart without its value axis.
+  const hidden = useAmountsHidden();
   const chartRef = useRef<Chart | null>(null);
   const { theme } = useTheme();
   const ages = useMemo(() => Array.from({ length: 60 - p.age + 1 }, (_, i) => p.age + i), [p.age]);
@@ -613,14 +616,14 @@ function WealthChart({ profile: p, dec, applied, cfmt, code }: { profile: LifePr
         },
         scales: {
           x: { ticks: { color: ct.tick, font: { size: 10 }, maxTicksLimit: 8 }, grid: { color: ct.grid } },
-          y: { ticks: { color: ct.tick, font: { size: 10 }, callback: (v) => cfmt(v as number) }, grid: { color: ct.grid } },
+          y: { ticks: { display: !hidden, color: ct.tick, font: { size: 10 }, callback: (v) => cfmt(v as number) }, grid: { color: ct.grid } },
         },
       },
     });
     return () => { chartRef.current?.destroy(); chartRef.current = null; };
     // Rebuild when the currency OR theme changes so axis/tooltip match.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code, theme]);
+  }, [code, theme, hidden]);
 
   useEffect(() => {
     const ch = chartRef.current;

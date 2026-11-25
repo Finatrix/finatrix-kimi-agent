@@ -255,11 +255,14 @@ describe('deploy configuration', () => {
       .split('\n')
       .find((l) => l.includes('Permissions-Policy:')) ?? '';
     for (const feature of [
-      'camera', 'microphone', 'geolocation', 'payment', 'usb', 'bluetooth',
+      'camera', 'geolocation', 'payment', 'usb', 'bluetooth',
       'serial', 'midi', 'display-capture', 'idle-detection',
     ]) {
       expect(policy, `${feature} must be disabled`).toContain(`${feature}=()`);
     }
+    // Voice in FinatriX AI needs the microphone, for this origin and no frame.
+    expect(policy).toContain('microphone=(self)');
+    expect(policy).not.toMatch(/microphone=\((?!self\))/);
   });
 
   /**
@@ -621,4 +624,69 @@ describe('edge function deploy coverage', () => {
   it('careers-billing-checkout keeps the JWT gate — it derives the buyer from the caller', () => {
     expect(workflow).not.toMatch(/functions deploy careers-billing-checkout --no-verify-jwt/);
   });
+
+  /**
+   * A group's room code is all that stands between a stranger and a family's
+   * shared spending, so the join function's guess limits must be real: shared
+   * across isolates, keyed by person and by a hash of the IP, and closed when
+   * they can't be checked.
+   */
+  it('group-join verifies the caller itself and limits code lookups without storing IPs', () => {
+    expect(workflow).toMatch(/functions deploy group-join --no-verify-jwt/);
+    const src = read('supabase/functions/group-join/index.ts');
+    expect(src).toMatch(/auth\.getUser\(\)/);
+    expect(src).toMatch(/return json\(401/);
+    // The person joining comes from the verified token, never the request body.
+    expect(src).not.toMatch(/body\.(uid|user_?id|userId)/i);
+    expect(src).toContain("sharedQuotaState(admin, 'group-join:user:hour', uid,");
+    expect(src).toContain('privateQuotaKey(ip, serviceKey)');
+    expect(src).not.toMatch(/sharedQuotaState\(admin, '[^']+', ip\b/);
+    expect(src).toMatch(/includes\('unavailable'\)\) return json\(503/);
+  });
+
+  it('every quota scope group-join counts in is pruned', () => {
+    const src = read('supabase/functions/group-join/index.ts');
+    const scopes = [...new Set([...src.matchAll(/'(group-join:[a-z]+:[a-z]+)'/g)].map((m) => m[1]))];
+    expect(scopes.sort()).toEqual(['group-join:ip:hour', 'group-join:user:hour']);
+    const migrations = readdirSync(join(root, 'supabase/migrations')).filter((f) => f.endsWith('.sql')).sort();
+    const latestPrune = migrations
+      .map((f) => read(`supabase/migrations/${f}`))
+      .filter((sql) => sql.includes('function public.prune_quota_windows'))
+      .pop() ?? '';
+    for (const scope of scopes) expect(latestPrune).toContain(`'${scope}'`);
+  });
 });
+
+/**
+ * Deploy runs only `npm run test:e2e:release`; the full suite runs in CI. A
+ * spec that reads the build's client config (`loadEnv`) skips its tests on
+ * CI's unconfigured bundle, so the deploy-time run is the only place they
+ * execute. Leave one out of that script and its tests run nowhere while every
+ * gate stays green. `ai-voice.spec.ts` was nearly the first: it reached main
+ * in the same week the full suite left Deploy.
+ */
+describe('deploy-time browser run', () => {
+  const script = (JSON.parse(read('package.json')) as { scripts: Record<string, string> })
+    .scripts['test:e2e:release'] ?? '';
+  const releaseSpecs = script.match(/e2e\/[\w.-]+\.spec\.ts/g) ?? [];
+  const configuredOnly = readdirSync(join(root, 'e2e'))
+    .filter((file) => file.endsWith('.spec.ts') && /\bloadEnv\(/.test(read(`e2e/${file}`)))
+    .map((file) => `e2e/${file}`);
+
+  it('is what the Deploy workflow runs, and finds the specs it guards', () => {
+    expect(read('.github/workflows/deploy.yml')).toMatch(/run: npm run test:e2e:release\n/);
+    expect(configuredOnly).toContain('e2e/ai-intelligence.spec.ts');
+  });
+
+  it.each(configuredOnly)('%s runs at deploy time', (spec) => {
+    expect(releaseSpecs).toContain(spec);
+  });
+
+  // e2e/support/fixtures.ts keeps analytics inside the runner. A release spec
+  // that imports `test` from '@playwright/test' instead would post its page
+  // views to production analytics on every deploy.
+  it.each(releaseSpecs)('%s keeps its analytics inside the runner', (spec) => {
+    expect(read(spec)).toMatch(/import \{[^}]*\btest\b[^}]*\} from '\.\/support\/fixtures';/);
+  });
+});
+
