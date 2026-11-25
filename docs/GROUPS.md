@@ -117,6 +117,25 @@ All in `src/tools/lib/groupSplit.ts`, in whole **paise** (integers), so sums are
 - **A group in another currency** (step 3.9: trip groups, members in other countries): your share is priced into your tracker's currency with travel mode's formula and no card fee, `roundAmount(share × rate)`. The rate is your trip's fixed rate when a trip of yours in that currency covers the expense's day (the copy is then that trip's spending), else travel mode's live rate (`tripRateFor` over `effectiveRates`). The copy keeps the rate it was first made with when the group expense changes. With no rate there is no copy, and the group says so; it is never guessed. Balances and settle-up stay in the group's currency, with a display-only "about ₹…" for your balance.
 - Kept current by `catchUpGroupShares` (`groupShareSync.ts`) on opening the tracker, coming back online or into view, and after you add an expense; and by the open Groups screen as Realtime brings changes. Its cursor is `fx_group_share_cursor`, per device and account (in `ACCOUNT_LOCAL_KEYS`).
 
+## Goals and children (step 3.9)
+
+Migration `20261125000200_group_goals_children.sql`, proved by `supabase/probes/group_goals_children_probe.sql` (run by the same PGlite harness). Client: `src/tools/lib/groupGoals.ts` (maths), `groupGoalsApi.ts` (calls), `src/tools/ui/groups/GroupExtras.tsx`.
+
+| Table | Holds | Members can | Also |
+| --- | --- | --- | --- |
+| `group_goals` | name, emoji, `target`, optional `target_date`, `deleted_at` | read, add, edit, soft-delete | at most 20 live goals per group (`too_many_goals`) |
+| `group_goal_contributions` | `goal_id`, `member_id` (who put it aside), amount, `added_on`, note, `deleted_at` | read, add, edit, soft-delete | a record only: no money moves |
+| `group_dependents` | a child's first name, `guardian_confirmed` | read; add (with the confirmation) | only the parent who added them (`created_by`) or an admin can rename or delete; at most 10 per group (`too_many_children`) |
+| `group_expenses.for_dependent` | "for Aarav" | set or clear | cleared when the child is deleted; the expense stays |
+
+- **Goal maths**, in whole paise: saved = sum of live contributions; left = max(target − saved, 0); progress = floor(saved × 100 ÷ target), shown capped at 100.
+- **Children** have no account, age or photo (DPDP Act: verifiable parental consent). The parent confirms on every name, and the name is **hard-deleted** when removed, when the parent leaves or deletes their account (`group_members_after_leave_dependents`), or with the group. Children never hold a share or a balance. The app shows them in Family and Couple groups.
+- All three tables use the same session stamps and Realtime rules as the others.
+
+## New since you last looked (step 3.9)
+
+Until push is set up, the Groups list shows "3 new" on a group when other members added or changed expenses or payments after this phone last opened it (`fx_group_seen`, per device and account). Push delivery for group activity needs FCM and APNs keys and is owed (see PR 45).
+
 ## Live updates
 
 `group_members`, `group_expenses`, `group_settlements` and `group_budgets` are in the `supabase_realtime` publication. Realtime applies the SELECT policies to inserts and updates, so each person only hears about their own groups.

@@ -36,7 +36,7 @@ If these two docs aren't in your checkout, they were untracked files in `/Users/
 | 3.6 | ~~Indian-language app~~ | — | Dropped by the owner, 25 Nov 2026 |
 | 3.7 | Private on-device AI | 3.2 | ☐ |
 | 3.8 | Watch app | 3.4 | ☑ [PR 41](https://github.com/Finatrix/finatrix-kimi-agent/pull/41) (watchOS only; Wear OS is designed in docs/WATCH.md, not built) |
-| 3.9 | Later stages: voice from Siri and Google's assistant, group notifications, children as names, group goals, trip groups | 3.2, 2.4 | ☐ |
+| 3.9 | Later stages: voice from Siri and Google's assistant, group notifications, children as names, group goals, trip groups | 3.2, 2.4 | Partially built, [PR 45](https://github.com/Finatrix/finatrix-kimi-agent/pull/45): everything except push delivery for group activity, which needs the owner's FCM and APNs keys (an in-app "new" badge stands in) |
 
 ## Size
 
