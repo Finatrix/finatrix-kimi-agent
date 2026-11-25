@@ -71,6 +71,17 @@
                 <data android:scheme="co.finatrix.app" android:host="auth" />
             </intent-filter>
 
+            <!-- Share to FinatriX: images from another app's share sheet (a
+                 GPay or bank-app screenshot, a photo of a bill). SharePlugin
+                 copies them into the app's cache and the page opens the
+                 screenshot import's review with them. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+
         </activity>
 
         <provider

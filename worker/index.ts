@@ -317,6 +317,17 @@ export default {
       });
     }
 
+    // The web share target (manifest `share_target`). The service worker
+    // answers this POST on the device and the shared images never get here.
+    // Reaching the Worker means no service worker was running, so the images
+    // are gone: say so on the screen that would have shown them.
+    if (url.pathname === '/share-target') {
+      return new Response(null, {
+        status: 303,
+        headers: { ...SECURITY_HEADERS, Location: '/tools/expenses?share=failed', 'Cache-Control': 'no-store' },
+      });
+    }
+
     // Today's exchange rates for the app. See worker/fxLatest.ts.
     if (url.pathname === FX_FEED_PATH) return handleFxLatest(request);
 
