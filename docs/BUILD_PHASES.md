@@ -33,7 +33,7 @@ If these two docs aren't in your checkout, they were untracked files in `/Users/
 | 3.3 | Share to FinatriX, and receipt scan | — | ☑ [PR 34](https://github.com/Finatrix/finatrix-kimi-agent/pull/34) |
 | 3.4 | Home-screen widget | 2.1 | ☑ [PR 36](https://github.com/Finatrix/finatrix-kimi-agent/pull/36) |
 | 3.5 | Warranty and bill locker | 3.3 | ☑ [PR 35](https://github.com/Finatrix/finatrix-kimi-agent/pull/35) |
-| 3.6 | Indian-language app | No other UI step open | ☐ |
+| 3.6 | ~~Indian-language app~~ | — | Dropped by the owner, 25 Nov 2026 |
 | 3.7 | Private on-device AI | 3.2 | ☐ |
 | 3.8 | Watch app | 3.4 | ☑ [PR 41](https://github.com/Finatrix/finatrix-kimi-agent/pull/41) (watchOS only; Wear OS is designed in docs/WATCH.md, not built) |
 | 3.9 | Later stages: voice from Siri and Google's assistant, group notifications, children as names, group goals, trip groups | 3.2, 2.4 | ☐ |
@@ -164,7 +164,9 @@ Item 3. WidgetKit on iPhone and app widgets on Android, showing the daily safe-t
 
 Item 10. **Decided (24 Nov 2026):** photos stay on the device to start; synced photos can come later.
 
-### 3.6 Indian-language app
+### 3.6 Indian-language app (dropped)
+
+**Dropped by the owner on 25 Nov 2026.** Do not build it; no step waits for it. The brief is kept for the record.
 
 Item 15. No translation system exists yet, so build one first, then add languages in the decided order. A fluent speaker reviews the finance terms in each language. Run it when no other UI step is open, because it touches every screen. **Decided (24 Nov 2026):** Tamil first, then Malayalam, Telugu, Kannada and Hindi.
 
