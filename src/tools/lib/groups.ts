@@ -1,6 +1,7 @@
 import { allCategories, BUILTIN_CATS } from './budget';
 import type { IconName } from '../ui/Icon';
 import { store } from './storage';
+import type { ShareEntry, SplitRule } from './groupSplit';
 
 /**
  * Groups (NEW_FEATURES item 12, build step 2.3): the app side of the shared
@@ -15,7 +16,8 @@ import { store } from './storage';
  * Money: Budget together only ADDS UP amounts members logged, per category and
  * per member, and compares the sum with the budget a member typed. Sums are
  * taken in whole paise so a long list of rupee-and-paise amounts adds up
- * exactly. There is no other maths here: splitting and balances are step 2.4.
+ * exactly. There is no other maths here: splitting, balances and settling up
+ * are step 2.4's, in `groupSplit.ts`.
  */
 
 export type GroupType = 'family' | 'couple' | 'home' | 'trip' | 'friends';
@@ -51,6 +53,21 @@ export interface GroupExpenseRow {
   paid_by: string;
   split_rule: string | null;
   shares: unknown;
+  created_by: string | null;
+  created_at: string;
+  updated_by: string | null;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface GroupSettlementRow {
+  id: string;
+  group_id: string;
+  from_member: string;
+  to_member: string;
+  amount: number;
+  settled_on: string;
+  note: string | null;
   created_by: string | null;
   created_at: string;
   updated_by: string | null;
@@ -251,6 +268,7 @@ export function computeBudgetTogether(
 export type FeedItem =
   | { kind: 'expense'; key: string; at: string; action: 'added' | 'edited' | 'deleted'; who: string; addedBy: string; row: GroupExpenseRow; pending: boolean }
   | { kind: 'budget'; key: string; at: string; who: string; row: GroupBudgetRow; pending: boolean }
+  | { kind: 'settlement'; key: string; at: string; action: 'added' | 'deleted'; who: string; from: string; to: string; row: GroupSettlementRow; pending: boolean }
   | { kind: 'member'; key: string; at: string; action: 'joined' | 'left'; who: string };
 
 const later = (a: string, b: string) => new Date(a).getTime() - new Date(b).getTime() > 1000;
@@ -266,6 +284,7 @@ export function buildFeed(
   meId: string | null,
   pendingIds: ReadonlySet<string> = new Set(),
   limit = 40,
+  settlements: readonly GroupSettlementRow[] = [],
 ): FeedItem[] {
   const byId = new Map(members.map((m) => [m.id, m]));
   const items: FeedItem[] = [];
@@ -280,6 +299,14 @@ export function buildFeed(
   }
   for (const row of budgets) {
     items.push({ kind: 'budget', key: `b:${row.id}`, at: row.updated_at, who: whoName(row.updated_by, byId, meId), row, pending: pendingIds.has(row.id) });
+  }
+  for (const row of settlements) {
+    const action = row.deleted_at ? 'deleted' : 'added';
+    items.push({
+      kind: 'settlement', key: `s:${row.id}`, at: row.deleted_at ?? row.updated_at, action,
+      who: whoName(action === 'added' ? row.created_by : row.updated_by ?? row.created_by, byId, meId),
+      from: whoName(row.from_member, byId, meId), to: whoName(row.to_member, byId, meId), row, pending: pendingIds.has(row.id),
+    });
   }
   for (const m of members) {
     items.push({ kind: 'member', key: `j:${m.id}`, at: m.joined_at, action: 'joined', who: isFormer(m) ? 'A former member' : whoName(m.id, byId, meId) });
@@ -333,6 +360,18 @@ export function normalizeExpense(raw: Partial<GroupExpenseRow>): GroupExpenseRow
   };
 }
 
+export function normalizeSettlement(raw: Partial<GroupSettlementRow>): GroupSettlementRow | null {
+  if (!str(raw.id) || !str(raw.group_id) || !str(raw.from_member) || !str(raw.to_member) || !str(raw.settled_on)) return null;
+  const amount = Number(raw.amount);
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+  const now = new Date().toISOString();
+  return {
+    id: raw.id!, group_id: raw.group_id!, from_member: raw.from_member!, to_member: raw.to_member!, amount,
+    settled_on: raw.settled_on!, note: str(raw.note), created_by: str(raw.created_by), created_at: str(raw.created_at) ?? now,
+    updated_by: str(raw.updated_by), updated_at: str(raw.updated_at) ?? str(raw.created_at) ?? now, deleted_at: str(raw.deleted_at),
+  };
+}
+
 export function normalizeBudget(raw: Partial<GroupBudgetRow>): GroupBudgetRow | null {
   if (!str(raw.id) || !str(raw.group_id) || !str(raw.month) || !str(raw.category)) return null;
   const amount = Number(raw.amount);
@@ -371,6 +410,8 @@ export interface GroupChoice {
   memberId: string;
   role: 'admin' | 'member';
   members: number;
+  /** Current members, for "Paid by" and the split. Absent in a list saved before step 2.4. */
+  people?: Array<{ id: string; name: string }>;
 }
 
 interface GroupsCache { uid: string; groups: GroupChoice[] }
@@ -389,12 +430,12 @@ export function saveGroupsCache(uid: string, groups: GroupChoice[]): void {
 }
 
 /**
- * The groups the add-expense form offers. Only groups with Budget together on:
- * an expense in a Split costs group needs "Paid by" and a split, which arrive
- * with step 2.4.
+ * The groups the add-expense form offers: every group that has Budget together
+ * or Split costs on. A Split costs group asks "Paid by" and "Split"; a group
+ * with both on splits the cost AND counts it toward the shared budget.
  */
 export function groupChoicesForExpense(): GroupChoice[] {
-  return (loadGroupsCache()?.groups ?? []).filter((g) => g.budgetTogether);
+  return (loadGroupsCache()?.groups ?? []).filter((g) => g.budgetTogether || g.splitCosts);
 }
 
 /** The columns an app may insert (docs/GROUPS.md; the rest are stamped by the database). */
@@ -406,13 +447,26 @@ export interface NewGroupExpense {
   note: string | null;
   spent_on: string;
   paid_by: string;
-  split_rule: null;
-  shares: null;
+  /** Both set (Split costs) or both null (Budget together only). */
+  split_rule: SplitRule | null;
+  shares: ShareEntry[] | null;
+}
+
+export interface NewGroupSettlement {
+  id: string;
+  group_id: string;
+  from_member: string;
+  to_member: string;
+  amount: number;
+  settled_on: string;
+  note: string | null;
 }
 
 export type OutboxOp =
   | { op: 'expense.add'; key: string; uid: string; at: string; row: NewGroupExpense }
-  | { op: 'expense.update'; key: string; uid: string; at: string; id: string; groupId: string; patch: Partial<Pick<GroupExpenseRow, 'amount' | 'category' | 'note' | 'spent_on' | 'deleted_at'>> }
+  | { op: 'expense.update'; key: string; uid: string; at: string; id: string; groupId: string; patch: Partial<Pick<GroupExpenseRow, 'amount' | 'category' | 'note' | 'spent_on' | 'deleted_at' | 'paid_by' | 'split_rule' | 'shares'>> }
+  | { op: 'settlement.add'; key: string; uid: string; at: string; row: NewGroupSettlement }
+  | { op: 'settlement.update'; key: string; uid: string; at: string; id: string; groupId: string; patch: { deleted_at: string | null } }
   | { op: 'budget.set'; key: string; uid: string; at: string; groupId: string; rows: Array<{ group_id: string; month: string; category: string; amount: number }> };
 
 export function loadOutbox(): OutboxOp[] {
@@ -461,6 +515,11 @@ export function groupNote(merchant: string, note: string): string | null {
   return text || null;
 }
 
+/** An optimistic row for a settlement still in the queue. */
+export function pendingSettlementRow(op: Extract<OutboxOp, { op: 'settlement.add' }>, meId: string | null): GroupSettlementRow {
+  return { ...op.row, created_by: meId, created_at: op.at, updated_by: meId, updated_at: op.at, deleted_at: null };
+}
+
 /** An optimistic row for an expense still in the queue, so the feed shows it at once. */
 export function pendingExpenseRow(op: Extract<OutboxOp, { op: 'expense.add' }>, meId: string | null): GroupExpenseRow {
   return { ...op.row, created_by: meId, created_at: op.at, updated_by: meId, updated_at: op.at, deleted_at: null };
@@ -484,6 +543,7 @@ const MESSAGES: Record<string, string> = {
   not_group_admin: 'Only the group’s admin can do that.',
   not_group_member: 'You are no longer in this group.',
   use_leave_group: 'To take yourself out, use Leave group.',
+  group_expense_shares_invalid: 'That split isn’t valid. Check who is in it and that the parts add up.',
 };
 
 export function groupErrorMessage(code: string | undefined): string {

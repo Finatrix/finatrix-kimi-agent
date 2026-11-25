@@ -1,9 +1,9 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import {
-  loadOutbox, newRowId, normalizeBudget, normalizeExpense, normalizeMember, saveGroupsCache, saveOutbox,
-  type GroupBudgetRow, type GroupChoice, type GroupExpenseRow, type GroupMemberRow, type GroupRow, type GroupType,
-  type NewGroupExpense, type OutboxOp,
+  currentMembers, loadOutbox, memberName, newRowId, normalizeBudget, normalizeExpense, normalizeMember, normalizeSettlement, saveGroupsCache, saveOutbox,
+  type GroupBudgetRow, type GroupChoice, type GroupExpenseRow, type GroupMemberRow, type GroupRow, type GroupSettlementRow,
+  type GroupType, type NewGroupExpense, type NewGroupSettlement, type OutboxOp,
 } from './groups';
 
 /**
@@ -15,6 +15,7 @@ import {
 
 const MEMBER_COLUMNS = 'id, group_id, role, display_name, joined_at, left_at';
 const EXPENSE_COLUMNS = 'id, group_id, amount, category, note, spent_on, paid_by, split_rule, shares, created_by, created_at, updated_by, updated_at, deleted_at';
+const SETTLEMENT_COLUMNS = 'id, group_id, from_member, to_member, amount, settled_on, note, created_by, created_at, updated_by, updated_at, deleted_at';
 const BUDGET_COLUMNS = 'id, group_id, month, category, amount, created_by, created_at, updated_by, updated_at';
 
 export class GroupsError extends Error {
@@ -67,6 +68,7 @@ export async function fetchMyGroups(): Promise<GroupChoice[]> {
       id: group.id, name: group.name, emoji: group.emoji, type: group.type, currency: group.currency,
       budgetTogether: group.budget_together, splitCosts: group.split_costs,
       memberId: mm.member_id, role: mm.role, members: members.filter((x) => x.group_id === group.id).length,
+      people: currentMembers(members.filter((x) => x.group_id === group.id)).map((x) => ({ id: x.id, name: memberName(x) })),
     }];
   }).sort((a, b) => a.name.localeCompare(b.name));
   saveGroupsCache(uid, choices);
@@ -134,6 +136,8 @@ export interface GroupBundle {
   members: GroupMemberRow[];
   expenses: GroupExpenseRow[];
   budgets: GroupBudgetRow[];
+  /** Every settlement of the group: balances count them all, not one month. */
+  settlements: GroupSettlementRow[];
   invite: { code: string; expires_at: string } | null;
 }
 
@@ -143,10 +147,25 @@ function monthBounds(month: string): { first: string; last: string } {
   return { first: `${month}-01`, last: `${month}-${String(days).padStart(2, '0')}` };
 }
 
+/**
+ * Every row of a query, a page at a time: the server returns at most 1000 rows
+ * per request, and a balance that misses a row is wrong. Stops at 50 000.
+ */
+async function fetchAllPages<T>(page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message?: string; code?: string } | null }>): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; from < 50_000; from += 1000) {
+    const { data, error } = await page(from, from + 999);
+    if (error) fail(error);
+    out.push(...(data ?? []));
+    if ((data ?? []).length < 1000) break;
+  }
+  return out;
+}
+
 /** A group, its members, the month's expenses plus the latest changes for the feed, and its budgets. */
 export async function fetchGroup(groupId: string, month: string): Promise<GroupBundle> {
   const { first, last } = monthBounds(month);
-  const [g, m, monthRows, recent, b, inv] = await Promise.all([
+  const [g, m, monthRows, recent, b, inv, settlementRows, splitRows] = await Promise.all([
     supabase.from('groups').select('id, name, emoji, type, currency, budget_together, split_costs, created_at').eq('id', groupId).maybeSingle(),
     supabase.from('group_members').select(MEMBER_COLUMNS).eq('group_id', groupId),
     supabase.from('group_expenses').select(EXPENSE_COLUMNS).eq('group_id', groupId).gte('spent_on', first).lte('spent_on', last).limit(2000),
@@ -154,11 +173,14 @@ export async function fetchGroup(groupId: string, month: string): Promise<GroupB
     // Every month up to this one, newest first: the latest is carried forward.
     supabase.from('group_budgets').select(BUDGET_COLUMNS).eq('group_id', groupId).lte('month', month).order('month', { ascending: false }).limit(500),
     supabase.from('group_invites').select('code, expires_at').eq('group_id', groupId).maybeSingle(),
+    // Balances count every settlement and every split expense, not one month.
+    fetchAllPages((from, to) => supabase.from('group_settlements').select(SETTLEMENT_COLUMNS).eq('group_id', groupId).order('created_at').order('id').range(from, to)),
+    fetchAllPages((from, to) => supabase.from('group_expenses').select(EXPENSE_COLUMNS).eq('group_id', groupId).not('split_rule', 'is', null).order('created_at').order('id').range(from, to)),
   ]);
   for (const r of [g, m, monthRows, recent, b, inv]) if (r.error) fail(r.error);
   if (!g.data) throw new GroupsError('not_group_member');
   const expenses = new Map<string, GroupExpenseRow>();
-  for (const raw of [...(monthRows.data ?? []), ...(recent.data ?? [])]) {
+  for (const raw of [...(monthRows.data ?? []), ...(recent.data ?? []), ...splitRows]) {
     const row = normalizeExpense(raw as Partial<GroupExpenseRow>);
     if (row) expenses.set(row.id, row);
   }
@@ -167,6 +189,7 @@ export async function fetchGroup(groupId: string, month: string): Promise<GroupB
     members: ((m.data ?? []) as Partial<GroupMemberRow>[]).map(normalizeMember).filter((x): x is GroupMemberRow => !!x),
     expenses: [...expenses.values()],
     budgets: ((b.data ?? []) as Partial<GroupBudgetRow>[]).map(normalizeBudget).filter((x): x is GroupBudgetRow => !!x),
+    settlements: (settlementRows as Partial<GroupSettlementRow>[]).map(normalizeSettlement).filter((x): x is GroupSettlementRow => !!x),
     invite: (inv.data as { code: string; expires_at: string } | null) ?? null,
   };
 }
@@ -197,6 +220,31 @@ export async function renameMe(memberId: string, displayName: string): Promise<v
 export async function setBudgetTogether(groupId: string, on: boolean): Promise<void> {
   const { error } = await supabase.from('groups').update({ budget_together: on }).eq('id', groupId);
   if (error) fail(error);
+}
+
+export async function setSplitCosts(groupId: string, on: boolean): Promise<void> {
+  const { error } = await supabase.from('groups').update({ split_costs: on }).eq('id', groupId);
+  if (error) fail(error);
+}
+
+/**
+ * A split group's expenses changed after `since` (an `updated_at`), oldest
+ * first, deleted ones included: the Expense Tracker uses it to keep your share
+ * up to date when the Groups screen is not open. A page of up to 500.
+ */
+export async function fetchSplitExpensesSince(groupId: string, since: string | null): Promise<GroupExpenseRow[]> {
+  let query = supabase.from('group_expenses').select(EXPENSE_COLUMNS).eq('group_id', groupId).not('split_rule', 'is', null);
+  if (since) query = query.gt('updated_at', since);
+  const { data, error } = await query.order('updated_at', { ascending: true }).limit(500);
+  if (error) fail(error);
+  return ((data ?? []) as Partial<GroupExpenseRow>[]).map(normalizeExpense).filter((x): x is GroupExpenseRow => !!x);
+}
+
+/** The members of one group, former ones included (a share can name someone who has left). */
+export async function fetchGroupMembers(groupId: string): Promise<GroupMemberRow[]> {
+  const { data, error } = await supabase.from('group_members').select(MEMBER_COLUMNS).eq('group_id', groupId);
+  if (error) fail(error);
+  return ((data ?? []) as Partial<GroupMemberRow>[]).map(normalizeMember).filter((x): x is GroupMemberRow => !!x);
 }
 
 /* ------------------------------------------------------------------------ */
@@ -231,6 +279,12 @@ async function sendOp(op: OutboxOp) {
   }
   if (op.op === 'expense.update') {
     return supabase.from('group_expenses').update(op.patch).eq('id', op.id).eq('group_id', op.groupId);
+  }
+  if (op.op === 'settlement.add') {
+    return supabase.from('group_settlements').upsert(op.row, { onConflict: 'id', ignoreDuplicates: true });
+  }
+  if (op.op === 'settlement.update') {
+    return supabase.from('group_settlements').update(op.patch).eq('id', op.id).eq('group_id', op.groupId);
   }
   return supabase.from('group_budgets').upsert(op.rows, { onConflict: 'group_id,month,category' });
 }
@@ -276,11 +330,27 @@ async function enqueue(make: (uid: string) => OutboxOp): Promise<OutboxOp> {
  * Add an expense to a group. Returns as soon as it is safely queued on this
  * phone; it uploads now if online, or when the connection returns.
  */
-export function queueGroupExpense(row: Omit<NewGroupExpense, 'id' | 'split_rule' | 'shares'>): Promise<OutboxOp> {
+export function queueGroupExpense(row: Omit<NewGroupExpense, 'id' | 'split_rule' | 'shares'> & Partial<Pick<NewGroupExpense, 'split_rule' | 'shares'>>): Promise<OutboxOp> {
   const id = newRowId();
   return enqueue((uid) => ({
     op: 'expense.add', key: id, uid, at: new Date().toISOString(),
-    row: { ...row, id, split_rule: null, shares: null },
+    row: { ...row, id, split_rule: row.split_rule ?? null, shares: row.shares ?? null },
+  }));
+}
+
+/** "Mark as paid": a payment between two members, recorded through the same queue. */
+export function queueSettlement(row: Omit<NewGroupSettlement, 'id' | 'note'> & { note?: string | null }): Promise<OutboxOp> {
+  const id = newRowId();
+  return enqueue((uid) => ({
+    op: 'settlement.add', key: id, uid, at: new Date().toISOString(),
+    row: { ...row, id, note: row.note ?? null },
+  }));
+}
+
+export function queueSettlementUpdate(row: Pick<GroupSettlementRow, 'id' | 'group_id'>, deleted: boolean): Promise<OutboxOp> {
+  return enqueue((uid) => ({
+    op: 'settlement.update', key: newRowId(), uid, at: new Date().toISOString(), id: row.id, groupId: row.group_id,
+    patch: { deleted_at: deleted ? new Date().toISOString() : null },
   }));
 }
 
@@ -296,7 +366,7 @@ export function queueBudgets(groupId: string, rows: Extract<OutboxOp, { op: 'bud
 /* Live updates                                                              */
 /* ------------------------------------------------------------------------ */
 
-export type GroupTable = 'group_members' | 'group_expenses' | 'group_budgets';
+export type GroupTable = 'group_members' | 'group_expenses' | 'group_settlements' | 'group_budgets';
 export type LiveChange = { table: GroupTable; eventType: 'INSERT' | 'UPDATE' | 'DELETE'; new: Record<string, unknown> | null; old: Record<string, unknown> | null };
 
 /**
@@ -307,7 +377,7 @@ export type LiveChange = { table: GroupTable; eventType: 'INSERT' | 'UPDATE' | '
  * doesn't hold (`applyChange`).
  */
 export function subscribeGroup(groupId: string, onChange: (change: LiveChange) => void, onStatus?: (live: boolean) => void): () => void {
-  const tables: GroupTable[] = ['group_members', 'group_expenses', 'group_budgets'];
+  const tables: GroupTable[] = ['group_members', 'group_expenses', 'group_settlements', 'group_budgets'];
   let channel: RealtimeChannel = supabase.channel(`group:${groupId}`);
   for (const table of tables) {
     const relay = (payload: { eventType: LiveChange['eventType']; new: Record<string, unknown>; old: Record<string, unknown> }) => {

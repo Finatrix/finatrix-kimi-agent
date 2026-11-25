@@ -23,6 +23,9 @@ import {
 import { useAskAi } from './AiAssistant';
 import { currencySym } from '../lib/format';
 import type { GroupChoice } from '../lib/groups';
+import { checkSplit, formatPaise, toPaise, type ShareEntry, type SplitRule } from '../lib/groupSplit';
+import { initialSplit, splitDraftOf, type SplitState } from '../lib/groupSplitForm';
+import { SplitFields } from './groups/SplitFields';
 
 
 export interface FlatCat { k: string; l: string; ic: IconName; section: CatKey }
@@ -76,6 +79,9 @@ export interface GroupEntry {
   date: string;
   merchant: string;
   note: string;
+  /** Split costs groups only: who paid, and how the cost is shared. */
+  paidBy?: string;
+  split?: { rule: SplitRule; shares: ShareEntry[] };
 }
 
 interface Draft {
@@ -150,6 +156,12 @@ export default function TransactionModal({
   ));
   const destGroup = !isEdit && onSaveToGroup ? groups.find((g) => g.id === dest) ?? null : null;
   const toGroup = !!destGroup;
+  const groupMoney = useCallback((paise: number) => formatPaise(paise, destGroup?.currency ?? homeCode), [destGroup, homeCode]);
+  // Split costs: Paid by (you) and Split (equally) start filled in, per group.
+  const splitPeople = destGroup?.splitCosts ? destGroup.people ?? [] : [];
+  const [splitByGroup, setSplitByGroup] = useState<Record<string, SplitState>>({});
+  const [splitError, setSplitError] = useState<string | null>(null);
+  const split = destGroup && splitPeople.length > 0 ? splitByGroup[destGroup.id] ?? initialSplit(splitPeople, destGroup.memberId) : null;
   // A group has one currency; its amount is never converted (travel mode stays personal).
   const groupSym = destGroup ? (destGroup.currency === homeCode ? sym : `${currencySym(destGroup.currency).trim() || destGroup.currency} `) : sym;
   const [draft, setDraft] = useState<Draft>(() => (editing ? draftFromItem(editing) : emptyDraft(defaultCat)));
@@ -394,7 +406,15 @@ export default function TransactionModal({
       return;
     }
     if (destGroup && onSaveToGroup) {
+      let splitEntry: Pick<GroupEntry, 'paidBy' | 'split'> = {};
+      if (destGroup.splitCosts) {
+        const checked = split ? checkSplit(splitDraftOf(split), toPaise(formulaSignedAmount(draft.amount)), groupMoney) : null;
+        if (!split || !checked) { setSplitError('The members of this group are still loading. Try again in a moment.'); return; }
+        if (!checked.ok) { setSplitError(checked.reason); return; }
+        splitEntry = { paidBy: split.paidBy, split: { rule: checked.rule, shares: checked.shares } };
+      }
       onSaveToGroup(destGroup.id, {
+        ...splitEntry,
         amount: formulaSignedAmount(draft.amount),
         category: selectedCategory,
         categoryLabel: cats.find((c) => c.k === selectedCategory)?.l,
@@ -405,7 +425,7 @@ export default function TransactionModal({
       return;
     }
     onSave(buildItem());
-  }, [draft, selectedCategory, validate, onSave, buildItem, chargedError, destGroup, onSaveToGroup, cats]);
+  }, [draft, selectedCategory, validate, onSave, buildItem, chargedError, destGroup, onSaveToGroup, cats, split, groupMoney]);
 
   // Body scroll lock — reference-counted, safe under overlapping overlays.
   // The parent mounts this component only while the modal is open.
@@ -634,7 +654,9 @@ export default function TransactionModal({
               </select>
               {destGroup && (
                 <p id="tx-dest-help" className="note" style={{ marginTop: 5 }}>
-                  Everyone in {destGroup.name} sees it. It counts toward the group budget, not your personal one.
+                  {destGroup.splitCosts
+                    ? `Everyone in ${destGroup.name} sees it. Only your share counts as your own spending.`
+                    : `Everyone in ${destGroup.name} sees it. It counts toward the group budget, not your personal one.`}
                 </p>
               )}
             </div>
@@ -768,6 +790,13 @@ export default function TransactionModal({
               )}
             </div>
           </div>
+
+          {destGroup && split && (
+            <SplitFields people={splitPeople} meId={destGroup.memberId} state={split} error={splitError}
+              onChange={(next) => { setSplitError(null); setSplitByGroup((prev) => ({ ...prev, [destGroup.id]: next })); }}
+              amountPaise={(() => { const p = evaluateFormula(draft.amount); return p.ok && p.value > 0 ? toPaise(p.value) : null; })()}
+              money={groupMoney} sym={groupSym} />
+          )}
 
           <div className="grid2">
             <div className="fg" style={{ marginBottom: 10 }}>

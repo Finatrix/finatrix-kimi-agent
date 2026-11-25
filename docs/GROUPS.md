@@ -93,7 +93,28 @@ Six characters of Crockford base32 (no I, L, O or U), stored bare (`7K2P9Q`) and
 | `shares` | a weight, more than 0 (for example 2 and 1) |
 | `exact` | that person's part, to the paisa; the parts must add up to `amount` |
 
-The database checks the shape, that everyone is in the group (former members included, so old expenses stay editable) and the exact sum. Turning shares into balances, the rounding of leftover paise and the fewest payments are **step 2.4's maths**, to be agreed before they're built.
+The database checks the shape, that everyone is in the group (former members included, so old expenses stay editable) and the exact sum. Turning shares into balances, the rounding of leftover paise and the fewest payments are step 2.4's maths, below.
+
+## Split costs: the maths (step 2.4)
+
+All in `src/tools/lib/groupSplit.ts`, in whole **paise** (integers), so sums are exact and every phone computes the same figures. The AI never sets a number.
+
+1. **Who takes part, in what order.** The people in `shares`, sorted by member id (plain string compare). Every tie-break below uses this order, so it doesn't depend on the order the array was stored in or on which members a phone has loaded.
+2. **One expense into shares** (the largest-remainder method). Each person gets a weight: `equal` is 1 each, `shares` is `round(value × 100)` (weights to two decimals). With `W` the total weight and `A` the amount in paise: `base = floor(A × w / W)`; the paise left over (fewer than the people) go one each to the people with the largest `A × w mod W`, ties to the smaller member id. The shares add up to `A` exactly and nobody is more than one paisa from the exact figure. 100.00 among three is 33.34, 33.33, 33.33 (the extra paisa to the lowest member id). The multiplication uses BigInt, since `A × w` can pass 2^53.
+3. **`exact`** uses each part as written. The database already makes them add up; if they ever don't, the expense is split equally and the app says it was repaired, so balances always net to zero.
+4. **Balances.** `balance = paid − owed + settled by you − settled to you`, over expenses and settlements that aren't deleted. Positive: the group owes you. Balances always add up to 0. Budget-together rows (no `split_rule`) are never counted. A former member keeps their balance.
+5. **Fewest payments.** Finding the true minimum is NP-hard, so it is greedy and deterministic: pair a debtor and a creditor for exactly the same amount first; then the biggest debtor pays the biggest creditor `min(debt, credit)` until nobody is left (ties to the smaller member id). At most (people with a balance − 1) payments.
+6. **Settle up.** "Mark as paid" writes a `group_settlements` row (amount editable, `settled_on` today in the phone's own calendar). Suggestions are recomputed from the balances, never stored. A reminder is a `https://wa.me/?text=` link the user sends themselves; no money moves through FinatriX.
+
+### Your share in your tracker
+
+`src/tools/lib/groupShare.ts`. For an expense with a `split_rule`, your share (and only your share) is copied into your own Expense Tracker as a normal expense, tagged with the group's name.
+
+- One copy per group expense, id `tx_grp_<group expense id>`: the same on every device you use, so a repeated Realtime event, a reconnect or a second phone can't make a second one.
+- The copy follows the group expense when its `updated_at` changes (`groupShare.v` remembers the version). Editing the copy yourself sticks until the group expense changes again.
+- A deleted group expense removes the copy through the ledger's own rules (audit entry and a tombstone dated when the group expense was deleted, so cloud sync honours it); undoing the delete brings it back. Delete the copy yourself and it stays deleted until the group expense changes.
+- Copied only when the group's currency is the tracker's currency (no conversion). Budget-together expenses are never copied. Leaving the group stops updates and the copies stay.
+- Kept current by `catchUpGroupShares` (`groupShareSync.ts`) on opening the tracker, coming back online or into view, and after you add an expense; and by the open Groups screen as Realtime brings changes. Its cursor is `fx_group_share_cursor`, per device and account (in `ACCOUNT_LOCAL_KEYS`).
 
 ## Live updates
 

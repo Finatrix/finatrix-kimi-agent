@@ -144,10 +144,12 @@ describe('what a group stores', () => {
 describe('this device', () => {
   beforeEach(() => localStorage.clear());
 
-  it('offers only Budget together groups to the add-expense form', () => {
+  it('offers Budget together and Split costs groups to the add-expense form, not a group with neither', () => {
     const base: GroupChoice = { id: 'a', name: 'Sharma Family', emoji: '🏠', type: 'family', currency: 'INR', budgetTogether: true, splitCosts: false, memberId: 'm', role: 'admin', members: 3 };
     saveGroupsCache('u1', [base, { ...base, id: 'b', name: 'Flat 4B', type: 'home', budgetTogether: false, splitCosts: true }]);
-    expect(groupChoicesForExpense().map((g) => g.name)).toEqual(['Sharma Family']);
+    expect(groupChoicesForExpense().map((g) => g.name)).toEqual(['Sharma Family', 'Flat 4B']);
+    saveGroupsCache('u1', [{ ...base, budgetTogether: false, splitCosts: false }]);
+    expect(groupChoicesForExpense()).toEqual([]);
   });
 
   it('clears the list of groups and the queue with the account', () => {

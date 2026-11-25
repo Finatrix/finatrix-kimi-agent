@@ -94,6 +94,13 @@ export interface ExpenseItem {
   fxCharged?: boolean;
   /** The trip this spend belongs to. */
   tripId?: string;
+  /**
+   * Set on a spend that is YOUR SHARE of a Split-costs group expense
+   * (lib/groupShare.ts). Descriptive only: `amount` is already your share, so
+   * nothing here changes a total. `v` is the group row's `updated_at` this copy
+   * was made from, so the copy follows the group expense only when it changes.
+   */
+  groupShare?: { groupId: string; expenseId: string; name: string; v: string };
 }
 
 /**
@@ -172,7 +179,16 @@ export function normalizeExpense(raw: Partial<ExpenseItem> & { id?: string | num
     ...(raw.updatedAt ? { updatedAt: String(raw.updatedAt) } : {}),
     ...(typeof raw.editCount === 'number' && raw.editCount > 0 ? { editCount: raw.editCount } : {}),
     ...normalizeTravel(raw),
+    ...normalizeGroupShare(raw),
   };
+}
+
+function normalizeGroupShare(raw: Partial<ExpenseItem>): Partial<ExpenseItem> {
+  const g = raw.groupShare;
+  if (!g || typeof g !== 'object') return {};
+  const { groupId, expenseId, name, v } = g as Record<string, unknown>;
+  if (typeof groupId !== 'string' || typeof expenseId !== 'string' || !groupId || !expenseId) return {};
+  return { groupShare: { groupId, expenseId, name: typeof name === 'string' ? name : '', v: typeof v === 'string' ? v : '' } };
 }
 
 export function loadExpenses(): ExpenseItem[] {
