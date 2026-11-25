@@ -25,7 +25,8 @@ export function InviteSheet({ group, invite, isAdmin, onReset, onClose }: {
   const { notify } = useOptionalToast();
   const [busy, setBusy] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
-  const expired = invite ? new Date(invite.expires_at).getTime() < Date.now() : true;
+  const [openedAt] = useState(() => Date.now());
+  const expired = invite ? new Date(invite.expires_at).getTime() < openedAt : true;
   const url = invite ? groupInviteUrl(invite.code) : '';
   const shown = invite ? formatGroupCode(invite.code) : '';
 

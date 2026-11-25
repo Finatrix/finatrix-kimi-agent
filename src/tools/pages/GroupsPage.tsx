@@ -41,15 +41,13 @@ export default function GroupsPage() {
   const [sheet, setSheet] = useState<null | 'create' | 'join'>(null);
   const [created, setCreated] = useState<CreatedGroup | null>(null);
 
-  const refresh = useCallback(async () => {
-    try {
-      setGroups(await fetchMyGroups());
-      setState('ready');
-    } catch {
-      // Offline or refused: the list this phone last saw stays on screen.
-      setState('error');
-    }
-  }, []);
+  const refresh = useCallback(() => fetchMyGroups().then((list) => {
+    setGroups(list);
+    setState('ready');
+  }, () => {
+    // Offline or refused: the list this phone last saw stays on screen.
+    setState('error');
+  }), []);
 
   useEffect(() => {
     if (!user) return;

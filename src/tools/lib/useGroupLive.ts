@@ -29,26 +29,23 @@ export function useGroupLive(groupId: string, month: string, meId: string | null
   const onFlushRef = useRef(onFlush);
   useEffect(() => { onFlushRef.current = onFlush; });
 
-  const load = useCallback(async () => {
-    try {
-      const bundle = await fetchGroup(groupId, month);
-      // Rows already held (heard live, or another month's) stay; the server's copy wins.
-      setHeld((prev) => {
-        const keep = <T extends { id: string }>(old: readonly T[], fresh: readonly T[]) => {
-          const ids = new Set(fresh.map((r) => r.id));
-          return [...fresh, ...old.filter((r) => !ids.has(r.id))];
-        };
-        return {
-          group: bundle.group, members: bundle.members, invite: bundle.invite,
-          expenses: prev.group?.id === groupId ? keep(prev.expenses, bundle.expenses) : bundle.expenses,
-          budgets: prev.group?.id === groupId ? keep(prev.budgets, bundle.budgets) : bundle.budgets,
-        };
-      });
-      setStatus('ready');
-    } catch (e) {
-      setStatus(e instanceof GroupsError && e.code === 'not_group_member' ? 'gone' : 'error');
-    }
-  }, [groupId, month]);
+  const load = useCallback(() => fetchGroup(groupId, month).then((bundle) => {
+    // Rows already held (heard live, or another month's) stay; the server's copy wins.
+    setHeld((prev) => {
+      const keep = <T extends { id: string }>(old: readonly T[], fresh: readonly T[]) => {
+        const ids = new Set(fresh.map((r) => r.id));
+        return [...fresh, ...old.filter((r) => !ids.has(r.id))];
+      };
+      return {
+        group: bundle.group, members: bundle.members, invite: bundle.invite,
+        expenses: prev.group?.id === groupId ? keep(prev.expenses, bundle.expenses) : bundle.expenses,
+        budgets: prev.group?.id === groupId ? keep(prev.budgets, bundle.budgets) : bundle.budgets,
+      };
+    });
+    setStatus('ready');
+  }, (e: unknown) => {
+    setStatus(e instanceof GroupsError && e.code === 'not_group_member' ? 'gone' : 'error');
+  }), [groupId, month]);
 
   useEffect(() => { void load(); }, [load]);
 
