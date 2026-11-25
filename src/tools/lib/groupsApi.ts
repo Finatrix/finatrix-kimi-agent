@@ -147,10 +147,25 @@ function monthBounds(month: string): { first: string; last: string } {
   return { first: `${month}-01`, last: `${month}-${String(days).padStart(2, '0')}` };
 }
 
+/**
+ * Every row of a query, a page at a time: the server returns at most 1000 rows
+ * per request, and a balance that misses a row is wrong. Stops at 50 000.
+ */
+async function fetchAllPages<T>(page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message?: string; code?: string } | null }>): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; from < 50_000; from += 1000) {
+    const { data, error } = await page(from, from + 999);
+    if (error) fail(error);
+    out.push(...(data ?? []));
+    if ((data ?? []).length < 1000) break;
+  }
+  return out;
+}
+
 /** A group, its members, the month's expenses plus the latest changes for the feed, and its budgets. */
 export async function fetchGroup(groupId: string, month: string): Promise<GroupBundle> {
   const { first, last } = monthBounds(month);
-  const [g, m, monthRows, recent, b, inv, st] = await Promise.all([
+  const [g, m, monthRows, recent, b, inv, settlementRows, splitRows] = await Promise.all([
     supabase.from('groups').select('id, name, emoji, type, currency, budget_together, split_costs, created_at').eq('id', groupId).maybeSingle(),
     supabase.from('group_members').select(MEMBER_COLUMNS).eq('group_id', groupId),
     supabase.from('group_expenses').select(EXPENSE_COLUMNS).eq('group_id', groupId).gte('spent_on', first).lte('spent_on', last).limit(2000),
@@ -158,12 +173,14 @@ export async function fetchGroup(groupId: string, month: string): Promise<GroupB
     // Every month up to this one, newest first: the latest is carried forward.
     supabase.from('group_budgets').select(BUDGET_COLUMNS).eq('group_id', groupId).lte('month', month).order('month', { ascending: false }).limit(500),
     supabase.from('group_invites').select('code, expires_at').eq('group_id', groupId).maybeSingle(),
-    supabase.from('group_settlements').select(SETTLEMENT_COLUMNS).eq('group_id', groupId).order('updated_at', { ascending: false }).limit(2000),
+    // Balances count every settlement and every split expense, not one month.
+    fetchAllPages((from, to) => supabase.from('group_settlements').select(SETTLEMENT_COLUMNS).eq('group_id', groupId).order('created_at').order('id').range(from, to)),
+    fetchAllPages((from, to) => supabase.from('group_expenses').select(EXPENSE_COLUMNS).eq('group_id', groupId).not('split_rule', 'is', null).order('created_at').order('id').range(from, to)),
   ]);
-  for (const r of [g, m, monthRows, recent, b, inv, st]) if (r.error) fail(r.error);
+  for (const r of [g, m, monthRows, recent, b, inv]) if (r.error) fail(r.error);
   if (!g.data) throw new GroupsError('not_group_member');
   const expenses = new Map<string, GroupExpenseRow>();
-  for (const raw of [...(monthRows.data ?? []), ...(recent.data ?? [])]) {
+  for (const raw of [...(monthRows.data ?? []), ...(recent.data ?? []), ...splitRows]) {
     const row = normalizeExpense(raw as Partial<GroupExpenseRow>);
     if (row) expenses.set(row.id, row);
   }
@@ -172,7 +189,7 @@ export async function fetchGroup(groupId: string, month: string): Promise<GroupB
     members: ((m.data ?? []) as Partial<GroupMemberRow>[]).map(normalizeMember).filter((x): x is GroupMemberRow => !!x),
     expenses: [...expenses.values()],
     budgets: ((b.data ?? []) as Partial<GroupBudgetRow>[]).map(normalizeBudget).filter((x): x is GroupBudgetRow => !!x),
-    settlements: ((st.data ?? []) as Partial<GroupSettlementRow>[]).map(normalizeSettlement).filter((x): x is GroupSettlementRow => !!x),
+    settlements: (settlementRows as Partial<GroupSettlementRow>[]).map(normalizeSettlement).filter((x): x is GroupSettlementRow => !!x),
     invite: (inv.data as { code: string; expires_at: string } | null) ?? null,
   };
 }

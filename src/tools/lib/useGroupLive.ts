@@ -124,7 +124,7 @@ export function useGroupLive(groupId: string, month: string, meId: string | null
     group: held.group, members: held.members, invite: held.invite,
     setInvite: (invite: Held['invite']) => setHeld((prev) => ({ ...prev, invite })),
     setGroup: (group: GroupRow) => setHeld((prev) => ({ ...prev, group })),
-    expenses: view.expenses, settlements: view.settlements, budgets: view.budgets, pendingIds: view.pendingIds,
+    confirmedExpenses: held.expenses, expenses: view.expenses, settlements: view.settlements, budgets: view.budgets, pendingIds: view.pendingIds,
     status, live, reload: load, flush,
   };
 }

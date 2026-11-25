@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { ToolSheet } from '../ToolSheet';
 import { MoneyField } from '../MoneyField';
@@ -8,20 +8,27 @@ import { useOptionalToast } from '../Toast';
 import { cfmt, currencySym } from '../../lib/format';
 import { useAmountsHidden } from '../../lib/hideAmounts';
 import { evaluateFormula } from '../../lib/formula';
-import { ymLocal } from '../../../lib/date';
+import { fmtExact } from '../../lib/trips';
+import { ymdLocal, ymLocal } from '../../../lib/date';
 import { monthLabel, nextMonthUnclamped, prevMonth } from '../../lib/month';
 import {
   GROUP_BUDGET_CATEGORIES, GROUP_NOTE_MAX, MEMBER_NAME_MAX, budgetsForMonth, buildFeed, capitalize, computeBudgetTogether,
   currentMembers, groupAmount, groupCategoryIcon, groupCategoryLabel, groupErrorMessage, groupTypeLabel,
-  isFormer, memberName, timeAgo, type FeedItem, type GroupChoice, type GroupExpenseRow, type GroupMemberRow,
+  isFormer, memberName, timeAgo, whoName, type FeedItem, type GroupChoice, type GroupExpenseRow, type GroupMemberRow,
+  type GroupSettlementRow,
 } from '../../lib/groups';
+import { checkSplit, formatPaise, parseShares, shareOf, toPaise, type Payment, type ShareEntry, type SplitRule } from '../../lib/groupSplit';
+import { initialSplit, splitDraftOf, type SplitPerson, type SplitState } from '../../lib/groupSplitForm';
 import {
-  GroupsError, leaveGroup, queueBudgets, queueExpenseUpdate, removeGroupMember, renameMe, resetGroupCode,
-  setBudgetTogether,
+  GroupsError, leaveGroup, queueBudgets, queueExpenseUpdate, queueSettlement, queueSettlementUpdate, removeGroupMember,
+  renameMe, resetGroupCode, setBudgetTogether, setSplitCosts,
 } from '../../lib/groupsApi';
+import { reconcileGroupShares } from '../../lib/groupShare';
 import { useGroupLive } from '../../lib/useGroupLive';
 import { reportDropped } from '../../lib/useGroupExpenseAdd';
 import { InviteSheet } from './InviteSheet';
+import { SplitCosts } from './SplitCosts';
+import { SplitFields } from './SplitFields';
 
 const errCode = (e: unknown) => (e instanceof GroupsError ? e.code : e instanceof Error ? e.message : undefined);
 
@@ -48,6 +55,7 @@ export function GroupDetail({ choice, onBack, onLeft, onChanged }: {
   const group = g.group;
   const currency = group?.currency ?? choice.currency;
   const money = (n: number) => cfmt(n, currency);
+  const exact = (n: number) => fmtExact(n, currency);
   const membersById = useMemo(() => new Map(g.members.map((m) => [m.id, m])), [g.members]);
   const me = membersById.get(meId);
   const isAdmin = me?.role === 'admin';
@@ -56,7 +64,18 @@ export function GroupDetail({ choice, onBack, onLeft, onChanged }: {
     () => computeBudgetTogether(g.expenses, g.budgets, g.members, month, meId),
     [g.expenses, g.budgets, g.members, month, meId],
   );
-  const feed = useMemo(() => buildFeed(g.expenses, g.budgets, g.members, meId, g.pendingIds), [g.expenses, g.budgets, g.members, meId, g.pendingIds]);
+  const feed = useMemo(
+    () => buildFeed(g.expenses, g.budgets, g.members, meId, g.pendingIds, 40, g.settlements),
+    [g.expenses, g.budgets, g.members, meId, g.pendingIds, g.settlements],
+  );
+  const splitCosts = g.group?.split_costs ?? choice.splitCosts;
+  // Your share in your own tracker follows what the server confirmed, not what is still queued.
+  const confirmed = g.confirmedExpenses;
+  const groupName = g.group?.name ?? choice.name;
+  const groupCurrency = g.group?.currency ?? choice.currency;
+  useEffect(() => {
+    if (g.group && splitCosts) reconcileGroupShares({ id: choice.id, name: groupName, currency: groupCurrency, memberId: meId }, confirmed);
+  }, [g.group, splitCosts, confirmed, choice.id, groupName, groupCurrency, meId]);
 
   if (g.status === 'gone') {
     return (
@@ -70,6 +89,33 @@ export function GroupDetail({ choice, onBack, onLeft, onChanged }: {
   const name = group?.name ?? choice.name;
   const emoji = group?.emoji ?? choice.emoji;
   const budgetTogether = group?.budget_together ?? choice.budgetTogether;
+
+  const markPaid = async (payment: Payment, paise: number) => {
+    try {
+      await queueSettlement({
+        group_id: choice.id, from_member: payment.from, to_member: payment.to,
+        amount: paise / 100, settled_on: ymdLocal(new Date()),
+      });
+      notify('Marked as paid. Everyone’s balance is updated.', 'ok');
+    } catch (e) {
+      notify(groupErrorMessage(errCode(e)), 'error');
+    }
+  };
+  const toggleSettlement = async (row: GroupSettlementRow, deleted: boolean) => {
+    try {
+      await queueSettlementUpdate(row, deleted);
+      notify(deleted ? 'Payment removed for everyone in the group.' : 'Put back.', 'ok');
+    } catch (e) {
+      notify(groupErrorMessage(errCode(e)), 'error');
+    }
+  };
+  const turnOn = async (mode: 'budget' | 'split') => {
+    try {
+      if (mode === 'budget') await setBudgetTogether(choice.id, true); else await setSplitCosts(choice.id, true);
+      if (group) g.setGroup({ ...group, ...(mode === 'budget' ? { budget_together: true } : { split_costs: true }) });
+      onChanged();
+    } catch (e) { notify(groupErrorMessage(errCode(e)), 'error'); }
+  };
 
   const toggleDeleted = async (row: GroupExpenseRow, deleted: boolean) => {
     try {
@@ -96,7 +142,7 @@ export function GroupDetail({ choice, onBack, onLeft, onChanged }: {
           </span>
         </div>
         <div className="fx-grp-actions">
-          {budgetTogether && (
+          {(budgetTogether || splitCosts) && (
             <Link to={`/tools/expenses?group=${encodeURIComponent(choice.id)}`} className="btn btn-sm" style={{ textDecoration: 'none' }}>
               <Icon name="plus" size={15} /> Add an expense
             </Link>
@@ -110,7 +156,12 @@ export function GroupDetail({ choice, onBack, onLeft, onChanged }: {
         <p className="fx-grp-err" role="alert">Couldn’t load the latest from the group. Showing what this phone has. <button type="button" className="btn btn-ghost btn-sm" onClick={() => void g.reload()}>Try again</button></p>
       )}
 
-      {budgetTogether ? (
+      {splitCosts && (
+        <SplitCosts groupName={name} currency={currency} members={g.members} expenses={g.expenses} settlements={g.settlements}
+          meId={meId} onMarkPaid={markPaid} />
+      )}
+
+      {budgetTogether && (
         <section className="card" style={{ marginBottom: 14 }} aria-labelledby="grp-budget-h">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
             <h2 id="grp-budget-h" style={{ fontSize: 14, fontWeight: 700, margin: 0, flex: 1 }}>Budget together</h2>
@@ -166,22 +217,24 @@ export function GroupDetail({ choice, onBack, onLeft, onChanged }: {
             ))}
           </ul>
         </section>
-      ) : (
+      )}
+
+      {(!budgetTogether || !splitCosts) && (
         <section className="card" style={{ marginBottom: 14 }} aria-labelledby="grp-off-h">
-          <h2 id="grp-off-h" style={{ fontSize: 14, fontWeight: 700, margin: '0 0 4px' }}>Split costs is coming next</h2>
+          <h2 id="grp-off-h" style={{ fontSize: 14, fontWeight: 700, margin: '0 0 4px' }}>
+            {!budgetTogether && !splitCosts ? 'Choose how this group works' : splitCosts ? 'Budget together is off' : 'Split costs is off'}
+          </h2>
           <p className="note" style={{ marginTop: 0 }}>
-            {groupTypeLabel(group?.type ?? choice.type)} groups start in Split costs: who paid, everyone’s share and who owes whom.
-            That arrives in the next update. Until then the group can budget together instead.
+            {!budgetTogether && '“Budget together” tracks the household’s spending against one shared monthly budget. '}
+            {!splitCosts && '“Split costs” keeps track of who paid, everyone’s share and who owes whom. '}
+            A group can use both.
           </p>
           {isAdmin ? (
-            <button type="button" className="btn btn-sm" onClick={async () => {
-              try {
-                await setBudgetTogether(choice.id, true);
-                if (group) g.setGroup({ ...group, budget_together: true });
-                onChanged();
-              } catch (e) { notify(groupErrorMessage(errCode(e)), 'error'); }
-            }}>Turn on Budget together</button>
-          ) : <p className="note">The group’s admin can turn on Budget together.</p>}
+            <div className="fx-grp-actions">
+              {!budgetTogether && <button type="button" className="btn btn-sm" onClick={() => void turnOn('budget')}>Turn on Budget together</button>}
+              {!splitCosts && <button type="button" className="btn btn-sm" onClick={() => void turnOn('split')}>Turn on Split costs</button>}
+            </div>
+          ) : <p className="note">The group’s admin can turn these on.</p>}
         </section>
       )}
 
@@ -190,7 +243,8 @@ export function GroupDetail({ choice, onBack, onLeft, onChanged }: {
         {feed.length === 0 ? <p className="note">Nothing yet.</p> : (
           <ul style={{ listStyle: 'none', margin: 0, padding: 0 }} aria-live="polite" data-testid="grp-feed">
             {feed.map((item) => (
-              <FeedRow key={item.key} item={item} money={money}
+              <FeedRow key={item.key} item={item} money={money} exact={exact} members={membersById} meId={meId}
+                onDeleteSettlement={(row) => void toggleSettlement(row, true)} onUndoSettlement={(row) => void toggleSettlement(row, false)}
                 onEdit={setEditing} onDelete={(row) => void toggleDeleted(row, true)} onUndo={(row) => void toggleDeleted(row, false)} />
             ))}
           </ul>
@@ -225,7 +279,7 @@ export function GroupDetail({ choice, onBack, onLeft, onChanged }: {
           onLeave={async () => { await leaveGroup(choice.id); onLeft(); }} />
       )}
       {editing && (
-        <ExpenseSheet row={editing} currency={currency} onClose={() => setEditing(null)}
+        <ExpenseSheet row={editing} currency={currency} meId={meId} members={g.members} onClose={() => setEditing(null)}
           onSave={async (patch) => {
             try {
               await queueExpenseUpdate(editing, patch);
@@ -238,9 +292,22 @@ export function GroupDetail({ choice, onBack, onLeft, onChanged }: {
   );
 }
 
-function FeedRow({ item, money, onEdit, onDelete, onUndo }: {
+/** "Paid by Priya · split equally · your share ₹333.34" for a split expense; nothing for Budget together. */
+function splitLine(row: GroupExpenseRow, members: ReadonlyMap<string, GroupMemberRow>, meId: string, exact: (n: number) => string): string {
+  if (!row.split_rule) return '';
+  const rule = row.split_rule === 'equal' ? 'split equally' : row.split_rule === 'shares' ? 'split by shares' : 'split by exact amounts';
+  const mine = shareOf(row, meId);
+  return `Paid by ${whoName(row.paid_by, members, meId)} · ${rule}${mine > 0 ? ` · your share ${exact(mine / 100)}` : ''} · `;
+}
+
+function FeedRow({ item, money, exact, members, meId, onEdit, onDelete, onUndo, onDeleteSettlement, onUndoSettlement }: {
   item: FeedItem;
   money: (n: number) => string;
+  exact: (n: number) => string;
+  members: ReadonlyMap<string, GroupMemberRow>;
+  meId: string;
+  onDeleteSettlement: (row: GroupSettlementRow) => void;
+  onUndoSettlement: (row: GroupSettlementRow) => void;
   onEdit: (row: GroupExpenseRow) => void;
   onDelete: (row: GroupExpenseRow) => void;
   onUndo: (row: GroupExpenseRow) => void;
@@ -251,6 +318,22 @@ function FeedRow({ item, money, onEdit, onDelete, onUndo }: {
       <li className="fx-grp-row">
         <Icon name="users" size={16} style={{ color: 'var(--ink2)' }} />
         <span style={{ flex: 1 }} className="fx-grp-sub">{capitalize(item.who)} {item.action} · {when}</span>
+      </li>
+    );
+  }
+  if (item.kind === 'settlement') {
+    const gone = item.action === 'deleted';
+    const text = `${capitalize(item.from)} paid ${item.to === 'you' ? 'you' : item.to} ${exact(item.row.amount)}`;
+    return (
+      <li className="fx-grp-row" data-testid="grp-feed-settlement">
+        <Icon name="check" size={16} style={{ color: 'var(--ink2)' }} />
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span className="fx-grp-name" style={gone ? { textDecoration: 'line-through', color: 'var(--ink2)' } : undefined}>{text}</span>
+          <span className="fx-grp-sub">{gone ? `Removed by ${item.who} · ` : `Marked by ${item.who} · `}{item.pending ? 'Waiting to upload' : when}</span>
+        </span>
+        {gone
+          ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => onUndoSettlement(item.row)}>Undo</button>
+          : <button type="button" className="btn btn-ghost btn-sm" aria-label={`Remove: ${text}`} onClick={() => onDeleteSettlement(item.row)}><Icon name="trash" size={15} /></button>}
       </li>
     );
   }
@@ -276,6 +359,7 @@ function FeedRow({ item, money, onEdit, onDelete, onUndo }: {
         </span>
         <span className="fx-grp-sub">
           {item.action === 'edited' && <>Edited by {item.who} · added by {item.addedBy} · </>}
+          {splitLine(row, members, meId, exact)}
           {row.note ? `${row.note} · ` : ''}
           {item.pending ? 'Waiting to upload' : when}
         </span>
@@ -347,10 +431,15 @@ function BudgetSheet({ month, currency, budgets, spentCategories, onSave, onClos
   );
 }
 
-function ExpenseSheet({ row, currency, onSave, onClose }: {
+function ExpenseSheet({ row, currency, meId, members, onSave, onClose }: {
   row: GroupExpenseRow;
   currency: string;
-  onSave: (patch: { amount: number; category: string; note: string | null; spent_on: string }) => Promise<void>;
+  meId: string;
+  members: readonly GroupMemberRow[];
+  onSave: (patch: {
+    amount: number; category: string; note: string | null; spent_on: string;
+    paid_by?: string; split_rule?: SplitRule; shares?: ShareEntry[];
+  }) => Promise<void>;
   onClose: () => void;
 }) {
   const [amount, setAmount] = useState(String(row.amount));
@@ -359,6 +448,18 @@ function ExpenseSheet({ row, currency, onSave, onClose }: {
   const [note, setNote] = useState(row.note ?? '');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // A split expense can change who paid and how it is shared. Everyone now in the
+  // group is offered, and so is anyone the row names who has since left.
+  const people = useMemo<SplitPerson[]>(() => {
+    if (!row.split_rule) return [];
+    const named = new Set([row.paid_by, ...(parseShares(row.shares) ?? []).map((s) => s.member)]);
+    return members.filter((m) => !isFormer(m) || named.has(m.id)).map((m) => ({ id: m.id, name: memberName(m) }));
+  }, [row, members]);
+  const [split, setSplit] = useState<SplitState>(() => initialSplit(people, meId, row));
+  const [splitError, setSplitError] = useState<string | null>(null);
+  const money = (paise: number) => formatPaise(paise, currency);
+  const typed = evaluateFormula(amount);
+  const amountPaise = typed.ok && typed.value > 0 ? toPaise(typed.value) : null;
   const options = GROUP_BUDGET_CATEGORIES.some((c) => c.value === row.category)
     ? GROUP_BUDGET_CATEGORIES
     : [{ value: row.category, label: groupCategoryLabel(row.category) }, ...GROUP_BUDGET_CATEGORIES];
@@ -369,8 +470,14 @@ function ExpenseSheet({ row, currency, onSave, onClose }: {
     const value = parsed.ok ? groupAmount(parsed.value) : null;
     if (value === null) { setError('Enter an amount above 0.'); return; }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < '2000-01-01' || date > '2100-12-31') { setError('Pick a date.'); return; }
+    let splitPatch: { paid_by: string; split_rule: SplitRule; shares: ShareEntry[] } | null = null;
+    if (row.split_rule) {
+      const checked = checkSplit(splitDraftOf(split), toPaise(value), money);
+      if (!checked.ok) { setSplitError(checked.reason); return; }
+      splitPatch = { paid_by: split.paidBy, split_rule: checked.rule, shares: checked.shares };
+    }
     setBusy(true);
-    await onSave({ amount: value, category, note: note.trim().slice(0, GROUP_NOTE_MAX) || null, spent_on: date });
+    await onSave({ amount: value, category, note: note.trim().slice(0, GROUP_NOTE_MAX) || null, spent_on: date, ...(splitPatch ?? {}) });
     setBusy(false);
   };
 
@@ -401,6 +508,11 @@ function ExpenseSheet({ row, currency, onSave, onClose }: {
           <label className="fl" htmlFor="grp-exp-note">Description</label>
           <input id="grp-exp-note" className="fi" type="text" maxLength={GROUP_NOTE_MAX} value={note} onChange={(e) => setNote(e.target.value)} />
         </div>
+        {row.split_rule && (
+          <SplitFields people={people} meId={meId} state={split} error={splitError} amountPaise={amountPaise} money={money}
+            sym={currencySym(currency) || `${currency} `}
+            onChange={(next) => { setSplitError(null); setSplit(next); }} />
+        )}
         {error && <p className="fx-grp-err" role="alert">{error}</p>}
       </form>
     </ToolSheet>
