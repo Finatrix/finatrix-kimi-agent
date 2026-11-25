@@ -20,6 +20,7 @@
 		FA5700000000000000000003 /* FxSystemUiPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5700000000000000000002 /* FxSystemUiPlugin.swift */; };
 		FA570000000000000000000A /* FxAppLockPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5700000000000000000009 /* FxAppLockPlugin.swift */; };
 		FA570000000000000000000C /* FxVoicePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA570000000000000000000B /* FxVoicePlugin.swift */; };
+		FA5B00000000000000000002 /* FxAppIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5B00000000000000000001 /* FxAppIntents.swift */; };
 		FA5700000000000000000005 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = FA5700000000000000000004 /* PrivacyInfo.xcprivacy */; };
 		FA5700000000000000000008 /* FileExportPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5700000000000000000007 /* FileExportPlugin.swift */; };
 		FA5800000000000000000002 /* FxSharePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5800000000000000000001 /* FxSharePlugin.swift */; };
@@ -128,6 +129,7 @@
 		FA5700000000000000000002 /* FxSystemUiPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FxSystemUiPlugin.swift; sourceTree = "<group>"; };
 		FA5700000000000000000009 /* FxAppLockPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FxAppLockPlugin.swift; sourceTree = "<group>"; };
 		FA570000000000000000000B /* FxVoicePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FxVoicePlugin.swift; sourceTree = "<group>"; };
+		FA5B00000000000000000001 /* FxAppIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FxAppIntents.swift; sourceTree = "<group>"; };
 		FA5700000000000000000004 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		FA5700000000000000000006 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		FA5700000000000000000007 /* FileExportPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileExportPlugin.swift; sourceTree = "<group>"; };
@@ -232,6 +234,7 @@
 				FA5700000000000000000002 /* FxSystemUiPlugin.swift */,
 				FA5700000000000000000009 /* FxAppLockPlugin.swift */,
 				FA570000000000000000000B /* FxVoicePlugin.swift */,
+				FA5B00000000000000000001 /* FxAppIntents.swift */,
 				FA5700000000000000000007 /* FileExportPlugin.swift */,
 				FA5800000000000000000001 /* FxSharePlugin.swift */,
 				FA5900000000000000000001 /* FxWidgetPlugin.swift */,
@@ -509,6 +512,7 @@
 				FA5700000000000000000003 /* FxSystemUiPlugin.swift in Sources */,
 				FA570000000000000000000A /* FxAppLockPlugin.swift in Sources */,
 				FA570000000000000000000C /* FxVoicePlugin.swift in Sources */,
+				FA5B00000000000000000002 /* FxAppIntents.swift in Sources */,
 				FA5700000000000000000008 /* FileExportPlugin.swift in Sources */,
 				FA5800000000000000000002 /* FxSharePlugin.swift in Sources */,
 				FA5900000000000000000002 /* FxWidgetPlugin.swift in Sources */,

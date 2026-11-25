@@ -73,6 +73,8 @@ export interface AiPanelProps {
    * a signal that a *new* open happened in order to re-prime its subject line.
    */
   openedAt?: number;
+  /** Bumped when Siri or Google's assistant asked for a voice conversation. */
+  voiceAt?: number;
 }
 
 export default function AiPanel(props: AiPanelProps) {
@@ -81,7 +83,7 @@ export default function AiPanel(props: AiPanelProps) {
   return <AccountAiPanel key={user?.id ?? 'signed-out'} {...props} />;
 }
 
-function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedAt = 0 }: AiPanelProps) {
+function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedAt = 0, voiceAt = 0 }: AiPanelProps) {
   const { user, configured } = useAuth();
   const { code, cfmt } = useCurrency();
   // The panel is also rendered outside a router (in tests); only inside one
@@ -426,6 +428,18 @@ function AccountAiPanel({ id, onClose, returnFocus = null, focus = null, openedA
   useEffect(() => {
     if (consentFor) allowRef.current?.focus();
   }, [consentFor]);
+
+  // Siri / Google's assistant: start talking as if the mic had been tapped,
+  // consent card first when it has not been given. Once per request. Where
+  // the phone cannot listen, the panel stays open for typing.
+  const startVoiceRef = useRef(startVoice);
+  useLayoutEffect(() => { startVoiceRef.current = startVoice; });
+  const voiceHandled = useRef(0);
+  useEffect(() => {
+    if (!voiceAt || voiceHandled.current === voiceAt || !canTalk) return;
+    voiceHandled.current = voiceAt;
+    if (!voice.active) startVoiceRef.current();
+  }, [voiceAt, canTalk, voice.active]);
 
   const allowAi = () => {
     const held = consentFor;
