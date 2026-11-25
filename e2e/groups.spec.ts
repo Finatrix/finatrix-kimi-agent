@@ -149,8 +149,10 @@ test.describe('Groups', () => {
     const invite = page.getByRole('dialog', { name: 'Invite to Sharma Family' });
     await expect(invite.getByTestId('grp-code')).toHaveText('FX-7K2P9Q');
     await expect(invite.getByRole('img', { name: /QR code that opens the invite/ })).toBeVisible();
+    // Measure only once the sheet has stopped moving: axe reads colours mid-fade.
+    await page.evaluate(() => Promise.all(document.getAnimations().map((x) => x.finished.catch(() => {}))));
     const results = await new AxeBuilder({ page }).include('[role="dialog"]').analyze();
-    expect(results.violations.map((v) => v.id)).toEqual([]);
+    expect(results.violations.map((v) => [v.id, v.nodes.map((n) => n.target.join(' ') + ' :: ' + (n.any[0]?.message ?? ''))])).toEqual([]);
     await invite.getByRole('button', { name: 'Close' }).first().click();
 
     await expect(page.getByRole('heading', { name: 'Sharma Family' })).toBeVisible();
