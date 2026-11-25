@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget card: the app's solid card surface (surface-2 in src/styles/tokens.css) with the launcher's usual rounding. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/fx_widget_surface" />
+    <corners android:radius="22dp" />
+</shape>

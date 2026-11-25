@@ -2,4 +2,8 @@
 <resources>
     <color name="fx_window_bg">#060607</color>
     <color name="colorPrimaryDark">#060607</color>
+    <!-- Home-screen widget: surface-2, ink and ink-2 from src/styles/tokens.css. -->
+    <color name="fx_widget_surface">#121214</color>
+    <color name="fx_widget_ink">#F5F5F0</color>
+    <color name="fx_widget_ink2">#9C9C96</color>
 </resources>

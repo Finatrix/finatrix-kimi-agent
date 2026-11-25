@@ -242,6 +242,52 @@ export default function TransactionModal({
   const [submitted, setSubmitted] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
 
+  /*
+   * Receipt scan (step 3.3): a photo of a paper bill fills in the amount, the
+   * shop and the date. It is read on this device (lib/import/receipt.ts, the
+   * screenshot import's own text recognition), never uploaded, and nothing is
+   * saved until the user checks the form and presses Save.
+   */
+  const receiptInputRef = useRef<HTMLInputElement>(null);
+  const [receipt, setReceipt] = useState<{ busy: boolean; message: string; tone: 'info' | 'error' }>(
+    { busy: false, message: '', tone: 'info' },
+  );
+  const readReceipt = async (file: File | undefined | null) => {
+    if (!file || receipt.busy) return;
+    setReceipt({ busy: true, message: 'Reading the bill on this device…', tone: 'info' });
+    let outcome: Awaited<ReturnType<typeof import('../lib/import/receipt').readReceiptPhoto>>;
+    try {
+      const { readReceiptPhoto } = await import('../lib/import/receipt');
+      outcome = await readReceiptPhoto(file);
+    } catch {
+      outcome = { ok: false, message: 'The bill reader could not be loaded. Check your connection and try again.' };
+    }
+    if (!outcome.ok) {
+      setReceipt({ busy: false, message: outcome.message, tone: 'error' });
+      return;
+    }
+    const { amount, merchant, date } = outcome.reading;
+    // Only what was found is filled in; anything already typed stays when the bill had nothing for it.
+    setDraft((prev) => {
+      const next = {
+        ...prev,
+        ...(amount !== null ? { amount: String(amount) } : {}),
+        ...(merchant ? { merchant } : {}),
+        ...(date ? { date } : {}),
+      };
+      if (submitted) setErrors(validate(next));
+      return next;
+    });
+    const found = [amount !== null && 'amount', merchant && 'shop', date && 'date'].filter(Boolean) as string[];
+    const list = found.length > 1 ? `${found.slice(0, -1).join(', ')} and ${found[found.length - 1]}` : found[0];
+    setReceipt({
+      busy: false,
+      tone: amount === null ? 'error' : 'info',
+      message: `Filled in the ${list} from the bill. Check ${found.length > 1 ? 'them' : 'it'} before you save.`
+        + (amount === null ? ' No total was found, so enter the amount.' : ''),
+    });
+  };
+
   const cardRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<HTMLDivElement>(null);
   useSheetDrag(cardRef, dragRef, onClose);
@@ -505,6 +551,12 @@ export default function TransactionModal({
         @media (hover: hover) and (pointer: fine){
         .fx-tx-iconbtn:hover{background:var(--fill-06);}}
         .fx-tx-danger{color:var(--red);}
+        .fx-tx-scan{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:-4px 0 14px;}
+        .fx-tx-scanbtn{min-height:44px;}
+        .fx-tx-scanbtn:disabled{opacity:.6;cursor:progress;}
+        .fx-tx-scanmsg{margin:0;flex:1 1 180px;font-size:12px;}
+        .fx-tx-scanmsg.is-error{color:var(--red);}
+        .fx-tx-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
         @media (hover: hover) and (pointer: fine){
         .fx-tx-danger:hover{border-color:var(--red);background:rgba(215,0,21,.08);}}
         @media (max-width:560px){
@@ -545,6 +597,28 @@ export default function TransactionModal({
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
           </button>
         </div>
+
+        {!isEdit && (
+          <div className="fx-tx-scan">
+            <button
+              type="button"
+              className="fx-tx-iconbtn fx-tx-scanbtn"
+              onClick={() => receiptInputRef.current?.click()}
+              disabled={receipt.busy}
+              aria-describedby={receipt.message ? `${titleId}-scan` : undefined}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></svg>
+              {receipt.busy ? 'Reading the bill…' : 'Scan a receipt'}
+            </button>
+            <p
+              id={`${titleId}-scan`}
+              className={`note fx-tx-scanmsg${receipt.tone === 'error' ? ' is-error' : ''}`}
+              aria-live="polite"
+            >
+              {receipt.message || 'Read on this device. The photo is never uploaded.'}
+            </p>
+          </div>
+        )}
 
         <form
           onSubmit={(e) => { e.preventDefault(); submit(); }}
@@ -843,6 +917,22 @@ export default function TransactionModal({
             </p>
           </div>
         </form>
+
+        {/* The receipt camera's picker, after the form so the amount stays the
+            first field in it. Opened by the "Scan a receipt" button above. */}
+        {!isEdit && (
+          <input
+            ref={receiptInputRef}
+            className="fx-tx-sr"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            aria-label="Photo of a receipt"
+            aria-hidden="true"
+            tabIndex={-1}
+            onChange={(e) => { void readReceipt(e.target.files?.[0]); e.target.value = ''; }}
+          />
+        )}
 
         {/* Delete confirmation (the only confirmation in the flow).
             position:fixed, not absolute — an absolute inset-0 overlay in a

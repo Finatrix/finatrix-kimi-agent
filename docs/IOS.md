@@ -95,6 +95,20 @@ Supabase dashboard, and none of it can be done from the repository.
 1. **App ID** — identifier `co.finatrix.app`, with these capabilities enabled:
    - **Associated Domains** (Universal Links + Password AutoFill)
    - **Sign in with Apple**
+   - **App Groups**, with `group.co.finatrix.app` (Share to FinatriX, step 3.3)
+
+   A second App ID, `co.finatrix.app.ShareExtension`, is the Share Extension
+   (`ios/App/ShareExtension/`). It needs **App Groups** with the same
+   `group.co.finatrix.app`, and nothing else
+   (`ios/App/ShareExtension/ShareExtension.entitlements`). Register the group
+   once under Identifiers → App Groups, then tick it on both App IDs. Automatic
+   signing can do all three from Xcode when the team is selected on both
+   targets and the build runs with `-allowProvisioningUpdates`.
+
+   A third App ID, `co.finatrix.app.widget`, is the Home Screen and Lock Screen
+   widget (`ios/App/FinatriXWidget/`, step 3.4). It needs the same **App
+   Groups** entry and nothing else (`FinatriXWidget.entitlements`); the app
+   writes the widget's figures there (docs/WIDGETS.md).
 
    They must match `ios/App/App/App.entitlements` exactly. A capability in the
    entitlements file but not on the App ID is a code-signing failure. Automatic
@@ -230,6 +244,12 @@ Xcode creates and manages the profiles.
 Confirm the two capabilities appear there (they are read from
 `App.entitlements`): **Associated Domains** listing all four entries, and, once
 §4.3 is done, **Sign in with Apple** if the native flow is ever adopted.
+
+Do the same for the **ShareExtension** and **FinatriXWidget** targets: choose
+the same team, and confirm **App Groups** shows `group.co.finatrix.app` ticked
+on all three targets. Each extension's version and build number must equal the
+app's (`MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` on every target), or App
+Store Connect rejects the upload; bump all six together.
 
 ## 6. Sign in with Apple — why it is required
 

@@ -1,7 +1,10 @@
 name: CI
 
-# Runs the full local gate suite (PROJECT-HANDOFF.md §19.6) on every branch
-# push and PR — phase branches get the same protection as main.
+# Runs the full local gate suite (PROJECT-HANDOFF.md §19.6) on every push to
+# main, every pull request (tested as merged into its base) and every push to a
+# branch with no open PR — phase branches get the same protection as main. A push to a branch with an open PR fires both `push` and
+# `pull_request`; `pr-check` stands the push run down, so the suites run once,
+# on the merge result.
 on:
   push:
     branches: ['**']
@@ -16,7 +19,42 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Push runs on branches other than main only. When the branch has an open PR,
+  # that PR's run tests this same commit merged into its base, so verify and
+  # e2e are skipped here. A PR is often opened within a minute of its branch's
+  # first push, so it looks once more after 45 s. It fails open: if the lookup
+  # errors, the suites run. GitHub runs no pull_request workflow while a PR has
+  # merge conflicts, so a conflicted PR gets no CI until they are resolved.
+  pr-check:
+    if: github.event_name == 'push' && github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      open-pr: ${{ steps.find.outputs.open-pr }}
+    steps:
+      - name: Look for an open PR from this branch
+        id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for wait in 0 45; do
+            sleep "$wait"
+            count=$(gh api -X GET "repos/$GITHUB_REPOSITORY/pulls" \
+              -f state=open -f head="$GITHUB_REPOSITORY_OWNER:$GITHUB_REF_NAME" \
+              --jq length) || { echo "::warning::PR lookup failed"; count=0; }
+            if [ "$count" -gt 0 ]; then
+              echo "Open PR found: its pull_request run covers this commit."
+              echo "open-pr=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "No open PR from $GITHUB_REF_NAME: running the suites here."
+
   verify:
+    needs: pr-check
+    # !cancelled() lets this run when pr-check is skipped (main and PR runs).
+    if: ${{ !cancelled() && needs.pr-check.outputs.open-pr != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -70,6 +108,8 @@ jobs:
         run: npm run audit:prod
 
   e2e:
+    needs: pr-check
+    if: ${{ !cancelled() && needs.pr-check.outputs.open-pr != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

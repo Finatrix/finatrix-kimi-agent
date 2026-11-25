@@ -35,6 +35,7 @@ import { AiProvider, AiLauncher, AiHeaderButton } from './ui/AiAssistant';
 import { warnIfOverdue } from '../reference/review';
 import { isNativeApp } from '../native/platform';
 import { useReminderSync } from './lib/useReminderSync';
+import { useWidgetSync } from './lib/useWidgetSync';
 import { refreshLiveRates } from './lib/fxLive';
 import WalkthroughGate from '../walkthrough/WalkthroughGate';
 import TourGate from '../tour/TourGate';
@@ -279,6 +280,7 @@ export default function ToolsLayout() {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeTool = useActiveTool();
   useReminderSync();
+  useWidgetSync();
 
   /**
    * One line in the development console when a published reference has gone
