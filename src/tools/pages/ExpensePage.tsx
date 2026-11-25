@@ -1,5 +1,6 @@
 import { AiMonthScope } from '../ui/AiMonthScope';
-import { hasBudgetEvidence } from '../lib/budgetEvidence';
+import { readBudgetMonth } from '../lib/budgetEvidence';
+import { NEW_EXPENSE_PARAM } from '../lib/widgetLinks';
 import {
   Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type RefObject,
 } from 'react';
@@ -118,15 +119,6 @@ const TAB_ITEMS: ReadonlyArray<TabItem<Tab>> = [
   { key: 'recurring', label: 'Recurring', icon: 'refresh' },
   { key: 'history', label: 'History', icon: 'clock' },
 ];
-
-/** That month's Budget Builder plan — per-category allocations and total income. */
-function readBudgetMonth(store: BudgetStore, m: string): { vals: Record<string, number>; income: number } {
-  const d = store[m];
-  const vals = d?.vals ?? {};
-  const allocated = Object.values(vals).reduce((sum, value) => sum + (Number(value) || 0), 0);
-  const income = hasBudgetEvidence(d?.income, allocated) ? Math.max(0, Number(d?.income) || 0) : 0;
-  return { vals, income };
-}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Main component
@@ -605,6 +597,18 @@ export default function ExpensePage() {
   const seedNonce = useRef(0);
   useEffect(() => {
     const params = new URLSearchParams(location.search);
+    // `?new=1` is the home-screen widget's Add (src/tools/lib/widgetLinks.ts,
+    // WIDGET_ADD_PATH): straight to the add-expense form, consumed the same
+    // way so a refresh does not open it again.
+    if (params.has(NEW_EXPENSE_PARAM)) {
+      setTab('overview');
+      setEditing(null);
+      setModalOpen(true);
+      params.delete(NEW_EXPENSE_PARAM);
+      const q = params.toString();
+      navigate({ pathname: location.pathname, search: q ? `?${q}` : '' }, { replace: true });
+      return;
+    }
     if (!params.has('add')) return;
     const text = params.get('add') ?? '';
     seedNonce.current += 1;

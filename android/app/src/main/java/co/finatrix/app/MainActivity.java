@@ -35,6 +35,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(AppLockPlugin.class);
         registerPlugin(VoicePlugin.class);
         registerPlugin(SharePlugin.class);
+        registerPlugin(co.finatrix.app.widget.WidgetPlugin.class);
         super.onCreate(savedInstanceState);
         // Draw under the status and navigation bars on every Android version,
         // not only 15+ where it is enforced. The page pads itself from the

@@ -7,4 +7,7 @@
      data_extraction_rules.xml for the Android 12+ split. -->
 <full-backup-content>
     <exclude domain="root" path="app_webview/" />
+    <!-- The home-screen widget's copy of today's figures (widget/WidgetData.java):
+         derived from the same on-device records, so it stays with them. -->
+    <exclude domain="sharedpref" path="fx_widget.xml" />
 </full-backup-content>

@@ -9,4 +9,8 @@
     <color name="colorPrimary">#D4AF37</color>
     <color name="colorPrimaryDark">#F4F2EC</color>
     <color name="colorAccent">#D4AF37</color>
+    <!-- Home-screen widget: surface-2, ink and ink-2 from src/styles/tokens.css. -->
+    <color name="fx_widget_surface">#FFFFFF</color>
+    <color name="fx_widget_ink">#17150F</color>
+    <color name="fx_widget_ink2">#57534A</color>
 </resources>

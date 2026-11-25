@@ -31,7 +31,7 @@ If these two docs aren't in your checkout, they were untracked files in `/Users/
 | 3.1 | Voice assistant: mic, read-aloud and hands-free in 11 languages | — | ☑ [PR 28](https://github.com/Finatrix/finatrix-kimi-agent/pull/28) |
 | 3.2 | Voice assistant: safe actions with confirm cards | 3.1, 1.2 | ☐ |
 | 3.3 | Share to FinatriX, and receipt scan | — | ☑ [PR 34](https://github.com/Finatrix/finatrix-kimi-agent/pull/34) |
-| 3.4 | Home-screen widget | 2.1 | ☐ |
+| 3.4 | Home-screen widget | 2.1 | ☑ [PR 36](https://github.com/Finatrix/finatrix-kimi-agent/pull/36) |
 | 3.5 | Warranty and bill locker | 3.3 | ☐ |
 | 3.6 | Indian-language app | No other UI step open | ☐ |
 | 3.7 | Private on-device AI | 3.2 | ☐ |

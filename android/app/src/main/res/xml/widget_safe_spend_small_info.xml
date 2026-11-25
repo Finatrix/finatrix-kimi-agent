@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- updatePeriodMillis is a once-an-hour fallback: the app redraws the widget
+     whenever it writes new figures, and SafeSpendWidget sets an alarm for just
+     after midnight, when the figure changes. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/fx_widget_small_desc"
+    android:previewLayout="@layout/widget_safe_spend_small"
+    android:initialLayout="@layout/widget_safe_spend_small"
+    android:minWidth="110dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="2"
+    android:resizeMode="none"
+    android:updatePeriodMillis="3600000"
+    android:widgetCategory="home_screen" />

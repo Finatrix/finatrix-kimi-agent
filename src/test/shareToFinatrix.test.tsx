@@ -206,9 +206,10 @@ describe('the iOS Share Extension', () => {
   const values = (key: string) => [...pbx.matchAll(new RegExp(`${key} = ([^;]+);`, 'g'))].map((m) => m[1]);
 
   it('carries the same version and build number as the app, or App Store Connect refuses the upload', () => {
-    expect(values('CURRENT_PROJECT_VERSION')).toHaveLength(4);
+    // Debug + Release for the app, the Share Extension and the widget (step 3.4).
+    expect(values('CURRENT_PROJECT_VERSION')).toHaveLength(6);
     expect(new Set(values('CURRENT_PROJECT_VERSION')).size).toBe(1);
-    expect(values('MARKETING_VERSION')).toHaveLength(4);
+    expect(values('MARKETING_VERSION')).toHaveLength(6);
     expect(new Set(values('MARKETING_VERSION')).size).toBe(1);
   });
 
