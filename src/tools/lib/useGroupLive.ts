@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { onLocalWrite } from './storage';
 import {
-  applyChange, GROUP_OUTBOX_KEY, loadOutbox, normalizeBudget, normalizeExpense, normalizeMember, pendingExpenseRow,
-  type GroupBudgetRow, type GroupExpenseRow, type GroupMemberRow, type GroupRow,
+  applyChange, GROUP_OUTBOX_KEY, loadOutbox, normalizeBudget, normalizeExpense, normalizeMember, normalizeSettlement,
+  pendingExpenseRow, pendingSettlementRow,
+  type GroupBudgetRow, type GroupExpenseRow, type GroupMemberRow, type GroupRow, type GroupSettlementRow,
 } from './groups';
 import { fetchGroup, flushGroupOutbox, GroupsError, subscribeGroup, type FlushResult, type LiveChange } from './groupsApi';
 
@@ -11,10 +12,11 @@ interface Held {
   members: readonly GroupMemberRow[];
   expenses: readonly GroupExpenseRow[];
   budgets: readonly GroupBudgetRow[];
+  settlements: readonly GroupSettlementRow[];
   invite: { code: string; expires_at: string } | null;
 }
 
-const EMPTY: Held = { group: null, members: [], expenses: [], budgets: [], invite: null };
+const EMPTY: Held = { group: null, members: [], expenses: [], budgets: [], settlements: [], invite: null };
 
 /**
  * One group, live: loaded for a month, kept current by Realtime, with this
@@ -40,6 +42,7 @@ export function useGroupLive(groupId: string, month: string, meId: string | null
         group: bundle.group, members: bundle.members, invite: bundle.invite,
         expenses: prev.group?.id === groupId ? keep(prev.expenses, bundle.expenses) : bundle.expenses,
         budgets: prev.group?.id === groupId ? keep(prev.budgets, bundle.budgets) : bundle.budgets,
+        settlements: prev.group?.id === groupId ? keep(prev.settlements, bundle.settlements) : bundle.settlements,
       };
     });
     setStatus('ready');
@@ -59,6 +62,7 @@ export function useGroupLive(groupId: string, month: string, meId: string | null
   useEffect(() => {
     const onChange = (c: LiveChange) => setHeld((prev) => {
       if (c.table === 'group_expenses') return { ...prev, expenses: applyChange(prev.expenses, groupId, c as never, normalizeExpense) };
+      if (c.table === 'group_settlements') return { ...prev, settlements: applyChange(prev.settlements, groupId, c as never, normalizeSettlement) };
       if (c.table === 'group_budgets') return { ...prev, budgets: applyChange(prev.budgets, groupId, c as never, normalizeBudget) };
       return { ...prev, members: applyChange(prev.members, groupId, c as never, normalizeMember) };
     });
@@ -84,7 +88,8 @@ export function useGroupLive(groupId: string, month: string, meId: string | null
   // This phone's changes still in the queue, shown as if sent.
   const view = useMemo(() => {
     void outboxRev;
-    const ops = loadOutbox().filter((op) => (op.op === 'expense.add' ? op.row.group_id : op.groupId) === groupId);
+    const ops = loadOutbox().filter((op) => (op.op === 'expense.add' || op.op === 'settlement.add' ? op.row.group_id : op.groupId) === groupId);
+    const settlements = new Map(held.settlements.map((x) => [x.id, x]));
     const pendingIds = new Set<string>();
     const expenses = new Map(held.expenses.map((e) => [e.id, e]));
     let budgets = held.budgets.slice();
@@ -92,6 +97,13 @@ export function useGroupLive(groupId: string, month: string, meId: string | null
       if (op.op === 'expense.add') {
         if (!expenses.has(op.row.id)) expenses.set(op.row.id, pendingExpenseRow(op, meId));
         pendingIds.add(op.row.id);
+      } else if (op.op === 'settlement.add') {
+        if (!settlements.has(op.row.id)) settlements.set(op.row.id, pendingSettlementRow(op, meId));
+        pendingIds.add(op.row.id);
+      } else if (op.op === 'settlement.update') {
+        const row = settlements.get(op.id);
+        if (row) settlements.set(op.id, { ...row, ...op.patch, updated_by: meId, updated_at: op.at });
+        pendingIds.add(op.id);
       } else if (op.op === 'expense.update') {
         const row = expenses.get(op.id);
         if (row) expenses.set(op.id, { ...row, ...op.patch, updated_by: meId, updated_at: op.at });
@@ -105,14 +117,14 @@ export function useGroupLive(groupId: string, month: string, meId: string | null
         }
       }
     }
-    return { expenses: [...expenses.values()], budgets, pendingIds };
-  }, [held.expenses, held.budgets, groupId, meId, outboxRev]);
+    return { expenses: [...expenses.values()], settlements: [...settlements.values()], budgets, pendingIds };
+  }, [held.expenses, held.budgets, held.settlements, groupId, meId, outboxRev]);
 
   return {
     group: held.group, members: held.members, invite: held.invite,
     setInvite: (invite: Held['invite']) => setHeld((prev) => ({ ...prev, invite })),
     setGroup: (group: GroupRow) => setHeld((prev) => ({ ...prev, group })),
-    expenses: view.expenses, budgets: view.budgets, pendingIds: view.pendingIds,
+    expenses: view.expenses, settlements: view.settlements, budgets: view.budgets, pendingIds: view.pendingIds,
     status, live, reload: load, flush,
   };
 }
