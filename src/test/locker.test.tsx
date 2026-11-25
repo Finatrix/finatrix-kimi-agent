@@ -181,7 +181,7 @@ describe('reminders', () => {
       { id: 'a', product: 'TV', end: '2026-10-14' }, { id: 'b', product: 'Fridge', end: '2026-10-14' },
     ]));
     expect(plan).toHaveLength(1);
-    expect(plan[0]).toMatchObject({ title: '2 payments and renewals to look at', href: '/tools/locker' });
+    expect(plan[0]).toMatchObject({ title: '2 warranties ending soon', href: '/tools/locker' });
   });
   it('says nothing about a warranty with its reminder off or already ended', () => {
     const events = warrantyEvents([

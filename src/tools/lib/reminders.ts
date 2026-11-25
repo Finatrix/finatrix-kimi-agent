@@ -257,7 +257,9 @@ function eveningFor(
       id, kind: 'upcoming', at,
       // Several things waiting: the page they share, else the dashboard.
       href: radar.every((l) => l.href === radar[0].href) ? radar[0].href : '/tools/dashboard',
-      title: count === 1 ? radar[0].text : `${count} payments and renewals to look at`,
+      title: count === 1 ? radar[0].text
+        : due.length === 0 && radar.every((l) => l.href === '/tools/locker') ? `${count} warranties ending soon`
+          : `${count} payments and renewals to look at`,
       body: count === 1 ? radar[0].body : 'Open FinatriX to see them all.',
     };
   }
